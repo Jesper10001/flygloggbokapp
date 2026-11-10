@@ -26,6 +26,7 @@ import { Colors } from '../../constants/colors'; // stress-panelen använder EXA
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { maybeStartIntroTour, useTourStore } from '../../store/tourStore';
+import { TourSpot, useTourScrollTo } from '../../components/TourSpot';
 import { DEMO_DRONE_FLIGHTS, DEMO_DRONE_STATS } from '../../constants/tourDemoData';
 import { getDroneStressHours, getDroneStressDaily, getDroneFlights, droneModeLabel, type DroneFlight } from '../../db/drones';
 import { isPhotoSyncAvailable, hasPendingSync, hasUnfinishedReview, getAssetDisplay } from '../../services/dronePhotoSync';
@@ -151,16 +152,11 @@ export default function DroneDashboardScreen() {
   // (flaggan sätts där). maybeStartIntroTour rensar flaggan och no-op:ar annars.
   useFocusEffect(useCallback(() => { maybeStartIntroTour('drone'); }, []));
 
-  // Blades introduction — global map-steget styr globen + kartan härifrån.
   const tabSpace = useTabBarSpace(); // flytande glas-flikrad täcker botten
   const dashScrollRef = useRef<ScrollView>(null);
-  const tourGlobeMenu = useTourStore((st) => st.globeMenu);
-  const tourMapOpen = useTourStore((st) => st.mapOpen);
-  useEffect(() => {
-    if (tourGlobeMenu) { setGlobeMenuOpen(true); setTimeout(() => dashScrollRef.current?.scrollToEnd({ animated: true }), 220); }
-    else { setGlobeMenuOpen(false); }
-  }, [tourGlobeMenu]);
-  useEffect(() => { setGlobalMapOpen(tourMapOpen); }, [tourMapOpen]);
+  // Blades introduction: stopp 1 visar översikten högst upp, stopp 2 rullar fram Log flight-knappen.
+  useTourScrollTo('dash-stats', dashScrollRef, 100000);
+  const onLogRowLayout = useTourScrollTo('dash-log', dashScrollRef, 170);
 
   const recent = flights.slice(0, 5);
   const zc = zoneColor(stress.zone);
@@ -179,6 +175,7 @@ export default function DroneDashboardScreen() {
       }} />}>
       {/* ── 1. Stressindikator (workload-telemetripanel, klon av manned) ── */}
       <View style={s.telPanel}>
+        <TourSpot id="dash-stats" radius={18} inset={2} />
         {/* Väder-ticker (närmaste station från positionen) ovanför WORKLOAD — bara när hämtat. */}
         {wx && (
           <TouchableOpacity activeOpacity={0.7} style={s.wxTap} onPress={() => setWxPickerOpen(true)}>
@@ -259,7 +256,7 @@ export default function DroneDashboardScreen() {
 
       {droneScan.chooser}
       {/* ── 3. Log-flight-rad: scan · B-logga · fysisk bok (= manned) ── */}
-      <View style={s.logRow}>
+      <View style={s.logRow} onLayout={onLogRowLayout}>
         <TouchableOpacity style={[s.sideBtn, { borderColor: accentLine(accent) }]} activeOpacity={0.85}
           onPress={droneScan.start}>
           <Ionicons name="scan-outline" size={22} color={accent} />
@@ -268,6 +265,7 @@ export default function DroneDashboardScreen() {
           <LinearGradient colors={[accent + '22', DR.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
           <Ionicons name="add-circle" size={18} color={accent} />
           <Text style={[s.addBtnText, { color: accent }]}>{t('log_new_flight') ?? 'Log flight'}</Text>
+          <TourSpot id="dash-log" radius={16} inset={0} />
         </TouchableOpacity>
         <TouchableOpacity style={[s.sideBtn, { borderColor: accentLine(accent) }]} onPress={() => router.push('/drone-logbook?recent=1')} activeOpacity={0.85}>
           <Ionicons name="book" size={22} color={accent} />

@@ -12,7 +12,7 @@ import { getSetting, getManualFlightCount } from '../../db/flights';
 import { getDroneFlightCount } from '../../db/drones';
 import { FREE_TIER_LIMIT, FREE_TIER_LIMIT_DRONE } from '../../constants/easa';
 import { FlightLimitModal } from '../../components/FlightLimitModal';
-import { TourPress } from '../../components/TourPress';
+import { TourSpot } from '../../components/TourSpot';
 import { GlassTabBar } from '../../components/GlassTabBar';
 import { AppBackground } from '../../components/AppBackground';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
@@ -221,7 +221,7 @@ function LogFlightButton({ onPress }: { premium: boolean; onPress: () => void })
         style={{ alignItems: 'center', justifyContent: 'center' }}>
         <Image source={require('../../assets/cyanfloatingb.png')}
           style={{ height: h, width: w }} resizeMode="contain" />
-        <TourPress id="fab" radius={14} />
+        <TourSpot id="fab" radius={22} inset={3} />
       </TouchableOpacity>
     </View>
   );
@@ -237,7 +237,7 @@ function DroneFabButton({ onPress }: { premium: boolean; onPress: () => void }) 
         style={{ alignItems: 'center', justifyContent: 'center' }}>
         <Image source={require('../../assets/cyanfloatingb.png')}
           style={{ height: h, width: w }} resizeMode="contain" />
-        <TourPress id="fab" radius={14} />
+        <TourSpot id="fab" radius={22} inset={3} />
       </TouchableOpacity>
     </View>
   );

@@ -88,7 +88,11 @@ export default function RootLayout() {
   // Blades introduction: medan rundturen körs öppnas dess sidor som PUSH (ej native-modal), så att
   // rundturskortet (root-överlägg) alltid ligger överst. Normalt (utan rundtur) är de modaler.
   const tourActive = useTourStore((s) => s.active);
-  const tourPresentation = tourActive ? 'card' : 'modal';
+  // Log flight öppnas som push medan rundturen kör (kortet ligger då alltid överst) och förblir push tills
+  // rundturen stängt sidan — presentationen byts aldrig på en sida som redan visas.
+  const tourPageOpen = useTourStore((s) => s.pageOpen);
+  const tourPresentation = tourActive || tourPageOpen ? 'card' : 'modal';
+  const tourGesture = !(tourActive || tourPageOpen); // ingen svep-tillbaka på sidan rundturen håller öppen
 
   // Auto-backup till iCloud när appen går till bakgrunden (om synk är på). Bara lokala fil-ops körs
   // synkront — själva uppladdningen sköter iOS efteråt. Debouncad 60 s. Tyst vid fel.
@@ -310,7 +314,7 @@ export default function RootLayout() {
         <Stack.Screen name="stressfactor" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="projections-full" options={{ headerShown: false, animation: 'fade', gestureEnabled: false, orientation: 'landscape' }} />
         <Stack.Screen name="licence-full" options={{ headerShown: false, animation: 'fade', gestureEnabled: false, orientation: 'landscape' }} />
-        <Stack.Screen name="flight/add" options={{ headerShown: false, presentation: tourPresentation }} />
+        <Stack.Screen name="flight/add" options={{ headerShown: false, presentation: tourPresentation, gestureEnabled: tourGesture }} />
         <Stack.Screen name="flight/review" options={{ title: 'Review OCR data', presentation: 'modal' }} />
         <Stack.Screen name="flight/scan-review" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="import/index" options={{ title: 'Import logbook', presentation: 'modal' }} />
@@ -329,7 +333,7 @@ export default function RootLayout() {
         <Stack.Screen name="settings/drones" options={{ title: 'Manage drones', presentation: 'modal' }} />
         <Stack.Screen name="settings/certificates" options={{ title: 'Certificates', presentation: 'modal' }} />
         <Stack.Screen name="currency" options={{ title: 'Current today?', presentation: 'modal' }} />
-        <Stack.Screen name="drone-flight/add" options={{ title: 'Log drone flight', presentation: tourPresentation }} />
+        <Stack.Screen name="drone-flight/add" options={{ title: 'Log drone flight', presentation: tourPresentation, gestureEnabled: tourGesture }} />
         <Stack.Screen name="drone-flight/[id]" options={{ headerShown: false, presentation: tourPresentation }} />
         <Stack.Screen name="drone-album" options={{ headerShown: false }} />
         <Stack.Screen name="settings/auditlog" options={{ title: 'Change log', presentation: 'modal' }} />

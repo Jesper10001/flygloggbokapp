@@ -1,23 +1,38 @@
-// Blades introduction — tillstånd för den guidade rundturen. TourHost (monterad i roten) läser
-// detta, ritar info-kortet, navigerar mellan sidorna och "trycker" på knappar. Startas antingen
-// automatiskt efter onboarding (via en flagga i settings) eller manuellt från Settings.
+// Blades introduction — tillstånd för den guidade rundturen. TourHost (monterad i roten) läser detta,
+// ritar kortet och ljuset, byter flik och spelar upp stoppen. Startas efter onboarding (via en flagga i
+// settings → en fråga) eller från Settings.
 
 import { create } from 'zustand';
 import { getSetting, setSetting, getFlightCount, getAllAircraftTypes } from '../db/flights';
 import { getDroneFlightCount, listDrones } from '../db/drones';
 import { listDigitalBooks } from '../db/digitalBooks';
 import { TOURS, type TourMode } from '../constants/tourSteps';
+import type { Flight } from '../types/flight';
+import type { DroneFlight } from '../db/drones';
 
 const PENDING_KEY = 'pending_intro_tour'; // '' | 'pilot' | 'drone'
 
-// Flygningen (och ev. exempeldrönaren) som loggningsdemon sparat — raderas när rundturen slutar
-// (services/tourDemoFlight.ts). Sparas även i settings så den städas efter en krasch/omstart.
+// Äldre versioner av rundturen sparade exempelflygningen (och ev. en exempeldrönare) som riktiga rader.
+// Det görs inte längre, men services/tourDemoFlight.ts städar fortfarande en rad som blivit kvar.
 export interface TourDemoFlight { kind: 'pilot' | 'drone'; id?: number; droneId?: number }
+
+// Rutan (i fönstrets koordinater) för något som ska lysas upp — rapporteras av TourSpot.
+export interface SpotRect { x: number; y: number; w: number; h: number; r: number }
 
 interface TourStore {
   active: boolean;
   mode: TourMode;
   stepIndex: number;
+  // Uppspelningen: 'moving' medan rundturen byter skärm (kortets knappar väntar, klockan står still),
+  // 'shown' när stoppet är på plats. paused = användaren har tryckt paus.
+  phase: 'moving' | 'shown';
+  paused: boolean;
+  spots: string[];                       // id:n som ska lysas upp på det här stoppet
+  spotRects: Record<string, SpotRect>;   // uppmätta rutor för dem (bara de som faktiskt syns)
+  formReady: boolean;                    // Log flight-formuläret är monterat (exemplet kan starta)
+  pageOpen: boolean;                     // rundturen håller Log flight öppen (sidan förblir push tills den stängts)
+  examplePilot: Flight | null;           // exempelflygningen: BARA i minnet, visas överst i loggbokslistan
+  exampleDrone: DroneFlight | null;
   pressTarget: string | null; // id på knappen som just nu "trycks" (se TourPress)
   openBackfill: boolean;      // driver BackfillMissingHours att fällas ut i Imported data-vyn
   promptMode: TourMode | null; // satt efter onboarding → visa "vill du en rundtur? Ja/Senare"
@@ -47,10 +62,24 @@ interface TourStore {
   setCaption: (caption: string | null, progress?: number) => void;
   finishLogDemo: () => void;
   setDemoFlight: (f: TourDemoFlight | null) => void;
+  goTo: (index: number) => void;
+  setPhase: (p: 'moving' | 'shown') => void;
+  setPaused: (v: boolean) => void;
+  setSpots: (ids: string[]) => void;
+  setSpotRect: (id: string, r: SpotRect | null) => void;
+  setFormReady: (v: boolean) => void;
+  setPageOpen: (v: boolean) => void;
+  setExample: (e: { pilot?: Flight | null; drone?: DroneFlight | null }) => void;
 }
 
 // Återställs vid start/stopp (demoFlight städas separat av tourDemoFlight.ts, som sätter null).
 const LOG_DEMO_RESET = { logForm: null, logDemoDoneAt: 0, caption: null, demoProgress: 0 } as const;
+// Allt som hör till en körning — nollställs när rundturen startar och när den slutar.
+const RUN_RESET = {
+  pressTarget: null, openBackfill: false, globeMenu: false, mapOpen: false, mapSearchIcao: null, demo: false,
+  phase: 'moving', paused: false, spots: [] as string[], spotRects: {} as Record<string, SpotRect>,
+  examplePilot: null, exampleDrone: null, ...LOG_DEMO_RESET,
+} as const;
 
 export const useTourStore = create<TourStore>((set, get) => ({
   active: false,
@@ -69,15 +98,42 @@ export const useTourStore = create<TourStore>((set, get) => ({
   caption: null,
   demoProgress: 0,
   demoFlight: null,
-  start: (mode) => set({ active: true, mode, stepIndex: 0, pressTarget: null, openBackfill: false, promptMode: null, globeMenu: false, mapOpen: false, mapSearchIcao: null, demo: false, ...LOG_DEMO_RESET }),
+  phase: 'moving',
+  paused: false,
+  spots: [],
+  spotRects: {},
+  formReady: false,
+  pageOpen: false,
+  examplePilot: null,
+  exampleDrone: null,
+  start: (mode) => set({ ...RUN_RESET, active: true, mode, stepIndex: 0, promptMode: null }),
   setDemo: (v) => set({ demo: v }),
   next: () => {
     const { mode, stepIndex } = get();
-    if (stepIndex >= TOURS[mode].length - 1) { set({ active: false, pressTarget: null, openBackfill: false, globeMenu: false, mapOpen: false, mapSearchIcao: null, demo: false, ...LOG_DEMO_RESET }); return; }
-    set({ stepIndex: stepIndex + 1 });
+    if (stepIndex >= TOURS[mode].length - 1) { set({ ...RUN_RESET, active: false }); return; }
+    set({ stepIndex: stepIndex + 1, phase: 'moving', spots: [], spotRects: {} });
   },
-  prev: () => set({ stepIndex: Math.max(0, get().stepIndex - 1) }),
-  stop: () => set({ active: false, pressTarget: null, openBackfill: false, globeMenu: false, mapOpen: false, mapSearchIcao: null, demo: false, ...LOG_DEMO_RESET }),
+  prev: () => {
+    // Bakåt hoppar över loggningsexemplet: från loggboken går man till "Log a flight", inte in i exemplet igen.
+    const { mode, stepIndex } = get();
+    let i = Math.max(0, stepIndex - 1);
+    if (i > 0 && TOURS[mode][i]?.logDemo && stepIndex > i) i -= 1;
+    if (i !== stepIndex) set({ stepIndex: i, phase: 'moving', spots: [], spotRects: {} });
+  },
+  stop: () => set({ ...RUN_RESET, active: false }),
+  goTo: (index) => set({ stepIndex: index, phase: 'moving', spots: [], spotRects: {} }),
+  setPhase: (p) => set({ phase: p }),
+  setPaused: (v) => set({ paused: v }),
+  setSpots: (ids) => set({ spots: ids, spotRects: {} }),
+  setSpotRect: (id, r) => {
+    const cur = get().spotRects[id];
+    if (!r) { if (cur) { const next = { ...get().spotRects }; delete next[id]; set({ spotRects: next }); } return; }
+    if (cur && Math.abs(cur.x - r.x) < 1 && Math.abs(cur.y - r.y) < 1 && Math.abs(cur.w - r.w) < 1 && Math.abs(cur.h - r.h) < 1) return;
+    set({ spotRects: { ...get().spotRects, [id]: r } });
+  },
+  setFormReady: (v) => set({ formReady: v }),
+  setPageOpen: (v) => set({ pageOpen: v }),
+  setExample: (e) => set({ ...('pilot' in e ? { examplePilot: e.pilot ?? null } : {}), ...('drone' in e ? { exampleDrone: e.drone ?? null } : {}) }),
   setPressTarget: (id) => set({ pressTarget: id }),
   setOpenBackfill: (v) => set({ openBackfill: v }),
   setPrompt: (mode) => set({ promptMode: mode }),
@@ -120,15 +176,20 @@ export async function markIntroTourPending(mode: TourMode): Promise<void> {
 }
 
 // Anropas från respektive dashboard (useFocusEffect). Om rundturen väntar för det aktuella läget
-// VISAS en fråga ("vill du en rundtur? Ja/Senare") i stället för att starta direkt; flaggan rensas
-// så frågan bara dyker upp en gång. No-op om en rundtur redan körs eller en fråga redan visas.
+// VISAS en fråga ("vill du en rundtur? Ja/Senare") i stället för att starta direkt. Flaggan rensas först
+// när frågan besvarats (clearIntroTourPending), så den överlever om appen stängs medan frågan visas.
+// No-op om en rundtur redan körs eller en fråga redan visas.
 export async function maybeStartIntroTour(mode: TourMode): Promise<void> {
   const st = useTourStore.getState();
   if (st.active || st.promptMode) return;
   const pending = await getSetting(PENDING_KEY).catch(() => null);
   if (pending !== mode) return;
-  await setSetting(PENDING_KEY, '').catch(() => {});
   const st2 = useTourStore.getState();
   if (st2.active || st2.promptMode) return; // skydd mot dubbel vid snabba focus-event
   st2.setPrompt(mode);
+}
+
+/** Frågan efter onboarding är besvarad (Ja eller Senare) → visa den inte igen. */
+export async function clearIntroTourPending(): Promise<void> {
+  await setSetting(PENDING_KEY, '').catch(() => {});
 }

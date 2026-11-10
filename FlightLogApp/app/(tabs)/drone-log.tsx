@@ -15,8 +15,8 @@ import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { droneModeHours, droneModeLabel } from '../../db/drones';
 import { useTourStore } from '../../store/tourStore';
-import { DEMO_DRONE_FLIGHTS, DEMO_DRONE_MODELS } from '../../constants/tourDemoData';
-import { TourPress } from '../../components/TourPress';
+import { DEMO_DRONE_FLIGHTS, DEMO_DRONE_MODELS, TOUR_EXAMPLE_ID } from '../../constants/tourDemoData';
+import { TourSpot } from '../../components/TourSpot';
 import { LogbookEmptyCTA } from '../../components/logbook-page/LogbookEmptyCTA';
 import { decimalToHHMM, decimalToMMSS } from '../../hooks/useTimeFormat';
 import {
@@ -59,10 +59,13 @@ export default function DroneLog() {
   const loadAccent = useDroneAccentStore((s) => s.load);
   const { flights: realDroneFlights, loadFlights } = useDroneFlightStore();
   const tourDemo = useTourStore((s) => s.demo);
-  // Loggningsdemons exempel-flygning är en riktig rad → syns överst även när DEMO-data visas.
+  // Blades introduction: exempelpasset (bara i minnet) läggs överst; DEMO-data fyller på när loggboken är tom.
+  const tourExample = useTourStore((s) => (s.active ? s.exampleDrone : null));
   const flights = useMemo(
-    () => (tourDemo ? [...realDroneFlights, ...DEMO_DRONE_FLIGHTS].sort((x, y) => y.date.localeCompare(x.date)) : realDroneFlights),
-    [tourDemo, realDroneFlights],
+    () => (tourDemo || tourExample
+      ? [...(tourExample ? [tourExample] : []), ...realDroneFlights, ...(tourDemo ? DEMO_DRONE_FLIGHTS : [])].sort((x, y) => y.date.localeCompare(x.date))
+      : realDroneFlights),
+    [tourDemo, tourExample, realDroneFlights],
   );
   const [tab, setTab] = useState<'flights' | 'book' | 'fleet'>('flights');
 
@@ -152,7 +155,7 @@ function FlightsTab({ flights, accent, onOpen }: {
   // Blades introduction: expandera hela översikten så demo-flygningarna syns direkt, och fäll alltid ut
   // månaden med loggningsdemons exempel-flygning (rundturen trycker på den raden).
   const forceOpen = !!query.trim() || filter !== 'all' || tourDemo;
-  const demoId = useTourStore((s) => (s.active && s.demoFlight?.kind === 'drone' ? s.demoFlight.id ?? null : null));
+  const demoId = useTourStore((s) => (s.active && s.exampleDrone ? TOUR_EXAMPLE_ID : null));
   const tabSpace = useTabBarSpace(); // flytande glas-flikrad täcker botten
   const focusKey = useMemo(() => {
     const f = demoId != null ? flights.find((x) => x.id === demoId) : undefined;
@@ -238,8 +241,7 @@ function DroneFlightRow({ f, accent, onOpen, first }: { f: DroneFlight; accent: 
       </View>
       <Ionicons name="chevron-forward" size={15} color={DR.muted} />
       {/* Blades introduction: loggboks-steget "trycker" på exempel-flygningen och öppnar den. */}
-      <TourPress id={`logrowf-d${f.id}`} variant="focus" radius={0} />
-      <TourPress id={`logrow-d${f.id}`} radius={0} />
+      {f.id === TOUR_EXAMPLE_ID ? <TourSpot id={`logrow-d${f.id}`} radius={12} inset={2} /> : null}
     </TouchableOpacity>
   );
 }

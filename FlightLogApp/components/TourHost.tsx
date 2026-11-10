@@ -1,342 +1,440 @@
-// Blades introduction — rundturens "regissör" + info-kort. Ligger i roten (ovanför allt).
-// Den navigerar själv mellan sidorna, "trycker" på knappar (TourPress) och öppnar/stänger modaler
-// enligt stegen i constants/tourSteps.ts. Kortet är lågt + halvtransparent (blur) så man ser appen
-// bakom, och stegen tonar mjukt (persistant kort + höjd-morph). Sista steget är en checklista.
+// Blades introduction — rundturens "regissör" + kort. Ligger i roten (ovanför hela navigatorn).
+//
+// Sju stopp som spelas upp av sig själva (constants/tourSteps.ts). För varje stopp byter regissören flik,
+// väntar tills skärmen själv rapporterat det som ska lysas upp (TourSpot) och visar då kortet; strecket i
+// kortet fylls medan kortet visas och rundturen går vidare när det är fullt. Paus stannar klockan, pilarna
+// hoppar ett stopp bakåt eller framåt. Klockan går bara medan kortet syns: inte under ett skärmbyte, inte
+// när appen ligger i bakgrunden och inte i paus.
+//
+// Rundturen öppnar en enda sida, Log flight, och den öppnas som push (app/_layout.tsx) så att kortet alltid
+// ligger överst. Inga rutor (native-modaler) öppnas — de lägger sig ovanpå kortet. Loggningsexemplet sparas
+// aldrig: raden visas ur minnet (tourStore.examplePilot/exampleDrone).
 
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
-import { useRouter, usePathname } from 'expo-router';
+import { View, Text, TouchableOpacity, Pressable, StyleSheet, AppState, AccessibilityInfo, useWindowDimensions } from 'react-native';
+import { useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
-import Animated, { FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path, Rect } from 'react-native-svg';
+import Animated, {
+  FadeIn, FadeInDown, LinearTransition, useSharedValue, useAnimatedStyle, withTiming, cancelAnimation, runOnJS, Easing,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { GlassDialog, DialogIcon } from './GlassDialog';
-import { useTourStore, beginTour } from '../store/tourStore';
-import { TOURS } from '../constants/tourSteps';
-import { useFlightStore } from '../store/flightStore';
+import { useTourStore, beginTour, clearIntroTourPending, type SpotRect } from '../store/tourStore';
+import { TOURS, TOUR_STOPS, type TourMode, type TourStep } from '../constants/tourSteps';
+import { makeTourExampleFlight, makeTourExampleDroneFlight, tourExampleDate } from '../constants/tourDemoData';
+import { useProfileStore } from '../store/profileStore';
 import { useToastStore } from './Toast';
-import { getAllAircraftTypes, getManualFlightCount } from '../db/flights';
+import { getAllAircraftTypes, getManualFlightCount, getSetting } from '../db/flights';
 import { getDroneFlightCount, listDrones } from '../db/drones';
 import { listDigitalBooks } from '../db/digitalBooks';
 import { cleanupTourDemo } from '../services/tourDemoFlight';
+import { SCAN_OPEN } from '../store/scanStore';
 import { TourCaptionBar } from './TourCaptionBar';
+import { useTabBarSpace } from './GlassTabBar';
 
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
-// Tryck-mål som bara ÖPPNAR stegets sida (ligger inte på den) — hoppas över när sidan redan är öppen
-// (t.ex. Back från "Quicklog or Full" till "Log a flight": B-knappen ligger bakom formuläret).
-const OPENER_PRESSES = new Set(['fab']);
+const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const waitFor = async (ok: () => boolean, maxMs: number) => {
+  const t0 = Date.now();
+  while (!ok() && Date.now() - t0 < maxMs) await delay(60);
+};
+const SETTLE = 380;   // en push/back eller ett flikbyte hinner bli klart
+const SPOT_WAIT = 1500; // så länge väntar kortet högst på ljuset — sen visas det ändå
 const REPLAY_HINT = 'You can replay this tour anytime in Settings, under "Blades introduction".';
+const DIM = 'rgba(4,10,20,0.68)';
+const PILOT_HOURS_WITH_SCAN = 'Scan your paper logbook, import a file from another app, or enter your totals by hand. Your stats update at once.';
 
-// Bygg tab-routen för ett steg: lägg på en nonce (så vy/expand-effekterna triggar om) och — för
-// loggbokssteget — senaste år+månad så List-vyn fälls ut där det finns flygningar.
-function buildTab(tab: string, logExpandLatest?: boolean): string {
+// Flikens route + en nonce (så vy/expand-effekterna triggar om) och, för loggboken, exempelradens månad.
+function tabRoute(step: TourStep): string {
   const extras: string[] = [`t=${Date.now()}`];
-  if (logExpandLatest) {
-    const fl = useFlightStore.getState().flights ?? [];
-    const df = useTourStore.getState().demoFlight;
-    const demoId = df?.kind === 'pilot' ? df.id : undefined;
-    const f = (demoId ? fl.find((x) => x.id === demoId) : undefined) ?? fl[0];
-    const m = f?.date ? /^(\d{4})-(\d{2})/.exec(f.date) : null;
+  if (step.focusToday) {
+    const m = /^(\d{4})-(\d{2})/.exec(tourExampleDate());
     if (m) extras.push(`focusYear=${Number(m[1])}`, `focusMonth=${Number(m[2])}`);
   }
-  return tab + (tab.includes('?') ? '&' : '?') + extras.join('&');
+  return step.tab + (step.tab.includes('?') ? '&' : '?') + extras.join('&');
+}
+
+// Loggboken ska alltid ha en exempelrad att visa, även om exemplet hoppades över.
+function ensureExample(mode: TourMode) {
+  const st = useTourStore.getState();
+  if (mode === 'pilot' && !st.examplePilot) {
+    const rotary = useProfileStore.getState().profile?.subRole === 'rotary';
+    st.setExample({ pilot: makeTourExampleFlight(rotary ? { aircraft_type: 'H145', registration: 'SE-HEM', me_time: 0.92 } : {}) });
+  }
+  if (mode === 'drone' && !st.exampleDrone) st.setExample({ drone: makeTourExampleDroneFlight() });
+}
+
+// Rundad rektangel som SVG-bana (hålet i dämpningen).
+function holePath(r: SpotRect): string {
+  const rad = Math.max(0, Math.min(r.r, r.w / 2, r.h / 2));
+  const { x, y, w, h } = r;
+  return `M${x + rad} ${y}H${x + w - rad}A${rad} ${rad} 0 0 1 ${x + w} ${y + rad}V${y + h - rad}A${rad} ${rad} 0 0 1 ${x + w - rad} ${y + h}`
+    + `H${x + rad}A${rad} ${rad} 0 0 1 ${x} ${y + h - rad}V${y + rad}A${rad} ${rad} 0 0 1 ${x + rad} ${y}Z`;
 }
 
 export function TourHost() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const tabSpace = useTabBarSpace();
+  const { width: W, height: H } = useWindowDimensions();
   const active = useTourStore((s) => s.active);
   const mode = useTourStore((s) => s.mode);
   const stepIndex = useTourStore((s) => s.stepIndex);
+  const phase = useTourStore((s) => s.phase);
+  const paused = useTourStore((s) => s.paused);
+  const spotRects = useTourStore((s) => s.spotRects);
+  const demoProgress = useTourStore((s) => s.demoProgress);
+  const logDemoDoneAt = useTourStore((s) => s.logDemoDoneAt);
+  const promptMode = useTourStore((s) => s.promptMode);
   const next = useTourStore((s) => s.next);
   const prev = useTourStore((s) => s.prev);
   const stop = useTourStore((s) => s.stop);
-  const start = useTourStore((s) => s.start);
-  const setPressTarget = useTourStore((s) => s.setPressTarget);
-  const setOpenBackfill = useTourStore((s) => s.setOpenBackfill);
-  const setGlobe = useTourStore((s) => s.setGlobe);
-  const promptMode = useTourStore((s) => s.promptMode);
+  const setPaused = useTourStore((s) => s.setPaused);
   const setPrompt = useTourStore((s) => s.setPrompt);
-  const setLogForm = useTourStore((s) => s.setLogForm);
-  const logDemoDoneAt = useTourStore((s) => s.logDemoDoneAt);
-  const pathname = usePathname();
 
   const steps = TOURS[mode];
-  const step = steps[stepIndex];
-  const homePath = mode === 'drone' ? '/drone-dashboard' : '/';
+  const step: TourStep | undefined = steps[stepIndex];
 
-  const openPageRef = useRef<string | null>(null); // sid-route (push) som rundturen just nu håller öppen
+  const openPageRef = useRef<string | null>(null); // sidan (push) som rundturen just nu håller öppen
   const runRef = useRef(0);
-  // Checklist: när man trycker på en punkt (ex "Add aircraft") göms rundturen och man använder
-  // funktionen fritt; när man kommer TILLBAKA till dashboarden visas checklistan igen.
-  const [awaitingReturn, setAwaitingReturn] = useState(false);
-  const leftHome = useRef(false);
-  useEffect(() => {
-    if (!awaitingReturn) return;
-    if (pathname !== homePath) { leftHome.current = true; return; }
-    if (leftHome.current) { leftHome.current = false; setAwaitingReturn(false); } // tillbaka hemma → visa checklistan
-  }, [awaitingReturn, pathname, homePath]);
+  const [cardH, setCardH] = useState(190);
 
-  // Regissör: reagerar på stegbyte → stänger ev. öppen sida, navigerar, "trycker", öppnar nästa sida.
-  // Sidorna öppnas som PUSH (se app/_layout.tsx) → kortet (root-överlägg) ligger alltid överst och
-  // rundturen kan aldrig fastna bakom en sida.
+  // Appen i bakgrunden → klockan står still.
+  const [appActive, setAppActive] = useState(AppState.currentState === 'active');
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => setAppActive(s === 'active'));
+    return () => sub.remove();
+  }, []);
+  // Med skärmläsare startar rundturen pausad: man går vidare själv med pilarna, i egen takt.
+  useEffect(() => {
+    if (!active) return;
+    AccessibilityInfo.isScreenReaderEnabled().then((on) => { if (on && useTourStore.getState().active) setPaused(true); }).catch(() => {});
+  }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Regissören: ett stopp i taget. Medan den arbetar är fasen 'moving' (pilarna väntar). ──
   useEffect(() => {
     if (!active || !step) return;
     const token = ++runRef.current;
-    const alive = () => runRef.current === token && useTourStore.getState().active;
-
-    // Loggningsdemon: nollställ bildtextraden direkt (inget kvarblivet "Saved" om man gått tillbaka hit),
-    // städa en tidigare demo-flygning och låt Log flight köra.
-    if (step.logDemo) useTourStore.getState().resetLogDemo();
-    const beginLogDemo = async () => {
-      if (useTourStore.getState().demoFlight) { await cleanupTourDemo(); if (!alive()) return; }
-      await delay(450); if (!alive()) return;
-      useTourStore.getState().startLogDemo();
-    };
-
+    const st = useTourStore.getState;
+    const alive = () => runRef.current === token && st().active;
     (async () => {
-      // Återställ glob/karta om detta inte är globalmap-steget (stänger ev. kvarlämnad karta).
-      if (!step.globalmap) setGlobe(false, false, null);
-      // Checklistan = rundturen är klar → exempel-flygningen tas bort (den ska inte räknas som "din första").
-      if (step.checklist && useTourStore.getState().demoFlight) { await cleanupTourDemo(); if (!alive()) return; }
+      // 1 · Stäng Log flight om det här stoppet inte använder den.
+      if (openPageRef.current && openPageRef.current !== (step.page ?? null)) {
+        router.back(); openPageRef.current = null;
+        st().setPressTarget(null); st().setLogForm(null);
+        await delay(SETTLE); if (!alive()) return;
+        st().setPageOpen(false);
+      }
+      if (!step.logDemo) ensureExample(mode);
 
-      // Specialsteg: global map-demo (dashboard → globmeny → öppna karta → sök/zooma KJFK → tillbaka).
-      if (step.globalmap) {
-        setPressTarget(null);
-        const cur0 = openPageRef.current;
-        if (cur0) { router.back(); openPageRef.current = null; await delay(480); if (!alive()) return; }
-        if (step.tab) { router.navigate(buildTab(step.tab) as any); await delay(520); if (!alive()) return; }
-        setGlobe(true, false, null); await delay(1600); if (!alive()) return;   // scrolla till globen + öppna globmenyn
-        // Kartan kör själv: skriv KJFK tecken-för-tecken → förslag → klicka → navigera. Dröj kvar en stund
-        // vid flygplatsen, stäng sedan. (Ingen väder-popup — nästlad modal gav svart skärm.)
-        setGlobe(true, true, 'KJFK'); await delay(6200); if (!alive()) return;
-        setGlobe(false, false, null);                                           // stäng → kortet beskriver det man såg
-        return;
+      // 2 · Rätt flik.
+      router.navigate(tabRoute(step) as any);
+      await delay(SETTLE); if (!alive()) return;
+
+      // 3 · Log flight: öppna och vänta tills formuläret självt sagt att det är monterat.
+      if (step.page && openPageRef.current !== step.page) {
+        st().setFormReady(false); st().resetLogDemo();
+        if (mode === 'pilot') st().setLogForm('quick');
+        st().setPageOpen(true);
+        router.push(step.page as any); openPageRef.current = step.page;
+        await waitFor(() => st().formReady, 3000); if (!alive()) return;
+        await delay(250); if (!alive()) return;
       }
 
-      const cur = openPageRef.current;
-      const want = step.modal ?? null;
-
-      // Samma sida ska stanna öppen (t.ex. Imported data → Backfill, Log flight → Full → demo): byt bara
-      // flagga + tryck. Quicklog/Full växlar medan "trycket" syns, så man ser vad som klickades.
-      if (want && cur === want) {
-        if (step.press && !OPENER_PRESSES.has(step.press)) { setPressTarget(step.press); await delay(1000); if (!alive()) return; }
-        if (step.logForm) setLogForm(step.logForm);
-        setOpenBackfill(!!step.backfill);
-        await delay(step.logForm && step.press ? 450 : 250); if (!alive()) return;
-        setPressTarget(null);
-        if (step.logDemo) await beginLogDemo();
-        return;
+      // 4 · Ljuset: vänta tills skärmen rapporterat något som syns. Dröjer det visas kortet ändå.
+      const ids = step.spots ?? [];
+      st().setSpots(ids);
+      if (ids.length) {
+        await waitFor(() => ids.some((id) => !!st().spotRects[id]), SPOT_WAIT); if (!alive()) return;
+        await delay(320); if (!alive()) return; // sidan hinner rulla klart; ljuset följer ändå med
       }
-
-      setOpenBackfill(false);
-      if (cur) { router.back(); openPageRef.current = null; await delay(480); if (!alive()) return; }
-
-      if (step.tab) { router.navigate(buildTab(step.tab, step.logExpandLatest) as any); await delay(cur ? 260 : 440); if (!alive()) return; }
-
-      // Lugnt tempo: visa tryck-markeringen en stund INNAN sidan öppnas, så man hinner se vad som klickas.
-      if (step.press) { setPressTarget(step.press); await delay(1000); if (!alive()) return; }
-
-      if (want) {
-        if (step.logForm) setLogForm(step.logForm); // innan sidan monteras → rätt läge direkt
-        router.push(want as any); openPageRef.current = want;
-        await delay(480); if (!alive()) return;
-        setOpenBackfill(!!step.backfill);
-      }
-      // focus: rama in ett element på den öppnade sidan (t.ex. krypteringsreglaget) medan kortet visas.
-      setPressTarget(want && step.focus ? step.focus : null);
-
-      if (step.logDemo) { await delay(300); if (!alive()) return; await beginLogDemo(); return; }
-
-      // Loggboken (lugnt tempo, så man hinner se VAR flygningen hamnade): loggboken visas → ram runt den
-      // nya raden en stund → "tryck" → översikten öppnas.
-      if (step.openFlight) {
-        const df = useTourStore.getState().demoFlight;
-        if (df?.id) {
-          const k = df.kind === 'pilot' ? 'p' : 'd';
-          await delay(1400); if (!alive()) return;
-          setPressTarget(`logrowf-${k}${df.id}`); await delay(2300); if (!alive()) return;
-          setPressTarget(`logrow-${k}${df.id}`); await delay(700); if (!alive()) return;
-          const route = df.kind === 'pilot' ? `/flight/detail/${df.id}` : `/drone-flight/${df.id}`;
-          router.push(route as any); openPageRef.current = route;
-          await delay(480); if (!alive()) return;
-          setPressTarget(null);
-        }
-      }
+      st().setPhase('shown');
+      if (step.logDemo) st().startLogDemo();
     })();
   }, [active, stepIndex, mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Demon har sparat flygningen → vidare till loggboken av sig själv (efter en "Saved"-paus).
+  // ── Klockan: strecket fylls medan kortet visas; fullt → nästa stopp. ──
+  const prog = useSharedValue(0);
+  const idxRef = useRef(stepIndex);
+  idxRef.current = stepIndex;
+  const autoNext = (forIndex: number) => {
+    const s = useTourStore.getState();
+    if (s.active && s.stepIndex === forIndex && s.phase === 'shown' && !s.paused) s.next();
+  };
+  useEffect(() => { cancelAnimation(prog); prog.value = 0; }, [stepIndex, active, mode]); // eslint-disable-line react-hooks/exhaustive-deps
+  const timed = !!step && !step.final && !step.logDemo;
+  const running = active && timed && phase === 'shown' && !paused && appActive;
+  useEffect(() => {
+    if (!running || !step) return;
+    const forIndex = stepIndex;
+    const left = Math.max(0, 1 - prog.value) * step.seconds * 1000;
+    prog.value = withTiming(1, { duration: left, easing: Easing.linear }, (fin) => { if (fin) runOnJS(autoNext)(forIndex); });
+    return () => cancelAnimation(prog);
+  }, [running, stepIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+  const fillStyle = useAnimatedStyle(() => ({ width: `${Math.round(prog.value * 1000) / 10}%` }));
+
+  // Exemplet är klart → vidare till loggboken efter en kort "Saved"-paus.
   useEffect(() => {
     if (!active || !logDemoDoneAt || !step?.logDemo) return;
     const t = setTimeout(() => {
-      const st = useTourStore.getState();
-      if (st.active && TOURS[st.mode][st.stepIndex]?.logDemo) st.next();
-    }, 1700);
+      const s = useTourStore.getState();
+      if (s.active && TOURS[s.mode][s.stepIndex]?.logDemo) s.next();
+    }, 1200);
     return () => clearTimeout(t);
   }, [logDemoDoneAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Avslut: stäng ev. öppen sida och ta bort exempel-flygningen. Körs även vid appstart (active=false)
-  // → städar en exempel-flygning som blev kvar efter en krasch mitt i rundturen.
+  // Avslut: stäng Log flight om den är öppen. Körs även vid appstart (active=false) och städar då en
+  // exempelflygning som en äldre version av rundturen kan ha lämnat kvar i databasen.
   useEffect(() => {
     if (active) return;
-    if (openPageRef.current) { router.back(); openPageRef.current = null; }
-    setPressTarget(null); setOpenBackfill(false);
+    const st = useTourStore.getState();
+    if (openPageRef.current) {
+      router.back(); openPageRef.current = null;
+      setTimeout(() => useTourStore.getState().setPageOpen(false), SETTLE + 200);
+    }
+    st.setPressTarget(null);
     cleanupTourDemo();
   }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fråga efter onboarding: vill du gå igenom en introduktion? (Ja / Senare)
+  // Fråga efter onboarding: vill du ha rundturen? Flaggan rensas först när man svarat.
   if (promptMode && !active) {
     const m = promptMode;
     return (
       <TourPrompt
-        onYes={() => { setPrompt(null); beginTour(m); }}
-        onLater={() => { setPrompt(null); useToastStore.getState().show(REPLAY_HINT); }}
+        onYes={() => { setPrompt(null); clearIntroTourPending(); beginTour(m); }}
+        onLater={() => { setPrompt(null); clearIntroTourPending(); useToastStore.getState().show(REPLAY_HINT); }}
       />
     );
   }
 
   if (!active || !step) return null;
-  if (awaitingReturn) return null; // gömd medan man använder en checklist-funktion (visas när man är tillbaka)
 
-  // Loggningsdemon: inget kort som skymmer formuläret — bara en smal bildtextrad längst ner som säger
-  // vad som fylls i just nu. Hela skärmen sväljer tryck så demon inte störs; Skip avslutar rundturen.
+  const moving = phase === 'moving';
+
+  // Loggningsexemplet: inget kort som skymmer formuläret, bara en smal bildtextrad med paus och Skip.
+  // Skip hoppar över exemplet (inte hela rundturen). Hela skärmen sväljer tryck så exemplet inte störs.
   if (step.logDemo) {
     return (
       <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-        <Pressable style={StyleSheet.absoluteFill} onPress={() => { /* svälj */ }} />
-        <TourCaptionBar onSkip={stop} />
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => { /* svälj */ }} accessible={false} />
+        {!moving ? (
+          <TourCaptionBar eyebrow={mode === 'drone' ? 'LOGGING AN EXAMPLE SESSION' : 'LOGGING AN EXAMPLE FLIGHT'}
+            onSkip={() => { ensureExample(mode); next(); }} />
+        ) : null}
       </View>
     );
   }
+
+  if (step.final) {
+    return (
+      <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+        <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: moving ? 'transparent' : DIM }]} onPress={() => { /* svälj */ }} accessible={false} />
+        {!moving ? (
+          <Animated.View entering={FadeInDown.duration(320)} style={[styles.shadow, { left: 10, right: 10, bottom: Math.max(insets.bottom, 10) + 4 }]}>
+            <View style={[styles.cardClip, { borderRadius: 30 }]}>
+              <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+              <View style={[StyleSheet.absoluteFill, styles.cardTint]} />
+              <ReadySheet mode={mode} title={step.title}
+                onBack={prev}
+                onExplore={() => { stop(); useToastStore.getState().show(REPLAY_HINT); }}
+                onGo={(go) => {
+                  // Rundturen avslutas HELT innan man går vidare — den ligger aldrig kvar dold i bakgrunden.
+                  stop();
+                  setTimeout(() => { go.startsWith('/(tabs)') ? router.navigate(go as any) : router.push(go as any); }, 120);
+                }} />
+            </View>
+          </Animated.View>
+        ) : null}
+      </View>
+    );
+  }
+
+  // Det som lyser: bara rutor som faktiskt ligger på skärmen.
+  const rects = (step.spots ?? [])
+    .map((id) => ({ id, r: spotRects[id] }))
+    .filter((x): x is { id: string; r: SpotRect } => !!x.r && x.r.y + x.r.h > 0 && x.r.y < H && x.r.x + x.r.w > 0 && x.r.x < W);
+  const dimPath = `M0 0H${W}V${H}H0Z ${rects.map((x) => holePath(x.r)).join(' ')}`;
+
+  // Kortet står längst ner, ovanför flikraden. Skulle det skymma det som lyser flyttas det högst upp.
+  const bottomOffset = tabSpace + 12;
+  const cardTop = H - bottomOffset - cardH;
+  const main = rects.filter((x) => x.id !== 'fab');
+  const onTop = main.some((x) => x.r.y + x.r.h > cardTop - 6 && x.r.y > insets.top + cardH + 20);
+  const cardPos = onTop ? { top: insets.top + 8 } : { bottom: bottomOffset };
+
   const isFirst = stepIndex === 0;
-  const isLast = stepIndex === steps.length - 1;
-  const doneFlex = stepIndex + 1;
-  const restFlex = steps.length - doneFlex;
+  const body = step.key === 'hours' && mode === 'pilot' && SCAN_OPEN ? PILOT_HOURS_WITH_SCAN : step.body;
+  const hit = (x: number, y: number) => rects.some(({ r }) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
 
   return (
-    // Root-överlägg: ligger ovanför HELA navigatorn (flikar + push-sidor). Rundturens sidor öppnas
-    // som push (ej native-modal, se app/_layout.tsx) → kortet ligger alltid överst och man fastnar aldrig.
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      {/* Mycket lätt scrim: appen syns tydligt, men tryck fångas (rundturen styrs via pilarna). */}
-      <Pressable style={[StyleSheet.absoluteFill, styles.scrim]} onPress={() => { /* svälj */ }} />
+      {/* Sväljer alla tryck. Ett tryck på det som lyser går vidare, precis som pilen. */}
+      <Pressable style={StyleSheet.absoluteFill} accessible={false}
+        onPress={(e) => { if (!moving && hit(e.nativeEvent.pageX, e.nativeEvent.pageY)) next(); }} />
 
-      <Animated.View entering={FadeIn.duration(260)} layout={LinearTransition.duration(320)} style={styles.cardShadow}>
-        <View style={styles.cardClip}>
-          <BlurView intensity={36} tint="dark" style={StyleSheet.absoluteFill} />
-          <View style={[StyleSheet.absoluteFill, styles.cardTint]} />
-          <View style={styles.cardInner}>
-            {step.checklist ? (
-              <Checklist mode={mode} stepKey={step.key} title={step.title}
-                onFinish={() => { stop(); useToastStore.getState().show(REPLAY_HINT); }}
-                onBack={prev}
-                onGo={(go) => {
-                  // Göm rundturen, gå till funktionen; när man kommer tillbaka till dashboarden visas checklistan igen.
-                  leftHome.current = false; setAwaitingReturn(true);
-                  setTimeout(() => { go.startsWith('/(tabs)') ? router.navigate(go as any) : router.push(go as any); }, 60);
-                }} />
-            ) : (
-              <>
-                <View style={styles.topRow}>
-                  <View style={styles.track}>
-                    <View style={{ flex: doneFlex, backgroundColor: Colors.primary }} />
-                    {restFlex > 0 ? <View style={{ flex: restFlex }} /> : null}
-                  </View>
-                  <TouchableOpacity onPress={stop} hitSlop={10}><Text style={styles.skip}>Skip</Text></TouchableOpacity>
-                </View>
+      {!moving ? (
+        <Animated.View key={`dim-${stepIndex}`} entering={FadeIn.duration(260)} style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Svg width={W} height={H}>
+            <Path d={dimPath} fill={rects.length ? DIM : 'rgba(4,10,20,0.28)'} fillRule="evenodd" />
+            {rects.map(({ id, r }) => {
+              const rad = Math.max(0, Math.min(r.r, r.w / 2, r.h / 2));
+              return (
+                <Rect key={id} x={r.x} y={r.y} width={r.w} height={r.h} rx={rad} ry={rad} fill="none" stroke={Colors.primary} strokeWidth={2} />
+              );
+            })}
+            {rects.map(({ id, r }) => {
+              const rad = Math.max(0, Math.min(r.r + 3, r.w / 2 + 3, r.h / 2 + 3));
+              return (
+                <Rect key={`g-${id}`} x={r.x - 3} y={r.y - 3} width={r.w + 6} height={r.h + 6} rx={rad} ry={rad} fill="none" stroke={Colors.primary} strokeOpacity={0.28} strokeWidth={5} />
+              );
+            })}
+          </Svg>
+        </Animated.View>
+      ) : null}
 
-                <Animated.View key={stepIndex} entering={FadeInDown.duration(320)}>
-                  <Text style={styles.title}>{step.title}</Text>
-                  <Text style={styles.body}>{step.body}</Text>
-                </Animated.View>
+      {!moving ? (
+        <Animated.View entering={FadeIn.duration(240)} layout={LinearTransition.duration(300)} style={[styles.shadow, styles.cardSide, cardPos]}
+          onLayout={(e) => { const h = e.nativeEvent.layout.height; if (Math.abs(h - cardH) > 2) setCardH(h); }}>
+          <View style={styles.cardClip}>
+            <BlurView intensity={36} tint="dark" style={StyleSheet.absoluteFill} />
+            <View style={[StyleSheet.absoluteFill, styles.cardTint]} />
+            <View style={styles.cardInner}>
+              <View style={styles.topRow}>
+                <Segments stop={step.stop} fillStyle={fillStyle} />
+                <Text style={styles.count} maxFontSizeMultiplier={1.2}>{step.stop} of {TOUR_STOPS}</Text>
+                <TouchableOpacity onPress={stop} hitSlop={{ top: 14, bottom: 14, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Skip the tour">
+                  <Text style={styles.skip} maxFontSizeMultiplier={1.2}>Skip tour</Text>
+                </TouchableOpacity>
+              </View>
 
-                <View style={styles.navRow}>
-                  <TouchableOpacity onPress={prev} disabled={isFirst} hitSlop={8} style={[styles.backBtn, isFirst && styles.hidden]}>
-                    <Ionicons name="chevron-back" size={17} color={Colors.textSecondary} />
-                    <Text style={styles.backText}>Back</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={next} activeOpacity={0.85} style={styles.nextBtn}>
-                    <Text style={styles.nextText}>{isLast ? 'Done' : 'Next'}</Text>
-                    {!isLast && <Ionicons name="chevron-forward" size={17} color={Colors.textInverse} />}
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
+              <Animated.View key={stepIndex} entering={FadeInDown.duration(300)}>
+                <Text style={styles.title} maxFontSizeMultiplier={1.3}>{step.title}</Text>
+                <Text style={styles.body} maxFontSizeMultiplier={1.3}>{body}</Text>
+              </Animated.View>
+
+              <View style={styles.transport}>
+                <TouchableOpacity onPress={prev} disabled={isFirst} activeOpacity={0.8} style={[styles.tb, isFirst && styles.tbOff]}
+                  accessibilityRole="button" accessibilityLabel="Previous stop">
+                  <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setPaused(!paused)} activeOpacity={0.85} style={[styles.tb, styles.tbMain]}
+                  accessibilityRole="button" accessibilityLabel={paused ? 'Play' : 'Pause'}>
+                  <Ionicons name={paused ? 'play' : 'pause'} size={22} color={Colors.textInverse} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={next} activeOpacity={0.8} style={styles.tb}
+                  accessibilityRole="button" accessibilityLabel="Next stop">
+                  <Ionicons name="chevron-forward" size={22} color={Colors.textPrimary} />
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
-        </View>
-      </Animated.View>
+        </Animated.View>
+      ) : null}
     </View>
   );
 }
 
-// ── Checklista (sista steget) ───────────────────────────────────────────────
-type CheckState = { fleet: boolean; flight: boolean; book: boolean } | null;
+// Sju streck: klara stopp fyllda, det pågående fylls medan kortet visas.
+function Segments({ stop, fillStyle, full = false }: { stop: number; fillStyle?: any; full?: boolean }) {
+  return (
+    <View style={styles.segs}>
+      {Array.from({ length: TOUR_STOPS }, (_, i) => {
+        const n = i + 1;
+        return (
+          <View key={n} style={styles.seg}>
+            {full || n < stop ? <View style={[StyleSheet.absoluteFill, { backgroundColor: Colors.primary }]} />
+              : n === stop ? <Animated.View style={[styles.segFill, fillStyle]} /> : null}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
 
-function Checklist({ mode, stepKey, title, onFinish, onBack, onGo }: {
-  mode: 'pilot' | 'drone'; stepKey: string; title: string; onFinish: () => void; onBack: () => void; onGo: (go: string) => void;
+// ── Sista stoppet: "You're ready" med ett nästa steg som passar användaren ─────────────
+interface NextStep { key: string; label: string; sub: string; cta: string; go: string; done: boolean }
+
+function ReadySheet({ mode, title, onGo, onExplore, onBack }: {
+  mode: TourMode; title: string; onGo: (go: string) => void; onExplore: () => void; onBack: () => void;
 }) {
-  const [c, setC] = useState<CheckState>(null);
-  // Exempel-flygningen (och ev. exempeldrönaren) städas när checklistan visas → räkna först när den är
-  // borta, annars bockas "Log your first flight"/"Add your drones" av felaktigt.
-  const demoPending = useTourStore((s) => !!s.demoFlight);
+  const [items, setItems] = useState<NextStep[] | null>(null);
   useEffect(() => {
-    if (demoPending) return;
     let cancelled = false;
     (async () => {
+      let list: NextStep[];
       try {
+        const [paper, hours] = await Promise.all([getSetting('onboarding_paper').catch(() => ''), getSetting('onboarding_hours').catch(() => '')]);
+        const hasHours = !!hours && hours !== 'Just starting';
         if (mode === 'drone') {
           const [drones, fc, books] = await Promise.all([listDrones(), getDroneFlightCount(), listDigitalBooks('drone')]);
-          if (!cancelled) setC({ fleet: drones.length > 0, flight: fc > 0, book: books.length > 0 });
+          list = [
+            { key: 'fleet', label: 'Add your drones', sub: 'Register what you fly once, then pick it with one tap every time you log.', cta: 'Add a drone', go: '/settings/drones', done: drones.length > 0 },
+            ...(hasHours && fc === 0 ? [{ key: 'import', label: 'Bring in your hours', sub: 'Scan a controller screenshot, import a file, or enter your totals by hand.', cta: 'Open Import', go: '/(tabs)/drone-settings?expand=import', done: false }] : []),
+            { key: 'flight', label: 'Log your first flight', sub: 'Tap the B, add the place and the time, and save.', cta: 'Log a flight', go: '/drone-flight/add', done: fc > 0 },
+            { key: 'book', label: 'Build your logbook', sub: 'See your flights laid out like a real logbook.', cta: 'Open Book', go: '/(tabs)/drone-log?view=book', done: books.length > 0 },
+          ];
         } else {
           const [types, fc, books] = await Promise.all([getAllAircraftTypes(), getManualFlightCount(), listDigitalBooks('digital')]);
-          if (!cancelled) setC({ fleet: types.length > 0, flight: fc > 0, book: books.length > 0 });
+          const first: NextStep[] = [];
+          if (SCAN_OPEN && paper === '1' && fc === 0) first.push({ key: 'scan', label: 'Scan your paper logbook', sub: 'You said you have one. Photograph the pages and Blades reads the flights.', cta: 'Start scanning', go: '/import/scan', done: false });
+          else if ((hasHours || paper === '1') && fc === 0) first.push({ key: 'import', label: 'Bring in your hours', sub: 'Import a file from another logbook app, or enter your totals by hand.', cta: 'Open Import', go: '/(tabs)/settings?expand=import', done: false });
+          list = [
+            ...first,
+            { key: 'flight', label: 'Log your first flight', sub: 'Tap the B, add the route and the times, and save.', cta: 'Log a flight', go: '/flight/add', done: fc > 0 },
+            { key: 'fleet', label: 'Add your aircraft', sub: 'Build up your fleet, with hours per type.', cta: 'Open Fleet', go: '/(tabs)/log?view=fleet', done: types.length > 0 },
+            { key: 'book', label: 'Build your logbook', sub: 'See your flights laid out like a real logbook.', cta: 'Open Book', go: '/(tabs)/log?view=book', done: books.length > 0 },
+          ];
         }
-      } catch { if (!cancelled) setC({ fleet: false, flight: false, book: false }); }
+      } catch { list = []; }
+      if (!cancelled) setItems(list);
     })();
     return () => { cancelled = true; };
-  }, [mode, stepKey, demoPending]);
+  }, [mode]);
 
-  // "Build your logbook" = den animerade loggboken i appen (Book-vyn) som visar flygningarna som en
-  // riktig loggbok — inte en separat/fysisk bok.
-  const items = mode === 'drone'
-    ? [
-        { icon: 'hardware-chip-outline', label: 'Add your drones', sub: 'Register the drones you fly', done: c?.fleet, go: '/settings/drones' },
-        { icon: 'navigate-outline', label: 'Log your first flight', sub: 'Record a flight to get going', done: c?.flight, go: '/drone-flight/add' },
-        { icon: 'book-outline', label: 'Build your logbook', sub: 'See your flights laid out like a real logbook', done: c?.book, go: '/(tabs)/drone-log?view=book' },
-      ]
-    : [
-        { icon: 'airplane-outline', label: 'Add your aircraft', sub: 'Build up your fleet', done: c?.fleet, go: '/(tabs)/log?view=fleet' },
-        { icon: 'add-circle-outline', label: 'Log your first flight', sub: 'Record a flight to get going', done: c?.flight, go: '/flight/add' },
-        { icon: 'book-outline', label: 'Build your logbook', sub: 'See your flights laid out like a real logbook', done: c?.book, go: '/(tabs)/log?view=book' },
-      ];
+  const primary = items?.find((i) => !i.done) ?? null;
+  const rest = (items ?? []).filter((i) => i !== primary).slice(0, 2);
 
   return (
-    <Animated.View entering={FadeIn.duration(260)}>
-      <Text style={styles.clTitle}>{title}</Text>
-      <Text style={styles.clSub}>A few things to get you started — tap any to jump in.</Text>
-      <View style={{ gap: 8, marginTop: 12 }}>
-        {items.map((it) => (
-          <TouchableOpacity key={it.label} onPress={() => onGo(it.go)} activeOpacity={0.8} style={styles.clRow}>
-            <View style={[styles.clIcon, it.done && { backgroundColor: Colors.success + '22', borderColor: Colors.success + '55' }]}>
-              <Ionicons name={(it.done ? 'checkmark' : it.icon) as any} size={17} color={it.done ? Colors.success : Colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.clLabel}>{it.label}</Text>
-              <Text style={styles.clRowSub}>{it.done ? 'Done' : it.sub}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+    <View style={styles.sheetInner}>
+      <View style={styles.topRow}>
+        <Segments stop={TOUR_STOPS} full />
+        <Text style={styles.count} maxFontSizeMultiplier={1.2}>{TOUR_STOPS} of {TOUR_STOPS}</Text>
+      </View>
+      <Text style={styles.readyTitle} maxFontSizeMultiplier={1.3}>{title}</Text>
+
+      {primary ? (
+        <View style={styles.primary}>
+          <Text style={styles.primaryEyebrow} maxFontSizeMultiplier={1.2}>BEST NEXT STEP FOR YOU</Text>
+          <Text style={styles.primaryLabel} maxFontSizeMultiplier={1.3}>{primary.label}</Text>
+          <Text style={styles.body} maxFontSizeMultiplier={1.3}>{primary.sub}</Text>
+          <TouchableOpacity onPress={() => onGo(primary.go)} activeOpacity={0.85} style={styles.primaryBtn} accessibilityRole="button">
+            <Text style={styles.primaryBtnText} maxFontSizeMultiplier={1.3}>{primary.cta}</Text>
           </TouchableOpacity>
-        ))}
-      </View>
-      <View style={styles.navRow}>
-        <TouchableOpacity onPress={onBack} hitSlop={8} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={17} color={Colors.textSecondary} />
-          <Text style={styles.backText}>Back</Text>
+        </View>
+      ) : items ? (
+        <Text style={styles.body} maxFontSizeMultiplier={1.3}>You have already done the first steps. Enjoy Blades.</Text>
+      ) : null}
+
+      {rest.map((it) => (
+        <TouchableOpacity key={it.key} onPress={() => onGo(it.go)} activeOpacity={0.8} style={styles.nextRow} accessibilityRole="button">
+          {it.done ? <Ionicons name="checkmark-circle" size={20} color={Colors.success} /> : null}
+          <Text style={styles.nextLabel} maxFontSizeMultiplier={1.3}>{it.label}</Text>
+          <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={onFinish} activeOpacity={0.85} style={styles.nextBtn}>
-          <Text style={styles.nextText}>Finish</Text>
+      ))}
+
+      <View style={styles.readyNav}>
+        <TouchableOpacity onPress={onBack} activeOpacity={0.8} style={styles.tb} accessibilityRole="button" accessibilityLabel="Previous stop">
+          <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={onExplore} activeOpacity={0.8} style={styles.exploreBtn} accessibilityRole="button">
+          <Text style={styles.exploreText} maxFontSizeMultiplier={1.3}>Explore on my own</Text>
         </TouchableOpacity>
       </View>
-    </Animated.View>
+      <Text style={styles.foot} maxFontSizeMultiplier={1.2}>Your logbook is stored on this phone. Replay the tour in Settings.</Text>
+    </View>
   );
 }
 
@@ -350,43 +448,50 @@ function TourPrompt({ onYes, onLater }: { onYes: () => void; onLater: () => void
       closeOnScrim={false}
       icon={<DialogIcon name="compass-outline" />}
       eyebrow="Welcome to Blades"
-      title="Take a quick tour?"
-      body="A short guided walk through Blades: where everything lives and how to log your flying. It takes about a minute."
-      primary={{ label: 'Yes, show me', onPress: onYes }}
-      secondary={{ label: 'Maybe later', onPress: onLater }}
+      title="Take the 90-second tour?"
+      body="It plays by itself: logging a flight, your logbook, your insights and bringing in the hours you already have. Pause or step back whenever you like."
+      primary={{ label: 'Show me around', onPress: onYes }}
+      secondary={{ label: 'Not now', onPress: onLater }}
     />
   );
 }
 
 const styles = StyleSheet.create({
-  scrim: { backgroundColor: '#00000018' },
-  cardShadow: {
-    position: 'absolute', left: 14, right: 14, bottom: 96,
-    shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 14,
+  shadow: {
+    position: 'absolute',
+    shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 14,
   },
-  cardClip: { borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: Colors.primary + '4D' },
-  cardTint: { backgroundColor: 'rgba(10,22,40,0.52)' },
-  cardInner: { padding: 15 },
+  cardSide: { left: 14, right: 14 },
+  cardClip: { borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: Colors.primary + '5C' },
+  cardTint: { backgroundColor: 'rgba(12,26,50,0.78)' },
+  cardInner: { paddingHorizontal: 15, paddingTop: 12, paddingBottom: 13 },
 
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
-  track: { flex: 1, height: 3, borderRadius: 2, backgroundColor: '#FFFFFF22', overflow: 'hidden', flexDirection: 'row' },
-  skip: { color: Colors.textSecondary, fontSize: 13, fontWeight: '700' },
+  segs: { flex: 1, flexDirection: 'row', gap: 4 },
+  seg: { flex: 1, height: 3, borderRadius: 2, backgroundColor: '#FFFFFF2E', overflow: 'hidden' },
+  segFill: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: Colors.primary },
+  count: { color: '#9DB4CC', fontSize: 11.5, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  skip: { color: '#A9C3DA', fontSize: 13, fontWeight: '700' },
 
-  title: { color: Colors.textPrimary, fontSize: 17, fontWeight: '800', marginBottom: 4 },
-  body: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18.5 },
+  title: { color: Colors.textPrimary, fontSize: 18, fontWeight: '800', letterSpacing: -0.2, marginBottom: 5 },
+  body: { color: '#C3D6E8', fontSize: 14, lineHeight: 20 },
 
-  navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 13 },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingVertical: 4, paddingRight: 8 },
-  backText: { color: Colors.textSecondary, fontSize: 14.5, fontWeight: '700' },
-  hidden: { opacity: 0 },
-  nextBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.primary, borderRadius: 11, paddingVertical: 10, paddingHorizontal: 18 },
-  nextText: { color: Colors.textInverse, fontSize: 14.5, fontWeight: '800' },
+  transport: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 13 },
+  tb: { width: 48, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF14', borderWidth: 1, borderColor: '#FFFFFF29' },
+  tbMain: { width: 72, backgroundColor: Colors.primary, borderColor: Colors.primary },
+  tbOff: { opacity: 0.35 },
 
-  clTitle: { color: Colors.textPrimary, fontSize: 19, fontWeight: '800' },
-  clSub: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18, marginTop: 3 },
-  clRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFFFFF10', borderRadius: 12, borderWidth: 1, borderColor: '#FFFFFF1A', paddingVertical: 10, paddingHorizontal: 12 },
-  clIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary + '1A', borderWidth: 1, borderColor: Colors.primary + '44' },
-  clLabel: { color: Colors.textPrimary, fontSize: 14.5, fontWeight: '700' },
-  clRowSub: { color: Colors.textMuted, fontSize: 11.5, marginTop: 1 },
-
+  sheetInner: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 12, gap: 10 },
+  readyTitle: { color: Colors.textPrimary, fontSize: 24, fontWeight: '800', letterSpacing: -0.3 },
+  primary: { borderRadius: 18, backgroundColor: Colors.primary + '1A', borderWidth: 1, borderColor: Colors.primary + '73', padding: 14, gap: 6 },
+  primaryEyebrow: { color: Colors.primaryLight, fontSize: 10.5, fontWeight: '800', letterSpacing: 1.1 },
+  primaryLabel: { color: Colors.textPrimary, fontSize: 17, fontWeight: '800' },
+  primaryBtn: { height: 50, borderRadius: 14, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
+  primaryBtnText: { color: Colors.textInverse, fontSize: 15.5, fontWeight: '800' },
+  nextRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, borderRadius: 14, backgroundColor: '#FFFFFF10', borderWidth: 1, borderColor: '#FFFFFF1F', paddingHorizontal: 13 },
+  nextLabel: { flex: 1, color: Colors.textPrimary, fontSize: 14.5, fontWeight: '700' },
+  readyNav: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 2 },
+  exploreBtn: { flex: 1, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF14', borderWidth: 1, borderColor: '#FFFFFF29' },
+  exploreText: { color: Colors.textPrimary, fontSize: 14.5, fontWeight: '700' },
+  foot: { color: '#9DB4CC', fontSize: 12, textAlign: 'center', marginTop: 2 },
 });

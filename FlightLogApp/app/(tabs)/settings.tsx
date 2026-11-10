@@ -28,6 +28,7 @@ import { useAppModeStore } from '../../store/appModeStore';
 import { useTourStore, beginTour } from '../../store/tourStore';
 import { NEW_PAYWALLS } from '../../constants/paywalls';
 import { TourPress } from '../../components/TourPress';
+import { TourSpot } from '../../components/TourSpot';
 import { useToastStore } from '../../components/Toast';
 import { usePilotTypeStore } from '../../store/pilotTypeStore';
 import { useProfileStore, type SubRole } from '../../store/profileStore';
@@ -652,6 +653,7 @@ export default function SettingsScreen() {
         </CollapsibleSectionHeader>
       </View>
       {expandedSection === 'import' && (
+        <View>
         <Card backgroundColor="transparent" borderColor="transparent">
           <Row
             icon="document-attach-outline" iconColor={Colors.primary}
@@ -693,6 +695,9 @@ export default function SettingsScreen() {
             tourPressId="import-history"
           />
         </Card>
+        {/* Blades introduction: stoppet "Bring your hours" lyser upp vägarna in. */}
+        <TourSpot id="import-rows" radius={16} inset={2} />
+        </View>
       )}
 
       {/* ── E. Data & Export ── */}

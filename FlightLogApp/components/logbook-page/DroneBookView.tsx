@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { DR } from '../../constants/droneTheme';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { useTourStore } from '../../store/tourStore';
+import { TourSpot } from '../TourSpot';
 import { DEMO_DRONE_FLIGHTS, DEMO_DRONE_BOOK } from '../../constants/tourDemoData';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { getSetting } from '../../db/flights';
@@ -152,6 +153,8 @@ export function DroneBookView({ accent, headerRight }: { accent: string; headerR
               <SpreadWebView key={`L-${Math.round(width)}`} spread={current} template={template} pilotName={pilotName} timeFormat={timeFormat}
                 width={width} signature={signature} interactive={false} bare bgColor={DR.background} side="left" margin={0}
                 onAspect={(r) => { if (r > 0 && Math.abs(r - ratioL) > 0.01) setRatioL(r); }} />
+              {/* Blades introduction: bokstoppet lyser upp den vänstra sidan. */}
+              <TourSpot id="book-spread" radius={10} inset={0} />
             </View>
             {/* höger sida (under) — full bredd */}
             <View style={{ width: '100%', height: width * ratioR, backgroundColor: DR.background, marginTop: 6 }}>

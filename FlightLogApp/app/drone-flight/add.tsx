@@ -68,7 +68,7 @@ import { useTourStore } from '../../store/tourStore';
 import { loadFlightDraft, saveFlightDraft, clearFlightDraft, draftLabels } from '../../services/flightDrafts';
 import { TOURS } from '../../constants/tourSteps';
 import { TourPress } from '../../components/TourPress';
-import { rememberTourDemo, cleanupTourDemo } from '../../services/tourDemoFlight';
+import { makeTourExampleDroneFlight, tourExampleDate } from '../../constants/tourDemoData';
 import { isEssential, rememberSkippedDrones } from '../../services/essentialFleet';
 
 const today = new Date().toISOString().split('T')[0];
@@ -131,11 +131,9 @@ const placeFontSize = (v: string) => 19 - Math.max(0, Math.min(v.length, 12) - 4
 const MISSION_TYPES = ['Inspection', 'Mapping', 'Photo / Video', 'SAR', 'Training', 'Testing', 'Recreation'];
 
 // Blades introduction — exempel för loggningsdemon när användaren saknar egen drönare/besättning.
-// Exempeldrönaren läggs till tillfälligt och raderas med exempel-flygningen (services/tourDemoFlight).
-const TOUR_DRONE = { drone_type: 'multirotor' as const, model: 'Mavic 3 Enterprise', registration: 'SE-D001', mtow_g: 920, category: 'Specific', drone_class: 'civil', notes: '' };
-const TOUR_BVLOS_SHARE = 0.7; // siktläge i demon: 70 % BVLOS, resten VLOS (BVLOS kräver kategorin Specific)
-const TOUR_CREW = { name: 'Erik Lind', role: 'observer' };
-const TOUR_REMARK = 'Example flight · Blades introduction';
+// Blades introduction — loggningsexemplet (sparas aldrig; se effekten på logDemoRun längre ner).
+const TOUR_DRONE_MODEL = 'Mavic 3 Enterprise'; // visas bara som modellnamn när flottan är tom
+const TOUR_BVLOS_SHARE = 0.7; // siktläge i exemplet: 70 % BVLOS, resten VLOS
 const FLIGHT_MODES: DroneFlightMode[] = ['VLOS', 'EVLOS', 'BVLOS'];
 // Kategorin väljs per flygning ur EN lista för alla: militära piloter kan flyga civila drönare (och tvärtom)
 // under ett annat regelverk. Förvalet kommer från drönaren; ett annat val frågar vid Save om drönaren ska få det.
@@ -297,7 +295,7 @@ export default function AddDroneFlightScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const demoY = useRef<Record<string, number>>({});
   const scrollMetrics = useRef({ contentH: 0, viewH: 0 });
-  const demoLatest = useRef<{ save: (sameSession?: boolean, demo?: boolean) => Promise<number | undefined>; role: DroneRole; total: number } | null>(null);
+  const demoLatest = useRef<{ total: number } | null>(null);
 
   // Varaktighet (HH:MM, eller bara minuter innan kolon skrivits) → decimaltimmar.
   const durToDec = (d: string) => {
@@ -1086,10 +1084,17 @@ export default function AddDroneFlightScreen() {
   };
 
   // ── Blades introduction: loggningsdemon ───────────────────────────────────
-  // TourHost ökar logDemoRun → formuläret fyller själv i ett komplett pass (två flygningar) fält för fält,
-  // med fokusram + bildtext i rundturens smala rad, och sparar det på riktigt så loggboken kan öppna det.
-  // Egen drönare/besättning/plats används om de finns; annars läggs en exempeldrönare till tillfälligt.
-  demoLatest.current = { save, role, total: parseFloat(form.total_time) || 0 };
+  // Blades introduction — loggningsexemplet. TourHost öppnar Log flight, väntar tills formuläret sagt att
+  // det är monterat (formReady) och ökar sedan logDemoRun. Formuläret fyller då själv i ett kort pass:
+  // plats och starttid, två flygningar, siktläge, drönare, spara. INGENTING sparas och ingen exempeldrönare
+  // läggs till: passet läggs i tourStore.exampleDrone och visas ur minnet i loggbokslistan tills rundturen
+  // slutar. Paus i rundturen stannar exemplet mitt i ett moment.
+  demoLatest.current = { total: parseFloat(form.total_time) || 0 };
+  useEffect(() => {
+    if (isEdit || !useTourStore.getState().active) return;
+    useTourStore.getState().setFormReady(true);
+    return () => useTourStore.getState().setFormReady(false);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!logDemoRun || isEdit || logDemoRun === demoRunAtMount.current) return;
     const st0 = useTourStore.getState();
@@ -1100,8 +1105,15 @@ export default function AddDroneFlightScreen() {
       const st = tour();
       return !dead && st.active && st.logDemoRun === logDemoRun && !!TOURS[st.mode][st.stepIndex]?.logDemo;
     };
-    const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-    const PHASES = 11;
+    // Väntar ms — men tiden räknas inte medan rundturen är pausad.
+    const wait = async (ms: number) => {
+      let left = ms;
+      while (left > 0 && !dead) {
+        await new Promise<void>((r) => setTimeout(r, Math.min(50, left)));
+        if (!tour().paused) left -= 50;
+      }
+    };
+    const PHASES = 6;
     const say = (n: number, caption: string) => tour().setCaption(caption, n / (PHASES + 1));
     const focus = (id: string | null) => tour().setPressTarget(id);
     const scrollTo = (y: number | undefined, above: number) => {
@@ -1124,38 +1136,13 @@ export default function AddDroneFlightScreen() {
 
     (async () => {
       try {
-        // ── Data: egen drönare/besättning/plats om de finns, annars exempel ──
-        const [ds, recent, crew] = await Promise.all([
-          listDrones().catch(() => [] as DroneRegistryEntry[]),
-          getDroneFlights(10).catch(() => []),
-          getRecentDroneCrew().catch(() => [] as { name: string; role: string }[]),
-        ]);
-        const last = recent.find((f) => !(f.remarks || '').includes(TOUR_REMARK)) ?? null;
-        let entry: DroneRegistryEntry | null = (last && ds.find((d) => d.id === last.drone_id)) || ds.find((d) => d.registration) || ds[0] || null;
-        if (!entry) {
-          const id = await addDrone(TOUR_DRONE);
-          await rememberTourDemo({ kind: 'drone', droneId: id }); // raderas med flygningen (även efter krasch)
-          const fresh = await listDrones().catch(() => [] as DroneRegistryEntry[]);
-          setDrones(fresh);
-          entry = fresh.find((d) => d.id === id) ?? null;
-        }
-        const mission = (last?.mission_type || '').trim() || 'Inspection';
-        const place = (last?.location || '').trim() || 'Stockholm';
-        const op = last?.operation_type === 'PRI' ? 'PRI' : 'COM';
-        const myRole = demoLatest.current!.role;
-        let mate = crew[0] ?? TOUR_CREW;
-        // Bara en pilot in command: är du PIC/RPIC och sparad roll också PIC → visa som observatör.
-        if (!mate.role || (isDronePicRole(mate.role) && isDronePicRole(myRole))) mate = { ...mate, role: 'observer' };
+        // Egen drönare om det finns någon; annars visas bara ett modellnamn (inget läggs till i flottan).
+        const ds = await listDrones().catch(() => [] as DroneRegistryEntry[]);
+        const entry: DroneRegistryEntry | null = ds.find((d) => d.registration) || ds[0] || null;
+        const place = 'Stockholm';
+        const takeoff = '10:30';
         const legs = [25, 18];
-        const totalMin = legs[0] + legs[1] + 12; // två flygningar + batteribyte
-        const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-        const depMin = isValidTime(last?.takeoff_time ?? '') ? toMin(last!.takeoff_time!) : 10 * 60 + 30;
-        const now = new Date();
-        let depAt = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) + depMin * 60000;
-        if (depAt + (totalMin + 10) * 60000 > now.getTime()) depAt -= 86400000; // aldrig framtida tider
-        const date = new Date(depAt).toISOString().slice(0, 10);
-        const takeoff = `${String(Math.floor(depMin / 60)).padStart(2, '0')}:${String(depMin % 60).padStart(2, '0')}`;
-        const altVal = altUnit === 'ft' ? 360 : 110; // under 120 m-gränsen för Open
+        const date = tourExampleDate();
         if (!alive()) return;
 
         // ── Rent formulär ──
@@ -1170,131 +1157,75 @@ export default function AddDroneFlightScreen() {
           second_pilot: '', second_pilot_role: '', operation_type: '', landings_day: '', landings_night: '',
           max_altitude_m: '', remarks: '',
         }));
-        scrollRef.current?.scrollTo({ y: 0, animated: true });
-        await wait(700); if (!alive()) return;
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
+        await wait(500); if (!alive()) return;
 
         // 1 · Plats + starttid.
-        say(1, 'Location and take-off time');
+        say(1, 'Where and when: location and take-off time');
         scrollTo(demoY.current.route, 10);
         focus('ld-route');
         await wait(500);
-        if (!(await typeSeq(chars(place), (v) => setForm((p) => ({ ...p, location: v })), 85))) return;
-        await wait(350); if (!alive()) return;
-        if (!(await typeSeq(clock(takeoff), (v) => setForm((p) => ({ ...p, takeoff_time: v })), 135))) return;
-        await wait(450); if (!alive()) return;
+        if (!(await typeSeq(chars(place), (v) => setForm((p) => ({ ...p, location: v })), 95))) return;
+        await wait(400); if (!alive()) return;
+        if (!(await typeSeq(clock(takeoff), (v) => setForm((p) => ({ ...p, takeoff_time: v })), 150))) return;
+        await wait(700); if (!alive()) return;
 
         // 2 · Första flygningen.
-        say(2, 'Flight time — the first flight of the session');
-        if (!(await typeSeq(legKeys(legs[0]), (v) => updateLeg(0, v), 150))) return;
-        await wait(800); if (!alive()) return;
-
-        // 3 · Andra flygningen i samma pass (ett tryck).
-        say(3, 'A second flight — same session, one tap');
-        focus('ld-addleg');
-        await wait(850); if (!alive()) return;
-        addLeg();
-        await wait(350); if (!alive()) return;
-        focus('ld-leg2');
-        if (!(await typeSeq(legKeys(legs[1]), (v) => updateLeg(1, v), 150))) return;
+        say(2, 'Flight time for the first flight');
+        if (!(await typeSeq(legKeys(legs[0]), (v) => updateLeg(0, v), 170))) return;
         await wait(1000); if (!alive()) return;
 
-        // 5 · Siktläge: barerna växer fram (plats + tid + flygtid finns) → BVLOS dras upp till 70 %, VLOS
-        // får resten; växlaren följer det dominerande läget (BVLOS).
+        // 3 · Andra flygningen i samma pass (ett tryck).
+        say(3, 'A second flight in the same session, one tap');
+        focus('ld-addleg');
+        await wait(1000); if (!alive()) return;
+        addLeg();
+        await wait(400); if (!alive()) return;
+        focus('ld-leg2');
+        if (!(await typeSeq(legKeys(legs[1]), (v) => updateLeg(1, v), 170))) return;
+        await wait(1200); if (!alive()) return;
+
+        // 4 · Siktläge: barerna växer fram → BVLOS dras upp till 70 %, VLOS får resten.
         const bvPct = Math.round(TOUR_BVLOS_SHARE * 100);
-        say(4, `Sight mode — ${100 - bvPct}% VLOS, ${bvPct}% BVLOS, split with the bars`);
+        say(4, `Sight mode: ${100 - bvPct}% VLOS, ${bvPct}% BVLOS, split with the bars`);
         setCondOpen(true);
         scrollTo(demoY.current.mode, 150);
         focus('ld-mode');
         await wait(900); if (!alive()) return;
+        let tot = 0;
         for (let k = 1; k <= 7; k++) {
           if (!alive()) return;
-          const tot = demoLatest.current!.total;
+          tot = demoLatest.current!.total;
           const b = tot * TOUR_BVLOS_SHARE * (k / 7);
           const str = (n: number) => (n > 1e-6 ? n.toFixed(4) : '');
           setForm((p) => ({ ...p, flight_mode: b > tot / 2 ? 'BVLOS' : 'VLOS', h_vlos: str(tot - b), h_evlos: '', h_bvlos: str(b) }));
           await wait(115);
         }
-        await wait(1500); if (!alive()) return;
+        await wait(1700); if (!alive()) return;
 
-        // 5 · Drönare. Kategorin följer annars drönarens klass, men BVLOS-flygningen är i Specific.
-        say(5, 'Drone — model and registration');
+        // 5 · Drönare.
+        say(5, 'The drone: model and registration');
         scrollTo(demoY.current.frame, 120);
         focus('ld-drone');
-        await wait(700); if (!alive()) return;
-        if (entry) await setDrone(entry);
-        setForm((p) => ({ ...p, category: 'Specific' }));
-        await wait(1000); if (!alive()) return;
+        await wait(750); if (!alive()) return;
+        if (entry) await setDrone(entry); else setPendingModel(TOUR_DRONE_MODEL);
+        await wait(1700); if (!alive()) return;
 
-        // 6 · Uppdrag.
-        say(6, 'Mission — what the flight was for');
-        scrollTo((demoY.current.frame ?? 0) + (demoY.current.missionIn ?? 0), 150);
-        focus('ld-mission');
-        await wait(500);
-        if (!(await typeSeq(chars(mission), (v) => setForm((p) => ({ ...p, mission_type: v })), 70))) return;
-        await wait(600); if (!alive()) return;
-
-        // 7 · Pilot function.
-        say(7, `Pilot function — ${DRONE_ROLE_LABEL[myRole] ?? 'PIC'}`);
-        scrollTo((demoY.current.frame ?? 0) + (demoY.current.roleIn ?? 0), 150);
-        focus('ld-role');
-        await wait(650); if (!alive()) return;
-        selectRole(myRole);
-        await wait(950); if (!alive()) return;
-
-        // 8 · Besättning (namn + roll, t.ex. observatör).
-        say(8, `Crew — who you flew with, as ${DRONE_ROLE_LABEL[mate.role as DroneRole] ?? 'crew'}`);
-        scrollTo((demoY.current.frame ?? 0) + (demoY.current.crewIn ?? 0), 170);
-        focus('ld-crew');
-        await wait(650); if (!alive()) return;
-        setForm((p) => ({ ...p, second_pilot: mate.name }));
-        await wait(500); if (!alive()) return;
-        selectSecondPilotRole(mate.role);
-        await wait(1000); if (!alive()) return;
-
-        // 9 · Operation.
-        say(9, `Operation — ${op === 'COM' ? 'commercial' : 'private'}`);
-        scrollTo((demoY.current.frame ?? 0) + (demoY.current.opIn ?? 0), 200);
-        focus('ld-op');
-        await wait(650); if (!alive()) return;
-        setForm((p) => ({ ...p, operation_type: op }));
-        await wait(950); if (!alive()) return;
-
-        // 10 · Landningar + max-höjd (räknas upp).
-        say(10, 'Landings and max altitude');
-        scrollTo(demoY.current.fields, 190);
-        focus('ld-fields');
-        await wait(600); if (!alive()) return;
-        setForm((p) => ({ ...p, landings_day: String(legs.length), landings_night: '' }));
-        await wait(500);
-        for (let k = 1; k <= 6; k++) {
-          if (!alive()) return;
-          const v = Math.round((altVal * k) / 6);
-          setForm((p) => ({ ...p, max_altitude_m: String(droneAltToM(v, altUnit)) }));
-          await wait(90);
-        }
-        await wait(900); if (!alive()) return;
-
-        // 11 · Remarks.
-        say(11, 'Remarks — anything worth remembering');
-        scrollTo(demoY.current.remarks, 210);
-        focus('ld-remarks');
-        await wait(500); if (!alive()) return;
-        if (!(await typeSeq(chars(TOUR_REMARK), (v) => setForm((p) => ({ ...p, remarks: v })), 42))) return;
-        await wait(900); if (!alive()) return;
-
-        // 12 · Spara tyst → minns flygningen (raderas när rundturen slutar).
-        tour().setCaption('Saving to your logbook…', PHASES / (PHASES + 1));
+        // 6 · Spara — utan att något skrivs: passet läggs i minnet och visas i loggboken under rundturen.
+        say(6, 'Save. The whole session is logged in one go.');
         focus(null);
         scrollRef.current?.scrollToEnd({ animated: true });
-        await wait(650); if (!alive()) return;
+        await wait(700); if (!alive()) return;
         focus('ld-save');
-        await wait(950); if (!alive()) return;
-        const id = await demoLatest.current!.save(false, true);
-        if (id) await rememberTourDemo({ kind: 'drone', id });
-        if (!tour().active) { await cleanupTourDemo(); return; } // rundturen avbröts mitt i sparningen
-        if (!alive()) return;
+        await wait(2000); if (!alive()) return;
+        const total = tot || (legs[0] + legs[1]) / 60;
+        tour().setExample({ drone: makeTourExampleDroneFlight({
+          date, location: place, takeoff_time: takeoff, total_time: total,
+          h_vlos: total * (1 - TOUR_BVLOS_SHARE), h_bvlos: total * TOUR_BVLOS_SHARE, landings_day: legs.length,
+          ...(entry ? { drone_id: entry.id, drone_type: entry.drone_type, registration: entry.registration } : {}),
+        }) });
         focus(null);
-        tour().setCaption(id ? 'Saved to your logbook' : 'Could not save the example flight', 1);
+        tour().setCaption('Saved to your logbook', 1);
         tour().finishLogDemo();
       } catch {
         if (alive()) tour().finishLogDemo();

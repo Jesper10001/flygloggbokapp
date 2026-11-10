@@ -13,6 +13,9 @@ import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { getCategoryRecency, type CategoryRecency } from '../../db/drones';
 import { FONT_LED7 } from '../logflight/tokens';
 import { useTabBarSpace } from '../GlassTabBar';
+import { useTourStore } from '../../store/tourStore';
+import { DEMO_DRONE_FLIGHTS, DEMO_DRONE_STATS } from '../../constants/tourDemoData';
+import { TourSpot } from '../TourSpot';
 import { DroneHoursBank } from './DroneHoursBank';
 
 const SERIF = 'Fraunces';
@@ -46,7 +49,11 @@ const CATEGORY_INFO: { code: string; title: string; text: string }[] = [
 export function DroneInsights() {
   const accent = useDroneAccentStore((s) => s.color);
   const loadAccent = useDroneAccentStore((s) => s.load);
-  const { flights, stats, loadFlights, loadStats } = useDroneFlightStore();
+  const { flights: realFlights, stats: realStats, loadFlights, loadStats } = useDroneFlightStore();
+  // Blades introduction: är loggboken helt tom visas exempelsiffror på Insights-stoppet (bara i minnet).
+  const tourDemo = useTourStore((st) => st.active && st.demo);
+  const flights = tourDemo ? DEMO_DRONE_FLIGHTS : realFlights;
+  const stats = tourDemo ? DEMO_DRONE_STATS : realStats;
   const [recency, setRecency] = useState<CategoryRecency[]>([]);
   const [infoOpen, setInfoOpen] = useState(false);
 
@@ -78,6 +85,7 @@ export function DroneInsights() {
     <ScrollView style={s.screen} contentContainerStyle={{ padding: 12, paddingBottom: tabSpace + 40, gap: 16 }}>
       {/* Enat totals-hero (= manned HeroTotals) — LED-numeraler */}
       <View style={s.heroCard}>
+        <TourSpot id="insights-top" radius={18} inset={3} />
         <View style={{ flexDirection: 'row' }}>
           <View style={{ flex: 1, padding: 14, gap: 3 }}>
             <Text style={s.cap}>TOTAL FLIGHT TIME</Text>

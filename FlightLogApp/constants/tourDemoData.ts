@@ -151,3 +151,35 @@ export const DEMO_DRONE_BOOK: DigitalBook = {
   opening_balance: '{}', custom_cols: '{}',
   anchor_flight_id: 0, anchor_page: 0, anchor_row: 0, display_order: 0, acked_spread: 0,
 };
+
+// ── Exempelflygningen (Blades introduction) ───────────────────────────────────
+// Raden som rundturens loggningsexempel "sparar". Den finns BARA i minnet (tourStore.examplePilot /
+// exampleDrone) och läggs överst i loggbokslistan medan rundturen kör — den skrivs aldrig till databasen,
+// så den kan inte bli kvar efter en krasch och räknas aldrig in i timmar, currency eller statistik.
+export const TOUR_EXAMPLE_ID = -9001;
+
+/** Gårdagens datum (lokal tid) — exemplet är alltid en flygning som redan är gjord. */
+export function tourExampleDate(): string {
+  const d = new Date(Date.now() - 86400000);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export function makeTourExampleFlight(p: Partial<Flight> = {}): Flight {
+  return mkFlight({
+    id: TOUR_EXAMPLE_ID, date: tourExampleDate(), aircraft_type: 'AT72', registration: 'SE-MKG',
+    dep_place: 'ESSA', dep_utc: '16:40', arr_place: 'ESGG', arr_utc: '17:35',
+    total_time: 0.92, pic: 0.92, ifr: 0.92, multi_pilot: 0.92, me_time: 0.92, cross_country: 0.92,
+    landings_day: 1, takeoffs_day: 1, flight_rules: 'IFR', remarks: 'Example flight · Blades introduction',
+    ...p,
+  });
+}
+
+export function makeTourExampleDroneFlight(p: Partial<DroneFlight> = {}): DroneFlight {
+  return mkDroneFlight({
+    id: TOUR_EXAMPLE_ID, date: tourExampleDate(), drone_type: 'multirotor', registration: 'SE-D001',
+    location: 'Stockholm', takeoff_time: '10:30', flight_mode: 'BVLOS', category: 'specific', operation_type: 'COM',
+    total_time: 0.72, h_vlos: 0.22, h_bvlos: 0.5, landings_day: 2, max_altitude_m: 110,
+    remarks: 'Example flight · Blades introduction',
+    ...p,
+  });
+}

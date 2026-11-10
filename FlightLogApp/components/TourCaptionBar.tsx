@@ -1,8 +1,6 @@
-// Blades introduction — smal bildtextrad längst ner medan loggningsdemon fyller i formuläret
-// (ersätter info-kortet så inget skymmer fälten). Läser bildtext + förlopp ur tourStore.
-// Renderas av TourHost (med Skip) och även INUTI de modaler demon öppnar (sökrutan, Sun route),
-// eftersom native-modaler ligger ovanpå rundturens root-överlägg. still = ingen egen intoning
-// (modalen tonar redan in → raden ligger exakt över TourHosts rad utan att "hoppa").
+// Blades introduction — smal bildtextrad längst ner medan loggningsexemplet fyller i formuläret
+// (ersätter kortet så inget skymmer fälten). Läser bildtext + förlopp ur tourStore. Renderas av TourHost
+// med paus och Skip (Skip hoppar bara över exemplet, inte hela rundturen). still = ingen egen intoning.
 
 import { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
@@ -13,11 +11,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { useTourStore } from '../store/tourStore';
 
-export function TourCaptionBar({ onSkip, still = false }: { onSkip?: () => void; still?: boolean }) {
+export function TourCaptionBar({ onSkip, still = false, eyebrow }: { onSkip?: () => void; still?: boolean; eyebrow?: string }) {
   const insets = useSafeAreaInsets();
   const caption = useTourStore((s) => s.caption);
   const progress = useTourStore((s) => s.demoProgress);
   const done = useTourStore((s) => s.logDemoDoneAt > 0);
+  const paused = useTourStore((s) => s.paused);
+  const setPaused = useTourStore((s) => s.setPaused);
   // Pulserande punkt = "pågår"; blir en bock när flygningen är sparad.
   const pulse = useSharedValue(1);
   useEffect(() => {
@@ -26,7 +26,7 @@ export function TourCaptionBar({ onSkip, still = false }: { onSkip?: () => void;
       withTiming(1, { duration: 650, easing: Easing.inOut(Easing.quad) }),
     ), -1, false);
   }, [pulse]);
-  const dotStyle = useAnimatedStyle(() => ({ opacity: pulse.value }));
+  const dotStyle = useAnimatedStyle(() => ({ opacity: paused ? 0.35 : pulse.value }));
   const fill = useSharedValue(progress);
   useEffect(() => { fill.value = withTiming(progress, { duration: 420, easing: Easing.out(Easing.cubic) }); }, [progress, fill]);
   const fillStyle = useAnimatedStyle(() => ({ width: `${Math.round(fill.value * 100)}%` }));
@@ -42,12 +42,22 @@ export function TourCaptionBar({ onSkip, still = false }: { onSkip?: () => void;
             ? <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
             : <Animated.View style={[styles.dot, dotStyle]} />}
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={styles.eyebrow}>{done ? 'SAVED' : 'LOGGING AN EXAMPLE FLIGHT'}</Text>
+            <Text style={styles.eyebrow}>{done ? 'SAVED' : paused ? 'PAUSED' : (eyebrow ?? 'LOGGING AN EXAMPLE FLIGHT')}</Text>
             <Animated.Text key={caption ?? '-'} entering={FadeIn.duration(240)} style={styles.text} numberOfLines={2}>
               {caption ?? 'Preparing an example flight…'}
             </Animated.Text>
           </View>
-          {onSkip ? <TouchableOpacity onPress={onSkip} hitSlop={10}><Text style={styles.skip}>Skip</Text></TouchableOpacity> : null}
+          {onSkip && !done ? (
+            <>
+              <TouchableOpacity onPress={() => setPaused(!paused)} activeOpacity={0.8} style={styles.pause}
+                accessibilityRole="button" accessibilityLabel={paused ? 'Play' : 'Pause'}>
+                <Ionicons name={paused ? 'play' : 'pause'} size={18} color={Colors.textPrimary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onSkip} style={styles.skipBtn} accessibilityRole="button" accessibilityLabel="Skip the example">
+                <Text style={styles.skip}>Skip</Text>
+              </TouchableOpacity>
+            </>
+          ) : null}
         </View>
         <View style={styles.track}><Animated.View style={[styles.fill, fillStyle]} /></View>
       </View>
@@ -62,7 +72,9 @@ const styles = StyleSheet.create({
   },
   clip: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: Colors.primary + '4D' },
   tint: { backgroundColor: 'rgba(10,22,40,0.52)' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, paddingHorizontal: 14 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingLeft: 14, paddingRight: 8, minHeight: 62 },
+  pause: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF14', borderWidth: 1, borderColor: '#FFFFFF29' },
+  skipBtn: { height: 44, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary, marginHorizontal: 4 },
   eyebrow: { color: Colors.primary, fontSize: 9.5, fontWeight: '800', letterSpacing: 1.2, marginBottom: 2 },
   text: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700', lineHeight: 18 },

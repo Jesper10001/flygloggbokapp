@@ -22,6 +22,7 @@ import { DashboardGlobe } from '../../components/DashboardGlobe';
 import { UpdateAvailableModal } from '../../components/UpdateAvailableModal';
 import { UpdateAppliedModal } from '../../components/UpdateAppliedModal';
 import { useTourStore } from '../../store/tourStore';
+import { TourSpot, useTourScrollTo } from '../../components/TourSpot';
 import { DEMO_FLIGHTS, DEMO_STATS } from '../../constants/tourDemoData';
 import { AirportQuickSearch } from '../../components/AirportQuickSearch';
 import { useTimeFormat, decimalToHHMM } from '../../hooks/useTimeFormat';
@@ -522,6 +523,7 @@ function LogFlightButton({ onPress, label, style }: { onPress: () => void; label
       <LinearGradient colors={[Colors.primary + '22', Colors.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
       <Ionicons name="add-circle" size={18} color={Colors.primary} />
       <Text style={s.addBtnText}>{label}</Text>
+      <TourSpot id="dash-log" radius={16} inset={0} />
     </TouchableOpacity>
   );
 }
@@ -666,16 +668,9 @@ export default function DashboardScreen() {
   // Blades introduction — global map-steget styr globen härifrån.
   const tabSpace = useTabBarSpace(); // flytande glas-flikrad täcker botten
   const dashScrollRef = useRef<ScrollView>(null);
-  const tourGlobeMenu = useTourStore((st) => st.globeMenu);
-  const tourMapOpen = useTourStore((st) => st.mapOpen);
-  useEffect(() => {
-    if (tourGlobeMenu) {
-      setGlobeMenuOpen(true);
-      setTimeout(() => dashScrollRef.current?.scrollToEnd({ animated: true }), 220);
-    } else {
-      setGlobeMenuOpen(false);
-    }
-  }, [tourGlobeMenu]);
+  // Blades introduction: stopp 1 visar översikten högst upp, stopp 2 rullar fram Log flight-knappen.
+  useTourScrollTo('dash-stats', dashScrollRef, 100000);
+  const onLogRowLayout = useTourScrollTo('dash-log', dashScrollRef, 170);
 
   // Väder hämtas INTE automatiskt — bara när man drar ner sidan (pull-to-refresh = "Fetch WX").
   // Tickern är dold tills dess (visar "Fetch WX ↓"). Närmaste-fält-fallbacken sköts inne i servicen.
@@ -863,6 +858,7 @@ export default function DashboardScreen() {
 
       {/* ── Telemetry Panel ── */}
       <View style={s.telPanel}>
+        <TourSpot id="dash-stats" radius={18} inset={2} />
         {/* Väder-ticker ovanför WORKLOAD (BARA när hämtat; annars ligger "Fetch WX" inline på WORKLOAD-raden). */}
         {mode === 'manned' && wx && (
           <TouchableOpacity activeOpacity={0.7} style={s.wxTap} onPress={() => setWxPickerOpen(true)}>
@@ -1009,7 +1005,7 @@ export default function DashboardScreen() {
       ))}
 
       {/* ── Log new flight — photolog vänster + fysisk loggbok höger ── */}
-      <View style={s.logRow}>
+      <View style={s.logRow} onLayout={onLogRowLayout}>
         {/* Logbook scan är öppen bara när skanningen är lanserad (SCAN_OPEN); annars går knappen direkt till ACARS. */}
         <ScanSpeedDial style={s.sideBtn} accessibilityLabel="Scan" options={[
           ...(SCAN_OPEN ? [{ key: 'logbook', label: 'Logbook scan', icon: 'book-outline' as const, onPress: logbookScan.start }] : []),
@@ -1110,9 +1106,6 @@ export default function DashboardScreen() {
         formatTime={formatTime}
       />
     )}
-
-    {/* Blades introduction — global map öppnad av rundturen (söker/zoomar KJFK automatiskt). */}
-    <GlobalMapModal visible={tourMapOpen} onClose={() => useTourStore.getState().setGlobe(false, false, null)} />
 
     {/* Mjuk "uppdatering finns"-popup (dyker upp vid app-öppning, går att trycka bort). */}
     <UpdateAvailableModal />

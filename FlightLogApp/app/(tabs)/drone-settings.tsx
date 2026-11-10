@@ -25,6 +25,7 @@ import { useProfileStore, type SubRole } from '../../store/profileStore';
 import { useAppModeStore } from '../../store/appModeStore';
 import { useTourStore, beginTour } from '../../store/tourStore';
 import { TourPress } from '../../components/TourPress';
+import { TourSpot } from '../../components/TourSpot';
 import { useFlightStore } from '../../store/flightStore';
 import { refreshEntitlement } from '../../services/purchases';
 import { redeemPromo } from '../../services/promo';
@@ -376,12 +377,15 @@ export default function DroneSettingsScreen() {
         <CollapsibleSectionHeader accent={accent} expanded={expanded === 'import'} onPress={() => toggleSection('import')} tourPressId="import-section">Import</CollapsibleSectionHeader>
       </View>
       {expanded === 'import' && (
+        <View>
         <SectionCard>
           <Row accent={accent} icon="create-outline" iconColor={accent} title="Block import manually" subtitle="Add historical drone hours" onPress={() => router.push('/drone-import/manual')} separatorColor={DR.background} tourPressId="import-manual" />
           <Row accent={accent} icon="camera-outline" iconColor={accent} title="Scan controller log" subtitle="Log flights from a DJI / Autel screenshot" onPress={droneScan.start} separatorColor={DR.background} />
           <Row accent={accent} icon="document-attach-outline" iconColor={accent} title="Import CSV" subtitle="Import a drone-log CSV" onPress={() => router.push('/drone-import')} separatorColor={DR.background} />
           <Row accent={accent} icon="folder-open-outline" iconColor={accent} title="Imported data" subtitle="Review and delete your imports" onPress={() => router.push('/drone-import/history')} border={false} tourPressId="import-history" />
         </SectionCard>
+        <TourSpot id="import-rows" radius={16} inset={2} />
+        </View>
       )}
 
       {/* ── E. Export — exporterar BARA drone_flights ── */}

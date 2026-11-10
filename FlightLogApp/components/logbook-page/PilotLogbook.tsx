@@ -25,12 +25,15 @@ export function PilotLogbook() {
   const router = useRouter();
   const accent = Colors.primary;
   const { flights: realFlights, isLoading, loadFlights, loadStats } = useFlightStore();
-  // Blades introduction: visa DEMO-flygningar när rundturen kör och loggboken annars är tom. Loggnings-
-  // demons exempel-flygning är en riktig rad → läggs överst så rundturen kan trycka på den.
+  // Blades introduction: exempelflygningen (bara i minnet) läggs överst medan rundturen kör, och DEMO-
+  // flygningar fyller på när loggboken annars är tom.
   const tourDemo = useTourStore((s) => s.demo);
+  const tourExample = useTourStore((s) => (s.active ? s.examplePilot : null));
   const flights = useMemo(
-    () => (tourDemo ? [...realFlights, ...DEMO_FLIGHTS].sort((x, y) => y.date.localeCompare(x.date)) : realFlights),
-    [tourDemo, realFlights],
+    () => (tourDemo || tourExample
+      ? [...(tourExample ? [tourExample] : []), ...realFlights, ...(tourDemo ? DEMO_FLIGHTS : [])].sort((x, y) => y.date.localeCompare(x.date))
+      : realFlights),
+    [tourDemo, tourExample, realFlights],
   );
   const [view, setView] = useState<LogView>('list');
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});

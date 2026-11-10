@@ -44,7 +44,7 @@ import { FONT_LED7, FONT_LED14 } from '../../components/logflight/tokens';
 import { CountryFlag } from '../../components/CountryFlag';
 import { PersonPicker, type SavedPerson } from '../../components/logflight/PersonPicker';
 import { AddPilotModal } from '../../components/logflight/AddPilotModal';
-import { computeNightHoursTimed, destPointDeg, vertexArrivalTimes, positionAtMs, gcRad } from '../../utils/dayNight';
+import { computeNightHoursTimed, destPointDeg, vertexArrivalTimes } from '../../utils/dayNight';
 import { SunStrip } from '../../components/sun/SunStrip';
 import { buildSunTimeline } from '../../utils/sunTimeline';
 import { ApproachFlow, type ApproachVal, dimForApp, catForApp, normApp, APP_FIRST_WORDS } from '../../components/logflight/ApproachFlow';
@@ -54,7 +54,7 @@ import { useTourStore } from '../../store/tourStore';
 import { loadFlightDraft, saveFlightDraft, clearFlightDraft, draftLabels } from '../../services/flightDrafts';
 import { TOURS } from '../../constants/tourSteps';
 import { TourPress } from '../../components/TourPress';
-import { rememberTourDemo, cleanupTourDemo } from '../../services/tourDemoFlight';
+import { makeTourExampleFlight, tourExampleDate } from '../../constants/tourDemoData';
 import { TourCaptionBar } from '../../components/TourCaptionBar';
 import { localLabel, utcToLocalHHMM, localToUtcHHMM } from '../../utils/timezone';
 import { getAirportTzInfo, getNearbyAirports, addTemporaryPlace, getAirportByAnyCode, isOffAirportCode } from '../../db/icao';
@@ -117,21 +117,12 @@ const EMPTY: FlightFormData = {
   holds: '0',
 };
 
-// Blades introduction — loggningsdemons exempel-flygning: ESSA → hot refuel ESOE → ESGG (Landvetter väljs
-// via sökfunktionen), Y/Z med 60 % IFR / 40 % VFR, ca 30 % natt med nattlandning, 3D-approach + bana.
-// Egen farkost/andrepilot används om de finns, annars exemplet efter profilen (flygplan/helikopter).
-// TOUR_REMARK märker flygningen som exempel.
-const TOUR_ROUTE = { dep: 'ESSA', stop: 'ESOE', arr: 'ESGG', search: 'Landvetter' };
+// Blades introduction — loggningsexemplet: ESSA → ESGG i Quicklog, med ett exempelflygplan efter profilen
+// (flygplan/helikopter). Sparas aldrig; se effekten på logDemoRun längre ner.
+const TOUR_ROUTE = { dep: 'ESSA', arr: 'ESGG' };
 const TOUR_EXAMPLE = {
-  fixed: { type: 'AT72', reg: 'SE-MKG', durMin: 90, sp: 'Anna Berg' },
-  rotary: { type: 'H145', reg: 'SE-HEM', durMin: 125, sp: 'Anna Berg' },
-};
-const TOUR_IFR_SHARE = 0.6;   // Y/Z: andel IFR (resten VFR)
-const TOUR_NIGHT_SHARE = 0.3; // andel av flygtiden i mörker (sol < −6°), landning i mörker
-const TOUR_REMARK = 'Example flight · Blades introduction';
-const TOUR_ROLE_TEXT: Record<string, string> = {
-  pic: 'pilot in command', co_pilot: 'co-pilot (SIC)', dual: 'dual instruction', picus: 'PICUS',
-  spic: 'SPIC', ferry_pic: 'ferry PIC', observer: 'observer', relief_crew: 'relief crew',
+  fixed: { type: 'AT72', reg: 'SE-MKG', dep: '16:40', arr: '17:35', hours: 0.92 },
+  rotary: { type: 'H145', reg: 'SE-HEM', dep: '16:40', arr: '18:15', hours: 1.58 },
 };
 
 // ── Touch & Go Multi-Stop Helpers ────────────────────────────────────────────
@@ -777,18 +768,7 @@ export default function AddFlightScreen() {
   const stopsRef = useRef<View>(null);         // Stops/via-raden i route-kortet
   const heroRef = useRef<View>(null);          // total/distans/sol-glob-raden
   const scrollMetrics = useRef({ contentH: 0, viewH: 0 });
-  const demoLatest = useRef<{
-    set: (key: keyof FlightFormData, val: string) => void;
-    handleRoleChange: (r: PrimaryRole) => void;
-    selectSecondPilotRole: (key: string) => void;
-    performSave: (overrides?: Partial<FlightFormData>, skipOverlap?: boolean, demo?: boolean) => Promise<number | null>;
-    runwaysFor: (icao: string) => string[];
-    addRouteStop: () => void;
-    role: PrimaryRole;
-    hasDep: boolean;
-    hasArr: boolean;
-    form: FlightFormData;
-  } | null>(null);
+  const demoLatest = useRef<{ set: (key: keyof FlightFormData, val: string) => void; hasDep: boolean; hasArr: boolean; form: FlightFormData } | null>(null);
 
   // Senaste flygningen per typ → reverse/fill-latest blir LÄGE-beroende: i Sim används senaste sim-
   // flygningen, i Real senaste riktiga. Man kan alltså inte reversa en real flight in i en sim (el. tvärtom).
@@ -2480,15 +2460,17 @@ export default function AddFlightScreen() {
     : recentRegs;
 
   // ── Blades introduction: loggningsdemon ───────────────────────────────────
-  // TourHost ökar logDemoRun → formuläret fyller själv i en komplett flygning fält för fält (fokusram +
-  // bildtext i rundturens smala rad längst ner) och sparar den på riktigt, så loggboken kan öppna den:
-  // ESSA → (sök "Landvetter" → ESGG), hot refuel i ESOE via Stops/via, Sun route öppnas (natten faller),
-  // Y/Z 60/40, ca 30 % natt med nattlandning och en 3D-approach med bana. Egen farkost/andrepilot används
-  // om de finns. Ingen AI, inga tokens. Flygningen raderas när rundturen slutar (services/tourDemoFlight).
-  demoLatest.current = {
-    set, handleRoleChange, selectSecondPilotRole, performSave, runwaysFor, addRouteStop, role,
-    hasDep: !!depLatLon, hasArr: !!arrLatLon, form,
-  };
+  // Blades introduction — loggningsexemplet. TourHost öppnar Log flight (Quicklog), väntar tills formuläret
+  // sagt att det är monterat (formReady) och ökar sedan logDemoRun. Formuläret fyller då själv i ett kort
+  // exempel i fem moment: rutt, tider, det som räknas ut, flygplan, spara. Inga rutor öppnas (ingen sökruta,
+  // ingen Sun route) och INGENTING sparas: "flygningen" läggs i tourStore.examplePilot och visas ur minnet
+  // i loggbokslistan tills rundturen slutar. Paus i rundturen stannar exemplet mitt i ett moment.
+  demoLatest.current = { set, hasDep: !!depLatLon, hasArr: !!arrLatLon, form };
+  useEffect(() => {
+    if (isEdit || !useTourStore.getState().active) return;
+    useTourStore.getState().setFormReady(true);
+    return () => useTourStore.getState().setFormReady(false);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!logDemoRun || isEdit || logDemoRun === demoRunAtMount.current) return;
     const st0 = useTourStore.getState();
@@ -2500,12 +2482,19 @@ export default function AddFlightScreen() {
       return !dead && st.active && st.logDemoRun === logDemoRun && !!TOURS[st.mode][st.stepIndex]?.logDemo;
     };
     const L = () => demoLatest.current!; // senaste renderns funktioner/värden (inga inaktuella closures)
-    const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+    // Väntar ms — men tiden räknas inte medan rundturen är pausad.
+    const wait = async (ms: number) => {
+      let left = ms;
+      while (left > 0 && !dead) {
+        await new Promise<void>((r) => setTimeout(r, Math.min(50, left)));
+        if (!tour().paused) left -= 50;
+      }
+    };
     const waitFor = async (ok: () => boolean, maxMs: number) => {
       const t0 = Date.now();
       while (!ok() && Date.now() - t0 < maxMs) await wait(80);
     };
-    const PHASES = 14;
+    const PHASES = 5;
     const say = (n: number, caption: string) => tour().setCaption(caption, n / (PHASES + 1));
     const focus = (id: string | null) => tour().setPressTarget(id);
     // Scrolla så sektionen hamnar `above` px under skärmens överkant — aldrig förbi botten.
@@ -2515,13 +2504,7 @@ export default function AddFlightScreen() {
       const max = contentH > 0 && viewH > 0 ? Math.max(0, contentH - viewH) : Number.MAX_SAFE_INTEGER;
       scrollViewRef.current?.scrollTo({ y: Math.min(max, Math.max(0, y - above)), animated: true });
     };
-    // y i scroll-innehållet för ett nästlat element (Stops/via-raden, route-heron).
-    const measureY = (ref: { current: View | null }) => new Promise<number | undefined>((resolve) => {
-      const node = ref.current, inner = scrollContentRef.current;
-      if (!node || !inner) { resolve(undefined); return; }
-      try { node.measureLayout(inner, (_x, y) => resolve(y), () => resolve(undefined)); } catch { resolve(undefined); }
-    });
-    // "Skriver" stegvis (lite ojämnt tempo, som en människa). false = demon avbröts.
+    // "Skriver" stegvis (lite ojämnt tempo, som en människa). false = exemplet avbröts.
     const typeSeq = async (parts: string[], put: (v: string) => void, ms: number) => {
       for (let i = 0; i < parts.length; i++) {
         if (!alive()) return false;
@@ -2532,95 +2515,14 @@ export default function AddFlightScreen() {
     };
     const chars = (text: string) => Array.from({ length: text.length }, (_, i) => text.slice(0, i + 1));
     const clock = (t: string) => { const d = t.replace(':', ''); return [d.slice(0, 1), d.slice(0, 2), `${d.slice(0, 2)}:${d.slice(2, 3)}`, t]; };
-    const hhmmAt = (ms: number) => { const d = new Date(ms); return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`; };
 
     (async () => {
       try {
-        // ── Data: egen farkost/andrepilot om de finns, annars exemplet. Rutten är alltid exemplets. ──
         const R = TOUR_ROUTE;
         const ex = useProfileStore.getState().profile?.subRole === 'rotary' ? TOUR_EXAMPLE.rotary : TOUR_EXAMPLE.fixed;
-        const [recent, types, pilots, places] = await Promise.all([
-          getFlights(40).catch(() => [] as Flight[]),
-          getRecentAircraftTypes().catch(() => [] as string[]),
-          getRecentSecondPilotsWithRole(5).catch(() => [] as { name: string; role: string }[]),
-          getAirportTzInfo([R.dep, R.stop, R.arr]).catch(() => [] as { icao: string; lat: number; lon: number }[]),
-        ]);
-        const last = recent.find((f) => f.flight_type !== 'sim' && !(f.remarks || '').includes(TOUR_REMARK)) ?? null;
-        setLastReal(last); // "Reverse route"-raden får aldrig peka på en gammal exempel-flygning
+        const date = tourExampleDate();
 
-        let type = '', reg = '';
-        if (last?.aircraft_type && last.registration) { type = last.aircraft_type; reg = last.registration; }
-        else {
-          for (const tp of types) {
-            const regs = await getRecentRegistrations(tp).catch(() => [] as string[]);
-            if (regs[0]) { type = tp; reg = regs[0]; break; }
-          }
-        }
-        const ownAircraft = !!type;
-        if (!ownAircraft) { type = ex.type; reg = ex.reg; }
-        const sp = (last?.second_pilot || '').trim() || (pilots[0]?.name ?? '').trim() || ex.sp;
-
-        // Rutten som formuläret räknar på när stoppet lagts till: ESSA → ESOE (hot refuel-uppehåll) → ESGG.
-        const at = (c: string) => places.find((p) => p.icao === c);
-        const pts = [at(R.dep), at(R.stop), at(R.arr)];
-        const legs = pts.every(Boolean)
-          ? pts.map((p, i) => ({ lat: p!.lat, lon: p!.lon, dwellMin: i === 1 ? KIND_DWELL.refuel : 0 }))
-          : [];
-        let durMin = ex.durMin;
-        if (ownAircraft && legs.length) {
-          const kts = await getAircraftCruiseSpeed(type).catch(() => 0);
-          if (kts > 0) {
-            const nm = (gcRad(legs[0].lat, legs[0].lon, legs[1].lat, legs[1].lon) + gcRad(legs[1].lat, legs[1].lon, legs[2].lat, legs[2].lon)) * 3440;
-            durMin = Math.min(360, Math.max(50, Math.round((nm / kts) * 60) + KIND_DWELL.refuel + 16));
-          }
-        }
-        const totalMs = durMin * 60000;
-
-        // Avgångstid: ~30 % av flygtiden i mörker (sol < −6°), landning i mörker, start före mörkret, och
-        // redan landad (aldrig i framtiden). Söker bakåt 36 h: grovt per 10 min → varje lokalt minimum
-        // förfinas per minut → den NYASTE kandidaten som är nästan lika bra som den bästa vinner.
-        // (Verifierat över året: 27–33 % natt, nattlandning, även vid midsommar.)
-        const darkAt = (ms: number, p: { lat: number; lon: number }) => solarAltitudeDeg(new Date(ms), p.lat, p.lon) < CIVIL_TWILIGHT_DEG;
-        const nightShare = (depMs: number) => {
-          const N = 40; let n = 0;
-          for (let k = 0; k < N; k++) { const t = ((k + 0.5) / N) * totalMs; if (darkAt(depMs + t, positionAtMs(legs, totalMs, t))) n++; }
-          return n / N;
-        };
-        const score = (depMs: number) => {
-          const depAlt = solarAltitudeDeg(new Date(depMs), legs[0].lat, legs[0].lon);
-          return Math.abs(nightShare(depMs) - TOUR_NIGHT_SHARE)
-            + (darkAt(depMs + totalMs, legs[2]) ? 0 : 1)                       // landning i mörker
-            + (depAlt < CIVIL_TWILIGHT_DEG ? 0.5 : depAlt > -0.833 ? 0 : 0.02); // start före mörkret (helst i dagsljus)
-        };
-        const latest = Math.floor((Date.now() - totalMs - 10 * 60000) / 60000) * 60000;
-        let depMs = latest - 6 * 3600000; // reserv om koordinaterna saknas
-        let nightFrom: number | null = null;
-        if (legs.length) {
-          const coarse: { d: number; s: number }[] = [];
-          for (let d = latest; d > latest - 36 * 3600000; d -= 600000) coarse.push({ d, s: score(d) });
-          const cands = coarse.filter((c, i) => c.s < 0.5 && (i === 0 || c.s <= coarse[i - 1].s) && (i === coarse.length - 1 || c.s <= coarse[i + 1].s));
-          const refined = cands.map((c) => {
-            let bd = c.d, bs = c.s;
-            for (let d = c.d - 600000; d <= Math.min(c.d + 600000, latest); d += 60000) { const sc = score(d); if (sc < bs - 1e-9) { bs = sc; bd = d; } }
-            return { d: bd, s: bs };
-          });
-          if (refined.length) {
-            const top = Math.min(...refined.map((x) => x.s));
-            depMs = (refined.find((x) => x.s <= top + 0.03) ?? refined[0]).d; // nyast först i listan
-          } else {
-            let best = Infinity;
-            for (const c of coarse) if (c.s < best) { best = c.s; depMs = c.d; }
-          }
-          for (let k = 0; k <= 120; k++) {
-            const t = (k / 120) * totalMs;
-            if (darkAt(depMs + t, positionAtMs(legs, totalMs, t))) { nightFrom = depMs + t; break; }
-          }
-        }
-        const date = new Date(depMs).toISOString().slice(0, 10);
-        const depUtc = hhmmAt(depMs), arrUtc = hhmmAt(depMs + totalMs);
-        if (!alive()) return;
-
-        // ── Rent formulär: flygningens datum, UTC-tider, inga rester från förifyllningen ──
+        // ── Rent formulär: exemplets datum, UTC-tider, inga rester från förifyllningen ──
         setTimeMode('utc'); setDepLocalBuf(''); setArrLocalBuf('');
         setRouteStops([]); setApproaches({}); setExtraPilots([]); setCrewMembers([{ id: '1', role: '', name: '' }]);
         setDraft({ icao: '', kind: null, appType: null, runway: null, navaid: null }); setKindMenuOpen(false);
@@ -2632,188 +2534,69 @@ export default function AddFlightScreen() {
           aircraft_type: '', registration: '', second_pilot: '', second_pilot_role: '', remarks: '',
           flight_rules: 'VFR', ifr: '0', vfr: '0', night: '0', nvg: '0', app_2d: '0', app_3d: '0', holds: '0',
         }));
-        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-        await wait(700); if (!alive()) return;
+        scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+        await wait(500); if (!alive()) return;
 
-        // 1 · Avgång: ICAO tecken för tecken → flygplatsen hittas → off-block-tid.
-        say(1, 'Departure — airport and off-block time');
+        // 1 · Rutten: ICAO tecken för tecken (flygplatserna slås upp i den lokala databasen).
+        say(1, 'The route: Stockholm Arlanda to Gothenburg');
         scrollTo(demoY.current.route, 14);
         focus('lf-dep');
-        await wait(550);
-        if (!(await typeSeq(chars(R.dep), (v) => setForm((f) => ({ ...f, dep_place_raw: v, dep_place: v })), 115))) return;
-        await waitFor(() => L().hasDep, 1800); await wait(500); if (!alive()) return;
-        if (!(await typeSeq(clock(depUtc), (v) => L().set('dep_utc', v), 135))) return;
-        await wait(650); if (!alive()) return;
+        await wait(500);
+        if (!(await typeSeq(chars(R.dep), (v) => setForm((f) => ({ ...f, dep_place_raw: v, dep_place: v })), 120))) return;
+        await waitFor(() => L().hasDep, 1500); await wait(350); if (!alive()) return;
+        focus('lf-arr');
+        await wait(350);
+        if (!(await typeSeq(chars(R.arr), (v) => setForm((f) => ({ ...f, arr_place_raw: v, arr_place: v })), 120))) return;
+        await waitFor(() => L().hasArr, 1500); await wait(900); if (!alive()) return;
 
-        // 2 · Ankomst via sökfunktionen: "Landvetter" → träffen → ICAO-koden ESGG. Sen on-block-tid.
-        say(2, `Arrival — search "${R.search}" and pick ${R.arr}`);
+        // 2 · Tiderna.
+        say(2, 'The times: off-block and on-block');
+        focus('lf-dep');
+        if (!(await typeSeq(clock(ex.dep), (v) => L().set('dep_utc', v), 150))) return;
+        await wait(450); if (!alive()) return;
         focus('lf-arr');
-        await wait(700); if (!alive()) return;
+        if (!(await typeSeq(clock(ex.arr), (v) => L().set('arr_utc', v), 150))) return;
         focus(null);
-        const found = (await arrIcaoRef.current?.tourSearch(R.search, R.arr, alive)) ?? false;
-        if (!alive()) return;
-        if (!found && !(await typeSeq(chars(R.arr), (v) => setForm((f) => ({ ...f, arr_place_raw: v, arr_place: v })), 115))) return;
-        await waitFor(() => L().hasArr, 1800); if (!alive()) return;
-        say(2, 'Arrival — Gothenburg-Landvetter, on-block time');
-        focus('lf-arr');
-        await wait(550); if (!alive()) return;
-        if (!(await typeSeq(clock(arrUtc), (v) => L().set('arr_utc', v), 135))) return;
-        focus(null);
-        await wait(1100); if (!alive()) return; // panelerna glider isär, total/distans/glob växer fram
+        await wait(1100); if (!alive()) return; // panelerna glider isär, total och distans växer fram
 
         // 3 · Det som räknas ut automatiskt.
-        say(3, 'Flight time, distance and night — calculated for you');
+        say(3, 'Time, night and distance are worked out for you');
         focus('lf-total');
-        await wait(2300); if (!alive()) return;
+        await wait(3200); if (!alive()) return;
         focus(null);
 
-        // 4 · Stops / via: hot refuel i Örebro (typ → ICAO → Add). Rutt, distans och natt räknas om.
-        say(4, 'Stops / via — a hot refuel at Örebro (ESOE)');
-        scrollTo(await measureY(stopsRef), 170);
-        await wait(550); if (!alive()) return;
-        focus('lf-stops'); await wait(850); if (!alive()) return;
-        L().set('flight_type', 'touch_and_go');
-        focus(null); await wait(700); if (!alive()) return;
-        focus('lf-stop-kind'); await wait(800); if (!alive()) return;
-        setKindMenuOpen(true); focus(null);
-        await wait(600); if (!alive()) return;
-        focus('lf-kind-refuel'); await wait(800); if (!alive()) return;
-        setDraft((d) => ({ ...d, kind: 'refuel' })); setKindMenuOpen(false);
-        focus('lf-stop-icao'); await wait(500); if (!alive()) return;
-        if (!(await typeSeq(chars(R.stop), (v) => setDraft((d) => ({ ...d, icao: v })), 115))) return;
-        await wait(800); if (!alive()) return;
-        focus('lf-stop-add'); await wait(800); if (!alive()) return;
-        L().addRouteStop();
-        focus(null);
-        await wait(1300); if (!alive()) return;
-
-        // 5 · Sun route: kartan spelar upp flygningen — man ser var natten faller och att landningen sker i mörker.
-        say(5, 'Sun route — watch where night falls along the way');
-        scrollTo(await measureY(heroRef), 120);
-        await wait(650); if (!alive()) return;
-        focus('lf-sun'); await wait(900); if (!alive()) return;
-        focus(null);
-        setSunRouteOpen(true);
-        await wait(6000); if (!alive()) return;
-        say(5, nightFrom ? `Night falls at ${hhmmAt(nightFrom)} UTC — the landing at ${R.arr} is in darkness` : 'Sun route — day and night along the way');
-        await wait(5000); if (!alive()) return;
-        setSunRouteOpen(false);
-        await wait(700); if (!alive()) return;
-
-        // 6 · Flygregler: Y/Z (blandat IFR/VFR) — knappen ger 50/50 som grund.
-        say(6, 'Flight rules — Y/Z, a mix of IFR and VFR');
-        scrollTo(demoY.current.rules, 190);
-        focus('lf-rules'); await wait(650); if (!alive()) return;
-        focus('lf-rule-Y'); await wait(800); if (!alive()) return;
-        L().set('flight_rules', 'Y');
-        const half = ((parseFloat(L().form.total_time) || 0) / 2).toFixed(2);
-        setForm((f) => ({ ...f, ifr: half, vfr: half }));
-        focus(null);
-        await wait(800); if (!alive()) return;
-
-        // 7 · Villkor: IFR-baren dras till 60 % (VFR får resten); natten är redan uträknad.
-        const ifrPct = Math.round(TOUR_IFR_SHARE * 100);
-        say(7, `Conditions — ${ifrPct}% IFR, ${100 - ifrPct}% VFR, night from the sun`);
-        scrollTo(demoY.current.cond, 170);
-        focus('lf-cond'); await wait(700); if (!alive()) return;
-        for (let k = 1; k <= 5; k++) {
-          if (!alive()) return;
-          const tot = parseFloat(L().form.total_time) || 0;
-          const ifrV = +(tot * (0.5 + (TOUR_IFR_SHARE - 0.5) * (k / 5))).toFixed(2);
-          setForm((f) => ({ ...f, flight_rules: 'Y', ifr: ifrV.toFixed(2), vfr: Math.max(0, tot - ifrV).toFixed(2) }));
-          await wait(120);
-        }
-        await wait(1600); if (!alive()) return;
-
-        // 8 · Farkost.
-        say(8, 'Aircraft — type and registration');
+        // 4 · Flygplanet.
+        say(4, 'The aircraft: type and registration');
         scrollTo(demoY.current.card, 130);
         focus('lf-aircraft');
+        await wait(750); if (!alive()) return;
+        setForm((f) => ({ ...f, aircraft_type: ex.type }));
         await wait(650); if (!alive()) return;
-        setForm((f) => ({ ...f, aircraft_type: type }));
-        await wait(600); if (!alive()) return;
-        setForm((f) => ({ ...f, registration: reg }));
-        await wait(1000); if (!alive()) return;
+        setForm((f) => ({ ...f, registration: ex.reg }));
+        await wait(1500); if (!alive()) return;
 
-        // 9 · Roll (behåller förvalet från senaste flygningen; tiden fördelas på hela flygtiden).
-        const myRole = L().role;
-        say(9, `Your role — ${TOUR_ROLE_TEXT[myRole] ?? 'pilot in command'}`);
-        scrollTo((demoY.current.card ?? 0) + (demoY.current.roleIn ?? 0), 140);
-        focus('lf-role');
-        await wait(650); if (!alive()) return;
-        L().handleRoleChange(myRole);
-        await wait(1000); if (!alive()) return;
-
-        // 10 · Andrepilot (+ roll som passar din: PIC → SIC, dual → FI, annars PIC).
-        say(10, 'Second pilot — name and role');
-        scrollTo((demoY.current.card ?? 0) + (demoY.current.crewIn ?? 0), 180);
-        focus('lf-crew');
-        await wait(650); if (!alive()) return;
-        L().set('second_pilot', sp);
-        await wait(550); if (!alive()) return;
-        const r = L().role;
-        L().selectSecondPilotRole(r === 'pic' ? 'COP' : r === 'dual' ? 'FI' : 'PIC');
-        await wait(1100); if (!alive()) return;
-
-        // 11 · Starter & landningar: stoppet räknas, och landningen i ESGG blir en nattlandning.
-        say(11, `Take-offs and landings — the refuel stop, then a night landing at ${R.arr}`);
-        scrollTo(demoY.current.tol, 180);
-        focus('lf-tol');
-        await wait(2100); if (!alive()) return;
-
-        // 12 · Approach: 3D → ILS → ILS → bana (varje val "trycks").
-        const rwys = L().runwaysFor(R.arr);
-        const rwy = rwys[1] ?? rwys[0];
-        if (rwy) {
-          say(12, `Approach — 3D, ILS, runway ${rwy} at ${R.arr}`);
-          scrollTo(demoY.current.app, 150);
-          focus('lf-app'); await wait(650); if (!alive()) return;
-          const chain: [string, ApproachVal][] = [
-            [`app-${R.arr}-3D`, { dim: '3d' }],
-            [`app-${R.arr}-cat-ILS`, { dim: '3d', cat: 'ILS' }],
-            [`app-${R.arr}-app-ILS`, { dim: '3d', cat: 'ILS', app: 'ILS' }],
-            [`app-${R.arr}-rwy-${rwy}`, { dim: '3d', cat: 'ILS', app: 'ILS', rwy }],
-          ];
-          for (const [id, v] of chain) {
-            focus(id); await wait(750); if (!alive()) return;
-            setApproaches((prev) => ({ ...prev, [R.arr]: v }));
-            focus(null); await wait(420); if (!alive()) return;
-          }
-          await wait(500); if (!alive()) return;
-        }
-
-        // 13 · Remarks (fri text först; hanterade rader som "ESOE HR" och "SIC: …" ligger kvar under).
-        say(13, 'Remarks — anything worth remembering');
-        scrollTo(demoY.current.remarks, 200);
-        focus('lf-remarks');
-        await wait(550); if (!alive()) return;
-        let typed = '';
-        const okRemark = await typeSeq(chars(TOUR_REMARK), (v) => {
-          const before = typed; typed = v;
-          setForm((f) => ({ ...f, remarks: [v, ...(f.remarks || '').split('\n').filter((l) => l.trim() && l !== before)].join('\n') }));
-        }, 42);
-        if (!okRemark) return;
-        await wait(900); if (!alive()) return;
-
-        // 14 · Spara (tyst: inga popups, ingen navigering) → minns flygningen så den kan raderas sen.
-        say(14, 'Saving to your logbook…');
+        // 5 · Spara — utan att något skrivs: raden läggs i minnet och visas i loggboken under rundturen.
+        say(5, 'Save. For crew, approaches and stops, switch to Full.');
         focus(null);
         scrollViewRef.current?.scrollToEnd({ animated: true });
-        await wait(650); if (!alive()) return;
+        await wait(700); if (!alive()) return;
         focus('lf-save');
-        await wait(950); if (!alive()) return;
-        const id = await L().performSave(undefined, true, true);
-        if (id) await rememberTourDemo({ kind: 'pilot', id });
-        if (!tour().active) { await cleanupTourDemo(); return; } // rundturen avbröts mitt i sparningen
-        if (!alive()) return;
+        await wait(2000); if (!alive()) return;
+        const f = L().form;
+        const total = parseFloat(f.total_time) || ex.hours;
+        const night = Math.min(total, parseFloat(f.night) || 0);
+        tour().setExample({ pilot: makeTourExampleFlight({
+          date, aircraft_type: ex.type, registration: ex.reg, dep_place: R.dep, arr_place: R.arr, dep_utc: ex.dep, arr_utc: ex.arr,
+          total_time: total, pic: total, ifr: total, multi_pilot: total, me_time: total, cross_country: total, night,
+          landings_day: night > 0 ? 0 : 1, landings_night: night > 0 ? 1 : 0,
+        }) });
         focus(null);
-        tour().setCaption(id ? 'Saved to your logbook' : 'Could not save the example flight', 1);
+        tour().setCaption('Saved to your logbook', 1);
         tour().finishLogDemo();
       } catch {
         if (alive()) tour().finishLogDemo(); // oväntat fel → rundturen går vidare ändå
       } finally {
-        setSunRouteOpen(false); setKindMenuOpen(false);
-        if (tour().pressTarget?.startsWith('lf-') || tour().pressTarget?.startsWith('app-') || tour().pressTarget?.startsWith('arr-')) focus(null);
+        if (tour().pressTarget?.startsWith('lf-')) focus(null);
       }
     })();
     return () => { dead = true; };
