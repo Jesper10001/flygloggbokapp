@@ -135,6 +135,9 @@ ok(plan.earlier === 0 && at && at.page === 201 && at.row === 3, `senaste på sid
     return null;
   };
 
+  console.log('Inga böcker (boklistan laddas)');
+  ok(B.assignFlightsToBooks([], fl).length === 0 && B.assignFlightsToBooks([], []).length === 0, 'tom boklista ger en tom fördelning utan fel');
+
   console.log('En bok till: senaste flygningen på sid 26, rad 12 i den nya boken');
   const b1 = book(1, { end_page: 93, anchor_flight_id: 420, anchor_page: 92, anchor_row: 12 });
   const b2 = book(2, { end_page: 125, anchor_flight_id: 444, anchor_page: 26, anchor_row: 12 });

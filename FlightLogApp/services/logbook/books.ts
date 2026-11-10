@@ -66,6 +66,7 @@ function computeLeading(book: DigitalBook, sorted: Flight[]): number {
  *  boken slutar vid sin sista sida; resten väntar på nästa bok (overflowCount). */
 export function assignFlightsToBooks(books: DigitalBook[], flights: Flight[]): BookSlice[] {
   const ordered = [...books].sort((a, b) => (a.display_order - b.display_order) || (a.id - b.id));
+  if (ordered.length === 0) return [];   // inga böcker (än): t.ex. medan boklistan laddas
   const sorted = sortFlightsChrono(flights.filter(isBookRow));
 
   // ── Enskild bok = den SENASTE boken. Fönstret SLUTAR vid ankar-flygningen (senaste flygningen,
