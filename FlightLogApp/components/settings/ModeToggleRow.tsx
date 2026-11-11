@@ -1,109 +1,241 @@
-// Kortet med två segment-toggles, utan rubriker: PILOT | DRONE till vänster och EXTENSIVE | ESSENTIAL till
-// höger (AppVariantToggle). PILOT | DRONE: knoppen glider (Animated translateX) och bytet bekräftas med en
-// dialog + lätt haptik innan appläget faktiskt skiftas. Delad av pilot- och drönar-settings. Själva
-// lägesbytet (switchProfile) sköts av föräldern via onConfirmSwitch.
-// Dialogen är appens popup-ruta (GlassDialog) i stället för Alert.alert — en native alert kan inte visa den
-// gröna raden som lugnar användaren att datan i läget man lämnar finns kvar.
-import { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, Animated } from 'react-native';
+// Settings-kortet för loggbok och layout (design C2, 2026-11-11). Kortet visar vad man använder nu
+// ("Pilot logbook · Aeroplanes and helicopters" + FULL) och knappen "Switch logbook or layout" öppnar ett
+// ark med två val: loggbok (Pilot | Drone) och layout (Full = Blades Extensive | Essential). Knappen längst
+// ner säger vad som händer ("Switch to Drone logbook" osv.), så ingen extra bekräftelseruta behövs.
+// Själva loggboksbytet (switchProfile) sköts av föräldern via onConfirmSwitch; Essential-bytet görs här
+// (samma steg som den gamla AppVariantToggle: replace till /essential, sedan setVariant).
+// Delad av pilot- och drönar-settings. IntroductionButton = den centrerade pillerknappen under kortet.
+import { useState } from 'react';
+import { View, Text, Pressable, TouchableOpacity, Modal, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../constants/colors';
 import { DR } from '../../constants/droneTheme';
-import { GlassDialog, DialogIcon } from '../GlassDialog';
-import { AppVariantToggle } from './AppVariantRow';
+import { useAppVariantStore } from '../../store/appVariantStore';
 
 const SAFE_GREEN = DR.success; // "datan finns kvar" — tydligt grön (cyan-accenten skulle smälta ihop)
 
-const PAD = 4;
-const BORDER = 1;
+type Mode = 'manned' | 'drone';
+type Layout = 'full' | 'essential';
+
+const LOGBOOKS: Record<Mode, { title: string; line1: string; line2: string; icon: keyof typeof Ionicons.glyphMap }> = {
+  manned: { title: 'Pilot', line1: 'Aeroplanes and helicopters', line2: 'Licences, currency and Pilot CV', icon: 'airplane-outline' },
+  drone: { title: 'Drone', line1: 'Commercial, military or hobby', line2: 'VLOS to BVLOS, EASA categories', icon: 'hardware-chip-outline' },
+};
+
+function Radio({ on }: { on: boolean }) {
+  return (
+    <View style={[st.radio, on && { borderColor: Colors.primary }]}>
+      {on ? <View style={st.radioDot} /> : null}
+    </View>
+  );
+}
 
 export function ModeToggleRow({ mode, onConfirmSwitch }: {
-  mode: 'manned' | 'drone';
-  onConfirmSwitch: (target: 'manned' | 'drone') => void;
+  mode: Mode;
+  onConfirmSwitch: (target: Mode) => void;
 }) {
-  const isDrone = mode === 'drone';
-  const anim = useRef(new Animated.Value(isDrone ? 1 : 0)).current;
-  // Segmentet delar kortets bredd med app-togglen. Knoppen = halva insidan (ramen + paddingen avdragna).
-  const [segW, setSegW] = useState(0);
-  const KNOB_W = Math.max(0, (segW - BORDER * 2 - PAD * 2) / 2);
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const [open, setOpen] = useState(false);
+  const [pickMode, setPickMode] = useState<Mode>(mode);
+  const [pickLayout, setPickLayout] = useState<Layout>('full');
+  const cur = LOGBOOKS[mode];
 
-  // Håll knoppen i synk med aktuellt läge (t.ex. om man landar här efter ett byte).
-  // JS-driver (useNativeDriver:false) → den interpolerade positionen appliceras direkt vid varje render,
-  // så knoppen hamnar rätt redan vid mount (native-driver applicerade ibland inte initialvärdet → boxen
-  // fastnade till vänster medan bara texten highlightades).
-  useEffect(() => {
-    Animated.spring(anim, { toValue: isDrone ? 1 : 0, useNativeDriver: false, friction: 9, tension: 80 }).start();
-  }, [isDrone, anim]);
+  // Inställningarna visas bara i Full (Essential har egna skärmar), så nuvarande layout är alltid Full.
+  const openSheet = () => { setPickMode(mode); setPickLayout('full'); setOpen(true); };
+  const close = () => setOpen(false);
 
-  const translateX = anim.interpolate({ inputRange: [0, 1], outputRange: [0, KNOB_W] });
+  const modeChanged = pickMode !== mode;
+  const toEssential = pickLayout === 'essential';
+  const cta = modeChanged && toEssential ? `Switch to ${LOGBOOKS[pickMode].title} · Essential`
+    : modeChanged ? `Switch to ${LOGBOOKS[pickMode].title} logbook`
+    : toEssential ? 'Use the Essential layout'
+    : 'Done';
 
-  // Bekräftelsedialogen. target behålls även när den stängs → texten byter inte riktning under uttoningen.
-  const [dialog, setDialog] = useState<{ open: boolean; target: 'manned' | 'drone' }>({ open: false, target: 'drone' });
-  const toDrone = dialog.target === 'drone';
-  const close = () => setDialog((d) => ({ ...d, open: false }));
-
-  const press = (target: 'manned' | 'drone') => {
-    if (target === mode) return;
-    setDialog({ open: true, target });
-  };
-
-  const confirm = () => {
-    if (!dialog.open) return;
-    const target = dialog.target;
+  const apply = () => {
     close();
+    if (!modeChanged && !toEssential) return;
     try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch { /* haptik valfri */ }
-    // Animera INTE knoppen här mot target — knoppen styrs ENBART av `isDrone` (useEffect:en ovan).
-    // Att flytta knoppen mot target och sedan navigera gjorde att den fastnade på fel plats om
-    // skärmen låg kvar monterad och `isDrone` inte ändrades (t.ex. drönar-settings). Nu glider den
-    // via useEffect:en när läget faktiskt ändras → alltid i synk med vald sida.
-    // Låt dialogen tona ut innan bytet (som byter skärm) — en Modal som stängs mitt i en navigering kan hänga sig.
-    setTimeout(() => onConfirmSwitch(target), 220);
+    // Låt arket glida ut innan bytet (som byter skärm) — en Modal som stängs mitt i en navigering kan hänga sig.
+    setTimeout(() => {
+      if (modeChanged) onConfirmSwitch(pickMode);
+      if (toEssential) {
+        // Efter ett loggboksbyte byggs flikarna om (key={mode}); vänta in det innan Essential tar över.
+        setTimeout(() => {
+          router.replace('/essential');
+          // Efter övergången: flikarna skickar vidare till Essential så fort varianten ändras och skulle bli tomma under den.
+          setTimeout(() => { useAppVariantStore.getState().setVariant('essential').catch(() => {}); }, 500);
+        }, modeChanged ? 600 : 0);
+      }
+    }, 280);
   };
 
   return (
     <>
-    <GlassDialog
-      visible={dialog.open}
-      onClose={close}
-      icon={<DialogIcon name={toDrone ? 'hardware-chip-outline' : 'airplane-outline'} />}
-      eyebrow="Logbook"
-      title={toDrone ? 'Switch to Drone logbook?' : 'Switch to Pilot logbook?'}
-      body={
-        <Text style={{ color: Colors.textSecondary, fontSize: 14.5, lineHeight: 20, textAlign: 'center', marginTop: 2 }}>
-          {toDrone ? 'This switches the whole app to your Drone logbook.' : 'This switches the whole app to your Pilot logbook.'}
-          {'\n'}
-          {/* Andra meningen i grönt: datan i läget man lämnar ligger kvar orörd (egna tabeller). */}
-          <Text style={{ color: SAFE_GREEN }}>{toDrone ? 'All data in Pilot mode is saved.' : 'All data in Drone mode is saved.'}</Text>
-        </Text>
-      }
-      primary={{ label: 'Switch', onPress: confirm }}
-      secondary={{ label: 'Cancel', onPress: close }}
-    />
-    <View style={{
-      marginHorizontal: 20, marginTop: 24, padding: 10, gap: 10, borderRadius: 16,
-      backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder, flexDirection: 'row', alignItems: 'center',
-    }}>
-      <View
-        accessibilityRole="adjustable"
-        accessibilityLabel={`Logbook, ${isDrone ? 'Drone' : 'Pilot'} selected`}
-        onLayout={(e) => setSegW(e.nativeEvent.layout.width)}
-        style={{ flex: 1, height: 44, borderRadius: 11, padding: PAD, backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.cardBorder, flexDirection: 'row' }}
-      >
-        <Animated.View style={{
-          // top + bottom = PAD → lika stort glapp upptill/nedtill (symmetrisk höjd oavsett ramen).
-          position: 'absolute', top: PAD, bottom: PAD, left: PAD, width: KNOB_W, borderRadius: 8,
-          backgroundColor: 'rgba(0,200,232,0.14)', borderWidth: 1, borderColor: 'rgba(0,200,232,0.5)',
-          transform: [{ translateX }],
-        }} />
-        <Pressable onPress={() => press('manned')} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 1.8, color: !isDrone ? Colors.primary : Colors.textSecondary }}>PILOT</Text>
-        </Pressable>
-        <Pressable onPress={() => press('drone')} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 1.8, color: isDrone ? Colors.primary : Colors.textSecondary }}>DRONE</Text>
-        </Pressable>
+      <View style={st.card}>
+        <View style={st.cardTop}>
+          <View style={[st.iconTile, { backgroundColor: Colors.primary + '1A' }]}>
+            <Ionicons name={cur.icon} size={22} color={Colors.primary} />
+          </View>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={st.cardTitle}>{cur.title} logbook</Text>
+            <Text style={st.cardSub}>{cur.line1}</Text>
+          </View>
+          <View style={st.tag}><Text style={st.tagText}>FULL</Text></View>
+        </View>
+        <TouchableOpacity onPress={openSheet} activeOpacity={0.7} style={st.cardBtn}
+          accessibilityRole="button" accessibilityLabel={`${cur.title} logbook, full layout. Switch logbook or layout`}>
+          <Ionicons name="swap-horizontal" size={18} color={Colors.primary} />
+          <Text style={st.cardBtnText}>Switch logbook or layout</Text>
+          <Ionicons name="chevron-forward" size={17} color={Colors.primary} />
+        </TouchableOpacity>
       </View>
-      <AppVariantToggle />
-    </View>
+
+      <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
+        <Pressable style={st.backdrop} onPress={close}>
+          <Pressable style={[st.sheet, { paddingBottom: insets.bottom + 16 }]} onPress={() => {}}>
+            <BlurView pointerEvents="none" tint="systemThickMaterialDark" intensity={80} style={StyleSheet.absoluteFill} />
+            <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(12,26,48,0.55)' }]} />
+            <View style={st.grabber} />
+            <View style={st.head}>
+              <Text style={st.title}>Logbook and layout</Text>
+              <TouchableOpacity onPress={close} hitSlop={10} accessibilityLabel="Close" style={st.closeBtn}>
+                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={st.label}>LOGBOOK</Text>
+            {(['manned', 'drone'] as Mode[]).map((m) => {
+              const on = pickMode === m;
+              const lb = LOGBOOKS[m];
+              return (
+                <TouchableOpacity key={m} onPress={() => setPickMode(m)} activeOpacity={0.8}
+                  style={[st.option, on && st.optionOn]}
+                  accessibilityRole="radio" accessibilityState={{ selected: on }}
+                  accessibilityLabel={`${lb.title} logbook. ${lb.line1}. ${lb.line2}`}>
+                  <View style={[st.optIcon, { backgroundColor: on ? Colors.primary + '24' : 'rgba(255,255,255,0.06)' }]}>
+                    <Ionicons name={lb.icon} size={19} color={on ? Colors.primary : Colors.textSecondary} />
+                  </View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={st.optTitle}>{lb.title}</Text>
+                    <Text style={st.optSub}>{lb.line1}</Text>
+                    <Text style={st.optSub}>{lb.line2}</Text>
+                  </View>
+                  <Radio on={on} />
+                </TouchableOpacity>
+              );
+            })}
+
+            <Text style={[st.label, { marginTop: 4 }]}>LAYOUT</Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {([
+                ['full', 'Full', 'Dashboard, Logbook, Insights and every tool'],
+                ['essential', 'Essential', 'One screen: totals, log a flight, import and export'],
+              ] as [Layout, string, string][]).map(([k, t, d]) => {
+                const on = pickLayout === k;
+                return (
+                  <TouchableOpacity key={k} onPress={() => setPickLayout(k)} activeOpacity={0.8}
+                    style={[st.option, st.layoutOpt, on && st.optionOn]}
+                    accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={`${t} layout. ${d}`}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={st.optTitle}>{t}</Text>
+                      <Radio on={on} />
+                    </View>
+                    <Text style={st.optSub}>{d}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={st.safe}>
+              <View style={st.safeIcon}><Ionicons name="shield-checkmark-outline" size={24} color={SAFE_GREEN} /></View>
+              <View style={{ flex: 1, gap: 3 }}>
+                <Text style={st.safeTitle}>All your data is kept</Text>
+                <Text style={st.safeText}>Switching only changes which logbook you see. Nothing is deleted.</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity onPress={apply} activeOpacity={0.85} style={st.cta} accessibilityRole="button">
+              <Text style={st.ctaText}>{cta}</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </>
   );
 }
+
+// Den centrerade pillerknappen "Take the Blades introduction" (stil 2 i designen).
+export function IntroductionButton({ onPress }: { onPress: () => void }) {
+  return (
+    <View style={{ marginTop: 22, alignItems: 'center' }}>
+      <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={st.pill}
+        accessibilityRole="button" accessibilityLabel="Take the Blades introduction">
+        <View style={st.pillPlay}>
+          <Ionicons name="play" size={15} color={Colors.textInverse} style={{ marginLeft: 2 }} />
+        </View>
+        <Text style={st.pillText}>Take the Blades introduction</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const st = StyleSheet.create({
+  card: {
+    marginHorizontal: 20, marginTop: 24, borderRadius: 20, overflow: 'hidden',
+    backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder,
+  },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 15 },
+  iconTile: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  cardTitle: { fontSize: 17.5, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.2 },
+  cardSub: { fontSize: 13, color: Colors.textSecondary },
+  tag: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  tagText: { fontSize: 10.5, fontWeight: '700', letterSpacing: 1.4, color: Colors.textSecondary },
+  cardBtn: {
+    minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16,
+    borderTopWidth: 1, borderTopColor: Colors.cardBorder,
+  },
+  cardBtnText: { flex: 1, fontSize: 15, fontWeight: '600', color: Colors.primary },
+
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  sheet: {
+    borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: 18, paddingTop: 8, gap: 10, overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.16)',
+  },
+  grabber: { alignSelf: 'center', width: 38, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.18)', marginBottom: 2 },
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  title: { fontSize: 21, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.3 },
+  closeBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginRight: -10 },
+  label: { fontSize: 11, fontWeight: '700', letterSpacing: 2, color: Colors.textSecondary },
+  option: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 18,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)', backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  optionOn: { borderColor: Colors.primary + 'B3', backgroundColor: Colors.primary + '12' },
+  layoutOpt: { flex: 1, flexDirection: 'column', alignItems: 'stretch', gap: 6 },
+  optIcon: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  optTitle: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
+  optSub: { fontSize: 12.5, lineHeight: 16, color: '#9DB6CC' },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#4D6884', alignItems: 'center', justifyContent: 'center' },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary },
+  safe: {
+    flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 18, marginTop: 6,
+    backgroundColor: 'rgba(111,214,143,0.08)', borderWidth: 1, borderColor: 'rgba(111,214,143,0.28)',
+  },
+  safeIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(111,214,143,0.14)', alignItems: 'center', justifyContent: 'center' },
+  safeTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
+  safeText: { fontSize: 14, lineHeight: 19, color: '#B4C9DD' },
+  cta: { height: 54, borderRadius: 16, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  ctaText: { fontSize: 16.5, fontWeight: '700', color: Colors.textInverse },
+
+  pill: {
+    height: 50, borderRadius: 25, flexDirection: 'row', alignItems: 'center', gap: 11, paddingLeft: 7, paddingRight: 20,
+    borderWidth: 1, borderColor: Colors.primary + '66', backgroundColor: Colors.primary + '14',
+  },
+  pillPlay: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  pillText: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
+});

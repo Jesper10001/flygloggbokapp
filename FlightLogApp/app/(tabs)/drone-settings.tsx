@@ -41,7 +41,7 @@ import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { useVersionStore } from '../../store/versionStore';
 import { getSetting, setSetting } from '../../db/flights';
 import { SignatureView, type SignatureData } from '../../components/SignaturePad';
-import { ModeToggleRow } from '../../components/settings/ModeToggleRow';
+import { ModeToggleRow, IntroductionButton } from '../../components/settings/ModeToggleRow';
 import { ICloudSyncRow } from '../../components/settings/ICloudSyncRow';
 import { useAppLockStore } from '../../store/appLockStore';
 import { isPhotoSyncAvailable, hasPendingSync, hasUnfinishedReview } from '../../services/dronePhotoSync';
@@ -490,7 +490,7 @@ export default function DroneSettingsScreen() {
       </SectionCard>
       )}
 
-      {/* Byt hela loggboken (PILOT|DRONE, stannar kvar på Settings) och appvariant (EXTENSIVE|ESSENTIAL) i ett kort. */}
+      {/* Loggbok och layout: kort som visar vad man använder + ark för att byta (Pilot|Drone, Full|Essential). */}
       <ModeToggleRow
         mode={appMode === 'drone' ? 'drone' : 'manned'}
         onConfirmSwitch={(target) => {
@@ -504,16 +504,9 @@ export default function DroneSettingsScreen() {
         }}
       />
 
-      {/* Blades introduction — diskret textlänk (handoff B4). */}
-      <View style={{ marginTop: 26, marginBottom: 28, alignItems: 'center' }}>
-        <TouchableOpacity onPress={() => beginTour('drone')} activeOpacity={0.7}
-          hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
-          style={{ minHeight: 44, justifyContent: 'center' }}>
-          <Text style={{ fontSize: 13, fontWeight: '500', color: DR.text2, borderBottomWidth: 1, borderBottomColor: '#2A4260', paddingBottom: 2 }}>
-            Take the Blades introduction
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {/* Blades introduction — centrerad pillerknapp (design C2). */}
+      <IntroductionButton onPress={() => beginTour('drone')} />
+      <View style={{ height: 34 }} />
 
       {/* Blade-coins — förklarande popup */}
       <CoinInfoDialog visible={showCoinInfo} onClose={() => setShowCoinInfo(false)} shopHint={(isPremium || isMax) && coinShopAvailable()} />

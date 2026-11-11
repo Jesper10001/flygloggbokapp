@@ -37,7 +37,7 @@ import { redeemPromo } from '../../services/promo';
 import { clearDroneRegistryCategories, getDroneFlightCount, listCertificates } from '../../db/drones';
 import { getSetting, setSetting } from '../../db/flights';
 import { SignatureView, type SignatureData } from '../../components/SignaturePad';
-import { ModeToggleRow } from '../../components/settings/ModeToggleRow';
+import { ModeToggleRow, IntroductionButton } from '../../components/settings/ModeToggleRow';
 import { useVersionStore } from '../../store/versionStore';
 import { useRegulationStandardStore } from '../../store/regulationStandardStore';
 import { ICloudSyncRow } from '../../components/settings/ICloudSyncRow';
@@ -844,7 +844,7 @@ export default function SettingsScreen() {
       </Card>
       )}
 
-      {/* Byt hela loggboken (PILOT|DRONE, stannar kvar på Settings) och appvariant (EXTENSIVE|ESSENTIAL) i ett kort. */}
+      {/* Loggbok och layout: kort som visar vad man använder + ark för att byta (Pilot|Drone, Full|Essential). */}
       <ModeToggleRow
         mode={isDrone ? 'drone' : 'manned'}
         onConfirmSwitch={(target) => {
@@ -858,15 +858,9 @@ export default function SettingsScreen() {
         }}
       />
 
-      {/* Blades introduction — diskret textlänk (handoff B4). */}
-      <View style={{ marginTop: 26, marginBottom: 28, alignItems: 'center' }}>
-        <TouchableOpacity onPress={() => beginTour(isDrone ? 'drone' : 'pilot')} activeOpacity={0.7}
-          hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
-          style={{ minHeight: 44, justifyContent: 'center' }}>
-          <Text style={{ fontSize: 13, fontWeight: '500', color: Colors.textSecondary, borderBottomWidth: 1, borderBottomColor: '#2A4260', paddingBottom: 2 }}>
-            Take the Blades introduction
-          </Text>
-        </TouchableOpacity>
+      {/* Blades introduction — centrerad pillerknapp (design C2). */}
+      <IntroductionButton onPress={() => beginTour(isDrone ? 'drone' : 'pilot')} />
+      <View style={{ marginTop: 6, marginBottom: 28, alignItems: 'center' }}>
         {/* Bara i TestFlight-bygget: den nya onboardingen att titta på, utan att något sparas. */}
         {NEW_PAYWALLS ? (
           <TouchableOpacity onPress={() => router.push('/onboarding?preview=1' as any)} activeOpacity={0.7}
