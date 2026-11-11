@@ -67,13 +67,15 @@ export default function ScanCameraScreen() {
   const [trayOpen, setTrayOpen] = useState(false);
   const [preparing, setPreparing] = useState(false);
   const lastAspect = useRef(DEFAULT_ASPECT);
-  // Skärmen vrids till liggande när den öppnas (effekten nedan). Kameran startar direkt, så att bilden är
-  // framme så fort som möjligt; panelerna ritas först när skärmen ligger ned, så att de inte hinner visas
-  // hoptryckta i stående format. Vrids den aldrig (låset nekas) visas de ändå efter en kort stund.
+  // Skärmen vrids till liggande när den öppnas (effekten nedan). Kameran startar direkt bakom en marinblå
+  // täckare, så att bilden är framme när skärmen ligger ned; panelerna och kamerabilden visas först då, aldrig
+  // hoptryckta i stående format. Har skärmen inte vridit sig efter en stund ber täckaren en vända telefonen.
   const win = useWindowDimensions();
-  const [waited, setWaited] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setWaited(true), 600); return () => clearTimeout(t); }, []);
-  const laidOut = win.width > win.height || waited;
+  const landscape = win.width > win.height;
+  const [late, setLate] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setLate(true), 2500); return () => clearTimeout(t); }, []);
+  const [leaving, setLeaving] = useState(false);
+  const leavingRef = useRef(false);
 
   const bookMode = useLocalSearchParams<{ book?: string }>().book === '1';
   const { isPremium, isMax } = useFlightStore();
@@ -84,9 +86,20 @@ export default function ScanCameraScreen() {
 
   // Liggande så länge kameran visas (expo-screen-orientation, som bokvyn). Stående igen när den stängs:
   // leave() nedan vrider tillbaka FÖRE navigeringen; låsen här är en reserv om skärmen stängs på annat sätt.
+  // Kameran öppnas oftast från en dialog (valet av skanning) som just håller på att stängas. Så länge den
+  // ligger kvar nekar iOS vridningen, och ett enda låsanrop vid öppningen gav då en stående kamera. Därför
+  // upprepas låset tills skärmen ligger ned (varje anrop ber iOS vrida igen), eller tills man är på väg ut.
   useEffect(() => {
-    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
+    const lock = () => { ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {}); };
+    lock();
+    let tries = 0;
+    const iv = setInterval(() => {
+      const d = Dimensions.get('window');
+      if (leavingRef.current || d.width > d.height || ++tries > 12) { clearInterval(iv); return; }
+      lock();
+    }, 250);
     return () => {
+      clearInterval(iv);
       const portrait = () => { ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {}); };
       portrait();
       setTimeout(portrait, 700);
@@ -106,8 +119,6 @@ export default function ScanCameraScreen() {
   // Lämna kameran som bokvyn gör: släck kameran och panelerna, lås stående (fire-and-forget, lockAsync kan
   // hänga) och navigera först när skärmen står upp igen. Navigerar man först och vrider sedan ritas skärmen
   // under om i liggande format och blir kvar så (flygkortet bredare än skärmen, flikraden förskjuten).
-  const [leaving, setLeaving] = useState(false);
-  const leavingRef = useRef(false);
   const leave = useCallback((go: () => void) => {
     if (leavingRef.current) return;
     leavingRef.current = true;
@@ -262,7 +273,7 @@ export default function ScanCameraScreen() {
           ref={camRef}
           style={StyleSheet.absoluteFill}
           active={!trayOpen && !preparing}
-          autoCapture={autoCapture && !full}
+          autoCapture={landscape && autoCapture && !full}
           torch={torch}
           guideAspect={aspect}
           guideInsets={guideInsets}
@@ -273,7 +284,7 @@ export default function ScanCameraScreen() {
       )}
 
       {/* Vänster: stäng, vilket uppslag, vad man ska göra och vad kameran väntar på */}
-      {laidOut && !leaving && (
+      {landscape && !leaving && (
         <View style={[s.leftPanel, { width: leftW, paddingLeft: padL, paddingBottom: padB }]}>
           <TouchableOpacity style={s.closeBtn} onPress={close} accessibilityRole="button" accessibilityLabel="Close">
             <Ionicons name="close" size={24} color="#DCE9F5" />
@@ -295,7 +306,7 @@ export default function ScanCameraScreen() {
       )}
 
       {/* Höger: lampa, avtryckare med Auto, tagna uppslag och Done */}
-      {laidOut && !leaving && (
+      {landscape && !leaving && (
         <View style={[s.rightPanel, { width: rightW, paddingRight: padR }]}>
           <TouchableOpacity
             style={[s.round, s.lightBtn, torch && s.roundActive]}
@@ -390,6 +401,22 @@ export default function ScanCameraScreen() {
         <View style={s.preparing}>
           <ActivityIndicator color="#fff" />
           <Text style={s.preparingText}>Preparing photos…</Text>
+        </View>
+      )}
+
+      {/* Täckare medan skärmen vrids: in till liggande när kameran öppnas, tillbaka till stående när den stängs. */}
+      {(leaving || !landscape) && (
+        <View style={s.cover}>
+          {!leaving && late && (
+            <>
+              <Ionicons name="phone-landscape-outline" size={34} color="#B4C9DD" />
+              <Text style={s.coverTitle}>Turn your phone sideways</Text>
+              <Text style={s.coverBody}>The logbook camera works in landscape.</Text>
+              <TouchableOpacity style={s.traySecondary} onPress={() => leave(() => router.back())} accessibilityRole="button">
+                <Text style={s.traySecondaryText}>Close</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       )}
     </View>
@@ -543,6 +570,13 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', gap: 10,
   },
   preparingText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+
+  cover: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#0A1628',
+    alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: 32,
+  },
+  coverTitle: { color: '#fff', fontFamily: 'Fraunces', fontSize: 21, fontWeight: '600', textAlign: 'center', marginTop: 4 },
+  coverBody: { color: '#B4C9DD', fontSize: 14, lineHeight: 20, textAlign: 'center', marginBottom: 10 },
 
   fallback: { alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: Colors.background },
   fallbackTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700', textAlign: 'center' },
