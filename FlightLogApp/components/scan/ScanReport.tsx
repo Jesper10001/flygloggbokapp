@@ -76,6 +76,89 @@ function Badge({ color, label: text, ion, mci }: { color: string; label?: string
 
 export type CellState = 'open' | 'changed' | null;
 
+export interface RegistrationItem {
+  reg: string; rows: number; isNew: boolean; confirmed: boolean; similar: string[];
+  example: { rowKey: string; text: string } | null;
+}
+
+// Registreringarna i skanningen. En ny registrering (inte i flottan) blir ett nytt luftfartyg i Fleet när man
+// sparar, så de står först med en flygning som exempel att jämföra med pappersboken, och kan bytas här: bytet
+// gäller alla rader med registreringen. De man redan har står som en rad under.
+function RegistrationsSection({ items, onChange, onOpen }: {
+  items: RegistrationItem[]; onChange?: (from: string, to: string) => void; onOpen: (rowKey: string) => void;
+}) {
+  const [editing, setEditing] = useState<string | null>(null);
+  const [text, setText] = useState('');
+  const fresh = items.filter((x) => x.isNew), known = items.filter((x) => !x.isNew);
+  const flights = (n: number) => (n === 1 ? '1 flight' : `${n} flights`);
+  const commit = (from: string, to: string) => { const v = to.trim().toUpperCase(); setEditing(null); if (v && v !== from) onChange?.(from, v); };
+  return (
+    <View style={{ gap: 8, marginTop: 4 }}>
+      <Text style={s.section}>REGISTRATIONS</Text>
+      {fresh.length > 0 ? (
+        <>
+          <Text style={s.regLead}>{fresh.length === 1 ? 'One registration is' : `${fresh.length} registrations are`} new to your Fleet. Check {fresh.length === 1 ? 'it' : 'each one'} against the page: a misread one becomes a new aircraft when you save.</Text>
+          <View style={s.matchCard}>
+            {fresh.map((x, k) => (
+              <View key={x.reg} style={[{ paddingVertical: 11, gap: 8 }, k > 0 && s.matchRowBorder]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={s.regName}>{x.reg}</Text>
+                      <Badge color={x.confirmed ? Colors.success : Colors.gold} label={x.confirmed ? 'CHECKED' : 'NEW'} />
+                    </View>
+                    <Text style={s.matchSub}>{flights(x.rows)}{x.example ? ` · for example ${x.example.text}` : ''}</Text>
+                  </View>
+                  {onChange && (
+                    <TouchableOpacity onPress={() => { setEditing(editing === x.reg ? null : x.reg); setText(x.reg); }} hitSlop={8} accessibilityRole="button"
+                      accessibilityLabel={`Change registration ${x.reg}`}>
+                      <Text style={s.matchLink}>{editing === x.reg ? 'Cancel' : 'Change'}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {x.example && editing !== x.reg && (
+                  <TouchableOpacity onPress={() => onOpen(x.example!.rowKey)} hitSlop={6} accessibilityRole="button" style={{ alignSelf: 'flex-start' }}>
+                    <Text style={s.matchLink}>Open that flight</Text>
+                  </TouchableOpacity>
+                )}
+                {editing === x.reg && (
+                  <View style={{ gap: 8 }}>
+                    <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                      <TextInput value={text} onChangeText={setText} autoCapitalize="characters" autoCorrect={false} returnKeyType="done"
+                        onSubmitEditing={() => commit(x.reg, text)} style={[s.crewInput, { height: 40, fontSize: 15 }]}
+                        placeholder="Registration" placeholderTextColor={Colors.textMuted} accessibilityLabel={`New registration for ${x.reg}`} />
+                      <TouchableOpacity onPress={() => commit(x.reg, text)} style={s.regSave} accessibilityRole="button">
+                        <Text style={s.regSaveText}>Save</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {x.similar.length > 0 && (
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                        <Text style={s.matchSub}>In your Fleet or this scan:</Text>
+                        {x.similar.map((v) => (
+                          <TouchableOpacity key={v} onPress={() => commit(x.reg, v)} style={s.regChip} accessibilityRole="button" accessibilityLabel={`Use ${v}`}>
+                            <Text style={s.regChipText}>{v}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                    <Text style={s.matchSub}>The change applies to {x.rows === 1 ? 'this flight' : `all ${x.rows} flights`} with {x.reg}.</Text>
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+        </>
+      ) : null}
+      {known.length > 0 && (
+        <Text style={s.regLead}>
+          {fresh.length > 0 ? 'Already in your Fleet: ' : 'All in your Fleet already: '}
+          {known.map((x) => `${x.reg} (${x.rows})`).join(', ')}
+        </Text>
+      )}
+    </View>
+  );
+}
+
 export function ScanReport(p: {
   rows: ScanRow[];
   columnChecks: ColumnCheck[];
@@ -101,6 +184,9 @@ export function ScanReport(p: {
   onRestoreCrew?: (rowKey: string) => void;
   learned?: { rule: ValueRule; rows: number }[];
   onUndoRule?: (rule: ValueRule) => void;
+  // Skanningens registreringar mot flottan (services/scanRegistrations.ts): de nya först, med en flygning som exempel.
+  registrations?: RegistrationItem[];
+  onChangeRegistration?: (from: string, to: string) => void;
   onNameType?: (groupId: string, name: string) => void;
   // Nya typer som ser ut att vara samma luftfartyg (A109 och A109LUH), eller en ny typ som liknar en i flottan.
   similarTypes?: { a: string; b: string; aRows: number; bRows: number; fleet: boolean }[];
@@ -529,6 +615,9 @@ export function ScanReport(p: {
           </View>
         </View>
 
+        {(p.registrations?.length ?? 0) > 0 && (
+          <RegistrationsSection items={p.registrations!} onChange={p.onChangeRegistration} onOpen={p.onOpenFlight} />
+        )}
         {/* Skrivsätt i boken som är typer man redan har: flottans namn används, så att Fleet och typvalet i Log
             Flight inte får dubbletter. Fel matchning → "Keep separate". */}
         {(p.fleetMatches?.length ?? 0) > 0 && (
@@ -739,6 +828,12 @@ const s = StyleSheet.create({
   matchTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700', letterSpacing: 0.3 },
   matchSub: { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
   matchLink: { color: Colors.primary, fontSize: 12.5, fontWeight: '700' },
+  regLead: { color: Colors.textSecondary, fontSize: 12.5, lineHeight: 18 },
+  regName: { color: Colors.textPrimary, fontFamily: FONT_MONO, fontSize: 15, fontWeight: '700', letterSpacing: 0.4 },
+  regSave: { height: 40, paddingHorizontal: 16, borderRadius: 10, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  regSaveText: { color: Colors.textInverse, fontSize: 14, fontWeight: '800' },
+  regChip: { height: 32, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: Colors.primary + '80', backgroundColor: Colors.primary + '14', alignItems: 'center', justifyContent: 'center' },
+  regChipText: { color: Colors.textPrimary, fontFamily: FONT_MONO, fontSize: 13, fontWeight: '700' },
   variantBtn: { height: 36, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center' },
   variantBtnOn: { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' },
   variantBtnText: { color: Colors.textSecondary, fontSize: 12.5, fontWeight: '700' },

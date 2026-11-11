@@ -2,6 +2,14 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 96,
+      "date": "2026-11-11",
+      "notes": [
+        "Improved: Logbook scan asks about every registration that is new to your Fleet before it is accepted.",
+        "New: The scan report lists the registrations, new ones first, with an example flight and a way to change them."
+      ]
+    },
+    {
       "id": 95,
       "date": "2026-11-11",
       "notes": [

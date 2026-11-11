@@ -21,6 +21,7 @@ import { useScanBookStore } from '../../store/scanBookStore';
 import { loadScanFormat, saveScanFormat, formatToLayout, type ScanFormat } from '../../services/scanFormat';
 import { applyValueRules, undoValueRule, noteAnswer, ruleFor, ruleClassOf, upper, type ValueRule, type RuleStash } from '../../services/scanValueRules';
 import { resolveNames } from '../../services/scanNames';
+import { checkRegistrations, type RegCheck } from '../../services/scanRegistrations';
 import { prepareSpread, mediaTypeOf } from '../../services/scanPrepare';
 import { resolveScanTypes, typeKey, isVariant, maybeSameType, type TypeGroup, type FleetInfo } from '../../services/scanTypes';
 import { distinctVariants, familyName } from '../../services/aircraftFamily';
@@ -99,6 +100,7 @@ interface Issue {
   rect: Rect | null;
   aircraft?: { asWritten: string; resolved: string };
   group?: { key: string; members: string[]; rects: Rect[]; sims?: { rowKey: string; sg: Suggestion }[]; remarks?: boolean };   // samma fråga på flera rader
+  alsoRows?: string[];   // "New registration": alla rader med samma läsning (frågan står på den första)
   moves?: { side: 'left' | 'right'; field: string }[];   // "fel kolumn": grannkolumnerna värdet kan flyttas till
   column?: { sum: number; printed: number; miscounted: boolean; extraRow?: { key: string; rowIndex: number }; move?: ColumnMove };   // radsumma mot sidans summa
 }
@@ -190,6 +192,7 @@ function worthAsking(i: Issue, focus: ScanFocus, colOk: Map<string, boolean>): b
   if (focus === 'exact' || i.kind === 'column' || i.readAs) return true;   // en omöjlig läsning är alltid fel
   if (i.kind === 'value' || i.kind === 'choice') {
     if (i.field === 'sim') return true;   // flygning eller simulator avgör vilken summa tiden hamnar i
+    if (i.field === 'registration') return true;   // en felläst registrering blir ett nytt luftfartyg i Fleet
     if (DURATION.has(i.field) || COUNT.has(i.field)) return colOk.get(`${i.page}|${i.field}`) !== true;
     return focus === 'balanced' && CORE_FIELDS.has(i.field);
   }
@@ -218,6 +221,7 @@ function deriveIssues(
   typeChoice: Record<string, string> = {},
   wordsOf: (page: number) => VisionBox[] = () => [],   // Visions ord per uppslag (för värden i grannkolumnen)
   inLogbook: Set<string> = new Set(),  // rader som redan finns i loggboken (lämnas utanför): inga frågor om dem
+  regChecks: RegCheck[] = [],          // skanningens registreringar mot flottan (services/scanRegistrations.ts)
 ): Issue[] {
   const out: Issue[] = [];
   const add = addition.accepted;
@@ -330,6 +334,37 @@ function deriveIssues(
         .map((t) => ({ label: t, field: 'aircraft_type', value: t })),
       rect: p?.grid ? cellRect(p.grid, target.rowIndex, 'aircraft_type') ?? rowRect(p.grid, target.rowIndex) : null,
       aircraft: { asWritten: g.id, resolved: chosen ?? g.suggested },
+    });
+  }
+
+  // Nya registreringar (finns inte i flottan) och registreringar med en vanligare tvilling i flottan (KIL031
+  // bredvid KILO31) → en fråga per läsning, där den först står. Svaret gäller alla
+  // rader med samma läsning (en regel direkt, se learnAnswer). Claudes egna frågor om samma celler går upp i
+  // den här, och deras förslag följer med.
+  const everyRow = new Map(rows.map((r) => [r.key, r]));
+  for (const c of regChecks) {
+    if (!c.ask) continue;
+    const first = everyRow.get(c.rows[0]);
+    if (!first) continue;
+    const grid = pages[first.page]?.grid ?? null;
+    const own = new Set(c.rows.map((k) => `${k}:f:registration`));
+    const fromClaude: string[] = [];
+    for (let k = out.length - 1; k >= 0; k--) {
+      if (!own.has(out[k].id)) continue;
+      for (const sg of out[k].suggestions) if (sg.field === 'registration') fromClaude.push(upper(sg.value));
+      out.splice(k, 1);
+    }
+    const options = [...new Set([...c.similar, ...fromClaude])].filter((v) => v && v !== c.reg).slice(0, 4);
+    const n = c.rows.length;
+    out.push({
+      id: `reg:${c.reg}`, kind: 'value', page: first.page, rowKey: first.key, field: 'registration',
+      title: c.isNew ? 'New registration' : 'Check the registration',
+      reason: c.isNew
+        ? `${c.reg} isn't in your Fleet${n > 1 ? ` and stands on ${n} rows` : ''}.${c.twin ? ` It looks like ${c.twin} written another way.` : ''} Check it against the page.${n > 1 ? ` Your answer applies to every row with ${c.reg}.` : ''}`
+        : `${c.reg} and ${c.twin} are both in your Fleet and look like one aircraft written two ways. Which one is on the page?${n > 1 ? ` Your answer applies to every row with ${c.reg}.` : ''}`,
+      suggestions: options.map((v) => ({ label: v, field: 'registration', value: v })),
+      rect: grid ? cellRect(grid, first.rowIndex, 'registration') ?? rowRect(grid, first.rowIndex) : null,
+      alsoRows: c.rows,
     });
   }
 
@@ -451,6 +486,7 @@ function deriveIssues(
   const buckets = new Map<string, Issue[]>();
   for (const i of out) {
     if ((i.kind !== 'value' && i.kind !== 'choice') || !i.reason) continue;
+    if (i.id.startsWith('reg:')) continue;   // en fråga per ny registrering, aldrig ihopslagna
     // Val (t.ex. simulatortyp) grupperas på fältet; värden på fält + förklaring.
     const key = i.kind === 'choice' ? `${i.page}|${i.field}|choice` : `${i.page}|${i.field}|${i.reason.toLowerCase().replace(/[^a-zåäö]+/g, ' ').trim()}`;
     if (expanded.has(key)) continue;
@@ -1134,8 +1170,16 @@ export default function ScanReviewScreen() {
 
   // Visions ord per uppslag, sparade när uppslaget lästes (pageInputs fylls innan raderna sätts).
   const wordsOf = (page: number) => pageInputs.current.get(page)?.words ?? [];
-  const issues = useMemo(() => deriveIssues(rows, pages, known, expanded, { accepted: addition, candidate: additionCandidate }, focus ?? 'exact', placeAlts, realRows, typeRes.groups, typeChoice, wordsOf, duplicates),
-    [rows, pages, known, expanded, addition, additionCandidate, focus, placeAlts, realRows, typeRes, typeChoice, duplicates]);
+  // Skanningens registreringar mot flottan: nya läsningar frågas om en gång var och listas i rapporten.
+  // Besvarade = reglerna för registreringar (både läsningen och det den rättades till).
+  const regChecks = useMemo(() => checkRegistrations(
+    rows.filter((r) => !r.skip && !duplicates.has(r.key) && r.data.flight_type !== 'sim')
+      .map((r) => ({ key: r.key, page: r.page, rowIndex: r.rowIndex, registration: r.data.registration ?? '' })),
+    fleetRegs,
+    new Set(rules.filter((r) => r.cls === 'registration').flatMap((r) => [r.from, r.to])),
+  ), [rows, duplicates, fleetRegs, rules]);
+  const issues = useMemo(() => deriveIssues(rows, pages, known, expanded, { accepted: addition, candidate: additionCandidate }, focus ?? 'exact', placeAlts, realRows, typeRes.groups, typeChoice, wordsOf, duplicates, regChecks),
+    [rows, pages, known, expanded, addition, additionCandidate, focus, placeAlts, realRows, typeRes, typeChoice, duplicates, regChecks]);
   const isDone = (i: Issue) => !!resolved[i.id] || (!!i.group && i.group.members.every((m) => resolved[m]));
 
   // Innan man börjar med frågorna: går några sidsummor inte ihop sägs det en gång, och att Blades guidar genom
@@ -1158,7 +1202,7 @@ export default function ScanReviewScreen() {
     if (!done) return null;
     const factor = Math.max(done, pages.filter((p) => p.status !== 'error').length) / done;
     const values = rows.filter((r) => !r.skip && pages[r.page]?.status === 'done').length * VALUES_PER_ROW;
-    const derive = (f: ScanFocus) => deriveIssues(rows, pages, known, expanded, { accepted: addition, candidate: additionCandidate }, f, placeAlts, realRows, typeRes.groups, typeChoice, wordsOf, duplicates);
+    const derive = (f: ScanFocus) => deriveIssues(rows, pages, known, expanded, { accepted: addition, candidate: additionCandidate }, f, placeAlts, realRows, typeRes.groups, typeChoice, wordsOf, duplicates, regChecks);
     const size = (i: Issue) => (i.kind === 'column' ? 0 : i.group ? i.group.members.length : 1);
     const exact = derive('exact');
     const exactSize = exact.reduce((n, i) => n + size(i), 0);
@@ -1414,8 +1458,14 @@ export default function ScanReviewScreen() {
     setRules(next);
     setSetting('scan_value_rules', JSON.stringify(next)).catch(() => {});
   };
+  // En registrering som inte finns i flottan, eller som granskningen frågar om: ett svar räcker och gäller
+  // direkt alla rader med samma läsning (annars först efter LEARN_AFTER lika svar).
+  const isNewReading = (field: string, v: unknown) => field === 'registration' && !!upper(v)
+    && (!fleetRegs.some((f) => upper(f.registration) === upper(v)) || regChecks.some((c) => c.reg === upper(v) && c.ask));
   const learnAnswer = (field: string, rowKey: string, from: unknown, to: unknown) => {
-    const rule = noteAnswer(ruleAnswers.current, rulesRef.current, field, rowKey, from, to);
+    const direct: ValueRule | null = isNewReading(field, from) && upper(to) && !rulesRef.current.some((r) => r.cls === 'registration' && r.from === upper(from))
+      ? { cls: 'registration', from: upper(from), to: upper(to) } : null;
+    const rule = direct ?? noteAnswer(ruleAnswers.current, rulesRef.current, field, rowKey, from, to);
     if (!rule) return;
     saveRules([...rulesRef.current, rule]);
     const n = rows.filter((r) => r.key !== rowKey && (ruleFor([rule], 'dep_place', r.data.dep_place) || ruleFor([rule], 'arr_place', r.data.arr_place) || ruleFor([rule], 'registration', r.data.registration))).length;
@@ -1428,6 +1478,17 @@ export default function ScanReviewScreen() {
     ruleAnswers.current.delete(`${rule.cls}|${rule.from}|${rule.to}`);
     setRows((prev) => undoValueRule(prev, rule, ruleStash.current));
     setLearnNote(null);
+  };
+  // Rapporten: byt en registrering på alla rader som har den (eller bekräfta den: to = from). Sparas som en
+  // regel, så att den står under "Learned from your answers" och kan ångras där.
+  const changeRegistration = (fromRaw: string, toRaw: string) => {
+    const from = upper(fromRaw), to = upper(toRaw);
+    if (!from || !to) return;
+    touched.current = true;
+    const rule: ValueRule = { cls: 'registration', from, to };
+    saveRules([...rulesRef.current.filter((r) => !(r.cls === 'registration' && r.from === from)), rule]);
+    setRows((prev) => applyValueRules(prev, [rule], ruleStash.current));
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
   };
   // Frågor som en regel just tog bort (raderna här är från före uppdateringen).
   const coveredByRule = (i: Issue) => !!rowByKey.get(i.rowKey) && !!ruleFor(rulesRef.current, i.field, (rowByKey.get(i.rowKey)!.data as any)[i.field]);
@@ -1956,7 +2017,7 @@ export default function ScanReviewScreen() {
     const cellId = `${rowKey}:f:${field}`;
     const open = openIssues.some((i) => (i.group
       ? i.group.members.includes(cellId) && !resolved[cellId]
-      : i.rowKey === rowKey && (i.field === field || (i.kind === 'mismatch' && (field === 'dep_utc' || field === 'arr_utc')))));
+      : (i.rowKey === rowKey || !!i.alsoRows?.includes(rowKey)) && (i.field === field || (i.kind === 'mismatch' && (field === 'dep_utc' || field === 'arr_utc')))));
     if (open) return 'open';
     const now = String((r.data as any)[field] ?? ''), was = String((r.original as any)[field] ?? '');
     if (DURATION.has(field)) return Math.abs((parseFloat(now) || 0) - (parseFloat(was) || 0)) > 0.001 ? 'changed' : null;
@@ -2122,6 +2183,16 @@ export default function ScanReviewScreen() {
           onRestoreCrew={restoreCrew}
           nameMatches={nameMatches}
           onKeepNamesSeparate={keepNamesSeparate}
+          registrations={regChecks.map((c) => {
+            const ex = rowByKey.get(c.rows[0]);
+            const pg = ex ? pages[ex.page]?.pageNumbers : null;
+            const where = pg?.left ? `p. ${pg.left}${pg.right && pg.right !== pg.left ? `–${pg.right}` : ''}` : ex ? `spread ${ex.page + 1}` : '';
+            return {
+              reg: c.reg, rows: c.rows.length, isNew: c.isNew, confirmed: c.confirmed, similar: c.similar,
+              example: ex ? { rowKey: ex.key, text: [ex.data.date, [ex.data.dep_place, ex.data.arr_place].filter(Boolean).join(' → '), where].filter(Boolean).join(' · ') } : null,
+            };
+          })}
+          onChangeRegistration={changeRegistration}
           learned={rules.map((r) => ({ rule: r, rows: [...ruleStash.current.values()].filter((x) => x.rule.cls === r.cls && x.rule.from === r.from).length })).filter((x) => x.rows > 0)}
           onUndoRule={undoRule}
           onKeepSeparate={keepTypesSeparate}
