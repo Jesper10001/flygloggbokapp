@@ -1,23 +1,25 @@
-// Mottagarens skärm för en flygning som delats av ens second pilot (services/flightShare). Hit kommer man via
+// Mottagarens väg in för en flygning som delats av ens second pilot (services/flightShare). Hit kommer man via
 // länken blades://shared-flight?d=… (AirDrop öppnar den) eller via "Open a shared flight" under Import (filen
-// ligger då i sharedFlightStore.pending). Skärmen visar vad avsändaren loggade och vad man själv får, frågar
-// efter flygplanet om det inte stämmer med den egna Fleet, och lämnar sedan över till Log flight
-// (/flight/add?shared=1). Ingenting sparas här.
-import { useEffect, useMemo, useState } from 'react';
+// ligger då i sharedFlightStore.pending).
+//  - Pilotläget och en läsbar flygning: inget visas (skärmen är genomskinlig). Flygningen förbereds med omvända
+//    roller, flygplanet jämförs med Fleet och dubbletter letas upp, och sedan öppnas Log flight direkt
+//    (/flight/add?shared=1), som frågar efter flygplanet om det inte stämmer. Ingenting sparas här.
+//  - Drönarläget: sammanfattningen visas med en uppmaning att byta loggbok.
+//  - Går flygningen inte att läsa: skälet visas.
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
 import { FONT_SERIF, FONT_MONO } from '../components/logbook-page/tokens';
-import { GlassDialog, DialogIcon } from '../components/GlassDialog';
 import { useTimeFormat } from '../hooks/useTimeFormat';
 import { useAppModeStore } from '../store/appModeStore';
 import { useSharedFlightStore } from '../store/sharedFlightStore';
 import { getFleetRegistrationTypes, getSecondPilotCounts, flightExists } from '../db/flights';
 import {
   decodeSharedFlight, reverseRoles, toFormValues, matchAircraft, pickSecondPilotName,
-  type DecodeResult, type AircraftOption, type FleetRow,
+  type DecodeResult, type FleetRow,
 } from '../services/flightShare';
 
 const PROBLEM: Record<string, string> = {
@@ -53,19 +55,17 @@ export default function SharedFlightScreen() {
   const payload = result.ok ? result.payload : null;
   const rev = useMemo(() => (payload ? reverseRoles(payload) : null), [payload]);
 
-  const [fleet, setFleet] = useState<FleetRow[] | null>(null);
   const [known, setKnown] = useState<string[]>([]);
   const [duplicate, setDuplicate] = useState(false);
-  const [ask, setAsk] = useState<AircraftOption[] | null>(null);
-  const [pick, setPick] = useState(0);   // valt alternativ; ask.length = "välj i Log flight"
+  const isDrone = mode === 'drone';
 
+  // Drönarläget visar sammanfattningen: namn och dubblettvarning till den.
   useEffect(() => {
-    if (!payload) return;
-    getFleetRegistrationTypes().then(setFleet).catch(() => setFleet([]));
+    if (!payload || !isDrone) return;
     getSecondPilotCounts().then((rows) => setKnown(rows.map((r) => r.name))).catch(() => {});
     const f = payload.f;
     flightExists(f.date, f.dep_place, f.arr_place, f.dep_utc, f.arr_utc).then(setDuplicate).catch(() => {});
-  }, [payload]);
+  }, [payload, isDrone]);
 
   // Paketet ur en fil är förbrukat när skärmen lämnas.
   useEffect(() => () => { useSharedFlightStore.getState().setPending(null); }, []);
@@ -75,37 +75,43 @@ export default function SharedFlightScreen() {
   const senderName = payload?.from.name || payload?.from.initials || '';
   const secondName = payload ? pickSecondPilotName(payload.from, known) : '';
 
-  const goToLogFlight = (aircraft: { type: string; registration: string }) => {
-    if (!payload || !rev) return;
-    let extras: { role: string; name: string }[] = [];
-    try { extras = payload.f.extra_pilots ? JSON.parse(payload.f.extra_pilots) : []; } catch { extras = []; }
-    useSharedFlightStore.getState().setPrepared({
-      fromName: senderName,
-      form: toFormValues(payload, rev, secondName, aircraft),
-      role: rev.role,
-      fi: rev.fi,
-      extraPilots: extras,
-      multiPilot: payload.f.multi_pilot > 0 || rev.role !== 'pic' || !!secondName,
+  // Pilotläget: förbered och öppna Log flight direkt (en gång). Den här skärmen stängs först och Log flight
+  // öppnas strax efter: två skärmbyten i samma ögonblick kan hänga sig.
+  const started = useRef(false);
+  useEffect(() => {
+    if (!payload || !rev || isDrone || started.current) return;
+    started.current = true;
+    const f = payload.f;
+    Promise.all([
+      getFleetRegistrationTypes().catch(() => [] as FleetRow[]),
+      getSecondPilotCounts().then((rows) => rows.map((r) => r.name)).catch(() => [] as string[]),
+      flightExists(f.date, f.dep_place, f.arr_place, f.dep_utc, f.arr_utc).catch(() => false),
+    ]).then(([fleetRows, knownNames, dup]) => {
+      const sender = payload.from.name || payload.from.initials || '';
+      const second = pickSecondPilotName(payload.from, knownNames);
+      const m = matchAircraft({ type: f.aircraft_type, registration: f.registration }, fleetRows);
+      const aircraft = m.kind === 'exact' ? { type: m.type, registration: m.registration } : { type: '', registration: '' };
+      let extras: { role: string; name: string }[] = [];
+      try { extras = f.extra_pilots ? JSON.parse(f.extra_pilots) : []; } catch { extras = []; }
+      useSharedFlightStore.getState().setPrepared({
+        fromName: sender,
+        form: toFormValues(payload, rev, second, aircraft),
+        role: rev.role,
+        fi: rev.fi,
+        extraPilots: extras,
+        multiPilot: f.multi_pilot > 0 || rev.role !== 'pic' || !!second,
+        duplicate: !!dup,
+        aircraftAsk: m.kind === 'exact' ? null : {
+          who: sender ? sender.split(' ')[0] : 'The sender',
+          sent: [f.aircraft_type, f.registration].filter(Boolean).join(' · ') || 'no aircraft',
+          options: m.options,
+        },
+      });
+      close();
+      setTimeout(() => router.push('/flight/add?shared=1' as any), 380);
     });
-    // Stäng den här skärmen först och öppna Log flight strax efter: två skärmbyten i samma ögonblick kan hänga sig.
-    close();
-    setTimeout(() => router.push('/flight/add?shared=1' as any), 380);
-  };
-
-  const onContinue = () => {
-    if (!payload) return;
-    const m = matchAircraft({ type: payload.f.aircraft_type, registration: payload.f.registration }, fleet ?? []);
-    if (m.kind === 'exact') goToLogFlight({ type: m.type, registration: m.registration });
-    else { setPick(0); setAsk(m.options); }
-  };
-
-  const confirmAircraft = () => {
-    if (!ask) return;
-    const o = ask[pick];
-    setAsk(null);
-    // Låt rutan tona ut innan skärmen byts.
-    setTimeout(() => goToLogFlight(o ? { type: o.type, registration: o.registration } : { type: '', registration: '' }), 240);
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payload, rev, isDrone]);
 
   const header = (
     <View style={[st.head, { paddingTop: insets.top + 10 }]}>
@@ -138,6 +144,9 @@ export default function SharedFlightScreen() {
     );
   }
 
+  // Pilotläget: inget att visa, Log flight öppnas direkt (effekten ovan).
+  if (!isDrone) return <View style={{ flex: 1 }} pointerEvents="none" />;
+
   const f = payload.f;
   const who = senderName ? senderName.split(' ')[0] : 'The sender';
   const hours = (n: number) => formatTime(n);
@@ -151,8 +160,6 @@ export default function SharedFlightScreen() {
     ['Take-offs', `${f.takeoffs_day} day · ${f.takeoffs_night} night`],
     ...(f.app_2d + f.app_3d > 0 ? [['Approaches', `${f.app_2d} 2D · ${f.app_3d} 3D`] as [string, string]] : []),
   ];
-  const isDrone = mode === 'drone';
-
   return (
     <View style={st.root}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -216,51 +223,10 @@ export default function SharedFlightScreen() {
       </ScrollView>
 
       <View style={[st.foot, { paddingBottom: insets.bottom + 12 }]}>
-        <Text style={st.footNote}>{isDrone ? 'Shared flights open in the Pilot logbook. Switch logbook in Settings first.' : 'Nothing is saved yet. You check everything in Log flight first.'}</Text>
-        {isDrone ? (
-          <TouchableOpacity style={st.cta} onPress={close} activeOpacity={0.85}><Text style={st.ctaText}>Close</Text></TouchableOpacity>
-        ) : (
-          <>
-            <TouchableOpacity style={[st.cta, fleet === null && { opacity: 0.5 }]} onPress={onContinue} disabled={fleet === null} activeOpacity={0.85}>
-              <Text style={st.ctaText}>Continue to Log flight</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={st.later} onPress={close} activeOpacity={0.7}><Text style={st.laterText}>Not now</Text></TouchableOpacity>
-          </>
-        )}
+        <Text style={st.footNote}>Shared flights open in the Pilot logbook. Switch logbook in Settings first.</Text>
+        <TouchableOpacity style={st.cta} onPress={close} activeOpacity={0.85}><Text style={st.ctaText}>Close</Text></TouchableOpacity>
       </View>
 
-      <GlassDialog
-        visible={!!ask}
-        onClose={() => setAsk(null)}
-        icon={<DialogIcon name="airplane-outline" />}
-        eyebrow="Aircraft"
-        title="Which aircraft is this?"
-        body={`${who} logged ${[f.aircraft_type, f.registration].filter(Boolean).join(' · ') || 'no aircraft'}. That is not exactly how it is in your Fleet.`}
-        primary={{ label: ask && ask[pick] ? `Use ${ask[pick].type} · ${ask[pick].registration}` : 'Choose in Log flight', onPress: confirmAircraft }}
-        secondary={{ label: 'Cancel', onPress: () => setAsk(null) }}
-      >
-        <View style={{ gap: 8, marginTop: 4, alignSelf: 'stretch' }}>
-          {(ask ?? []).map((o, i) => (
-            <TouchableOpacity key={`${o.type}|${o.registration}`} style={[st.opt, pick === i && st.optOn]} onPress={() => setPick(i)} activeOpacity={0.8}
-              accessibilityRole="radio" accessibilityState={{ selected: pick === i }}>
-              <View style={{ flex: 1, gap: 3 }}>
-                <Text style={st.optTitle}>{o.type} · {o.registration}</Text>
-                <Text style={st.optSub}>
-                  {o.source === 'yours'
-                    ? (o.flights > 0 ? `As in your Fleet. ${o.flights} ${o.flights === 1 ? 'flight' : 'flights'} logged.` : 'As in your Fleet.')
-                    : `As ${who} logged it. Adds a new aircraft to your Fleet.`}
-                </Text>
-              </View>
-              <View style={[st.radio, pick === i && { borderColor: Colors.primary }]}>{pick === i ? <View style={st.radioDot} /> : null}</View>
-            </TouchableOpacity>
-          ))}
-          <TouchableOpacity style={[st.opt, { minHeight: 50 }, ask && pick === ask.length && st.optOn]} onPress={() => setPick(ask ? ask.length : 0)} activeOpacity={0.8}
-            accessibilityRole="radio" accessibilityState={{ selected: !!ask && pick === ask.length }}>
-            <Text style={[st.optTitle, { flex: 1, fontFamily: undefined, fontWeight: '600' }]}>Choose in Log flight</Text>
-            <View style={[st.radio, ask && pick === ask.length ? { borderColor: Colors.primary } : null]}>{ask && pick === ask.length ? <View style={st.radioDot} /> : null}</View>
-          </TouchableOpacity>
-        </View>
-      </GlassDialog>
     </View>
   );
 }
@@ -296,12 +262,4 @@ const st = StyleSheet.create({
   footNote: { fontSize: 12.5, lineHeight: 17, color: '#9DB6CC', textAlign: 'center' },
   cta: { height: 54, borderRadius: 16, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
   ctaText: { fontSize: 16.5, fontWeight: '700', color: Colors.textInverse },
-  later: { height: 44, alignItems: 'center', justifyContent: 'center' },
-  laterText: { fontSize: 15, fontWeight: '600', color: '#9DB6CC' },
-  opt: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 62, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.04)' },
-  optOn: { borderColor: Colors.primary + 'B3', backgroundColor: Colors.primary + '14' },
-  optTitle: { fontFamily: FONT_MONO, fontSize: 14.5, fontWeight: '700', color: Colors.textPrimary },
-  optSub: { fontSize: 12.5, lineHeight: 16, color: '#A9BDD3' },
-  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#5F7C99', alignItems: 'center', justifyContent: 'center' },
-  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary },
 });

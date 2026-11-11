@@ -29,6 +29,8 @@ import { FlightLimitModal } from '../../components/FlightLimitModal';
 import { useFlightStore } from '../../store/flightStore';
 import { useSavedFlightStore } from '../../store/savedFlightStore';
 import { useSharedFlightStore } from '../../store/sharedFlightStore';
+import { GlassDialog, DialogIcon } from '../../components/GlassDialog';
+import type { AircraftOption } from '../../services/flightShare';
 import { diffSavedFlight } from '../../services/flightSaveDiff';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -713,6 +715,19 @@ function ValidationWarnings({ issues }: { issues: ValidationIssue[] }) {
 
 // ── Huvudskärm ──────────────────────────────────────────────────────────────
 
+// Alternativen i frågan om flygplanet för en delad flygning (samma utseende som valen i GlassDialog annars).
+const sharedOpt = StyleSheet.create({
+  row: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 62, paddingHorizontal: 14, paddingVertical: 10,
+    borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  on: { borderColor: Colors.primary + 'B3', backgroundColor: Colors.primary + '14' },
+  title: { fontFamily: 'JetBrainsMono', fontSize: 14.5, fontWeight: '700', color: Colors.textPrimary },
+  sub: { fontSize: 12.5, lineHeight: 16, color: '#A9BDD3' },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#5F7C99', alignItems: 'center', justifyContent: 'center' },
+  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary },
+});
+
 export default function AddFlightScreen() {
   const styles = makeStyles();
   const { t } = useTranslation();
@@ -723,6 +738,11 @@ export default function AddFlightScreen() {
   // En flygning som ens second pilot delat (services/flightShare): formuläret fylls i ur sharedFlightStore.
   const fromShared = sharedParam === '1' && !isEdit;
   const [sharedFrom, setSharedFrom] = useState<string | null>(null);   // avsändarens namn → raden överst i formuläret
+  const [sharedDup, setSharedDup] = useState(false);                    // samma flygning finns redan i loggboken
+  // Avsändarens flygplan stämmer inte exakt med Fleet → frågan "Which aircraft is this?" (fälten tomma tills svar).
+  const [sharedAsk, setSharedAsk] = useState<{ who: string; sent: string; options: AircraftOption[] } | null>(null);
+  const [sharedAskOpen, setSharedAskOpen] = useState(false);
+  const [sharedPick, setSharedPick] = useState(0);                       // options.length = "välj själv här"
   const { canAddFlight, loadFlights, loadStats, flightCount, isPremium, isMax } = useFlightStore();
   const _theme = useThemeStore(s => s.theme);
   const { formatTime, parseTime, keyboardType, placeholder } = useTimeFormat();
@@ -1272,8 +1292,20 @@ export default function AddFlightScreen() {
     setLogFull(true);
     setNightManual(true); setLandingsManual(true); setTakeoffsManual(true);
     setSharedFrom(inc.fromName || 'your second pilot');
+    setSharedDup(!!inc.duplicate);
+    if (inc.aircraftAsk && inc.aircraftAsk.options.length > 0) {
+      setSharedAsk(inc.aircraftAsk);
+      setSharedPick(0);
+      // Frågan visas när Log flight har glidit upp: iOS visar ingen ny ruta medan en skärm fortfarande öppnas.
+      setTimeout(() => setSharedAskOpen(true), 650);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromShared]);
+  const confirmSharedAircraft = () => {
+    const o = sharedAsk?.options[sharedPick];
+    setSharedAskOpen(false);
+    if (o) setForm((prev) => ({ ...prev, aircraft_type: o.type, registration: o.registration }));
+  };
   const saveAsDraft = async () => {
     const labels = draftLabels({ from: form.dep_place || form.dep_place_raw, to: form.arr_place || form.arr_place_raw, date: form.date,
       aircraft: [form.aircraft_type, form.registration].filter(Boolean).join(' ') });
@@ -2776,6 +2808,7 @@ export default function AddFlightScreen() {
             <Ionicons name="download-outline" size={18} color={Colors.primary} />
             <Text style={{ flex: 1, fontSize: 13, lineHeight: 18, color: Colors.textPrimary }}>
               Filled in from <Text style={{ fontWeight: '700' }}>{sharedFrom}</Text>, with your roles swapped. Check it, then save.
+              {sharedDup ? <Text style={{ color: Colors.warningLight }}>{'\n'}You already have a flight with this date, route and times.</Text> : null}
             </Text>
           </View>
         ) : null}
@@ -4436,6 +4469,52 @@ export default function AddFlightScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Delad flygning: avsändarens flygplan stämmer inte exakt med Fleet → vilket är det? */}
+      <GlassDialog
+        visible={sharedAskOpen && !!sharedAsk}
+        onClose={() => setSharedAskOpen(false)}
+        icon={<DialogIcon name="airplane-outline" />}
+        eyebrow="Aircraft"
+        title="Which aircraft is this?"
+        body={sharedAsk ? `${sharedAsk.who} logged ${sharedAsk.sent}. That is not exactly how it is in your Fleet.` : ''}
+        primary={{
+          label: sharedAsk && sharedAsk.options[sharedPick] ? `Use ${sharedAsk.options[sharedPick].type} · ${sharedAsk.options[sharedPick].registration}` : 'Choose it here',
+          onPress: confirmSharedAircraft,
+        }}
+      >
+        <View style={{ gap: 8, marginTop: 4, alignSelf: 'stretch' }}>
+          {(sharedAsk?.options ?? []).map((o, i) => {
+            const on = sharedPick === i;
+            return (
+              <TouchableOpacity key={`${o.type}|${o.registration}`} onPress={() => setSharedPick(i)} activeOpacity={0.8}
+                accessibilityRole="radio" accessibilityState={{ selected: on }}
+                style={[sharedOpt.row, on && sharedOpt.on]}>
+                <View style={{ flex: 1, gap: 3 }}>
+                  <Text style={sharedOpt.title}>{o.type} · {o.registration}</Text>
+                  <Text style={sharedOpt.sub}>
+                    {o.source === 'yours'
+                      ? (o.flights > 0 ? `As in your Fleet. ${o.flights} ${o.flights === 1 ? 'flight' : 'flights'} logged.` : 'As in your Fleet.')
+                      : `As ${sharedAsk?.who ?? 'the sender'} logged it. Adds a new aircraft to your Fleet.`}
+                  </Text>
+                </View>
+                <View style={[sharedOpt.radio, on && { borderColor: Colors.primary }]}>{on ? <View style={sharedOpt.dot} /> : null}</View>
+              </TouchableOpacity>
+            );
+          })}
+          {(() => {
+            const on = !!sharedAsk && sharedPick === sharedAsk.options.length;
+            return (
+              <TouchableOpacity onPress={() => setSharedPick(sharedAsk ? sharedAsk.options.length : 0)} activeOpacity={0.8}
+                accessibilityRole="radio" accessibilityState={{ selected: on }}
+                style={[sharedOpt.row, { minHeight: 50 }, on && sharedOpt.on]}>
+                <Text style={[sharedOpt.title, { flex: 1, fontFamily: undefined, fontWeight: '600' }]}>I'll choose it here</Text>
+                <View style={[sharedOpt.radio, on && { borderColor: Colors.primary }]}>{on ? <View style={sharedOpt.dot} /> : null}</View>
+              </TouchableOpacity>
+            );
+          })()}
+        </View>
+      </GlassDialog>
 
     </KeyboardAvoidingView>
   );

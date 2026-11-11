@@ -328,7 +328,8 @@ export default function RootLayout() {
         {/* Pilot CV (Export to PDF): push, så att delningsrutan öppnas från en vanlig skärm. */}
         <Stack.Screen name="export-cv" options={{ headerShown: false }} />
         <Stack.Screen name="bulk-edit" options={{ headerShown: false }} />
-        <Stack.Screen name="shared-flight" options={{ headerShown: false }} />
+        {/* Genomskinlig: i pilotläget visas inget här, Log flight öppnas direkt över skärmen man var på. */}
+        <Stack.Screen name="shared-flight" options={{ headerShown: false, presentation: 'transparentModal', animation: 'fade' }} />
         <Stack.Screen name="projections-full" options={{ headerShown: false, animation: 'fade', gestureEnabled: false, orientation: 'landscape' }} />
         <Stack.Screen name="licence-full" options={{ headerShown: false, animation: 'fade', gestureEnabled: false, orientation: 'landscape' }} />
         <Stack.Screen name="flight/add" options={{ headerShown: false, presentation: tourPresentation, gestureEnabled: tourGesture }} />

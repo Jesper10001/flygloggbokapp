@@ -21,11 +21,12 @@ export async function shareFileAsync(url: string, options: Sharing.SharingOption
 }
 
 // Samma ruta för en länk (t.ex. en delad flygning, blades://…). AirDrop öppnar länken i appen hos mottagaren.
-export async function shareUrlAsync(url: string): Promise<void> {
+// message = en läsbar rad som följer med länken: den står överst i delningsrutan och i meddelandet hos mottagaren.
+export async function shareUrlAsync(url: string, message?: string): Promise<void> {
   await new Promise<void>((resolve) => { InteractionManager.runAfterInteractions(() => resolve()); });
   useShareSheetStore.setState({ open: true });
   try {
-    await Share.share({ url });
+    await Share.share(message ? { message, url } : { url });
   } catch { /* avbruten eller ingen mottagare: inget att göra */ } finally {
     useShareSheetStore.setState({ open: false });
   }

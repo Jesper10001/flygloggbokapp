@@ -5,7 +5,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as DocumentPicker from 'expo-document-picker';
 import { getSetting } from '../db/flights';
 import { shareFileAsync, shareUrlAsync } from './shareFile';
-import { buildSharePayload, toShareLink, toShareFileText, shareFileName, decodeSharedFlight, type SharedPayload, type DecodeResult } from './flightShare';
+import { buildSharePayload, toShareLink, toShareFileText, shareFileName, shareTitle, decodeSharedFlight, type SharedPayload, type DecodeResult } from './flightShare';
 
 /** Avsändarens namn ur profilen. Tomt namn → null (appen ber då om ett namn först). */
 export async function getShareSender(): Promise<{ name: string; initials: string } | null> {
@@ -24,7 +24,7 @@ export async function payloadForFlight(flight: Record<string, any>): Promise<Sha
 
 /** Delningsrutan med flygningen som länk: AirDrop öppnar den direkt i Blades hos mottagaren. */
 export async function shareFlightLink(p: SharedPayload): Promise<void> {
-  await shareUrlAsync(toShareLink(p));
+  await shareUrlAsync(toShareLink(p), shareTitle(p));
 }
 
 /** Delningsrutan med flygningen som fil (.bladesflight): ger bland annat "Save to Files". */

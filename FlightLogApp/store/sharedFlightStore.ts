@@ -1,9 +1,10 @@
 // Delad flygning på väg in i appen (services/flightShare). Två lägen:
 //  - pending: paketet som lästs ur en fil ("Open a shared flight" under Import) och väntar på skärmen
 //    Shared flight. En länk (blades://shared-flight?d=…) går i stället som parameter till skärmen.
-//  - prepared: det mottagaren godkänt, färdigt för Log flight (/flight/add?shared=1), som tar det en gång.
+//  - prepared: färdigt för Log flight (/flight/add?shared=1), som tar det en gång. Skärmen Shared flight visas
+//    inte längre för en läsbar flygning i pilotläget: den förbereder i bakgrunden och öppnar Log flight direkt.
 import { create } from 'zustand';
-import type { SharedPayload, OwnRole } from '../services/flightShare';
+import type { SharedPayload, OwnRole, AircraftOption } from '../services/flightShare';
 
 export interface PreparedSharedFlight {
   fromName: string;
@@ -12,6 +13,10 @@ export interface PreparedSharedFlight {
   fi: boolean;
   extraPilots: { role: string; name: string }[];
   multiPilot: boolean;
+  /** Finns redan en flygning med samma datum, rutt och tider i loggboken (visas i Log flight). */
+  duplicate?: boolean;
+  /** Avsändarens flygplan stämmer inte exakt med Fleet: Log flight frågar vilket det är (fälten står tomma tills dess). */
+  aircraftAsk?: { who: string; sent: string; options: AircraftOption[] } | null;
 }
 
 interface State {

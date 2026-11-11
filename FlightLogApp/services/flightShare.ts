@@ -155,6 +155,22 @@ export function shareFileName(p: SharedPayload): string {
   return `Blades flight ${safe(p.f.dep_place_raw || p.f.dep_place) || 'DEP'}-${safe(p.f.arr_place_raw || p.f.arr_place) || 'ARR'} ${p.f.date}.${SHARE_FILE_EXT}`;
 }
 
+const SHARE_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/**
+ * En rad som säger vilken flygning det är: "Blades flight ESSA → ESGG, 29 Oct 2026, from Sam Berg". Skickas som
+ * text tillsammans med länken, så att den står överst i delningsrutan och i meddelandet hos mottagaren (själva
+ * länken är bara en lång teckenrad).
+ */
+export function shareTitle(p: SharedPayload): string {
+  const dep = (p.f.dep_place_raw || p.f.dep_place || '').trim() || 'DEP';
+  const arr = (p.f.arr_place_raw || p.f.arr_place || '').trim() || 'ARR';
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(p.f.date || '');
+  const month = m ? SHARE_MONTHS[Number(m[2]) - 1] : undefined;
+  const date = m && month ? `${Number(m[3])} ${month} ${m[1]}` : (p.f.date || '');
+  const from = (p.from?.name || '').trim();
+  return `Blades flight ${dep} → ${arr}${date ? `, ${date}` : ''}${from ? `, from ${from}` : ''}`;
+}
+
 // ── Mottagaren: läs och kontrollera ──────────────────────────────────────────
 
 export type DecodeResult =

@@ -2,6 +2,14 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 91,
+      "date": "2026-11-11",
+      "notes": [
+        "Improved: A shared flight now opens straight in Log flight, filled in and ready to check.",
+        "Improved: A shared flight link comes with a line that says which flight it is and who sent it."
+      ]
+    },
+    {
       "id": 90,
       "date": "2026-11-11",
       "notes": [

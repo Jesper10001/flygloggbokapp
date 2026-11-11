@@ -36,6 +36,8 @@ const viaFile = S.decodeSharedFlight(S.toShareFileText(p));
 ok(viaFile.ok && JSON.stringify(viaFile.payload) === JSON.stringify(p), 'filen läses tillbaka exakt');
 ok(viaLink.payload.f.remarks.includes('Göteborg'), 'å, ä och ö klarar resan');
 ok(S.shareFileName(p) === 'Blades flight ESSA-ESGG 2026-10-29.bladesflight', 'filnamnet');
+ok(S.shareTitle(p).startsWith('Blades flight ESSA → ESGG, 29 Oct 2026'), 'delningsraden: ' + S.shareTitle(p));
+ok(S.shareTitle({ ...p, from: { name: '', initials: '' }, f: { ...p.f, date: 'x' } }) === 'Blades flight ESSA → ESGG, x', 'delningsraden utan namn och med udda datum');
 
 console.log('Omvända roller');
 let r = S.reverseRoles(p);
