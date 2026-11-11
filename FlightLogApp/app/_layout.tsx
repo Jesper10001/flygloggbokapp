@@ -215,6 +215,14 @@ export default function RootLayout() {
         const essential = useAppVariantStore.getState().variant === 'essential';
         const dest = !onboarded ? '/onboarding' : essential ? '/essential' : (mode === 'drone' ? '/(tabs)/drone-dashboard' : '/(tabs)');
         router.replace(dest as any);
+        // Appen startades av en delad flygning (blades://shared-flight?d=…, t.ex. via AirDrop): navigeringen
+        // ovan ersatte länkens skärm, så öppna den igen ovanpå dashboarden. När appen redan är igång sköter
+        // expo-router länken själv.
+        if (onboarded) {
+          const first = await Linking.getInitialURL().catch(() => null);
+          const m = first && /^blades:\/\/\/?shared-flight\b/i.test(first) ? first.match(/[?&]d=([^&#]+)/) : null;
+          if (m) setTimeout(() => router.push(`/shared-flight?d=${m[1]}` as any), 400);
+        }
       } catch (err: any) {
         // Startfel (oftast DB kunde inte öppnas — korrupt fil eller SQLCipher-nyckel saknas).
         // Visa en recovery-vy i stället för att hänga kvar på splash för alltid.
@@ -320,6 +328,7 @@ export default function RootLayout() {
         {/* Pilot CV (Export to PDF): push, så att delningsrutan öppnas från en vanlig skärm. */}
         <Stack.Screen name="export-cv" options={{ headerShown: false }} />
         <Stack.Screen name="bulk-edit" options={{ headerShown: false }} />
+        <Stack.Screen name="shared-flight" options={{ headerShown: false }} />
         <Stack.Screen name="projections-full" options={{ headerShown: false, animation: 'fade', gestureEnabled: false, orientation: 'landscape' }} />
         <Stack.Screen name="licence-full" options={{ headerShown: false, animation: 'fade', gestureEnabled: false, orientation: 'landscape' }} />
         <Stack.Screen name="flight/add" options={{ headerShown: false, presentation: tourPresentation, gestureEnabled: tourGesture }} />

@@ -38,6 +38,8 @@ import { clearDroneRegistryCategories, getDroneFlightCount, listCertificates } f
 import { getSetting, setSetting } from '../../db/flights';
 import { SignatureView, type SignatureData } from '../../components/SignaturePad';
 import { ModeToggleRow, IntroductionButton } from '../../components/settings/ModeToggleRow';
+import { pickSharedFlightFile } from '../../services/flightShareActions';
+import { useSharedFlightStore } from '../../store/sharedFlightStore';
 import { useVersionStore } from '../../store/versionStore';
 import { useRegulationStandardStore } from '../../store/regulationStandardStore';
 import { ICloudSyncRow } from '../../components/settings/ICloudSyncRow';
@@ -255,6 +257,14 @@ export default function SettingsScreen() {
 
   // Profildata — laddas från settings-DB
   const [profileName, setProfileName] = useState('');
+  // Import → "Open a shared flight": välj en .bladesflight-fil och gå till mottagarskärmen.
+  const openSharedFlightFile = async () => {
+    const res = await pickSharedFlightFile().catch(() => null);
+    if (!res) return;   // avbrutet
+    if (res.ok) useSharedFlightStore.getState().setPending(res.payload);
+    // En fil som inte går att läsa visas som ett besked på samma skärm.
+    router.push((res.ok ? '/shared-flight' : `/shared-flight?problem=${res.reason}`) as any);
+  };
   const [signature, setSignature] = useState<SignatureData | null>(null); // pilotsignatur → visas till höger i profilkortet
   const [profileInitials, setProfileInitials] = useState('');
   const [userProfile, setUserProfile] = useState('');
@@ -663,6 +673,14 @@ export default function SettingsScreen() {
             separatorColor={Colors.background}
             tourPressId="import-manual"
           />
+          {/* Delad flygning som fil (.bladesflight): samma mottagarskärm som länken från AirDrop. */}
+          {isPilot && <Row
+            icon="download-outline" iconColor={Colors.primary}
+            title="Open a shared flight"
+            subtitle="A flight file from your second pilot"
+            onClick={openSharedFlightFile}
+            separatorColor={Colors.background}
+          />}
           <Row
             icon="folder-open-outline" iconColor={Colors.primary}
             title="Imported data"

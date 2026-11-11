@@ -33,6 +33,9 @@ import { BWCardCompact } from '../../components/milestones/BWCardCompact';
 import { LXCardCompact } from '../../components/milestones/LXCardCompact';
 import { FlightCardRow } from '../../components/logbook-page/FlightCardRow';
 import { LatestFlightCard } from '../../components/logbook-page/LatestFlightCard';
+import { GlassDialog, DialogIcon } from '../../components/GlassDialog';
+import { canShareFlight } from '../../services/flightShare';
+import { payloadForFlight, shareFlightLink, shareFlightFile } from '../../services/flightShareActions';
 import { useBestWeekDetails, useLongestXcLegs } from '../../hooks/useMilestoneDetails';
 import { PremiumModal } from '../../components/PremiumModal';
 import { monthShort } from '../../utils/dateLabels';
@@ -544,9 +547,10 @@ function lxDateShort(iso: string | undefined, language: string): string {
 // Latest flight-karusell: svep vänster för att bläddra genom de senaste 5 flygningarna
 // (samma svep-känsla som fotokarusellen). Sida 1 = senaste (rubrik "Latest flight");
 // följande kort saknar rubrik → strecket löper hela vägen till vänster i stället.
-function LatestFlightCarousel({ flights, accent, placeNames, onPress, onAddPhoto }: {
+function LatestFlightCarousel({ flights, accent, placeNames, onPress, onAddPhoto, onShare, onShareFile }: {
   flights: Flight[]; accent: string; placeNames: Record<string, string>;
   onPress: (flight: Flight) => void; onAddPhoto?: (flight: Flight) => void;
+  onShare?: (flight: Flight) => void; onShareFile?: (flight: Flight) => void;
 }) {
   const W = Dimensions.get('window').width;
   const [page, setPage] = useState(0);
@@ -569,6 +573,9 @@ function LatestFlightCarousel({ flights, accent, placeNames, onPress, onAddPhoto
             placeNames={placeNames}
             onPress={() => onPress(f)}
             onAddPhoto={onAddPhoto}
+            // Simulatorpass och summarader delas inte → ingen delaknapp på de korten.
+            onShare={onShare && canShareFlight(f) ? onShare : undefined}
+            onShareFile={onShareFile}
             showLabel={i === 0}
           />
         ))}
@@ -627,6 +634,14 @@ export default function DashboardScreen() {
   }, [globeMenuOpen, globeMenuAnim]);
   const kbShift = useRef(new Animated.Value(0)).current; // temporär uppflytt när flygplatssökrutan fokuseras
   const [profileName, setProfileName] = useState('');
+  // Dela en flygning med sin second pilot (delaknappen på flygkortet): tryck = länk i delningsrutan (AirDrop),
+  // långt tryck = fil. Mottagaren ser vem flygningen kommer från, så utan namn i profilen ber vi om det först.
+  const [shareNeedsName, setShareNeedsName] = useState(false);
+  const shareFlight = async (fl: Flight, as: 'link' | 'file') => {
+    const payload = await payloadForFlight(fl as any).catch(() => null);
+    if (!payload) { setShareNeedsName(true); return; }
+    try { await (as === 'file' ? shareFlightFile(payload) : shareFlightLink(payload)); } catch { /* delningen avbröts */ }
+  };
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
   const [wx, setWx] = useState<DecodedWx | null>(null); // tolkad METAR+TAF (ticker överst)
   const [wxLoading, setWxLoading] = useState(false);
@@ -952,6 +967,8 @@ export default function DashboardScreen() {
           placeNames={placeNames}
           onPress={(f) => router.push(`/flight/detail/${f.id}`)}
           onAddPhoto={(fl) => router.push(`/flight/add?editId=${fl.id}&addPhoto=1` as any)}
+          onShare={(fl) => shareFlight(fl, 'link')}
+          onShareFile={(fl) => shareFlight(fl, 'file')}
         />
       )}
 
@@ -1111,6 +1128,16 @@ export default function DashboardScreen() {
     {/* Mjuk "uppdatering finns"-popup (dyker upp vid app-öppning, går att trycka bort). */}
     <UpdateAvailableModal />
     <UpdateAppliedModal />
+    <GlassDialog
+      visible={shareNeedsName}
+      onClose={() => setShareNeedsName(false)}
+      icon={<DialogIcon name="person-outline" />}
+      eyebrow="Share flight"
+      title="Add your name first"
+      body="Your second pilot sees who the flight is from, and gets you as their second pilot. Add your name in your profile, then share again."
+      primary={{ label: 'Open profile', onPress: () => { setShareNeedsName(false); setTimeout(() => router.push('/settings/profile' as any), 240); } }}
+      secondary={{ label: 'Not now', onPress: () => setShareNeedsName(false) }}
+    />
   </>);
 }
 

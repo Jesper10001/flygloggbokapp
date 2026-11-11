@@ -28,6 +28,7 @@ import { AircraftModal } from '../../components/AircraftModal';
 import { FlightLimitModal } from '../../components/FlightLimitModal';
 import { useFlightStore } from '../../store/flightStore';
 import { useSavedFlightStore } from '../../store/savedFlightStore';
+import { useSharedFlightStore } from '../../store/sharedFlightStore';
 import { diffSavedFlight } from '../../services/flightSaveDiff';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -716,9 +717,12 @@ export default function AddFlightScreen() {
   const styles = makeStyles();
   const { t } = useTranslation();
   const router = useRouter();
-  const { editId, scanImage, addPhoto, draft: draftParam } = useLocalSearchParams<{ editId?: string; scanImage?: string; addPhoto?: string; draft?: string }>();
+  const { editId, scanImage, addPhoto, draft: draftParam, shared: sharedParam } = useLocalSearchParams<{ editId?: string; scanImage?: string; addPhoto?: string; draft?: string; shared?: string }>();
   const isEdit = !!editId;
   const fromDraft = draftParam === '1' && !isEdit;   // fortsätter ett sparat utkast (dashboardens kort)
+  // En flygning som ens second pilot delat (services/flightShare): formuläret fylls i ur sharedFlightStore.
+  const fromShared = sharedParam === '1' && !isEdit;
+  const [sharedFrom, setSharedFrom] = useState<string | null>(null);   // avsändarens namn → raden överst i formuläret
   const { canAddFlight, loadFlights, loadStats, flightCount, isPremium, isMax } = useFlightStore();
   const _theme = useThemeStore(s => s.theme);
   const { formatTime, parseTime, keyboardType, placeholder } = useTimeFormat();
@@ -1234,6 +1238,33 @@ export default function AddFlightScreen() {
     }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromDraft]);
+
+  // ── Delad flygning från ens second pilot ────────────────────────────────────
+  // Skärmen Shared flight har redan vänt på rollerna och låtit mottagaren välja flygplan. Här fylls formuläret
+  // i som ett utkast: rutt, tider, landningar och starter som avsändarens (de manuella lägena slås på så att
+  // autot inte räknar om dem), medan pilot flying lämnas åt appens vanliga auto. Besättningsraden i remarks
+  // skrivs av sync-effekten ovan med avsändaren som second pilot.
+  useEffect(() => {
+    if (!fromShared) return;
+    const inc = useSharedFlightStore.getState().takePrepared();
+    if (!inc) return;
+    const next = { ...EMPTY, ...inc.form } as FlightFormData;
+    const stops = parseRouteStops(next.remarks || '');
+    if (stops.length > 0) setRouteStops(stops);
+    const apps = parseApproaches(next.remarks || '');
+    if (Object.keys(apps).length > 0) setApproaches(apps);
+    loadedNvgKey.current = `${String(next.night)}|${next.flight_rules}`;
+    setForm(next);
+    setRole(inc.role as PrimaryRole);
+    setFi(inc.fi); setExaminerOverlay(false); setSafetyPilotOverlay(false); setSolo(false);
+    setExtraPilots(inc.extraPilots.map((x, i) => ({ id: `e${i}`, role: x.role, name: x.name })));
+    setPilotMode(inc.multiPilot ? 'multi' : 'single');
+    setPilotModeManual(true);
+    setLogFull(true);
+    setNightManual(true); setLandingsManual(true); setTakeoffsManual(true);
+    setSharedFrom(inc.fromName || 'your second pilot');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromShared]);
   const saveAsDraft = async () => {
     const labels = draftLabels({ from: form.dep_place || form.dep_place_raw, to: form.arr_place || form.arr_place_raw, date: form.date,
       aircraft: [form.aircraft_type, form.registration].filter(Boolean).join(' ') });
@@ -1560,7 +1591,7 @@ export default function AddFlightScreen() {
       if (last) {
         getRecentRegistrations(last.aircraft_type).then(setRecentRegs);
         // Ett utkast har redan sina värden — förifyll inte över dem.
-        if (fromDraft) { /* inget */ }
+        if (fromDraft || fromShared) { /* inget */ }
         else if (!isEdit) {
           setForm((prev) => ({
             ...prev,
@@ -1572,7 +1603,7 @@ export default function AddFlightScreen() {
         // Vid redigering rörs formuläret inte här: flygningens egna regler och IFR-/VFR-tid gäller
         // (förut skrevs de över med senaste flygningens regler och 0 tid, och sparades så).
         // Förvald roll baserat på senaste flygningen (bara för nya flygningar, inte utkast)
-        if (!isEdit && !fromDraft) {
+        if (!isEdit && !fromDraft && !fromShared) {
           const r: PrimaryRole =
             (last.picus ?? 0) > 0 ? 'picus' :
             (last.spic ?? 0) > 0 ? 'spic' :
@@ -2727,8 +2758,18 @@ export default function AddFlightScreen() {
 
         <ValidationWarnings issues={warnings} />
 
+        {/* Delad flygning: en rad om varifrån värdena kommer (snabbfyllen under döljs, den skulle skriva över dem). */}
+        {sharedFrom ? (
+          <View accessible accessibilityRole="text" style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, marginBottom: 10, borderRadius: 14, borderWidth: 1, borderColor: Colors.primary + '66', backgroundColor: Colors.primary + '17' }}>
+            <Ionicons name="download-outline" size={18} color={Colors.primary} />
+            <Text style={{ flex: 1, fontSize: 13, lineHeight: 18, color: Colors.textPrimary }}>
+              Filled in from <Text style={{ fontWeight: '700' }}>{sharedFrom}</Text>, with your roles swapped. Check it, then save.
+            </Text>
+          </View>
+        ) : null}
+
         {/* ── Snabbfyll: omvänd rutt från senaste flygning ── */}
-        {lastFlight && lastFlight.dep_place && lastFlight.arr_place && (
+        {!sharedFrom && lastFlight && lastFlight.dep_place && lastFlight.arr_place && (
           <TouchableOpacity style={styles.lastFlightBar} onPress={fillReverseRoute} activeOpacity={0.7}>
             <Ionicons name="swap-horizontal" size={14} color={Colors.primary} />
             <Text style={styles.lastFlightText}>

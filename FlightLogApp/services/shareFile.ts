@@ -3,7 +3,7 @@
 // öppnas ovanpå delningsrutan kan låsa hela skärmen, samma sak som ovanpå kartorna. Rutan öppnas först när
 // pågående animationer och tryck är klara, så att den inte krockar med en ruta som håller på att stängas.
 
-import { InteractionManager } from 'react-native';
+import { InteractionManager, Share } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import { create } from 'zustand';
 
@@ -16,6 +16,17 @@ export async function shareFileAsync(url: string, options: Sharing.SharingOption
   try {
     await Sharing.shareAsync(url, options);
   } finally {
+    useShareSheetStore.setState({ open: false });
+  }
+}
+
+// Samma ruta för en länk (t.ex. en delad flygning, blades://…). AirDrop öppnar länken i appen hos mottagaren.
+export async function shareUrlAsync(url: string): Promise<void> {
+  await new Promise<void>((resolve) => { InteractionManager.runAfterInteractions(() => resolve()); });
+  useShareSheetStore.setState({ open: true });
+  try {
+    await Share.share({ url });
+  } catch { /* avbruten eller ingen mottagare: inget att göra */ } finally {
     useShareSheetStore.setState({ open: false });
   }
 }

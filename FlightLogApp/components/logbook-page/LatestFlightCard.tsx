@@ -12,9 +12,11 @@ import { roleLabel, isPicFlight, arrUtc, parseDate } from './flightDisplay';
 import { NightRoute } from './NightRoute';
 import { useNightFraction } from './useNightFraction';
 
-export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAddPhoto, showLabel = true }: {
+export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAddPhoto, onShare, onShareFile, showLabel = true }: {
   flight: Flight; accent: string; placeNames: Record<string, string>; onPress: () => void;
   onAddPhoto?: (flight: Flight) => void; // snabbknapp för att lägga till media (visas bara utan befintligt media)
+  onShare?: (flight: Flight) => void;     // dela flygningen med sin second pilot (rund ikon i headern); visas bara när den är satt
+  onShareFile?: (flight: Flight) => void; // långt tryck på delaknappen: spara flygningen som fil
   showLabel?: boolean; // false på icke-senaste kort i karusellen → strecket går hela vägen vänster
 }) {
   const { formatTime, timeFormat } = useTimeFormat();
@@ -68,6 +70,24 @@ export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAdd
           )}
           <View style={{ flex: 1, height: 1, backgroundColor: accent + '33' }} />
           <Text style={{ fontFamily: FONT_MONO, fontSize: 10, color: Colors.textSecondary }}>{dateLabel}</Text>
+          {/* Dela med second pilot: tryck = delningsrutan (AirDrop), långt tryck = spara som fil. Tryckytan är
+              44 pt och drar in headerns kant (negativa marginaler) så att kortets höjd inte ändras. */}
+          {onShare && (
+            <TouchableOpacity
+              onPress={() => onShare(f)}
+              onLongPress={onShareFile ? () => onShareFile(f) : undefined}
+              delayLongPress={450}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Share this flight with your second pilot"
+              accessibilityHint="Hold to save the flight as a file"
+              style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginVertical: -15, marginRight: -10, marginLeft: -4 }}
+            >
+              <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: accent + '24', borderWidth: 1, borderColor: accent + '80' }}>
+                <Ionicons name="share-outline" size={15} color={accent} />
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
         {/* route + block */}
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingBottom: 6 }}>
