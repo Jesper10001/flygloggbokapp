@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Image, ScrollView, Alert, ActivityIndicator, Linking,
+  View, Text, TouchableOpacity, StyleSheet, Image, ScrollView, Alert, ActivityIndicator, Linking, useWindowDimensions,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +24,9 @@ import {
 
 // Kameran för att skanna pappersloggboken. Liggande läge, en ram att passa in uppslaget i; kameran tar
 // bilden själv när hela uppslaget är i ramen, skarpt och stilla. Sedan vänder man sida och nästa tas.
+// Utseende (design A, "Side panels"): kamerabilden ligger fri i mitten. Till vänster en panel med vilket
+// uppslag det gäller, vad man ska göra och tre bockar för det kameran väntar på; till höger lampa,
+// avtryckare, Auto, tagna uppslag och Done.
 
 // En hel bok ("Scan your whole logbook", ?book=1): fler uppslag i taget; fotona läggs i bokens skanning.
 const BOOK_MAX = 60;
@@ -33,7 +36,7 @@ const OCR_WIDTH = 2000;             // samma bredd som övriga skanningsvägar
 
 const HINTS: Record<ScanState, string> = {
   starting: 'Starting camera…',
-  searching: 'Point the camera at an open logbook spread',
+  searching: 'Point the camera at your open logbook',
   fitInFrame: 'Fit the whole spread inside the frame',
   moveCloser: 'Move a little closer',
   center: 'Center the spread in the frame',
@@ -63,6 +66,12 @@ export default function ScanCameraScreen() {
   const [trayOpen, setTrayOpen] = useState(false);
   const [preparing, setPreparing] = useState(false);
   const lastAspect = useRef(DEFAULT_ASPECT);
+  // Skärmen vrids till liggande när den öppnas. Panelerna och kameran ritas först när den ligger ned, så att
+  // inget hinner visas i stående format; vrids den aldrig (låset nekas) visas kameran ändå efter en stund.
+  const win = useWindowDimensions();
+  const [waited, setWaited] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setWaited(true), 1500); return () => clearTimeout(t); }, []);
+  const laidOut = win.width > win.height || waited;
 
   const bookMode = useLocalSearchParams<{ book?: string }>().book === '1';
   const { isPremium, isMax } = useFlightStore();
@@ -172,20 +181,32 @@ export default function ScanCameraScreen() {
     }
   };
 
-  // Plats för knapparna: hintraden överst, knappkolumnen till höger.
-  const rightCol = insets.right + 16 + 76 + 12;
-  const guideInsets: [number, number, number, number] = [insets.top + 64, rightCol, insets.bottom + 18, insets.left + 18];
+  // Panelerna: vänster med text, höger med knappar. Ramen får hela ytan däremellan.
+  const padL = Math.max(insets.left, 16), padR = Math.max(insets.right, 16);
+  const padB = Math.max(insets.bottom, 12) + 8;
+  const leftW = padL + 178, rightW = padR + 92;
+  const guideInsets: [number, number, number, number] = [14, rightW + 14, 14, leftW + 14];
 
+  const st = status.state;
+  const turned = st === 'turnPage' && spreads.length > 0;
   const hint = full
     ? byCoins
       ? `That's what your coins cover, ${max} spread${max === 1 ? '' : 's'}. Tap Done.`
       : `That's ${max} spreads, the most per ${bookMode ? 'round' : 'scan'}. Tap Done.`
-    : status.state === 'turnPage' && spreads.length > 0
-      ? `Spread ${spreads.length} captured. Turn the page`
-      : !autoCapture && (status.state === 'ready' || status.state === 'holdStill')
+    : turned
+      ? 'Turn to the next spread'
+      : !autoCapture && (st === 'ready' || st === 'holdStill')
         ? 'Tap the shutter to take the photo'
-        : HINTS[status.state] ?? HINTS.searching;
-  const good = status.state === 'ready' || (status.state === 'turnPage' && spreads.length > 0);
+        : HINTS[st] ?? HINTS.searching;
+  const good = st === 'ready' || st === 'capturing' || turned;
+  const label = full
+    ? `${spreads.length} SPREAD${spreads.length === 1 ? '' : 'S'} TAKEN`
+    : turned ? `SPREAD ${spreads.length} TAKEN` : `SPREAD ${spreads.length + 1}`;
+  // Bockarna i den ordning kameran prövar dem: uppslaget i ramen, sedan stilla, sedan skarpt. "dark" kommer
+  // både med och utan hittad bok; bara med bok (coverage finns) är uppslaget i ramen.
+  const framed = st === 'holdStill' || st === 'focus' || st === 'ready' || st === 'capturing' || (st === 'dark' && status.coverage != null);
+  const still = st === 'focus' || st === 'ready' || st === 'capturing';
+  const sharp = st === 'ready' || st === 'capturing';
 
   if (!available) {
     return (
@@ -214,7 +235,7 @@ export default function ScanCameraScreen() {
 
   return (
     <View style={s.root}>
-      {permission === 'granted' && aspect != null && (
+      {permission === 'granted' && aspect != null && laidOut && (
         <ScanCameraView
           ref={camRef}
           style={StyleSheet.absoluteFill}
@@ -229,61 +250,89 @@ export default function ScanCameraScreen() {
         />
       )}
 
-      {/* Överst: stäng, instruktion, Auto + lampa */}
-      <View style={[s.topRow, { top: insets.top + 12, left: insets.left + 16, right: rightCol }]}>
-        <RoundButton icon="close" onPress={close} label="Close" />
-        <View style={[s.hintPill, good && s.hintPillGood]}>
-          {good && <Ionicons name="checkmark-circle" size={16} color={Colors.success} />}
-          <Text style={s.hintText} numberOfLines={1}>{hint}</Text>
-        </View>
-        <TouchableOpacity
-          style={[s.chip, autoCapture && s.chipOn]}
-          onPress={() => setAutoCapture(v => !v)}
-          accessibilityRole="switch"
-          accessibilityState={{ checked: autoCapture }}
-          accessibilityLabel="Take photos automatically"
-        >
-          <Text style={[s.chipText, autoCapture && s.chipTextOn]}>AUTO</Text>
-        </TouchableOpacity>
-        <RoundButton icon={torch ? 'flashlight' : 'flashlight-outline'} active={torch} onPress={() => setTorch(v => !v)} label="Light" />
-      </View>
-
-      {/* Höger: Done, avtryckare, tagna uppslag */}
-      <View style={[s.rightCol, { right: insets.right + 16, top: insets.top + 12, bottom: insets.bottom + 18 }]}>
-        <TouchableOpacity
-          style={[s.doneBtn, spreads.length === 0 && s.doneBtnHidden]}
-          onPress={finish}
-          disabled={spreads.length === 0 || preparing}
-          accessibilityLabel={`Done, read ${spreads.length} spreads`}
-        >
-          <Text style={s.doneText}>Done</Text>
-        </TouchableOpacity>
-
-        <Shutter
-          progress={autoCapture && status.state === 'ready' ? status.progress : 0}
-          disabled={full || status.state === 'capturing'}
-          onPress={shutter}
-        />
-
-        <TouchableOpacity
-          style={[s.thumbWrap, spreads.length === 0 && s.thumbEmpty]}
-          onPress={() => spreads.length > 0 && setTrayOpen(true)}
-          disabled={spreads.length === 0}
-          accessibilityLabel={`${spreads.length} spreads captured`}
-        >
-          {spreads.length > 0 ? (
-            <>
-              <Image source={{ uri: spreads[spreads.length - 1].uri }} style={s.thumb} resizeMode="cover" />
-              <View style={s.badge}><Text style={s.badgeText}>{spreads.length}</Text></View>
-            </>
-          ) : (
-            <Text style={s.thumbEmptyText}>0/{max}</Text>
+      {/* Vänster: stäng, vilket uppslag, vad man ska göra och vad kameran väntar på */}
+      {laidOut && (
+        <View style={[s.leftPanel, { width: leftW, paddingLeft: padL, paddingBottom: padB }]}>
+          <TouchableOpacity style={s.closeBtn} onPress={close} accessibilityRole="button" accessibilityLabel="Close">
+            <Ionicons name="close" size={24} color="#DCE9F5" />
+          </TouchableOpacity>
+          <Text style={[s.panelLabel, good && { color: SCAN_GREEN }]}>{label}</Text>
+          <Text style={s.panelHint} numberOfLines={4} adjustsFontSizeToFit minimumFontScale={0.75}>{hint}</Text>
+          {!full && (
+            <View style={s.checks} accessibilityLabel={`In the frame ${framed ? 'yes' : 'not yet'}, held still ${still ? 'yes' : 'not yet'}, sharp ${sharp ? 'yes' : 'not yet'}`}>
+              <Check on={framed} text="In the frame" />
+              <Check on={still} text="Held still" />
+              <Check on={sharp} text="Sharp" />
+            </View>
           )}
-        </TouchableOpacity>
-      </View>
+          <View style={{ flex: 1 }} />
+          <Text style={s.panelFoot}>
+            {full ? 'Tap the photo to look through them.' : autoCapture ? 'The photo is taken by itself.' : 'Auto is off. You take each photo.'}
+          </Text>
+        </View>
+      )}
+
+      {/* Höger: lampa, avtryckare med Auto, tagna uppslag och Done */}
+      {laidOut && (
+        <View style={[s.rightPanel, { width: rightW, paddingRight: padR }]}>
+          <TouchableOpacity
+            style={[s.round, s.lightBtn, torch && s.roundActive]}
+            onPress={() => setTorch(v => !v)}
+            accessibilityRole="switch" accessibilityState={{ checked: torch }} accessibilityLabel="Light"
+          >
+            <Ionicons name={torch ? 'flashlight' : 'flashlight-outline'} size={20} color={torch ? '#06101E' : '#DCE9F5'} />
+          </TouchableOpacity>
+
+          <Shutter
+            progress={autoCapture && st === 'ready' ? status.progress : 0}
+            disabled={full || st === 'capturing'}
+            onPress={shutter}
+          />
+          <TouchableOpacity
+            style={s.autoTouch}
+            onPress={() => setAutoCapture(v => !v)}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: autoCapture }}
+            accessibilityLabel="Take photos automatically"
+          >
+            <View style={[s.chip, autoCapture && s.chipOn]}>
+              <Text style={[s.chipText, autoCapture && s.chipTextOn]}>AUTO</Text>
+            </View>
+          </TouchableOpacity>
+
+          <View style={[s.rightBottom, { bottom: padB, right: padR }]}>
+            <TouchableOpacity
+              style={[s.thumbWrap, spreads.length === 0 && s.thumbEmpty]}
+              onPress={() => spreads.length > 0 && setTrayOpen(true)}
+              disabled={spreads.length === 0}
+              accessibilityLabel={`${spreads.length} spreads captured`}
+            >
+              {spreads.length > 0 ? (
+                <>
+                  <Image source={{ uri: spreads[spreads.length - 1].uri }} style={s.thumb} resizeMode="cover" />
+                  <View style={s.badge}><Text style={s.badgeText}>{spreads.length}</Text></View>
+                </>
+              ) : (
+                <Text style={s.thumbEmptyText}>0/{max}</Text>
+              )}
+            </TouchableOpacity>
+            {spreads.length > 0 && (
+              <TouchableOpacity
+                style={s.doneBtn}
+                onPress={finish}
+                disabled={preparing}
+                accessibilityRole="button"
+                accessibilityLabel={`Done, read ${spreads.length} spreads`}
+              >
+                <Text style={s.doneText}>Done</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
 
       {__DEV__ && (
-        <Text style={[s.dev, { left: insets.left + 18, bottom: insets.bottom + 6 }]}>
+        <Text style={[s.dev, { left: leftW + 16, bottom: 2 }]}>
           {`${status.state} · ${status.detector ?? '-'} · sharp ${Math.round(status.sharpness ?? 0)} · lum ${Math.round(status.brightness ?? 0)} · cov ${(status.coverage ?? 0).toFixed(2)} · diff ${(status.sceneDiff ?? 0).toFixed(1)} · aspect ${status.aspect.toFixed(2)}`}
         </Text>
       )}
@@ -325,13 +374,17 @@ export default function ScanCameraScreen() {
   );
 }
 
-function RoundButton({ icon, onPress, active, label }: {
-  icon: keyof typeof Ionicons.glyphMap; onPress: () => void; active?: boolean; label: string;
-}) {
+const SCAN_GREEN = '#00E8A0';
+
+// En rad i vänsterpanelen: tom ring tills kameran är nöjd, grön bock sedan.
+function Check({ on, text }: { on: boolean; text: string }) {
   return (
-    <TouchableOpacity style={[s.round, active && s.roundActive]} onPress={onPress} accessibilityLabel={label} hitSlop={6}>
-      <Ionicons name={icon} size={20} color={active ? Colors.textInverse : '#fff'} />
-    </TouchableOpacity>
+    <View style={s.checkRow}>
+      <View style={[s.checkRing, on && s.checkRingOn]}>
+        {on && <Ionicons name="checkmark" size={13} color="#06101E" />}
+      </View>
+      <Text style={[s.checkText, on && s.checkTextOn]}>{text}</Text>
+    </View>
   );
 }
 
@@ -380,41 +433,61 @@ function Fallback({ insets, icon, title, body, actionLabel, onAction, onClose }:
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000' },
 
-  topRow: { position: 'absolute', height: 40, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  round: {
-    width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(10,22,40,0.62)',
+  // Paneler i appens marinblå, alltid mörka (kameran följer inte appens tema).
+  leftPanel: {
+    position: 'absolute', left: 0, top: 0, bottom: 0, paddingTop: 8, paddingRight: 16,
+    backgroundColor: '#0A1628', borderRightWidth: 1, borderRightColor: 'rgba(127,168,200,0.18)',
   },
-  roundActive: { backgroundColor: Colors.warning },
-  hintPill: {
-    flex: 1, height: 40, borderRadius: 20, paddingHorizontal: 16, flexDirection: 'row', gap: 8,
-    alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(10,22,40,0.72)',
+  closeBtn: { width: 44, height: 44, marginLeft: -10, alignItems: 'center', justifyContent: 'center' },
+  panelLabel: {
+    marginTop: 10, marginBottom: 6, fontFamily: 'JetBrainsMono', fontSize: 10, fontWeight: '700', letterSpacing: 1.8,
+    color: '#00C8E8',
   },
-  hintPillGood: { backgroundColor: 'rgba(0,60,44,0.78)' },
-  hintText: { color: '#fff', fontSize: 15, fontWeight: '600', flexShrink: 1 },
-  chip: {
-    height: 32, paddingHorizontal: 12, borderRadius: 16, justifyContent: 'center',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)', backgroundColor: 'rgba(10,22,40,0.62)',
+  panelHint: { fontFamily: 'Fraunces', fontSize: 21, lineHeight: 25, fontWeight: '600', color: '#fff', marginBottom: 16 },
+  checks: { gap: 9 },
+  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  checkRing: {
+    width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: 'rgba(143,176,204,0.6)',
+    alignItems: 'center', justifyContent: 'center',
   },
-  chipOn: { borderColor: Colors.primary, backgroundColor: 'rgba(0,200,232,0.18)' },
-  chipText: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '700', letterSpacing: 0.8 },
-  chipTextOn: { color: Colors.primary },
+  checkRingOn: { borderColor: SCAN_GREEN, backgroundColor: SCAN_GREEN },
+  checkText: { fontSize: 13.5, fontWeight: '600', color: '#B4C9DD' },
+  checkTextOn: { color: '#fff' },
+  panelFoot: { fontSize: 12, lineHeight: 16, color: '#8FB0CC' },
 
-  rightCol: { position: 'absolute', width: 76, alignItems: 'center', justifyContent: 'space-between' },
-  doneBtn: {
-    width: 76, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.primary,
+  rightPanel: {
+    position: 'absolute', right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#0A1628', borderLeftWidth: 1, borderLeftColor: 'rgba(127,168,200,0.18)',
   },
-  doneBtnHidden: { opacity: 0 },
-  doneText: { color: Colors.textInverse, fontSize: 15, fontWeight: '700' },
+  round: {
+    width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(127,168,200,0.3)', backgroundColor: 'rgba(15,30,58,0.6)',
+  },
+  roundActive: { backgroundColor: '#FFB830', borderColor: '#FFB830' },
+  lightBtn: { position: 'absolute', top: 14, left: 24 },   // mitt i panelens 92 pt breda yta
+  autoTouch: { height: 44, marginTop: 4, justifyContent: 'center' },
+  chip: {
+    height: 28, paddingHorizontal: 12, borderRadius: 14, justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(143,176,204,0.5)',
+  },
+  chipOn: { borderColor: '#00C8E8', backgroundColor: 'rgba(0,200,232,0.16)' },
+  chipText: { fontFamily: 'JetBrainsMono', color: '#B4C9DD', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  chipTextOn: { color: '#5FD9EE' },
+
+  rightBottom: { position: 'absolute', left: 0, alignItems: 'center', gap: 8 },
+  doneBtn: {
+    width: 84, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#00C8E8',
+  },
+  doneText: { color: '#06101E', fontSize: 15, fontWeight: '700' },
   shutterInner: { width: 58, height: 58, borderRadius: 29, backgroundColor: '#fff' },
   thumbWrap: {
     width: 64, height: 44, borderRadius: 8, overflow: 'visible',
-    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.85)', backgroundColor: 'rgba(10,22,40,0.62)',
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.85)', backgroundColor: '#152338',
     alignItems: 'center', justifyContent: 'center',
   },
-  thumbEmpty: { borderColor: 'rgba(255,255,255,0.3)' },
-  thumbEmptyText: { color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  thumbEmpty: { borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(143,176,204,0.5)', backgroundColor: 'transparent' },
+  thumbEmptyText: { fontFamily: 'JetBrainsMono', color: '#B4C9DD', fontSize: 12, fontWeight: '700' },
   thumb: { width: '100%', height: '100%', borderRadius: 7 },
   badge: {
     position: 'absolute', top: -8, right: -8, minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5,
