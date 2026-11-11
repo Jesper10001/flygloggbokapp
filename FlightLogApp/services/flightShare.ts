@@ -330,37 +330,83 @@ export function toFormValues(p: SharedPayload, rev: ReversedFlight, secondPilotN
 // ── Mottagaren: flygplanet mot den egna Fleet ────────────────────────────────
 
 export interface FleetRow { registration: string; aircraft_type: string; n: number }
-export interface AircraftOption { type: string; registration: string; source: 'yours' | 'sent'; flights: number }
-export type AircraftMatch = { kind: 'exact'; type: string; registration: string } | { kind: 'ask'; options: AircraftOption[] };
+/** Ett av mottagarens egna värden (typ eller registrering) som liknar det avsändaren skrev. */
+export interface PartChoice { value: string; flights: number; note?: string }
+/**
+ * Typen eller registreringen var för sig: exact = finns precis så hos mottagaren (eller inget att jämföra med),
+ * ask = Log flight frågar. similar är mottagarens egna liknande värden (tom lista = inget liknar, då kan man lägga
+ * till avsändarens värde eller välja själv). sentKnown = avsändarens värde finns redan i Fleet.
+ */
+export type PartMatch =
+  | { kind: 'exact'; value: string }
+  | { kind: 'ask'; sent: string; sentKnown: boolean; similar: PartChoice[] };
+export interface AircraftMatch { type: PartMatch; registration: PartMatch }
 
 const norm = (s: string) => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+// Lösare jämförelse: O och 0, I och 1 räknas som samma tecken (KILO39 / KIL039).
+const loose = (s: string) => norm(s).replace(/O/g, '0').replace(/I/g, '1');
+function editDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
+}
+/** Liknar två namn varandra? Samma tecken bortsett från skrivsätt, eller högst ett tecken fel (minst 3 tecken). */
+export function looksAlike(a: string, b: string): boolean {
+  const x = loose(a), y = loose(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  return Math.min(x.length, y.length) >= 3 && editDistance(x, y) <= 1;
+}
+
+const MAX_SIMILAR = 3;
 
 /**
- * Stämmer typ och registrering exakt med något mottagaren redan har (eller har mottagaren inga flygplan alls)
- * används det direkt. Annars får mottagaren välja: sina egna närmaste, eller det avsändaren skrev.
+ * Jämför avsändarens flygplanstyp och registrering med mottagarens Fleet, var för sig. Stämmer båda exakt (eller
+ * har mottagaren inga flygplan alls) frågar Log flight ingenting. Finns registreringen men under en annan typ
+ * föreslås den typen först.
  */
 export function matchAircraft(sent: { type: string; registration: string }, fleet: FleetRow[]): AircraftMatch {
   const type = (sent.type || '').toUpperCase().trim();
   const reg = (sent.registration || '').toUpperCase().trim();
-  if (fleet.length === 0) return { kind: 'exact', type, registration: reg };
-  if (fleet.some((r) => r.registration === reg && r.aircraft_type === type)) return { kind: 'exact', type, registration: reg };
-  const options: AircraftOption[] = [];
-  const add = (o: AircraftOption) => { if (!options.some((x) => x.type === o.type && x.registration === o.registration)) options.push(o); };
-  // 1. Samma registrering (även skriven annorlunda, SEJRA / SE-JRA) hos mottagaren.
-  fleet.filter((r) => norm(r.registration) === norm(reg) && norm(reg) !== '')
-    .sort((a, b) => b.n - a.n)
-    .forEach((r) => add({ type: r.aircraft_type, registration: r.registration, source: 'yours', flights: r.n }));
-  // 2. Samma typ (även skriven annorlunda, AW-139 / AW139) hos mottagaren, med avsändarens registrering.
-  if (options.length === 0) {
-    const byType = new Map<string, number>();
-    fleet.filter((r) => norm(r.aircraft_type) === norm(type) && norm(type) !== '')
-      .forEach((r) => byType.set(r.aircraft_type, (byType.get(r.aircraft_type) ?? 0) + r.n));
-    [...byType.entries()].sort((a, b) => b[1] - a[1])
-      .forEach(([t, n]) => add({ type: t, registration: reg, source: t === type ? 'sent' : 'yours', flights: n }));
+  if (fleet.length === 0) return { type: { kind: 'exact', value: type }, registration: { kind: 'exact', value: reg } };
+
+  const typeN = new Map<string, number>();
+  const regN = new Map<string, number>();
+  for (const r of fleet) {
+    typeN.set(r.aircraft_type, (typeN.get(r.aircraft_type) ?? 0) + r.n);
+    regN.set(r.registration, (regN.get(r.registration) ?? 0) + r.n);
   }
-  // 3. Som avsändaren skrev det.
-  add({ type, registration: reg, source: 'sent', flights: 0 });
-  return { kind: 'ask', options };
+  const byFlights = (m: Map<string, number>, keep: (v: string) => boolean): PartChoice[] =>
+    [...m.entries()].filter(([v]) => keep(v)).sort((a, b) => b[1] - a[1]).map(([value, flights]) => ({ value, flights }));
+
+  // Registreringen
+  let regMatch: PartMatch;
+  if (!reg || regN.has(reg)) regMatch = { kind: 'exact', value: reg };
+  else regMatch = { kind: 'ask', sent: reg, sentKnown: false, similar: byFlights(regN, (v) => looksAlike(v, reg)).slice(0, MAX_SIMILAR) };
+
+  // Typen. Registreringen finns redan under en annan typ → den typen först.
+  const regTypes = regMatch.kind === 'exact' && reg
+    ? byFlights(new Map(fleet.filter((r) => r.registration === reg).map((r) => [r.aircraft_type, r.n])), () => true)
+    : [];
+  let typeMatch: PartMatch;
+  if (!type) typeMatch = { kind: 'exact', value: '' };
+  else if (regTypes.length > 0 && !regTypes.some((t) => t.value === type)) {
+    const similar: PartChoice[] = regTypes.map((t) => ({ ...t, note: `your type for ${reg}` }));
+    for (const t of byFlights(typeN, (v) => v !== type && looksAlike(v, type))) {
+      if (!similar.some((x) => x.value === t.value)) similar.push(t);
+    }
+    typeMatch = { kind: 'ask', sent: type, sentKnown: typeN.has(type), similar: similar.slice(0, MAX_SIMILAR) };
+  } else if (typeN.has(type)) typeMatch = { kind: 'exact', value: type };
+  else typeMatch = { kind: 'ask', sent: type, sentKnown: false, similar: byFlights(typeN, (v) => looksAlike(v, type)).slice(0, MAX_SIMILAR) };
+
+  return { type: typeMatch, registration: regMatch };
 }
 
 /** Avsändarens namn så som mottagaren redan skriver det (hela namnet eller initialerna), annars hela namnet. */

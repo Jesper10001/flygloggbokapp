@@ -90,7 +90,12 @@ export default function SharedFlightScreen() {
       const sender = payload.from.name || payload.from.initials || '';
       const second = pickSecondPilotName(payload.from, knownNames);
       const m = matchAircraft({ type: f.aircraft_type, registration: f.registration }, fleetRows);
-      const aircraft = m.kind === 'exact' ? { type: m.type, registration: m.registration } : { type: '', registration: '' };
+      const needsAsk = m.type.kind === 'ask' || m.registration.kind === 'ask';
+      // Det som stämmer fylls i direkt; det Log flight frågar om står tomt tills man svarat.
+      const aircraft = {
+        type: m.type.kind === 'exact' ? m.type.value : '',
+        registration: m.registration.kind === 'exact' ? m.registration.value : '',
+      };
       let extras: { role: string; name: string }[] = [];
       try { extras = f.extra_pilots ? JSON.parse(f.extra_pilots) : []; } catch { extras = []; }
       useSharedFlightStore.getState().setPrepared({
@@ -101,11 +106,7 @@ export default function SharedFlightScreen() {
         extraPilots: extras,
         multiPilot: f.multi_pilot > 0 || rev.role !== 'pic' || !!second,
         duplicate: !!dup,
-        aircraftAsk: m.kind === 'exact' ? null : {
-          who: sender ? sender.split(' ')[0] : 'The sender',
-          sent: [f.aircraft_type, f.registration].filter(Boolean).join(' · ') || 'no aircraft',
-          options: m.options,
-        },
+        aircraftAsk: needsAsk ? { who: sender ? sender.split(' ')[0] : 'The sender', match: m } : null,
       });
       close();
       setTimeout(() => router.push('/flight/add?shared=1' as any), 380);

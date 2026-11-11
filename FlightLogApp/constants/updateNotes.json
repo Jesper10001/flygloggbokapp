@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 93,
+      "date": "2026-11-11",
+      "notes": [
+        "Improved: A shared flight asks about the aircraft type and registration separately, with similar ones from your Fleet.",
+        "Improved: You can add an aircraft type or registration you don't have yet straight from a shared flight.",
+        "Improved: Log flight only shows a note for a shared flight when you already have it in your logbook."
+      ]
+    },
+    {
       "id": 92,
       "date": "2026-11-11",
       "notes": [
