@@ -337,7 +337,9 @@ export default function RootLayout() {
         <Stack.Screen name="import/index" options={{ title: 'Import logbook', presentation: 'modal' }} />
         <Stack.Screen name="import/scan" options={{ title: 'Logbook scan', presentation: 'modal' }} />
         <Stack.Screen name="import/scan-book" options={{ title: 'Whole logbook', headerBackTitle: 'Back' }} />
-        <Stack.Screen name="import/scan-camera" options={{ headerShown: false, animation: 'fade', gestureEnabled: false, orientation: 'landscape' }} />
+        {/* Ingen orientation här: skärmen vrider sig själv med expo-screen-orientation. Med orientation: 'landscape'
+            nekades återgången till stående när kameran stängdes, och appen blev kvar liggande. */}
+        <Stack.Screen name="import/scan-camera" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="import/scan-crop" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="import/manual" options={{ title: 'Block import manually', presentation: tourPresentation }} />
         <Stack.Screen name="import/history" options={{ title: 'Imported data', presentation: tourPresentation }} />

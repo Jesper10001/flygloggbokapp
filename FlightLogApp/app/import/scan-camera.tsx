@@ -66,11 +66,12 @@ export default function ScanCameraScreen() {
   const [trayOpen, setTrayOpen] = useState(false);
   const [preparing, setPreparing] = useState(false);
   const lastAspect = useRef(DEFAULT_ASPECT);
-  // Skärmen vrids till liggande när den öppnas. Panelerna och kameran ritas först när den ligger ned, så att
-  // inget hinner visas i stående format; vrids den aldrig (låset nekas) visas kameran ändå efter en stund.
+  // Skärmen vrids till liggande när den öppnas (effekten nedan). Kameran startar direkt, så att bilden är
+  // framme så fort som möjligt; panelerna ritas först när skärmen ligger ned, så att de inte hinner visas
+  // hoptryckta i stående format. Vrids den aldrig (låset nekas) visas de ändå efter en kort stund.
   const win = useWindowDimensions();
   const [waited, setWaited] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setWaited(true), 1500); return () => clearTimeout(t); }, []);
+  useEffect(() => { const t = setTimeout(() => setWaited(true), 600); return () => clearTimeout(t); }, []);
   const laidOut = win.width > win.height || waited;
 
   const bookMode = useLocalSearchParams<{ book?: string }>().book === '1';
@@ -235,7 +236,7 @@ export default function ScanCameraScreen() {
 
   return (
     <View style={s.root}>
-      {permission === 'granted' && aspect != null && laidOut && (
+      {permission === 'granted' && aspect != null && (
         <ScanCameraView
           ref={camRef}
           style={StyleSheet.absoluteFill}
