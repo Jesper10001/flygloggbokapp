@@ -1,7 +1,7 @@
 import { useAcarsScanStart } from '../../components/AcarsScanChooser';
 import { useEffect, useState, useMemo, useRef, useCallback, Fragment } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, Image, Modal, Pressable, Dimensions,
+  View, Text, ScrollView, TouchableOpacity, Image, Modal, Pressable, Dimensions, useWindowDimensions,
   StyleSheet, RefreshControl, ActivityIndicator, Animated, Easing,
   Alert,
 } from 'react-native';
@@ -382,7 +382,9 @@ function FlightPhotoCarousel({ placeNames, onPress }: { placeNames: Record<strin
   const [canSync, setCanSync] = useState(false);
   const [resumeReview, setResumeReview] = useState(false);
   const [page, setPage] = useState(0);
-  const screenW = Dimensions.get('window').width;
+  // useWindowDimensions (inte Dimensions.get): bredden följer med om skärmen vridits medan dashboarden låg under
+  // en liggande skärm (skanningskameran, boken), annars blev korten kvar i liggande bredd.
+  const screenW = useWindowDimensions().width;
   const GAP = 12;
   // Full innehållsbredd (= "Visited airports" + "Global map" tillsammans): skärmbredd minus
   // dashboardens content-padding (12px per sida). SIDE_PAD = 0 → sidorna ligger kant-i-kant
@@ -552,7 +554,7 @@ function LatestFlightCarousel({ flights, accent, placeNames, onPress, onAddPhoto
   onPress: (flight: Flight) => void; onAddPhoto?: (flight: Flight) => void;
   onShare?: (flight: Flight) => void; onShareFile?: (flight: Flight) => void;
 }) {
-  const W = Dimensions.get('window').width;
+  const W = useWindowDimensions().width;   // följer skärmen, se FlightPhotoCarousel
   const [page, setPage] = useState(0);
   const recent = flights.slice(0, 5); // de senaste 5 flygningarna
 

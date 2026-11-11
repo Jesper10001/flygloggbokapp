@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Image, ScrollView, Alert, ActivityIndicator, Linking, useWindowDimensions,
+  Dimensions,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -81,8 +82,8 @@ export default function ScanCameraScreen() {
   const byCoins = !bookMode && max < spreadLimit(isPremium || isMax);
   const full = spreads.length >= max;
 
-  // Liggande så länge kameran visas (expo-screen-orientation, som bokvyn). Stående igen när den stängs —
-  // direkt, och en gång till när övergången är klar.
+  // Liggande så länge kameran visas (expo-screen-orientation, som bokvyn). Stående igen när den stängs:
+  // leave() nedan vrider tillbaka FÖRE navigeringen; låsen här är en reserv om skärmen stängs på annat sätt.
   useEffect(() => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
     return () => {
@@ -100,6 +101,26 @@ export default function ScanCameraScreen() {
       if (!perm.granted && perm.canAskAgain) perm = await ImagePicker.requestCameraPermissionsAsync();
       setPermission(perm.granted ? 'granted' : 'denied');
     })();
+  }, []);
+
+  // Lämna kameran som bokvyn gör: släck kameran och panelerna, lås stående (fire-and-forget, lockAsync kan
+  // hänga) och navigera först när skärmen står upp igen. Navigerar man först och vrider sedan ritas skärmen
+  // under om i liggande format och blir kvar så (flygkortet bredare än skärmen, flikraden förskjuten).
+  const [leaving, setLeaving] = useState(false);
+  const leavingRef = useRef(false);
+  const leave = useCallback((go: () => void) => {
+    if (leavingRef.current) return;
+    leavingRef.current = true;
+    setLeaving(true);
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+    const started = Date.now();
+    const tick = () => {
+      const d = Dimensions.get('window');
+      const waitedMs = Date.now() - started;
+      if ((d.height > d.width && waitedMs >= 230) || waitedMs >= 900) go();
+      else setTimeout(tick, 40);
+    };
+    setTimeout(tick, 230);
   }, []);
 
   const onStatus = useCallback((e: { nativeEvent: ScanStatus }) => {
@@ -139,11 +160,11 @@ export default function ScanCameraScreen() {
 
   const discardAll = () => {
     spreads.forEach(s => { FileSystem.deleteAsync(s.uri, { idempotent: true }).catch(() => {}); });
-    router.back();
+    leave(() => router.back());
   };
 
   const close = () => {
-    if (spreads.length === 0) { router.back(); return; }
+    if (spreads.length === 0) { leave(() => router.back()); return; }
     Alert.alert(
       `Discard ${spreads.length === 1 ? 'this photo' : `${spreads.length} photos`}?`,
       'Nothing has been imported yet.',
@@ -158,7 +179,7 @@ export default function ScanCameraScreen() {
     if (bookMode) {
       // Fotona (filer i cachen) förbereds i bokens skanning — inget kodas här.
       await useScanBookStore.getState().addPhotos(spreads.map((sp) => ({ uri: sp.uri, width: sp.width, height: sp.height, cropped: true })));
-      router.back();
+      leave(() => router.back());
       return;
     }
     setPreparing(true);
@@ -175,7 +196,7 @@ export default function ScanCameraScreen() {
       spreads.forEach(s => { FileSystem.deleteAsync(s.uri, { idempotent: true }).catch(() => {}); });
       for (let i = 0; i < images.length; i++) await useScanQuotaStore.getState().consumeScan();
       setScanBatch(images);
-      router.replace('/flight/scan-review');
+      leave(() => router.replace('/flight/scan-review'));
     } catch (e: any) {
       setPreparing(false);
       Alert.alert('Could not continue', e?.message ?? 'Try again.');
@@ -216,7 +237,7 @@ export default function ScanCameraScreen() {
         icon="construct-outline"
         title="New scan camera needs an app update"
         body="This build of Blades doesn't include the new camera yet. Close and choose photos instead, or install the latest build."
-        onClose={() => router.back()}
+        onClose={() => leave(() => router.back())}
       />
     );
   }
@@ -229,14 +250,14 @@ export default function ScanCameraScreen() {
         body="Blades needs the camera to photograph your logbook pages. Turn it on in Settings."
         actionLabel="Open Settings"
         onAction={() => Linking.openSettings()}
-        onClose={() => router.back()}
+        onClose={() => leave(() => router.back())}
       />
     );
   }
 
   return (
     <View style={s.root}>
-      {permission === 'granted' && aspect != null && (
+      {permission === 'granted' && aspect != null && !leaving && (
         <ScanCameraView
           ref={camRef}
           style={StyleSheet.absoluteFill}
@@ -252,7 +273,7 @@ export default function ScanCameraScreen() {
       )}
 
       {/* Vänster: stäng, vilket uppslag, vad man ska göra och vad kameran väntar på */}
-      {laidOut && (
+      {laidOut && !leaving && (
         <View style={[s.leftPanel, { width: leftW, paddingLeft: padL, paddingBottom: padB }]}>
           <TouchableOpacity style={s.closeBtn} onPress={close} accessibilityRole="button" accessibilityLabel="Close">
             <Ionicons name="close" size={24} color="#DCE9F5" />
@@ -274,7 +295,7 @@ export default function ScanCameraScreen() {
       )}
 
       {/* Höger: lampa, avtryckare med Auto, tagna uppslag och Done */}
-      {laidOut && (
+      {laidOut && !leaving && (
         <View style={[s.rightPanel, { width: rightW, paddingRight: padR }]}>
           <TouchableOpacity
             style={[s.round, s.lightBtn, torch && s.roundActive]}
@@ -332,13 +353,13 @@ export default function ScanCameraScreen() {
         </View>
       )}
 
-      {__DEV__ && (
+      {__DEV__ && !leaving && (
         <Text style={[s.dev, { left: leftW + 16, bottom: 2 }]}>
           {`${status.state} · ${status.detector ?? '-'} · sharp ${Math.round(status.sharpness ?? 0)} · lum ${Math.round(status.brightness ?? 0)} · cov ${(status.coverage ?? 0).toFixed(2)} · diff ${(status.sceneDiff ?? 0).toFixed(1)} · aspect ${status.aspect.toFixed(2)}`}
         </Text>
       )}
 
-      {trayOpen && (
+      {trayOpen && !leaving && (
         <View style={[s.tray, { paddingLeft: insets.left + 20, paddingRight: insets.right + 20 }]}>
           <Text style={s.trayTitle}>{spreads.length === 1 ? '1 spread' : `${spreads.length} spreads`}</Text>
           <ScrollView horizontal contentContainerStyle={s.trayList} showsHorizontalScrollIndicator={false}>
