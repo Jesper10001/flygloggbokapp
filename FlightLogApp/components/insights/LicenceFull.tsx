@@ -2,11 +2,12 @@
 // READY / MET / ETA och takten man räknar med: ens bästa, som de senaste 12 månaderna eller ens långsammaste, med
 // datumet för var och en. Till höger Chart eller List (växeln överst): den breda kurvan (LicenceFullChart) med alla
 // krav i en rad under — tryck på en ruta för att markera kravet i kurvan — eller kraven som en lista med stapel,
-// timmar och datum i den valda takten.
+// timmar och datum i den valda takten. I listan går varje liten graf att förstora (förstoringsglaset vid rubriken
+// eller ett tryck på grafen): den växer ut över hela högerdelen och krymper tillbaka till sin plats.
 
-import { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Animated, Easing } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { FONT_LED7 } from '../logflight/tokens';
@@ -41,6 +42,34 @@ export function LicenceFull({ onClose }: { onClose: () => void }) {
   const [focus, setFocus] = useState<string | null>(null);
   const [view, setView] = useState<'chart' | 'list'>('chart');
   const tap = () => { Haptics.selectionAsync().catch(() => {}); };
+
+  // Förstorad graf (listan): rutan växer från den lilla grafens plats till hela högerdelen. from = den lilla
+  // grafens ram i högerdelens koordinater, uppmätt när man trycker; col = högerdelens storlek.
+  const colRef = useRef<View>(null);
+  const miniRefs = useRef<Record<string, View | null>>({});
+  const [col, setCol] = useState({ w: 0, h: 0 });
+  const [zoom, setZoom] = useState<{ key: string; from: { x: number; y: number; w: number; h: number } } | null>(null);
+  const grow = useRef(new Animated.Value(0)).current;
+  const zoomIn = (key: string) => {
+    const mini = miniRefs.current[key], host = colRef.current;
+    if (!mini || !host || zoom) return;
+    tap();
+    host.measureInWindow((hx, hy) => {
+      mini.measureInWindow((x, y, w, h) => {
+        if (!(w > 0 && h > 0)) return;
+        grow.setValue(0);
+        setZoom({ key, from: { x: x - hx, y: y - hy, w, h } });
+        Animated.timing(grow, { toValue: 1, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+      });
+    });
+  };
+  const zoomOut = () => {
+    if (!zoom) return;
+    tap();
+    Animated.timing(grow, { toValue: 0, duration: 260, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }).start(({ finished }) => { if (finished) setZoom(null); });
+  };
+  // Byter man licens eller vy är den förstorade grafen inte längre aktuell.
+  useEffect(() => { setZoom(null); grow.setValue(0); }, [selId, view, grow]);
 
   const pad = {
     paddingLeft: Math.max(insets.left, 16), paddingRight: Math.max(insets.right, 16),
@@ -168,7 +197,8 @@ export function LicenceFull({ onClose }: { onClose: () => void }) {
         ) : null}
       </ScrollView>
 
-      <View style={{ flex: 1, minWidth: 0, gap: 10 }}>
+      <View ref={colRef} collapsable={false} style={{ flex: 1, minWidth: 0, gap: 10 }}
+        onLayout={(e) => setCol({ w: Math.round(e.nativeEvent.layout.width), h: Math.round(e.nativeEvent.layout.height) })}>
         {!datesLocked ? <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
           <View style={[st.seg, { backgroundColor: C.deep }]}>
             {(['chart', 'list'] as const).map((v) => {
@@ -226,7 +256,12 @@ export function LicenceFull({ onClose }: { onClose: () => void }) {
                   accessible accessibilityLabel={r.met ? `${r.label}, met ${mLabel(r.metA ?? nowA)}`
                     : `${r.label}, ${haveTxt(r.have)} of ${hoursTxt(r.required)} hours, ${toGoTxt(r.toGo)} to go${m != null ? `, ${mLabel(nowA + m)}` : ''}`}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-                    <Text numberOfLines={1} style={{ flex: 1, minWidth: 0, fontFamily: MONO, fontSize: 12, fontWeight: '600', color: C.text }}>{r.label}</Text>
+                    <Text numberOfLines={1} style={{ flexShrink: 1, minWidth: 0, fontFamily: MONO, fontSize: 12, fontWeight: '600', color: C.text }}>{r.label}</Text>
+                    <TouchableOpacity onPress={() => zoomIn(r.key)} accessibilityRole="button" accessibilityLabel={`Enlarge the chart for ${r.label}`}
+                      hitSlop={{ top: 11, bottom: 11, left: 8, right: 11 }} style={[st.zoomBtn, { borderColor: C.border, backgroundColor: C.elevated }]}>
+                      <MaterialCommunityIcons name="magnify-plus-outline" size={14} color={C.text2} />
+                    </TouchableOpacity>
+                    <View style={{ flex: 1 }} />
                     {isLim ? (
                       <View style={{ paddingVertical: 2, paddingHorizontal: 5, borderRadius: 5, borderWidth: 1, borderColor: C.quiet }}>
                         <Text style={{ fontFamily: MONO, fontSize: 8, fontWeight: '700', letterSpacing: 0.8, color: C.soft }}>SETS THE DATE</Text>
@@ -235,9 +270,11 @@ export function LicenceFull({ onClose }: { onClose: () => void }) {
                     <Text style={{ fontFamily: MONO, fontSize: 11, fontWeight: '700', color: whenColor }}>{when}</Text>
                   </View>
                   {miniW > 0 ? (
-                    <View style={{ borderRadius: 8, overflow: 'hidden' }}>
-                      <LicenceReqMini C={C} r={r} w={miniW} a0={startA} nowA={nowA} m={m} isLim={isLim} />
-                    </View>
+                    <TouchableOpacity activeOpacity={0.8} onPress={() => zoomIn(r.key)} accessible={false}>
+                      <View ref={(v) => { miniRefs.current[r.key] = v; }} collapsable={false} style={{ borderRadius: 8, overflow: 'hidden' }}>
+                        <LicenceReqMini C={C} r={r} w={miniW} a0={startA} nowA={nowA} m={m} isLim={isLim} />
+                      </View>
+                    </TouchableOpacity>
                   ) : <View style={{ height: 60 }} />}
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
                     <Text style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: '700', color: r.met ? C.text2 : C.text }}>
@@ -250,6 +287,60 @@ export function LicenceFull({ onClose }: { onClose: () => void }) {
             })}
           </ScrollView>
         )}
+
+        {/* Förstorad graf: samma krav, stort, över hela högerdelen. Rutan skalas från den lilla grafens ram till
+            full storlek (transform, så animeringen går på den inbyggda tråden); innehållet tonar in på vägen. */}
+        {zoom && shownView === 'list' && col.w > 0 && (() => {
+          const r = S.reqs.find((x) => x.key === zoom.key);
+          if (!r) return null;
+          const isLim = !S.done && !datesLocked && E.m != null && r === E.lim;
+          const m = datesLocked ? null : monthsAt(r, pick);
+          const when = r.met ? `✓ ${mLabel(r.metA ?? nowA)}` : datesLocked ? `${toGoTxt(r.toGo)} h to go` : m != null ? mLabel(nowA + m) : 'No pace';
+          const foot = r.met ? `+${hoursTxt(Math.max(0, r.have - r.required))} h over` : datesLocked ? '' : m != null ? `${one(pick(r))} h/mo` : 'No pace';
+          const f = zoom.from;
+          const PADX = 14, HEAD = 40, FOOT = 26;
+          const chartW = col.w - PADX * 2, chartH = Math.max(120, col.h - HEAD - FOOT - 24);
+          const box = {
+            transform: [
+              { translateX: grow.interpolate({ inputRange: [0, 1], outputRange: [f.x + f.w / 2 - col.w / 2, 0] }) },
+              { translateY: grow.interpolate({ inputRange: [0, 1], outputRange: [f.y + f.h / 2 - col.h / 2, 0] }) },
+              { scaleX: grow.interpolate({ inputRange: [0, 1], outputRange: [f.w / col.w, 1] }) },
+              { scaleY: grow.interpolate({ inputRange: [0, 1], outputRange: [f.h / col.h, 1] }) },
+            ],
+            opacity: grow.interpolate({ inputRange: [0, 0.12, 1], outputRange: [0, 1, 1] }),
+          };
+          const inner = { opacity: grow.interpolate({ inputRange: [0, 0.45, 1], outputRange: [0, 0, 1] }) };
+          return (
+            <Animated.View style={[st.zoomBox, { width: col.w, height: col.h, backgroundColor: C.bg, borderColor: C.border }, box]}>
+              <Animated.View style={[{ flex: 1, paddingHorizontal: PADX, paddingTop: 8, paddingBottom: 10, gap: 6 }, inner]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 28 }}>
+                  <Text numberOfLines={1} style={{ flexShrink: 1, minWidth: 0, fontFamily: SERIF, fontSize: 18, fontWeight: '600', color: C.text }}>{r.label}</Text>
+                  {isLim ? (
+                    <View style={{ paddingVertical: 2, paddingHorizontal: 6, borderRadius: 5, borderWidth: 1, borderColor: C.quiet }}>
+                      <Text style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 0.8, color: C.soft }}>SETS THE DATE</Text>
+                    </View>
+                  ) : null}
+                  <View style={{ flex: 1 }} />
+                  <Text style={{ fontFamily: MONO, fontSize: 13, fontWeight: '700', color: r.met || datesLocked ? C.text2 : m == null ? C.muted : C.text }}>{when}</Text>
+                  <TouchableOpacity onPress={zoomOut} accessibilityRole="button" accessibilityLabel="Back to all charts"
+                    hitSlop={{ top: 9, bottom: 9, left: 9, right: 9 }} style={[st.zoomBtn, { width: 28, height: 28, borderColor: C.border, backgroundColor: C.elevated }]}>
+                    <MaterialCommunityIcons name="magnify-minus-outline" size={17} color={C.text} />
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity activeOpacity={0.9} onPress={zoomOut} accessible={false} style={{ borderRadius: 10, overflow: 'hidden' }}>
+                  <LicenceReqMini C={C} r={r} w={chartW} h={chartH} a0={startA} nowA={nowA} m={m} isLim={isLim} />
+                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
+                  <Text style={{ fontFamily: MONO, fontSize: 12, fontWeight: '700', color: r.met ? C.text2 : C.text }}>
+                    {haveTxt(r.have)}<Text style={{ fontWeight: '400', color: C.muted }}>/{hoursTxt(r.required)} h</Text>
+                    {!r.met ? <Text style={{ fontWeight: '400', color: C.text2 }}>{`  ·  ${toGoTxt(r.toGo)} h to go`}</Text> : null}
+                  </Text>
+                  {foot ? <Text style={{ fontFamily: MONO, fontSize: 12, color: C.text2 }}>{foot}</Text> : null}
+                </View>
+              </Animated.View>
+            </Animated.View>
+          );
+        })()}
       </View>
     </View>
   );
@@ -263,6 +354,8 @@ const st = StyleSheet.create({
   rung: { flex: 1, minWidth: 0, minHeight: 38, paddingHorizontal: 4, paddingVertical: 4, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 1 },
   paceRow: { minHeight: 36, borderRadius: 9, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 10 },
   tile: { flex: 1, minWidth: 0, minHeight: 62, borderRadius: 11, borderWidth: 1, paddingVertical: 6, paddingHorizontal: 8, justifyContent: 'center', gap: 4 },
+  zoomBtn: { width: 22, height: 22, borderRadius: 7, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  zoomBox: { position: 'absolute', left: 0, top: 0, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
   seg: { flexDirection: 'row', gap: 2, padding: 2, borderRadius: 9 },
   segBtn: { minHeight: 24, paddingHorizontal: 8, borderRadius: 7, flexDirection: 'row', alignItems: 'center', gap: 4 },
 });
