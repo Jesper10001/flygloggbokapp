@@ -74,9 +74,10 @@ import type { OcrFlightResult } from '../../types/flight';
 //
 // Två sätt att granska:
 //  - frågorna (som ovan, stående): Claude ställer en fråga i taget
-//  - helskärm (liggande, knappen till vänster om ögat): bara boken. Ögat lägger det appen har läst över sidan,
-//    färgat efter hur säker läsningen är (svart = säker, gul = osäker, röd = mycket osäker), och sidans summor.
-//    Ett tryck på en cell visar vad appen tror är rätt och låter en ändra, med samma regler som frågorna.
+//  - helskärm (liggande, knappen till vänster om ögat): bara boken. Ögat (på från början) lägger det appen har
+//    läst över sidan, färgat efter hur säker läsningen är (svart = säker, gul = osäker, röd = mycket osäker),
+//    och sidans summor. Ett tryck på en cell visar vad appen tror är rätt och låter en ändra, med samma regler
+//    som frågorna; den valda cellens läsning släcks så att handstilen syns, och rutan visar ett utsnitt av den.
 //
 // Före läsningen letar Apple Vision (on-device) upp boken i fotot och bilden beskärs till den. Efter
 // läsningen matchas Claudes värden mot Visions ord, så att ringarna hamnar exakt (services/scanAlign.ts).
@@ -2392,7 +2393,21 @@ export default function ScanReviewScreen() {
       ...raw.flatMap((fi) => [fi.suggested_value, ...(fi.options ?? [])]),
     ].filter((v): v is string => !!v))].slice(0, 5) : [];
     const choices = fsCell ? CHOICES[fsCell.field] : undefined;
-    const cardW = Math.min(460, W - padL - padR - 120);
+    const cardW = Math.min(560, W - padL - padR - 120);
+    // Utsnitt av cellen ur fotot (med lite av grannarna), så att handstilen syns även när rutan eller
+    // tangentbordet ligger över cellen på sidan.
+    const LOUPE_W = 150, LOUPE_H = 40;
+    const loupe = (() => {
+      if (!fsCell || !cellRow || !page?.grid) return null;
+      const cr = cellRect(page.grid, cellRow.rowIndex, fsCell.field);
+      if (!cr || !(cr.w > 0 && cr.h > 0)) return null;
+      const k = Math.min(30 / (cr.h * page.height), (LOUPE_W - 14) / (cr.w * page.width));
+      return {
+        w: page.width * k, h: page.height * k,
+        left: LOUPE_W / 2 - (cr.x + cr.w / 2) * page.width * k,
+        top: LOUPE_H / 2 - (cr.y + cr.h / 2) * page.height * k,
+      };
+    })();
     return (
       <View style={[s.root, { backgroundColor: '#05080F' }]}>
         {ready && page?.status === 'done' && (
@@ -2403,6 +2418,8 @@ export default function ScanReviewScreen() {
               <View pointerEvents="none" style={StyleSheet.absoluteFill}>
                 {showReadings && page.grid && pageRows.filter((r) => !r.skip).map((r) =>
                   page.grid!.columns.filter((c) => c.field).map((c) => {
+                    // Den valda cellen är släckt: där ska handstilen i boken synas.
+                    if (fsCell && fsCell.rowKey === r.key && fsCell.field === c.field) return null;
                     const v = bookCell(r.data, c.field!, timeFormat);
                     const level = cellLevel(r, c.field!);
                     if (!v && level === 0) return null;
@@ -2523,6 +2540,12 @@ export default function ScanReviewScreen() {
                   </View>
                 )}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  {loupe && page && (
+                    <View style={s.fsLoupe} accessible accessibilityLabel="The cell as it is written in your logbook">
+                      <Image source={{ uri: page.uri }} resizeMode="stretch"
+                        style={{ position: 'absolute', left: loupe.left, top: loupe.top, width: loupe.w, height: loupe.h }} />
+                    </View>
+                  )}
                   <View style={s.fsInputWrap}>
                     <ValueInput inputRef={fsInputRef} field={fsCell.field} value={fsDraft} timeFormat={timeFormat}
                       onChange={(t) => { setFsDraft(shapeInput(fsCell.field, t)); setFsError(''); }} onSubmit={fsSave} onFocus={() => {}} />
@@ -2682,7 +2705,7 @@ export default function ScanReviewScreen() {
             <Text style={s.statusText} numberOfLines={1}>{topStatus}</Text>
           </Glass>
           {page?.status === 'done' && page.grid && (
-            <TouchableOpacity style={s.toggle} onPress={() => { Keyboard.dismiss(); setSelection(null); setFsCell(null); setFull('entering'); }}
+            <TouchableOpacity style={s.toggle} onPress={() => { Keyboard.dismiss(); setSelection(null); setFsCell(null); setShowReadings(true); setFull('entering'); }}
               accessibilityRole="button" accessibilityLabel="Check in full screen">
               <Ionicons name="expand-outline" size={19} color="#fff" />
             </TouchableOpacity>
@@ -3526,6 +3549,7 @@ const s = StyleSheet.create({
   fsCardWhy: { color: '#C3D4E3', fontSize: 12.5, lineHeight: 17 },
   fsRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   fsInputWrap: { flex: 1, height: 40, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(127,168,200,0.4)', backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 10, justifyContent: 'center' },
+  fsLoupe: { width: 150, height: 40, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,200,61,0.9)', backgroundColor: '#000' },
   fsGhost: { minHeight: 40, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
   fsGhostText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   readPill: {

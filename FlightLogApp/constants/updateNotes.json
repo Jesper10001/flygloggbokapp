@@ -2,6 +2,14 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 99,
+      "date": "2026-11-11",
+      "notes": [
+        "Improved: In full-screen scan review, the cell you pick shows your own handwriting, on the page and beside the field.",
+        "Improved: The eye is already on when you open full-screen scan review."
+      ]
+    },
+    {
       "id": 98,
       "date": "2026-11-11",
       "notes": [
