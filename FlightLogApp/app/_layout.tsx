@@ -30,6 +30,7 @@ import { useRegulationStandardStore } from '../store/regulationStandardStore';
 import { useVersionStore } from '../store/versionStore';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { ToastHost } from '../components/Toast';
+import { SavedFlightNotice } from '../components/SavedFlightNotice';
 import { FleetDoneHost } from '../components/FleetDoneModal';
 import { SplashOverlay } from '../components/SplashOverlay';
 import { UpdateDownloadBanner } from '../components/UpdateDownloadBanner';
@@ -365,6 +366,7 @@ export default function RootLayout() {
       </Stack>
       </ErrorBoundary>
       <ToastHost />
+      <SavedFlightNotice />
       <FleetDoneHost />
       <SplashOverlay />
       <UpdateDownloadBanner />

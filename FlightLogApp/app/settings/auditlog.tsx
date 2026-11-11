@@ -3,6 +3,7 @@ import {
   View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import { SavedFlightNotice } from '../../components/SavedFlightNotice';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getAllAuditLog } from '../../db/flights';
@@ -92,6 +93,8 @@ export default function AuditLogScreen() {
         contentContainerStyle={{ padding: 12, paddingBottom: 32, gap: 8 }}
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
       />
+      {/* "Saved flight" efter redigering härifrån (sidan är en modal). */}
+      <SavedFlightNotice inline />
     </View>
   );
 }

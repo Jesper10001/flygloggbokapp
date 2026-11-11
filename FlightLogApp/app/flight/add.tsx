@@ -27,6 +27,8 @@ import { insertFlight, updateFlight, getFlightById, getRecentAircraftTypes, getR
 import { AircraftModal } from '../../components/AircraftModal';
 import { FlightLimitModal } from '../../components/FlightLimitModal';
 import { useFlightStore } from '../../store/flightStore';
+import { useSavedFlightStore } from '../../store/savedFlightStore';
+import { diffSavedFlight } from '../../services/flightSaveDiff';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useLanguageStore } from '../../store/languageStore';
@@ -1072,6 +1074,11 @@ export default function AddFlightScreen() {
   const [arrLocalBuf, setArrLocalBuf] = useState('');
   const selectedLang = useLanguageStore?.getState?.()?.language ?? 'en';
 
+  // Redigering: raden som den såg ut när den lästes in (jämförs efter Save → notisen "Saved flight").
+  const loadedFlight = useRef<Flight | null>(null);
+  // Natt och regler som de lästes in: NVG nollas bara när piloten ändrar något av dem, inte vid inläsningen.
+  const loadedNvgKey = useRef<string | null>(null);
+
   useEffect(() => {
     if (!editId) return;
     getFlightById(Number(editId)).then(f => {
@@ -1086,6 +1093,22 @@ export default function AddFlightScreen() {
       if (Object.keys(parsedApp).length > 0) setApproaches(parsedApp);
 
       // (landingsManual/takeoffsManual = isEdit = true → laddade take-offs/landings rörs inte av autot.)
+
+      // Barerna äger värdet och knappen (VFR / Y·Z / IFR) följer dem. Importerade och skannade flygningar har
+      // ofta IFR-tid men 'VFR' som regel (kolumnens standardvärde): visa det tiderna säger.
+      const tot0 = Number(f.total_time) || 0, ifr0 = Number(f.ifr) || 0, vfr0 = Number(f.vfr) || 0;
+      let rules0 = f.flight_rules || 'VFR';
+      let vfrStr0 = String(f.vfr ?? 0);
+      if (f.flight_type !== 'sim' && tot0 > 0 && ifr0 > 0.01) {
+        if (ifr0 >= tot0 - 0.01) rules0 = 'IFR';
+        else {
+          if (rules0 !== 'Y' && rules0 !== 'Z' && rules0 !== 'Mixed') rules0 = 'Y';
+          // Delad flygning utan VFR-del (import): resten är VFR, annars går den inte att spara.
+          if (Math.abs(ifr0 + vfr0 - tot0) > 0.05) vfrStr0 = (tot0 - ifr0).toFixed(2);
+        }
+      }
+      loadedFlight.current = f;
+      loadedNvgKey.current = `${String(f.night)}|${rules0}`;
 
       setForm({
         date: f.date,
@@ -1108,7 +1131,7 @@ export default function AddFlightScreen() {
         remarks: f.remarks,
         flight_type: f.flight_type ?? 'normal',
         stop_place: f.stop_place ?? '',
-        flight_rules: f.flight_rules ?? 'VFR',
+        flight_rules: rules0,
         second_pilot: f.second_pilot ?? '',
         second_pilot_role: f.second_pilot_role ?? '',
         extra_pilots: f.extra_pilots ?? '',
@@ -1125,7 +1148,7 @@ export default function AddFlightScreen() {
         ferry_pic: String(f.ferry_pic ?? 0),
         relief_crew: String(f.relief_crew ?? 0),
         sim_category: (f.sim_category ?? '') as any,
-        vfr: String(f.vfr ?? 0),
+        vfr: vfrStr0,
         max_fl: String(f.max_fl ?? 0) === '0' ? '' : String(f.max_fl),
         takeoffs_day: String(f.takeoffs_day ?? 0),
         takeoffs_night: String(f.takeoffs_night ?? 0),
@@ -1321,6 +1344,7 @@ export default function AddFlightScreen() {
   // så ingen NVG-tid ligger kvar i bakgrunden när baren döljs (night → 0 eller IFR valt).
   useEffect(() => {
     if ((parseFloat(form.nvg ?? '0') || 0) <= 0) return;
+    if (loadedNvgKey.current === `${form.night}|${form.flight_rules}`) return;   // redigering: som flygningen lästes in
     if ((parseFloat(form.night ?? '0') || 0) <= 0 || form.flight_rules === 'IFR') set('nvg', '0');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.night, form.flight_rules]);
@@ -1544,9 +1568,9 @@ export default function AddFlightScreen() {
             registration: last.registration,
             ...(last.flight_rules ? { flight_rules: last.flight_rules, ifr: '0', vfr: '0' } : {}),
           }));
-        } else if (last.flight_rules) {
-          setForm((prev) => ({ ...prev, flight_rules: last.flight_rules, ifr: '0', vfr: '0' }));
         }
+        // Vid redigering rörs formuläret inte här: flygningens egna regler och IFR-/VFR-tid gäller
+        // (förut skrevs de över med senaste flygningens regler och 0 tid, och sparades så).
         // Förvald roll baserat på senaste flygningen (bara för nya flygningar, inte utkast)
         if (!isEdit && !fromDraft) {
           const r: PrimaryRole =
@@ -2347,6 +2371,11 @@ export default function AddFlightScreen() {
         if (c.length >= 2 && !isOffAirportCode(c) && !(await getAirportByAnyCode(c))) usePendingPlaceStore.getState().add(c);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Redigering: kort notis om vad som ändrades (raden före mot raden som nu ligger i databasen).
+      if (isEdit && savedId && loadedFlight.current) {
+        const after = await getFlightById(savedId).catch(() => null);
+        if (after) useSavedFlightStore.getState().show(savedId, diffSavedFlight(loadedFlight.current as any, after as any));
+      }
       // Uppmana att placera de nya platserna på kartan (dashboard: "Unlocated places"-bannern).
       // Essential har ingen karta: platsen finns kvar och kan placeras i Extensive.
       if (usedPending.length > 0 && !isEssential()) {

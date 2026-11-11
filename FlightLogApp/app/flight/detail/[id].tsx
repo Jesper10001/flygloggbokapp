@@ -21,6 +21,7 @@ import { arrUtc, parseDate } from '../../../components/logbook-page/flightDispla
 import { placeCode } from '../../../utils/format';
 import { isCabinLine } from '../../../utils/remarksManaged';
 import { useAppVariantStore } from '../../../store/appVariantStore';
+import { SavedFlightNotice } from '../../../components/SavedFlightNotice';
 
 const DASH = '—';
 
@@ -47,6 +48,8 @@ export function FlightDetailView({ id, onBack, onEdit }: { id: number; onBack: (
   const essential = useAppVariantStore((st) => st.variant) === 'essential';
   const { formatTime } = useTimeFormat();
   const { loadFlights, loadStats } = useFlightStore();
+  // Listan byts ut varje gång något sparas (Edit, Edit many flights …) → läs om flygningen så att sidan visar det sparade.
+  const flightsRev = useFlightStore((st) => st.flights);
   const [flight, setFlight] = useState<Flight | null>(null);
   const [names, setNames] = useState<Record<string, string>>({});
   // Riktiga flygplatsnamn (icao_airports.name) för dep/arr — ICAO följt av namn (fallback: bara ICAO).
@@ -75,6 +78,7 @@ export function FlightDetailView({ id, onBack, onEdit }: { id: number; onBack: (
   useEffect(() => {
     if (!id) return;
     getFlightById(id).then((f) => {
+      if (!f) return;   // raderad: sidan stängs strax, behåll det som visas
       setFlight(f);
       if (f?.status === 'flagged') getScanAdjustments(id).then(setAdjustments).catch(() => {});
       if (f) {
@@ -87,7 +91,7 @@ export function FlightDetailView({ id, onBack, onEdit }: { id: number; onBack: (
         }).catch(() => {});
       }
     });
-  }, [id]);
+  }, [id, flightsRev]);
 
   if (!flight) return <View style={{ flex: 1, backgroundColor: Colors.background }}><ActivityIndicator color={accent} style={{ marginTop: 80 }} /></View>;
 
@@ -241,7 +245,7 @@ export function FlightDetailView({ id, onBack, onEdit }: { id: number; onBack: (
         ) : null}
 
         {/* Synkad bild/video från fotobiblioteket (photo_local_id) + byt/välj */}
-        <FlightSyncedPhoto flight={f} accent={accent} onChanged={() => getFlightById(id).then(setFlight)} />
+        <FlightSyncedPhoto flight={f} accent={accent} onChanged={() => getFlightById(id).then((x) => { if (x) setFlight(x); })} />
 
         <TouchableOpacity onPress={handleDelete} activeOpacity={0.8}
           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 13, borderWidth: 1.5, borderColor: Colors.danger + '66', backgroundColor: Colors.danger + '12', marginTop: 20 }}>
@@ -249,6 +253,8 @@ export function FlightDetailView({ id, onBack, onEdit }: { id: number; onBack: (
           <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.danger }}>Delete flight</Text>
         </TouchableOpacity>
       </ScrollView>
+      {/* "Saved flight" efter Edit: ligger här eftersom sidan är en modal (rotlayoutens notis hamnar bakom). */}
+      <SavedFlightNotice inline />
     </View>
   );
 }
