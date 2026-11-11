@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image, Pressable, TouchableOpacity, TextInput, Alert,
-  ActivityIndicator, Animated, Easing, Keyboard, useWindowDimensions, Platform,
+  ActivityIndicator, Animated, Easing, Keyboard, useWindowDimensions, Platform, Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -71,6 +71,12 @@ import type { OcrFlightResult } from '../../types/flight';
 // Granskning av skannade loggbokssidor. Loggboken i helskärm (liggande) överst; Claude ringar in det den
 // är osäker på, och under boken står frågan med förslag. Ett problem i taget. Man kan också trycka på
 // vilket värde som helst i boken och rätta det.
+//
+// Två sätt att granska:
+//  - frågorna (som ovan, stående): Claude ställer en fråga i taget
+//  - helskärm (liggande, knappen till vänster om ögat): bara boken. Ögat lägger det appen har läst över sidan,
+//    färgat efter hur säker läsningen är (svart = säker, gul = osäker, röd = mycket osäker), och sidans summor.
+//    Ett tryck på en cell visar vad appen tror är rätt och låter en ändra, med samma regler som frågorna.
 //
 // Före läsningen letar Apple Vision (on-device) upp boken i fotot och bilden beskärs till den. Efter
 // läsningen matchas Claudes värden mot Visions ord, så att ringarna hamnar exakt (services/scanAlign.ts).
@@ -554,6 +560,41 @@ export default function ScanReviewScreen() {
   const [kbHeight, setKbHeight] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [showReadings, setShowReadings] = useState(false);
+  // Helskärmsläget (liggande): off → entering (skärmen vrids) → on → leaving (vrids tillbaka) → off.
+  const [full, setFull] = useState<'off' | 'entering' | 'on' | 'leaving'>('off');
+  const [fsCell, setFsCell] = useState<{ rowKey: string; field: string } | null>(null);
+  const [fsDraft, setFsDraft] = useState('');
+  const [fsError, setFsError] = useState('');
+  const [fsLate, setFsLate] = useState(false);
+  const fsInputRef = useRef<TextInput>(null);
+  useEffect(() => {
+    if (full === 'entering') {
+      // Låset upprepas tills skärmen ligger ned (ett enda anrop kan nekas medan något annat håller på att stängas).
+      const lock = () => { ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {}); };
+      lock();
+      let n = 0;
+      const iv = setInterval(() => {
+        const d = Dimensions.get('window');
+        if (d.width > d.height || ++n > 12) { clearInterval(iv); return; }
+        lock();
+      }, 250);
+      const late = setTimeout(() => setFsLate(true), 2500);
+      return () => { clearInterval(iv); clearTimeout(late); };
+    }
+    if (full === 'leaving') {
+      // Stående först, sedan tillbaka till frågorna: annars ritas den stående granskningen i liggande format.
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+      const t0 = Date.now();
+      const iv = setInterval(() => {
+        const d = Dimensions.get('window'), ms = Date.now() - t0;
+        if ((d.height > d.width && ms >= 230) || ms >= 1200) { clearInterval(iv); setFull('off'); }
+      }, 40);
+      return () => clearInterval(iv);
+    }
+    setFsLate(false);
+    return undefined;
+  }, [full]);
+  useEffect(() => { if (full === 'entering' && W > H) setFull('on'); }, [full, W, H]);
   const [saving, setSaving] = useState(false);
   const [fatal, setFatal] = useState<string | null>(null);
   const [known, setKnown] = useState<Set<string>>(new Set());
@@ -2239,6 +2280,267 @@ export default function ScanReviewScreen() {
     );
   }
 
+  // ── Det appen har läst, lagt över sidan (ögat) ──
+  // Sidans summor: "Total this page" per kolumn står på raden under sista flygningen; Brought forward och Total
+  // to date (flygtid) står på olika ställen i olika böcker och visas därför som en rad text.
+  const fmtTotal = (f: string, v: number) => (COUNT.has(f) ? String(Math.round(v)) : formatTimeValue(v, timeFormat));
+  const totalsLine = page?.totals
+    ? [['Brought forward', page.totals.brought_forward], ['Total this page', page.totals.total_this_page], ['Total to date', page.totals.total_to_date]]
+      .filter(([, v]) => v != null).map(([k, v]) => `${k} ${formatTimeValue(v as number, timeFormat)}`).join('  ·  ')
+    : '';
+  const totalNodes = (box: { w: number; h: number }, coded: boolean) => {
+    if (!page?.grid || !page.totals?.by_field) return null;
+    const grid = page.grid;
+    const checks = coded ? columnTotals(rows, activePage, page.totals.by_field) : [];
+    return grid.columns.filter((c) => c.field && page.totals!.by_field![c.field!] != null).map((c) => {
+      const cr = cellRect(grid, grid.rowsPerPage + 1, c.field!);
+      if (!cr) return null;
+      const off = coded && checks.some((x) => x.field === c.field && !x.ok);   // raderna går inte ihop med summan
+      const fs = Math.max(5, Math.min(11, cr.h * box.h * 0.6));
+      return (
+        <View key={`tot-${c.field}-${c.left}`} style={[s.reading, s.readingTotal, off && s.readingUnsure, place(cr, box)]}>
+          <Text numberOfLines={1} style={[s.readingText, { fontSize: fs }, off && { color: '#141414' }]}>{fmtTotal(c.field!, page.totals!.by_field![c.field!])}</Text>
+        </View>
+      );
+    });
+  };
+
+  // ── Helskärmsläget ──
+  // Hur säker läsningen av en cell är: 0 = säker, 1 = osäker, 2 = mycket osäker. Allt Claude flaggat räknas,
+  // även det som valt fokus inte ställer frågor om; en cell man har svarat om eller ändrat är säker.
+  const issuesAt = (rowKey: string, field: string) => openIssues.filter((i) => i.kind !== 'column' && i.kind !== 'addition' && (i.group
+    ? i.group.members.includes(`${rowKey}:f:${field}`)
+    : (i.rowKey === rowKey || !!i.alsoRows?.includes(rowKey)) && (i.field === field || (i.kind === 'mismatch' && (field === 'dep_utc' || field === 'arr_utc')))));
+  const cellLevel = (r: ScanRow, field: string): 0 | 1 | 2 => {
+    if (resolved[`${r.key}:f:${field}`]) return 0;
+    let lvl = 0;
+    const bump = (conf?: number, hard?: boolean) => { lvl = Math.max(lvl, hard || (conf != null && conf > 0 && conf < 0.5) ? 2 : 1); };
+    for (const fi of r.data.field_issues ?? []) {
+      if (fi.field === field || (r.data.flight_type === 'sim' && fi.field === 'total_time' && field === 'sim')) bump(fi.confidence, !!fi.read_as);
+    }
+    for (const i of issuesAt(r.key, field)) bump(i.confidence, !!i.readAs);
+    return lvl as 0 | 1 | 2;
+  };
+  // Cellen är besvarad: dess frågor räknas som klara (som när man rättar i rapporten).
+  const markCell = (rowKey: string, field: string, how: 'ok' | 'changed') => {
+    const cellId = `${rowKey}:f:${field}`;
+    touched.current = true;
+    setResolved((r) => {
+      const next = { ...r, [cellId]: how };
+      for (const i of issues) {
+        if (i.group) continue;
+        if ((i.rowKey === rowKey || i.alsoRows?.includes(rowKey)) && (i.field === field || (i.kind === 'mismatch' && (field === 'dep_utc' || field === 'arr_utc')))) next[i.id] = how;
+      }
+      return next;
+    });
+  };
+  const closeFsCell = () => { Keyboard.dismiss(); setFsCell(null); setFsError(''); };
+  const fsApply = (rowKey: string, field: string, value: string) => {
+    const ac = field === 'aircraft_type' ? issuesAt(rowKey, field).find((i) => i.kind === 'aircraft') : undefined;
+    if (ac) applySuggestion(ac, { label: value, field, value });   // ny typ: svaret gäller alla rader med samma skrivsätt
+    else setField(rowKey, field, value);
+    markCell(rowKey, field, 'changed');
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    closeFsCell();
+  };
+  const fsSave = () => {
+    if (!fsCell) return;
+    const value = parseInput(fsCell.field, fsDraft, fmtRef.current);
+    if (value == null) {
+      setFsError(fsCell.field === 'date' ? 'Write the date as YYYY-MM-DD.'
+        : CLOCK.has(fsCell.field) ? 'Write the time as HH:MM.' : `That doesn't look like a valid ${label(fsCell.field).toLowerCase()}.`);
+      return;
+    }
+    fsApply(fsCell.rowKey, fsCell.field, value);
+  };
+  const fsConfirm = () => {
+    if (!fsCell) return;
+    const v = (rowByKey.get(fsCell.rowKey)?.data as any)?.[fsCell.field];
+    if (ruleClassOf(fsCell.field)) learnAnswer(fsCell.field, fsCell.rowKey, v, v);
+    markCell(fsCell.rowKey, fsCell.field, 'ok');
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    closeFsCell();
+  };
+
+  if (full !== 'off') {
+    const landscape = W > H;
+    const ready = full === 'on' && landscape;
+    const padL = Math.max(insets.left, 8), padR = Math.max(insets.right, 8);
+    const availW = W - padL - padR, availH = H - 8;
+    const sc = page ? Math.min(availW / page.width, availH / page.height) : 1;
+    const fw = page ? page.width * sc : 0, fh = page ? page.height * sc : 0;
+    const box = { x: padL + (availW - fw) / 2, y: (H - fh) / 2, w: fw, h: fh };
+    const LEVEL = [s.readingSure, s.readingUnsure, s.readingBad];
+    const onFsPress = (e: { nativeEvent: { locationX: number; locationY: number } }) => {
+      if (!page?.grid) return;
+      const hit = hitTest(page.grid, e.nativeEvent.locationX / box.w, e.nativeEvent.locationY / box.h);
+      const row = hit ? rows.find((r) => r.page === activePage && r.rowIndex === hit.rowIndex) : null;
+      if (!hit?.field || !row || row.skip) { closeFsCell(); return; }
+      Haptics.selectionAsync().catch(() => {});
+      setFsCell({ rowKey: row.key, field: hit.field });
+      setFsDraft(inputValue(row.data, hit.field, fmtRef.current));
+      setFsError('');
+    };
+    const cellRow = fsCell ? rowByKey.get(fsCell.rowKey) ?? null : null;
+    const cellIssues = fsCell ? issuesAt(fsCell.rowKey, fsCell.field) : [];
+    const lvl = fsCell && cellRow ? cellLevel(cellRow, fsCell.field) : 0;
+    const raw = fsCell && cellRow ? (cellRow.data.field_issues ?? []).filter((fi) => fi.field === fsCell.field) : [];
+    const why = cellIssues[0]?.reason ?? raw[0]?.reason ?? '';
+    // Det appen tror är rätt: frågornas förslag och Claudes egna alternativ för cellen.
+    const options = fsCell ? [...new Set([
+      ...cellIssues.flatMap((i) => i.suggestions.filter((sg) => !sg.toSim && sg.field === fsCell.field).map((sg) => sg.value)),
+      ...raw.flatMap((fi) => [fi.suggested_value, ...(fi.options ?? [])]),
+    ].filter((v): v is string => !!v))].slice(0, 5) : [];
+    const choices = fsCell ? CHOICES[fsCell.field] : undefined;
+    const cardW = Math.min(460, W - padL - padR - 120);
+    return (
+      <View style={[s.root, { backgroundColor: '#05080F' }]}>
+        {ready && page?.status === 'done' && (
+          <ScrollView style={StyleSheet.absoluteFill} contentContainerStyle={{ width: W, height: H }} maximumZoomScale={6} minimumZoomScale={1}
+            bouncesZoom showsHorizontalScrollIndicator={false} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <Pressable onPress={onFsPress} style={{ position: 'absolute', left: box.x, top: box.y, width: box.w, height: box.h }}>
+              <Image source={{ uri: page.uri }} style={{ width: box.w, height: box.h }} resizeMode="stretch" />
+              <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+                {showReadings && page.grid && pageRows.filter((r) => !r.skip).map((r) =>
+                  page.grid!.columns.filter((c) => c.field).map((c) => {
+                    const v = bookCell(r.data, c.field!, timeFormat);
+                    const level = cellLevel(r, c.field!);
+                    if (!v && level === 0) return null;
+                    const cr = cellRect(page.grid!, r.rowIndex, c.field!)!;
+                    const fs = Math.max(6, Math.min(12, cr.h * box.h * 0.62));
+                    return (
+                      <View key={`fr-${r.key}-${c.field}-${c.left}`} style={[s.reading, LEVEL[level], place(cr, box)]}>
+                        <Text numberOfLines={1} style={[s.readingText, { fontSize: fs }, level === 1 && { color: '#141414' }]}>{v || '?'}</Text>
+                      </View>
+                    );
+                  }))}
+                {showReadings && totalNodes(box, true)}
+                {fsCell && cellRow && page.grid && (() => {
+                  const cr = cellRect(page.grid!, cellRow.rowIndex, fsCell.field);
+                  return cr ? <View style={[place(cr, box, 3), s.ring, { borderRadius: 5, borderWidth: 2.5 }]} /> : null;
+                })()}
+              </View>
+            </Pressable>
+          </ScrollView>
+        )}
+        {ready && page?.status !== 'done' && (
+          <View style={s.fsCenter}><Text style={s.fsHint}>This spread hasn{'’'}t been read yet.</Text></View>
+        )}
+        {!ready && (
+          <View style={s.fsCenter}>
+            {full === 'entering' && fsLate ? (
+              <>
+                <Ionicons name="phone-landscape-outline" size={32} color="#B4C9DD" />
+                <Text style={s.fsHint}>Turn your phone sideways</Text>
+              </>
+            ) : <ActivityIndicator color={Colors.primary} />}
+          </View>
+        )}
+
+        {/* Knappar: tillbaka till frågorna, uppslag, ögat */}
+        {full !== 'leaving' && (
+          <>
+            <TouchableOpacity style={[s.fsBtn, { left: padL + 4, top: 10 }]} onPress={() => { closeFsCell(); setFull('leaving'); }}
+              accessibilityRole="button" accessibilityLabel="Leave full screen">
+              <Ionicons name="contract-outline" size={20} color="#fff" />
+            </TouchableOpacity>
+            {ready && (
+              <View style={[s.fsRight, { right: padR + 4, top: 10 }]}>
+                {pages.length > 1 && (
+                  <>
+                    <TouchableOpacity style={[s.fsBtn, s.fsBtnInline, activePage === 0 && { opacity: 0.4 }]} disabled={activePage === 0}
+                      onPress={() => { closeFsCell(); setActivePage(activePage - 1); }} accessibilityRole="button" accessibilityLabel="Previous spread">
+                      <Ionicons name="chevron-back" size={20} color="#fff" />
+                    </TouchableOpacity>
+                    <Text style={s.fsPageText}>{activePage + 1}/{pages.length}</Text>
+                    <TouchableOpacity style={[s.fsBtn, s.fsBtnInline, activePage >= pages.length - 1 && { opacity: 0.4 }]} disabled={activePage >= pages.length - 1}
+                      onPress={() => { closeFsCell(); setActivePage(activePage + 1); }} accessibilityRole="button" accessibilityLabel="Next spread">
+                      <Ionicons name="chevron-forward" size={20} color="#fff" />
+                    </TouchableOpacity>
+                  </>
+                )}
+                <TouchableOpacity style={[s.fsBtn, s.fsBtnInline, showReadings && s.toggleOn]} onPress={() => setShowReadings((v) => !v)}
+                  accessibilityRole="switch" accessibilityState={{ checked: showReadings }} accessibilityLabel="Show what the app read in every cell">
+                  <Ionicons name={showReadings ? 'eye' : 'eye-outline'} size={20} color={showReadings ? Colors.primary : '#fff'} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
+        )}
+
+        {/* Förklaringen till färgerna och sidans summor, när ögat är på */}
+        {ready && showReadings && !fsCell && (
+          <View pointerEvents="none" style={[s.fsLegend, { left: padL + 4, bottom: Math.max(insets.bottom, 6) + 2 }]}>
+            {([['Sure', s.readingSure, '#fff'], ['Unsure', s.readingUnsure, '#141414'], ['Very unsure', s.readingBad, '#fff']] as const).map(([t, st2, col]) => (
+              <View key={t} style={[s.fsChip, st2]}><Text style={[s.fsChipText, { color: col }]}>{t}</Text></View>
+            ))}
+            {totalsLine ? <Text style={s.fsTotals} numberOfLines={1}>{totalsLine}</Text> : null}
+          </View>
+        )}
+
+        {/* Ett svar som gällde fler rader (t.ex. en registrering): vad som ändrades, med Undo. */}
+        {ready && learnNote && !fsCell && (
+          <View style={[s.learnBar, { bottom: Math.max(insets.bottom, 6) + 2, right: padR + 4, width: Math.min(380, W * 0.5) }]}>
+            <Ionicons name="sparkles" size={15} color={Colors.primary} />
+            <Text style={s.learnText} numberOfLines={2}>{learnNote.text}</Text>
+            <TouchableOpacity onPress={() => undoRule(learnNote.rule)} hitSlop={10} accessibilityRole="button">
+              <Text style={s.learnUndo}>Undo</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Cellen man tryckt på: vad appen läste, varför den är osäker, vad den tror är rätt, och ändra. */}
+        {ready && fsCell && cellRow && (
+          <View style={[s.fsCard, { width: cardW, left: (W - cardW) / 2, top: 8 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={s.fsCardTitle} numberOfLines={1}>{label(fsCell.field)}</Text>
+              {lvl > 0 && <View style={[s.fsChip, lvl === 2 ? s.readingBad : s.readingUnsure]}><Text style={[s.fsChipText, { color: lvl === 2 ? '#fff' : '#141414' }]}>{lvl === 2 ? 'Very unsure' : 'Unsure'}</Text></View>}
+              <Text style={s.fsCardCtx} numberOfLines={1}>{[cellRow.data.date, [cellRow.data.dep_place, cellRow.data.arr_place].filter(Boolean).join(' → ')].filter(Boolean).join(' · ')}</Text>
+              <TouchableOpacity onPress={closeFsCell} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close"><Ionicons name="close" size={20} color="#B4C9DD" /></TouchableOpacity>
+            </View>
+            {why ? <Text style={s.fsCardWhy} numberOfLines={2}>{why}</Text> : null}
+            {choices ? (
+              <View style={s.fsRow}>
+                {choices.map((opt) => {
+                  const on = chipKey(opt) === String((cellRow.data as any)[fsCell.field] ?? '');
+                  return (
+                    <TouchableOpacity key={opt} style={[s.option, on && { borderColor: Colors.primary }]} onPress={() => fsApply(fsCell.rowKey, fsCell.field, chipKey(opt))} accessibilityRole="button">
+                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>{opt}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : (
+              <>
+                {options.length > 0 && (
+                  <View style={s.fsRow}>
+                    <Text style={s.fsCardCtx}>Probably:</Text>
+                    {options.map((v) => (
+                      <TouchableOpacity key={v} style={s.suggestion} onPress={() => fsApply(fsCell.rowKey, fsCell.field, v)} accessibilityRole="button" accessibilityLabel={`Use ${v}`}>
+                        <Text style={s.suggestionText}>{v}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={s.fsInputWrap}>
+                    <ValueInput inputRef={fsInputRef} field={fsCell.field} value={fsDraft} timeFormat={timeFormat}
+                      onChange={(t) => { setFsDraft(shapeInput(fsCell.field, t)); setFsError(''); }} onSubmit={fsSave} onFocus={() => {}} />
+                  </View>
+                  <TouchableOpacity style={[s.btnPrimary, { minHeight: 40 }]} onPress={fsSave} accessibilityRole="button"><Text style={s.btnPrimaryText}>Save</Text></TouchableOpacity>
+                  {lvl > 0 && (
+                    <TouchableOpacity style={s.fsGhost} onPress={fsConfirm} accessibilityRole="button"><Text style={s.fsGhostText}>Looks right</Text></TouchableOpacity>
+                  )}
+                </View>
+              </>
+            )}
+            {fsError ? <Text style={[s.fsCardWhy, { color: Colors.warning }]}>{fsError}</Text> : null}
+          </View>
+        )}
+      </View>
+    );
+  }
+
   const topStatus = page?.status === 'finding' ? 'Finding the logbook…'
     : page?.status === 'reading' ? (pages.length > 1 ? `Reading spread ${activePage + 1} of ${pages.length}…` : 'Reading…')
       : position ? `Problem ${position} of ${openIssues.length}`
@@ -2280,6 +2582,14 @@ export default function ScanReviewScreen() {
                     </View>
                   );
                 }))}
+
+              {/* Sidans summor som appen läste dem: "Total this page" per kolumn, och flygtidens tre summor under bilden. */}
+              {showReadings && totalNodes(fit, false)}
+              {showReadings && totalsLine ? (
+                <View style={{ position: 'absolute', left: 0, right: 0, top: fit.h + 8, alignItems: 'center' }}>
+                  <Text style={s.totalsLine} numberOfLines={1} adjustsFontSizeToFit>{totalsLine}</Text>
+                </View>
+              ) : null}
 
               {page.status === 'done' && page.grid && pageRows.filter((r) => r.skip).map((r) => (
                 <View key={`skip-${r.key}`} style={[s.skipBand, place(rowRect(page.grid!, r.rowIndex), fit)]}>
@@ -2371,6 +2681,12 @@ export default function ScanReviewScreen() {
             {(page?.status === 'reading' || page?.status === 'finding') && <ActivityIndicator size="small" color={Colors.primary} />}
             <Text style={s.statusText} numberOfLines={1}>{topStatus}</Text>
           </Glass>
+          {page?.status === 'done' && page.grid && (
+            <TouchableOpacity style={s.toggle} onPress={() => { Keyboard.dismiss(); setSelection(null); setFsCell(null); setFull('entering'); }}
+              accessibilityRole="button" accessibilityLabel="Check in full screen">
+              <Ionicons name="expand-outline" size={19} color="#fff" />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={[s.toggle, showReadings && s.toggleOn]} onPress={() => setShowReadings((v) => !v)}
             accessibilityRole="switch" accessibilityState={{ checked: showReadings }} accessibilityLabel="Show what Claude read in every cell">
             <Ionicons name={showReadings ? 'eye' : 'eye-outline'} size={19} color={showReadings ? Colors.primary : '#fff'} />
@@ -3188,6 +3504,30 @@ const s = StyleSheet.create({
 
   reading: { alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(5,12,24,0.75)', borderRadius: 2 },
   readingText: { color: '#fff', fontFamily: MONO, fontWeight: '600' },
+  readingTotal: { borderWidth: 1, borderColor: 'rgba(0,200,232,0.8)' },
+  readingSure: { backgroundColor: 'rgba(5,12,24,0.82)' },
+  readingUnsure: { backgroundColor: '#FFC83D' },
+  readingBad: { backgroundColor: '#E5484D' },
+  totalsLine: { color: '#DCE9F5', fontFamily: MONO, fontSize: 11, fontWeight: '600', backgroundColor: 'rgba(5,12,24,0.75)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, overflow: 'hidden' },
+  // Helskärmsläget
+  fsCenter: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#0A1628' },
+  fsHint: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  fsBtn: { position: 'absolute', width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(10,22,40,0.82)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },
+  fsBtnInline: { position: 'relative' },
+  fsRight: { position: 'absolute', flexDirection: 'row', alignItems: 'center', gap: 8 },
+  fsPageText: { color: '#fff', fontFamily: MONO, fontSize: 13, fontWeight: '700', backgroundColor: 'rgba(10,22,40,0.82)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, overflow: 'hidden' },
+  fsLegend: { position: 'absolute', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(10,22,40,0.82)', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 10 },
+  fsChip: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5 },
+  fsChipText: { fontFamily: MONO, fontSize: 10, fontWeight: '700' },
+  fsTotals: { color: '#DCE9F5', fontFamily: MONO, fontSize: 10.5, fontWeight: '600', marginLeft: 6 },
+  fsCard: { position: 'absolute', gap: 8, padding: 12, borderRadius: 16, backgroundColor: 'rgba(10,22,40,0.96)', borderWidth: 1, borderColor: 'rgba(127,168,200,0.35)' },
+  fsCardTitle: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  fsCardCtx: { flex: 1, color: '#9DB6CC', fontFamily: MONO, fontSize: 11 },
+  fsCardWhy: { color: '#C3D4E3', fontSize: 12.5, lineHeight: 17 },
+  fsRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  fsInputWrap: { flex: 1, height: 40, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(127,168,200,0.4)', backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 10, justifyContent: 'center' },
+  fsGhost: { minHeight: 40, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
+  fsGhostText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   readPill: {
     position: 'absolute', justifyContent: 'center', alignItems: 'center',
     backgroundColor: 'rgba(5,14,28,0.88)', borderWidth: StyleSheet.hairlineWidth, borderColor: Colors.primary,
