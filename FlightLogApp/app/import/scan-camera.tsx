@@ -217,7 +217,7 @@ export default function ScanCameraScreen() {
   // Panelerna: vänster med text, höger med knappar. Ramen får hela ytan däremellan.
   const padL = Math.max(insets.left, 16), padR = Math.max(insets.right, 16);
   const padB = Math.max(insets.bottom, 12) + 8;
-  const leftW = padL + 178, rightW = padR + 92;
+  const leftW = padL + 148, rightW = padR + 80;
   const guideInsets: [number, number, number, number] = [14, rightW + 14, 14, leftW + 14];
 
   const st = status.state;
@@ -424,6 +424,8 @@ export default function ScanCameraScreen() {
 }
 
 const SCAN_GREEN = '#00E8A0';
+const PANEL_BG = 'rgba(10,22,40,0.5)';   // sidopanelerna: 50 % genomskinliga
+const TEXT_SHADOW = { textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 } as const;
 
 // En rad i vänsterpanelen: tom ring tills kameran är nöjd, grön bock sedan.
 function Check({ on, text }: { on: boolean; text: string }) {
@@ -482,50 +484,51 @@ function Fallback({ insets, icon, title, body, actionLabel, onAction, onClose }:
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000' },
 
-  // Paneler i appens marinblå, alltid mörka (kameran följer inte appens tema).
+  // Paneler i appens marinblå, alltid mörka (kameran följer inte appens tema) och halvgenomskinliga, så att
+  // kamerabilden syns bakom. Texten har en mjuk skugga för att gå att läsa även över ljusa ytor.
   leftPanel: {
-    position: 'absolute', left: 0, top: 0, bottom: 0, paddingTop: 8, paddingRight: 16,
-    backgroundColor: '#0A1628', borderRightWidth: 1, borderRightColor: 'rgba(127,168,200,0.18)',
+    position: 'absolute', left: 0, top: 0, bottom: 0, paddingTop: 8, paddingRight: 12,
+    backgroundColor: PANEL_BG, borderRightWidth: 1, borderRightColor: 'rgba(127,168,200,0.18)',
   },
   closeBtn: { width: 44, height: 44, marginLeft: -10, alignItems: 'center', justifyContent: 'center' },
   panelLabel: {
     marginTop: 10, marginBottom: 6, fontFamily: 'JetBrainsMono', fontSize: 10, fontWeight: '700', letterSpacing: 1.8,
-    color: '#00C8E8',
+    color: '#00C8E8', ...TEXT_SHADOW,
   },
-  panelHint: { fontFamily: 'Fraunces', fontSize: 21, lineHeight: 25, fontWeight: '600', color: '#fff', marginBottom: 16 },
+  panelHint: { fontFamily: 'Fraunces', fontSize: 19, lineHeight: 23, fontWeight: '600', color: '#fff', marginBottom: 16, ...TEXT_SHADOW },
   checks: { gap: 9 },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   checkRing: {
-    width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: 'rgba(143,176,204,0.6)',
+    width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: 'rgba(200,216,232,0.8)',
     alignItems: 'center', justifyContent: 'center',
   },
   checkRingOn: { borderColor: SCAN_GREEN, backgroundColor: SCAN_GREEN },
-  checkText: { fontSize: 13.5, fontWeight: '600', color: '#B4C9DD' },
+  checkText: { fontSize: 13.5, fontWeight: '600', color: '#D5E3F0', ...TEXT_SHADOW },
   checkTextOn: { color: '#fff' },
-  panelFoot: { fontSize: 12, lineHeight: 16, color: '#8FB0CC' },
+  panelFoot: { fontSize: 12, lineHeight: 16, color: '#C3D5E6', ...TEXT_SHADOW },
 
   rightPanel: {
     position: 'absolute', right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#0A1628', borderLeftWidth: 1, borderLeftColor: 'rgba(127,168,200,0.18)',
+    backgroundColor: PANEL_BG, borderLeftWidth: 1, borderLeftColor: 'rgba(127,168,200,0.18)',
   },
   round: {
     width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: 'rgba(127,168,200,0.3)', backgroundColor: 'rgba(15,30,58,0.6)',
+    borderWidth: 1, borderColor: 'rgba(160,190,215,0.5)', backgroundColor: 'rgba(10,22,40,0.55)',
   },
   roundActive: { backgroundColor: '#FFB830', borderColor: '#FFB830' },
-  lightBtn: { position: 'absolute', top: 14, left: 24 },   // mitt i panelens 92 pt breda yta
+  lightBtn: { position: 'absolute', top: 14, left: 18 },   // mitt i panelens 80 pt breda yta
   autoTouch: { height: 44, marginTop: 4, justifyContent: 'center' },
   chip: {
     height: 28, paddingHorizontal: 12, borderRadius: 14, justifyContent: 'center',
-    borderWidth: 1, borderColor: 'rgba(143,176,204,0.5)',
+    borderWidth: 1, borderColor: 'rgba(160,190,215,0.6)', backgroundColor: 'rgba(10,22,40,0.55)',
   },
-  chipOn: { borderColor: '#00C8E8', backgroundColor: 'rgba(0,200,232,0.16)' },
+  chipOn: { borderColor: '#00C8E8', backgroundColor: 'rgba(0,60,78,0.7)' },
   chipText: { fontFamily: 'JetBrainsMono', color: '#B4C9DD', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
   chipTextOn: { color: '#5FD9EE' },
 
   rightBottom: { position: 'absolute', left: 0, alignItems: 'center', gap: 8 },
   doneBtn: {
-    width: 84, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
+    width: 76, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#00C8E8',
   },
   doneText: { color: '#06101E', fontSize: 15, fontWeight: '700' },
@@ -535,8 +538,8 @@ const s = StyleSheet.create({
     borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.85)', backgroundColor: '#152338',
     alignItems: 'center', justifyContent: 'center',
   },
-  thumbEmpty: { borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(143,176,204,0.5)', backgroundColor: 'transparent' },
-  thumbEmptyText: { fontFamily: 'JetBrainsMono', color: '#B4C9DD', fontSize: 12, fontWeight: '700' },
+  thumbEmpty: { borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(180,201,221,0.7)', backgroundColor: 'rgba(10,22,40,0.4)' },
+  thumbEmptyText: { fontFamily: 'JetBrainsMono', color: '#D5E3F0', fontSize: 12, fontWeight: '700' },
   thumb: { width: '100%', height: '100%', borderRadius: 7 },
   badge: {
     position: 'absolute', top: -8, right: -8, minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5,
