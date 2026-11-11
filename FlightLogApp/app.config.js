@@ -8,6 +8,9 @@ module.exports = ({ config }) => {
     config.name = 'Blades (Dev)';
     config.ios = { ...(config.ios || {}), bundleIdentifier: 'com.blades.jointlogbook.dev' };
     config.android = { ...(config.android || {}), package: 'com.blades.jointlogbook.dev' };
+    // Eget länkschema: annars äger båda apparna blades:// och iOS väljer själv vilken som öppnas
+    // (en delad flygning hamnade i dev-bygget i stället för TestFlight-appen).
+    config.scheme = 'blades-dev';
   }
   // Lokala utvecklingsservern (`expo start`): runtime-versionen med policy "fingerprint" räknas annars om
   // vid VARJE manifest-anrop (~20 s) → dev-bygget ger upp med "Could not reach". Dev-klienten bryr sig inte

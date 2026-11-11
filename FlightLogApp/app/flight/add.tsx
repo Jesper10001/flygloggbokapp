@@ -831,7 +831,7 @@ export default function AddFlightScreen() {
   // Koordinater för dep/arr (natt-uträkning + lokal tid-hint) och om natt är manuellt satt.
   const [depLatLon, setDepLatLon] = useState<{ lat: number; lon: number; country: string; region: string } | null>(null);
   const [arrLatLon, setArrLatLon] = useState<{ lat: number; lon: number; country: string; region: string } | null>(null);
-  const [nightManual, setNightManual] = useState(isEdit);
+  const [nightManual, setNightManual] = useState(isEdit || fromShared);   // delad flygning: se effekten "Delad flygning"
   // Auto-beräknad natt-tid (route-natt) för visning i total-rutan — ändras EJ av manuell override.
   const [autoNightH, setAutoNightH] = useState(0);
   // Marschfart (kts) för vald flygplanstyp → radie på cirkeln vid dep = arr (out-and-back).
@@ -1067,8 +1067,10 @@ export default function AddFlightScreen() {
     else if (!withApp && tot > 0) { set('app_2d', '0'); set('app_3d', '0'); }
   }, [form.flight_rules, logFull]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [landingsManual, setLandingsManual] = useState(isEdit);
-  const [takeoffsManual, setTakeoffsManual] = useState(isEdit);
+  // Delad flygning: manuellt redan från första renderingen. Autot nedan körs i samma varv som formuläret fylls i
+  // och skulle annars nollställa avsändarens starter och landningar (det läser lägena som de var vid monteringen).
+  const [landingsManual, setLandingsManual] = useState(isEdit || fromShared);
+  const [takeoffsManual, setTakeoffsManual] = useState(isEdit || fromShared);
   // Pilot flying-tid: default 100% (hela flygtiden), sedan andel efter senaste flygningen.
   const [pilotFlyingManual, setPilotFlyingManual] = useState(isEdit);
   const [pfRatio, setPfRatio] = useState(1); // andel av flygtiden som auto-PF (1 = 100%), från lastFlight
@@ -1244,10 +1246,17 @@ export default function AddFlightScreen() {
   // i som ett utkast: rutt, tider, landningar och starter som avsändarens (de manuella lägena slås på så att
   // autot inte räknar om dem), medan pilot flying lämnas åt appens vanliga auto. Besättningsraden i remarks
   // skrivs av sync-effekten ovan med avsändaren som second pilot.
+  const sharedApplied = useRef(false);
   useEffect(() => {
     if (!fromShared) return;
     const inc = useSharedFlightStore.getState().takePrepared();
-    if (!inc) return;
+    // Ingen flygning att fylla i (skärmen öppnad igen): vanligt tomt formulär med autot på. Körs effekten två
+    // gånger (utvecklingsläge) är flygningen redan ifylld, och då ska lägena stå kvar.
+    if (!inc) {
+      if (!sharedApplied.current) { setNightManual(false); setLandingsManual(false); setTakeoffsManual(false); }
+      return;
+    }
+    sharedApplied.current = true;
     const next = { ...EMPTY, ...inc.form } as FlightFormData;
     const stops = parseRouteStops(next.remarks || '');
     if (stops.length > 0) setRouteStops(stops);
@@ -1677,12 +1686,15 @@ export default function AddFlightScreen() {
     else if (role === 'dual') template = 'FI: ';
     else if (examinerOverlay && role === 'pic') template = 'TRE: ';
     // Bara skriv in mallen om remarks är tomt eller innehåller bara den förra mallen
+    // Jämförelsen görs mot det som faktiskt står i remarks när ändringen tillämpas (prev). En delad flygning
+    // fyller i roll och second pilot i samma varv, och då har besättningsraden ("PIC: namn") redan skrivits
+    // dit av synken ovan: den ska stå kvar och inte ersättas av mallen eller rensas.
     if (template && (form.remarks === '' || form.remarks === lastTemplate)) {
-      setForm((prev) => ({ ...prev, remarks: template }));
+      setForm((prev) => ((prev.remarks === '' || prev.remarks === lastTemplate) ? { ...prev, remarks: template } : prev));
       setLastTemplate(template);
     } else if (!template && form.remarks === lastTemplate) {
       // Rensa mallen om användaren byter tillbaka till en roll utan mall
-      setForm((prev) => ({ ...prev, remarks: '' }));
+      setForm((prev) => (prev.remarks === lastTemplate ? { ...prev, remarks: '' } : prev));
       setLastTemplate('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
