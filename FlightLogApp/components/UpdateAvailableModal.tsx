@@ -58,7 +58,11 @@ export function UpdateAvailableModal() {
 
   // forceUpdate visas som egen helskärm i _layout; göm den mjuka popupen under rundturen.
   // Den väntar också medan en karta eller delningsrutan är öppen: ett fönster ovanpå dem kan låsa skärmen.
-  const held = useMapScreenStore((st) => st.open) || useShareSheetStore((st) => st.open);
+  // Båda läses alltid (två rader, aldrig med || emellan): annars hoppas den andra hooken över när en karta är
+  // öppen, antalet hooks ändras mellan renderingarna och skärmen kraschar.
+  const mapOpen = useMapScreenStore((st) => st.open);
+  const shareOpen = useShareSheetStore((st) => st.open);
+  const held = mapOpen || shareOpen;
   const visible = updateAvailable && !forceUpdate && !dismissed && !tourActive && !held;
 
   useEffect(() => {
