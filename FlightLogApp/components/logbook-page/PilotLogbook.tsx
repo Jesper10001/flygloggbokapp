@@ -76,12 +76,17 @@ export function PilotLogbook() {
   // Inte under rundturen (exempelflygningarna finns inte i databasen) och inte utan flygningar.
   const canEdit = realFlights.length > 0 && !tourDemo && !tourActive;
   const toggleNode = (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+    // alignItems: 'stretch' → pennans ruta får exakt samma höjd som väljaren, vad den än är.
+    <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 8 }}>
       {canEdit && (
         <TouchableOpacity onPress={() => router.push('/bulk-edit?mode=pilot' as any)} activeOpacity={0.75}
           accessibilityRole="button" accessibilityLabel="Edit flights" hitSlop={6}
-          style={{ width: 36, height: 36, borderRadius: 9, borderWidth: 1, borderColor: accent + '73', backgroundColor: accent + '1F', alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name="create-outline" size={18} color={accent} />
+          style={{ width: 36, borderRadius: 9, borderWidth: 1, borderColor: accent + '73', backgroundColor: accent + '1F', alignItems: 'center', justifyContent: 'center' }}>
+          {/* Ikonens penna sticker ut uppe till höger, så dess tyngdpunkt ligger nere till vänster: flyttad en
+              punkt upp och åt höger för att se centrerad ut. Fast ruta så att radhöjden inte förskjuter den. */}
+          <View style={{ width: 18, height: 18, alignItems: 'center', justifyContent: 'center', transform: [{ translateX: 1 }, { translateY: -1 }] }}>
+            <Ionicons name="create-outline" size={18} color={accent} style={{ lineHeight: 18 }} />
+          </View>
         </TouchableOpacity>
       )}
       <SegmentedToggle options={OPTIONS} value={view} onChange={switchView} accent={accent} />
