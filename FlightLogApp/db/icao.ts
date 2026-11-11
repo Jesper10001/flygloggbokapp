@@ -319,6 +319,21 @@ export async function getAirportCoordinates(
   );
 }
 
+/** ICAO- och IATA-koden för flygplatser (nyckel = ICAO i versaler). Edit flights, kolumnen Route. */
+export async function getAirportCodes(icaoCodes: string[]): Promise<Record<string, { icao: string; iata: string }>> {
+  const out: Record<string, { icao: string; iata: string }> = {};
+  const codes = [...new Set(icaoCodes.map((c) => String(c || '').trim().toUpperCase()).filter(Boolean))];
+  if (!codes.length) return out;
+  const db = await getDatabase();
+  for (let i = 0; i < codes.length; i += 400) {
+    const chunk = codes.slice(i, i + 400);
+    const rows = await db.getAllAsync<{ icao: string; iata: string | null }>(
+      `SELECT icao, iata FROM icao_airports WHERE UPPER(icao) IN (${chunk.map(() => '?').join(',')})`, chunk);
+    for (const r of rows) out[String(r.icao).toUpperCase()] = { icao: String(r.icao).toUpperCase(), iata: String(r.iata || '').toUpperCase() };
+  }
+  return out;
+}
+
 // Som getAirportCoordinates men inkluderar land + region (för tidszons-uppslag).
 export async function getAirportTzInfo(
   icaoCodes: string[]

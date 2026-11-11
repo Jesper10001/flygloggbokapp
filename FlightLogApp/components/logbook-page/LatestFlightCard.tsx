@@ -56,20 +56,23 @@ export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAdd
         {/* header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8 }}>
           {showLabel && <Text style={{ fontFamily: FONT_MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.8, textTransform: 'uppercase', color: accent }}>Latest flight</Text>}
-          {/* Add media: till höger om "Latest flight" (senaste kortet) resp. i övre vänstra hörnet
-              (övriga kort utan label). Ligger i headern så flygplatsnamn nedan slipper radbrytas. */}
+          <View style={{ flex: 1, height: 1, backgroundColor: accent + '33' }} />
+          <Text style={{ fontFamily: FONT_MONO, fontSize: 10, color: Colors.textSecondary }}>{dateLabel}</Text>
+          {/* Add media: rund ikon till vänster om delaknappen, samma storlek (visas bara utan befintligt media).
+              Tryckytan är 44 pt och drar in headerns kant (negativa marginaler) så att kortets höjd inte ändras. */}
           {onAddPhoto && !f.photo_uri && (
             <TouchableOpacity
               onPress={() => onAddPhoto(f)}
-              activeOpacity={0.85}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: Colors.gold + '1A', borderWidth: 1, borderColor: Colors.gold + '66' }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Add media to this flight"
+              style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginVertical: -15, marginRight: -10, marginLeft: -4 }}
             >
-              <Ionicons name="camera-outline" size={12} color={Colors.gold} />
-              <Text style={{ fontFamily: FONT_MONO, fontSize: 10, fontWeight: '700', color: Colors.gold }}>Add media</Text>
+              <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.gold + '1F', borderWidth: 1, borderColor: Colors.gold + '80' }}>
+                <Ionicons name="camera-outline" size={15} color={Colors.gold} />
+              </View>
             </TouchableOpacity>
           )}
-          <View style={{ flex: 1, height: 1, backgroundColor: accent + '33' }} />
-          <Text style={{ fontFamily: FONT_MONO, fontSize: 10, color: Colors.textSecondary }}>{dateLabel}</Text>
           {/* Dela med second pilot: tryck = delningsrutan (AirDrop), långt tryck = spara som fil. Tryckytan är
               44 pt och drar in headerns kant (negativa marginaler) så att kortets höjd inte ändras. */}
           {onShare && (

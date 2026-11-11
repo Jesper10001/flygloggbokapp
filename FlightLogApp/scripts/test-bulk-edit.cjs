@@ -172,6 +172,112 @@ ok(E.suggestionsFor('pilot', []).length === 0 && E.planBulkEdit('pilot', [], [],
   await BE.undoBulkEdit(dEdit);
   ok(d.prepare('SELECT category FROM drone_flights').get().category === '', 'och ångrad till tom');
 
+  
+// ── Pilotläget: nya ändringar (Edit flights) ──
+const Q = [
+  { id: 11, date: '2026-11-01', dep_place: 'ESSA', arr_place: 'ESGG', dep_place_raw: 'ARN', arr_place_raw: 'ESGG', dep_utc: '10:00', arr_utc: '11:00', total_time: 1.0, night: 0, aircraft_type: 'A109', registration: 'KILO39', takeoffs_day: 1, takeoffs_night: 0, landings_day: 1, landings_night: 0, remarks: 'HEMS', flight_type: 'normal' },
+  { id: 12, date: '2026-11-01', dep_place: 'ESSA', arr_place: 'ESGG', dep_place_raw: 'ESSA', arr_place_raw: 'ESGG', dep_utc: '10:00', arr_utc: '11:00', total_time: 1.0, night: 0, aircraft_type: 'A109', registration: 'KILO39', takeoffs_day: 1, takeoffs_night: 0, landings_day: 1, landings_night: 0, remarks: 'HEMS\nPIC: Sam Berg', flight_type: 'normal' },
+  { id: 13, date: '2026-11-02', dep_place: 'ESCF', arr_place: 'ESCF', dep_place_raw: 'ESCF', arr_place_raw: 'ESCF', dep_utc: '20:00', arr_utc: '21:30', total_time: 1.5, night: 1.5, aircraft_type: 'EC135', registration: 'SE-HEM', takeoffs_day: 0, takeoffs_night: 0, landings_day: 0, landings_night: 0, remarks: '', flight_type: 'normal' },
+  { id: 14, date: '2026-11-03', dep_place: 'ESCF', arr_place: 'ESCF', dep_utc: '', arr_utc: '', total_time: 2.0, night: 0, aircraft_type: 'EC135', registration: 'SE-HEM', takeoffs_day: 0, takeoffs_night: 2, landings_day: 0, landings_night: 2, remarks: 'Training, hoist', flight_type: 'normal' },
+  { id: 15, total_time: 3.0, flight_type: 'sim', remarks: '' },
+];
+console.log('Pilot: byt typ och registrering');
+plan = E.planBulkEdit('pilot', Q, [11, 13, 15], { kind: 'set', field: 'aircraft_type', value: ' a109s ' });
+after = E.applyPlan(Q, plan);
+ok(plan.changes.length === 2 && after[0].aircraft_type === 'A109S' && after[2].aircraft_type === 'A109S' && plan.skipped.some((x) => x.id === 15), 'typen skrivs i versaler, simulatorpasset lämnas');
+ok(JSON.stringify(undo(after, plan)) === JSON.stringify(Q), 'ångra ger samma värden');
+plan = E.planBulkEdit('pilot', Q, [11], { kind: 'set', field: 'registration', value: 'KILO39' });
+ok(plan.changes.length === 0 && plan.unchanged === 1, 'samma registrering → inget att ändra');
+
+console.log('Pilot: flygplatskoder');
+plan = E.planBulkEdit('pilot', Q, [11, 12, 13], { kind: 'codes', values: { 11: { dep: 'ESSA', arr: 'ESGG' }, 12: { dep: 'ESSA', arr: 'ESGG' } } });
+after = E.applyPlan(Q, plan);
+ok(plan.changes.length === 1 && after[0].dep_place_raw === 'ESSA' && plan.unchanged === 1 && plan.skipped.some((x) => x.id === 13), 'bara den visade koden byts; redan rätt och utan kod lämnas');
+ok(after[0].dep_place === 'ESSA', 'flygplatsen (dep_place) rörs inte');
+
+console.log('Pilot: starter och landningar');
+plan = E.planBulkEdit('pilot', Q, [11, 13, 14], { kind: 'bump', what: 'landings', delta: 1 });
+after = E.applyPlan(Q, plan);
+ok(after[0].landings_day === 2 && after[2].landings_night === 1 && after[3].landings_night === 3, 'en landning till: dag, natt (hela flygningen i mörker) och nattens räknare');
+ok(plan.totals.some((x) => x.field === 'landings_day' && x.int && x.after === x.before + 1), 'totalen räknas som antal');
+plan = E.planBulkEdit('pilot', Q, [11, 13, 14], { kind: 'bump', what: 'takeoffs', delta: -1 });
+after = E.applyPlan(Q, plan);
+ok(after[0].takeoffs_day === 0 && after[3].takeoffs_night === 1 && plan.skipped.some((x) => x.id === 13 && /take-off/i.test(x.reason)), 'en start mindre; ingen att ta bort lämnas');
+ok(after.every((r) => (r.takeoffs_day ?? 0) >= 0 && (r.takeoffs_night ?? 0) >= 0), 'aldrig under noll');
+
+console.log('Pilot: text i remarks');
+plan = E.planBulkEdit('pilot', Q, [11, 12, 13], { kind: 'remarks', add: 'Mountain' });
+after = E.applyPlan(Q, plan);
+ok(after[0].remarks === 'HEMS\nMountain' && after[1].remarks === 'HEMS\nPIC: Sam Berg\nMountain' && after[2].remarks === 'Mountain', 'texten läggs sist som egen rad');
+plan = E.planBulkEdit('pilot', Q, [11, 12], { kind: 'remarks', add: 'hems' });
+ok(plan.changes.length === 0 && plan.skipped.length === 2, 'finns raden redan läggs den inte till igen');
+plan = E.planBulkEdit('pilot', Q, [11, 12, 14], { kind: 'remarks', remove: 'hems' });
+after = E.applyPlan(Q, plan);
+ok(after[0].remarks === '' && after[1].remarks === 'PIC: Sam Berg' && plan.skipped.some((x) => x.id === 14), 'texten tas bort, tomma rader försvinner, saknas den lämnas flygningen');
+plan = E.planBulkEdit('pilot', Q, [14], { kind: 'remarks', remove: ', hoist' });
+ok(E.applyPlan(Q, plan)[3].remarks === 'Training', 'en del av en rad tas bort');
+plan = E.planBulkEdit('pilot', Q, [11], { kind: 'remarks', remove: 'HE.S' });
+ok(plan.changes.length === 0, 'tecken i texten tolkas inte som mönster');
+
+console.log('Pilot: radera och dubbletter');
+plan = E.planBulkEdit('pilot', Q, [12, 15], { kind: 'delete' });
+after = E.applyPlan(Q, plan);
+ok(plan.changes.length === 1 && plan.changes[0].fields[E.DELETED_FIELD] && after.length === Q.length - 1 && !after.some((r) => r.id === 12), 'flygningen försvinner, simulatorpasset lämnas');
+ok(plan.totals.some((x) => x.field === 'flights' && x.before === 4 && x.after === 3) && plan.totals.some((x) => x.field === 'total_time' && x.before === 5.5 && x.after === 4.5), 'antal och flygtid före och efter');
+const dup = E.suggestionsFor('pilot', Q).find((x) => x.id === 'duplicates');
+ok(dup && dup.ids.length === 1 && dup.ids[0] === 12 && dup.column === 'cleanup' && dup.op.kind === 'delete', 'dubbletten är kopian (högre id), originalet behålls');
+ok(!E.suggestionsFor('pilot', [Q[3], { ...Q[3], id: 16 }]).some((x) => x.id === 'duplicates'), 'utan tider räknas två lika flygningar inte som dubbletter');
+ok(E.PILOT_COLUMNS.length === 9 && E.suggestionsFor('pilot', P).every((x) => E.PILOT_COLUMNS.some((c) => c.key === x.column)), 'varje förslag hör till en kolumn');
+
+// Flygplatskoderna (services/bulkEdit/codes.ts)
+{
+  const src2 = fs.readFileSync(path.join(__dirname, '..', 'services/bulkEdit/codes.ts'), 'utf8');
+  const js2 = ts.transpileModule(src2, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+  const m2 = { exports: {} };
+  new Function('module', 'exports', 'require', js2)(m2, m2.exports, () => ({}));
+  const lookup = { ESSA: { icao: 'ESSA', iata: 'ARN' }, ESGG: { icao: 'ESGG', iata: 'GOT' }, ESCF: { icao: 'ESCF', iata: '' } };
+  const v = m2.exports.codeValues(Q, lookup, 'iata');
+  ok(v[11].dep === 'ARN' && v[11].arr === 'GOT' && v[13] === undefined, 'IATA: koden slås upp på flygplatsen; saknas IATA lämnas flygningen');
+  const w = m2.exports.codeValues(Q, lookup, 'icao');
+  ok(w[11].dep === 'ESSA' && w[13].dep === 'ESCF', 'ICAO: flygplatsens fyrställiga kod');
+}
+
+  console.log('Radera och lägga tillbaka i databasen');
+  {
+    const rowsNow = read();
+    const victim = rowsNow[1];
+    plan = E.planBulkEdit('pilot', rowsNow, [victim.id], { kind: 'delete' });
+    const delId = await BE.applyBulkEdit('pilot', 'Flights deleted', plan);
+    ok(delId > 0 && !read().some((r) => r.id === victim.id) && read().length === rowsNow.length - 1, 'flygningen är borta ur databasen');
+    const saved = d.prepare('SELECT field, old_value FROM bulk_edit_changes WHERE edit_id=?').get(delId);
+    ok(saved.field === E.DELETED_FIELD && JSON.parse(saved.old_value).id === victim.id, 'hela raden är sparad för ångra');
+    const back = await BE.undoBulkEdit(delId);
+    const again = read().find((r) => r.id === victim.id);
+    ok(back.restored === 1 && back.flights === 1 && again && JSON.stringify(again) === JSON.stringify(victim), 'ångra lägger tillbaka flygningen med samma id och samma värden');
+    // Id:t upptaget av en annan flygning → raden kommer tillbaka med ett nytt id i stället för att skriva över.
+    const last = read()[read().length - 1];
+    plan = E.planBulkEdit('pilot', read(), [last.id], { kind: 'delete' });
+    const delId2 = await BE.applyBulkEdit('pilot', 'Flights deleted', plan);
+    d.prepare(`INSERT INTO flights (id, date, aircraft_type, registration, dep_place, dep_utc, arr_place, arr_utc, total_time, flight_type, remarks, status, source)
+      VALUES (?, '2026-03-01', 'B206', 'SE-NEW', 'ESSA', '08:00', 'ESSA', '09:00', 1.0, 'normal', 'new', 'manual', 'manual')`).run(last.id);
+    await BE.undoBulkEdit(delId2);
+    const all2 = read();
+    ok(all2.find((r) => r.id === last.id).remarks === 'new' && all2.some((r) => r.id !== last.id && r.date === last.date && r.total_time === last.total_time && r.registration === last.registration), 'upptaget id: den nya flygningen ligger kvar och den raderade kommer tillbaka med nytt id');
+  }
+  console.log('Text och antal i databasen');
+  {
+    const rowsNow = read();
+    plan = E.planBulkEdit('pilot', rowsNow, [rowsNow[0].id], { kind: 'remarks', add: 'Mountain' });
+    const e1 = await BE.applyBulkEdit('pilot', 'Remarks + Mountain', plan);
+    plan = E.planBulkEdit('pilot', read(), [rowsNow[0].id], { kind: 'bump', what: 'landings', delta: 1 });
+    const e2 = await BE.applyBulkEdit('pilot', 'Landing added', plan);
+    let r0 = read()[0];
+    ok(r0.remarks === 'Mountain' && r0.landings_day + r0.landings_night === rowsNow[0].landings_day + rowsNow[0].landings_night + 1, 'remarks och landningar är sparade');
+    await BE.undoBulkEdit(e2); await BE.undoBulkEdit(e1);
+    r0 = read()[0];
+    ok(r0.remarks === rowsNow[0].remarks && r0.landings_day === rowsNow[0].landings_day && r0.landings_night === rowsNow[0].landings_night, 'och ångrade');
+  }
+
   console.log(fails ? `\n${fails} fel` : '\nAlla gröna');
   process.exit(fails ? 1 : 0);
 })().catch((e) => { console.log('FEL', e); process.exit(1); });

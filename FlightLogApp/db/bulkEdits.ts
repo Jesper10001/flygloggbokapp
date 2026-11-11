@@ -6,8 +6,10 @@
 //  - Varje flygnings gamla och nya värde sparas i bulk_edit_changes, så ändringen kan ångras senare.
 //    Ångra rör bara fält som fortfarande har ändringens värde: det man har ändrat själv efteråt ligger kvar.
 //  - Pilotläget skriver dessutom till audit_log som alla andra ändringar av en flygning.
+//  - Radering (DELETED_FIELD): hela raden sparas som JSON i bulk_edit_changes innan flygningen tas bort, så att
+//    ångra kan lägga tillbaka den med samma id (foton och bokplacering som pekar på id:t hänger då med).
 import { getDatabase } from './database';
-import { BULK_COLUMNS, isTextField, type BulkMode, type BulkPlan } from '../services/bulkEdit/engine';
+import { BULK_COLUMNS, DELETED_FIELD, isTextField, type BulkMode, type BulkPlan } from '../services/bulkEdit/engine';
 
 export interface BulkEditEntry {
   id: number;
@@ -35,6 +37,13 @@ export async function applyBulkEdit(mode: BulkMode, label: string, plan: BulkPla
     const res = await db.runAsync('INSERT INTO bulk_edits (mode, label, flight_count) VALUES (?,?,?)', [mode, label, plan.changes.length]);
     editId = res.lastInsertRowId as number;
     for (const c of plan.changes) {
+      if (c.fields[DELETED_FIELD]) {
+        const row = await db.getFirstAsync<Record<string, any>>(`SELECT * FROM ${table} WHERE id=?`, [c.id]);
+        if (!row) continue;
+        await db.runAsync('INSERT INTO bulk_edit_changes (edit_id, flight_id, field, old_value, new_value) VALUES (?,?,?,?,?)', [editId, c.id, DELETED_FIELD, JSON.stringify(row), '']);
+        await db.runAsync(`DELETE FROM ${table} WHERE id=?`, [c.id]);
+        continue;
+      }
       const fields = Object.keys(c.fields).filter((f) => allowed.has(f));
       if (!fields.length) continue;
       await db.runAsync(`UPDATE ${table} SET ${fields.map((f) => `${f}=?`).join(', ')} WHERE id=?`, [...fields.map((f) => c.fields[f].to), c.id]);
@@ -65,7 +74,25 @@ export async function undoBulkEdit(editId: number): Promise<{ restored: number; 
   const touched = new Set<number>();
   await db.withTransactionAsync(async () => {
     const cache = new Map<number, Record<string, any> | null>();
+    let columns: Set<string> | null = null;   // tabellens kolumner i dag (en raderad rad kan vara sparad med äldre kolumner)
     for (const ch of rows) {
+      if (ch.field === DELETED_FIELD) {
+        let saved: Record<string, any> | null = null;
+        try { saved = JSON.parse(ch.old_value ?? ''); } catch { saved = null; }
+        if (!saved || typeof saved !== 'object') { kept++; continue; }
+        if (!columns) {
+          const info = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table})`);
+          columns = new Set(info.map((c) => c.name));
+        }
+        // Samma id om det är ledigt, annars ett nytt.
+        const taken = await db.getFirstAsync<{ id: number }>(`SELECT id FROM ${table} WHERE id=?`, [ch.flight_id]);
+        const cols = Object.keys(saved).filter((k) => columns!.has(k) && /^[A-Za-z_][A-Za-z0-9_]*$/.test(k) && (k !== 'id' || !taken));
+        if (!cols.length) { kept++; continue; }
+        await db.runAsync(`INSERT INTO ${table} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`, cols.map((k) => saved![k]));
+        restored++;
+        touched.add(ch.flight_id);
+        continue;
+      }
       if (!allowed.has(ch.field)) { kept++; continue; }
       if (!cache.has(ch.flight_id)) cache.set(ch.flight_id, await db.getFirstAsync<Record<string, any>>(`SELECT * FROM ${table} WHERE id=?`, [ch.flight_id]));
       const cur = cache.get(ch.flight_id);

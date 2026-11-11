@@ -1,6 +1,7 @@
 // Pilot-manned Logbook-skärm (ej operator): 3-vägsväljare List / Book / Fleet.
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { Colors } from '../../constants/colors';
@@ -29,6 +30,7 @@ export function PilotLogbook() {
   // flygningar fyller på när loggboken annars är tom.
   const tourDemo = useTourStore((s) => s.demo);
   const tourExample = useTourStore((s) => (s.active ? s.examplePilot : null));
+  const tourActive = useTourStore((s) => s.active);
   const flights = useMemo(
     () => (tourDemo || tourExample
       ? [...(tourExample ? [tourExample] : []), ...realFlights, ...(tourDemo ? DEMO_FLIGHTS : [])].sort((x, y) => y.date.localeCompare(x.date))
@@ -70,7 +72,21 @@ export function PilotLogbook() {
   // Väljaren ligger i headern på samma rad som sidans titel (titel vänster, toggle höger).
   // Manuellt vy-byte rensar deep-link-expansionen → List öppnas i grundform.
   const switchView = (v: LogView) => { setView(v); setExpand({ year: null, monthKey: null }); };
-  const toggleNode = <SegmentedToggle options={OPTIONS} value={view} onChange={switchView} accent={accent} />;
+  // Pennan till vänster om väljaren öppnar Edit flights (app/bulk-edit.tsx): ändra många flygningar på en gång.
+  // Inte under rundturen (exempelflygningarna finns inte i databasen) och inte utan flygningar.
+  const canEdit = realFlights.length > 0 && !tourDemo && !tourActive;
+  const toggleNode = (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      {canEdit && (
+        <TouchableOpacity onPress={() => router.push('/bulk-edit?mode=pilot' as any)} activeOpacity={0.75}
+          accessibilityRole="button" accessibilityLabel="Edit flights" hitSlop={6}
+          style={{ width: 36, height: 36, borderRadius: 9, borderWidth: 1, borderColor: accent + '73', backgroundColor: accent + '1F', alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="create-outline" size={18} color={accent} />
+        </TouchableOpacity>
+      )}
+      <SegmentedToggle options={OPTIONS} value={view} onChange={switchView} accent={accent} />
+    </View>
+  );
 
   return (
     <View style={{ flex: 1 }}>

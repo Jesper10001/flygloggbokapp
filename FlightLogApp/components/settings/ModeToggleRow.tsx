@@ -1,5 +1,5 @@
 // Settings-kortet för loggbok och layout (design C2, 2026-11-11). Kortet visar vad man använder nu
-// ("Pilot logbook · Aeroplanes and helicopters" + FULL) och knappen "Switch logbook or layout" öppnar ett
+// ("Pilot logbook · Fixed & Rotary wing" + FULL) och knappen "Switch logbook or layout" öppnar ett
 // ark med två val: loggbok (Pilot | Drone) och layout (Full = Blades Extensive | Essential). Knappen längst
 // ner säger vad som händer ("Switch to Drone logbook" osv.), så ingen extra bekräftelseruta behövs.
 // Själva loggboksbytet (switchProfile) sköts av föräldern via onConfirmSwitch; Essential-bytet görs här
@@ -22,7 +22,7 @@ type Mode = 'manned' | 'drone';
 type Layout = 'full' | 'essential';
 
 const LOGBOOKS: Record<Mode, { title: string; line1: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  manned: { title: 'Pilot', line1: 'Aeroplanes and helicopters', icon: 'airplane-outline' },
+  manned: { title: 'Pilot', line1: 'Fixed & Rotary wing', icon: 'airplane-outline' },
   drone: { title: 'Drone', line1: 'Commercial, military or hobby', icon: 'hardware-chip-outline' },
 };
 
@@ -78,9 +78,6 @@ export function ModeToggleRow({ mode, onConfirmSwitch }: {
     <>
       <View style={st.card}>
         <View style={st.cardTop}>
-          <View style={[st.iconTile, { backgroundColor: Colors.primary + '1A' }]}>
-            <Ionicons name={cur.icon} size={22} color={Colors.primary} />
-          </View>
           <View style={{ flex: 1, gap: 3 }}>
             <Text style={st.cardTitle}>{cur.title} logbook</Text>
             <Text style={st.cardSub}>{cur.line1}</Text>
