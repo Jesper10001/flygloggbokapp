@@ -777,6 +777,10 @@ export default function AddFlightScreen() {
   const [regOpen, setRegOpen] = useState(false);
   // Någon PersonPicker-dropdown (andre pilot/extra pilot/cabin crew) är öppen → lyft kortet.
   const [personOpen, setPersonOpen] = useState(false);
+  // Listan för second pilot (eller en extra pilot) är öppen → hela pilotblocket läggs över Cabin crew, som annars
+  // ritas ovanpå listan (den kommer senare i samma kort).
+  const [pilotListOpen, setPilotListOpen] = useState(false);
+  const onPilotListToggle = useCallback((open: boolean) => { setPersonOpen(open); setPilotListOpen(open); }, []);
   const [addPilot, setAddPilot] = useState<{ visible: boolean; title: string; cb: ((n: string) => void) | null }>({ visible: false, title: '', cb: null });
   const [showDatePicker, setShowDatePicker] = useState(false);
   // Log Flight-redesign: Quicklog (essentials) ↔ Full (alla sektioner). Default Full.
@@ -3768,8 +3772,8 @@ export default function AddFlightScreen() {
           </View>
 
           {/* Second pilot + fler piloter ombord — samma stil som aircraft type/registration */}
-          <View onLayout={(e) => { demoY.current.crewIn = e.nativeEvent.layout.y; }}>
-            <Animated.View pointerEvents={soloOn ? 'none' : 'auto'} style={{ opacity: soloFade.interpolate({ inputRange: [0, 1], outputRange: [1, 0.18] }) }}>
+          <View onLayout={(e) => { demoY.current.crewIn = e.nativeEvent.layout.y; }} style={pilotListOpen ? { zIndex: 40 } : null}>
+            <Animated.View pointerEvents={soloOn ? 'none' : 'auto'} style={[{ opacity: soloFade.interpolate({ inputRange: [0, 1], outputRange: [1, 0.18] }) }, pilotListOpen ? { zIndex: 40 } : null]}>
             <Text style={styles.colFieldLabel}>{t('second_pilot_label')}</Text>
             <View style={{ gap: 6 }}>
               <PersonPicker
@@ -3784,7 +3788,7 @@ export default function AddFlightScreen() {
                 onChangeRole={(k) => selectSecondPilotRole(k)}
                 onAddNew={() => promptAddPersonName(t('second_pilot_label'), (n) => set('second_pilot', n))}
                 onAddMore={addExtraPilot}
-                onToggle={setPersonOpen}
+                onToggle={onPilotListToggle}
                 hideRole={form.flight_type === 'sim'}
               />
               {extraPilots.map((p) => (
@@ -3801,7 +3805,7 @@ export default function AddFlightScreen() {
                   onChangeRole={(k) => selectExtraPilotRole(p.id, k)}
                   onAddNew={() => promptAddPersonName(t('second_pilot_label'), (n) => updateExtraPilot(p.id, 'name', n))}
                   onRemove={() => removeExtraPilot(p.id)}
-                  onToggle={setPersonOpen}
+                  onToggle={onPilotListToggle}
                   hideRole={form.flight_type === 'sim'}
                 />
               ))}

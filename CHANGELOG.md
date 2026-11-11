@@ -16,6 +16,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Fixed: Editing a flight keeps its flight rules and IFR time, and the flight page shows your changes right away.
 
 ### Alla ändringar
+- Rättat, Log flight: listan för second pilot (och extra piloter) ritades under raden Cabin crew i Full-läget, så Cabin crew låg ovanpå namnen. Pilotblocket läggs nu överst medan listan är öppen. Gäller alla flygningar, märktes vid en delad flygning (som öppnas i Full).
 - Delad flygning: mellansteget (skärmen Shared flight med sammanfattningen) hoppas över i pilotläget. Länken eller filen öppnar Log flight direkt med flygningen ifylld; skärmen är nu genomskinlig och förbereder bara i bakgrunden. Frågan "Which aircraft is this?" ställs i Log flight när avsändarens flygplan inte stämmer exakt med Fleet (fälten står tomma tills man svarat, "I'll choose it here" lämnar dem tomma), och dubblettvarningen står i raden överst i Log flight. Drönarläget och flygningar som inte går att läsa visar skärmen som förut.
 - Delad flygning: länken skickas med en läsbar rad, till exempel "Blades flight ESCF → ESCF, 11 Nov 2026, from Jesper Toreld". Raden står överst i delningsrutan i stället för den råa länken och följer med i meddelandet hos mottagaren.
 - Skanningskameran: sidopanelerna är smalare (vänster 30 pt, höger 12 pt), så ramen för uppslaget får mer plats, och 50 % genomskinliga så att kamerabilden syns bakom. Texten i panelerna är ljusare och har en mjuk skugga för att gå att läsa över bilden; instruktionen är ett snäpp mindre (19 pt).
