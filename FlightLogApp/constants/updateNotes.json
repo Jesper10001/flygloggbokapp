@@ -2,6 +2,14 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 80,
+      "date": "2026-11-11",
+      "notes": [
+        "Improved: Edit many flights shows total and night time for each flight before you save.",
+        "Improved: Tap a flight in the preview to leave it out of the change."
+      ]
+    },
+    {
       "id": 79,
       "date": "2026-11-10",
       "notes": [

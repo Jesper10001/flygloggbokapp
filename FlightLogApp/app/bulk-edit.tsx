@@ -127,6 +127,7 @@ export default function BulkEditScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [showAll, setShowAll] = useState(false);
+  const [excluded, setExcluded] = useState<Set<number>>(new Set());   // bortvalda i förhandsvisningen (raden står kvar, urkryssad)
   const [result, setResult] = useState<{ editId: number; count: number; label: string; plan: BulkPlan; undone?: string } | null>(null);
   const [armed, setArmed] = useState(0);   // ändringen vars Undo väntar på ett andra tryck
   const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -207,7 +208,13 @@ export default function BulkEditScreen() {
 
   // ── Ändringen och planen ──
   const built = useMemo(() => buildOp(mode, actionKey, choice, nightValues), [mode, actionKey, choice, nightValues]);
-  const plan = useMemo<BulkPlan | null>(() => (built && step === 'preview' ? planBulkEdit(mode, everything, selected, built.op) : null), [built, step, mode, everything, selected]);
+  const fullPlan = useMemo<BulkPlan | null>(() => (built && step === 'preview' ? planBulkEdit(mode, everything, selected, built.op) : null), [built, step, mode, everything, selected]);
+  const plan = useMemo<BulkPlan | null>(() => {
+    if (!fullPlan || !built || !excluded.size) return fullPlan;
+    const keep = new Set(selected); excluded.forEach((id) => keep.delete(id));
+    return planBulkEdit(mode, everything, keep, built.op);
+  }, [fullPlan, built, excluded, selected, mode, everything]);
+  const toggleExcluded = (id: number) => { tap(); setExcluded((x) => { const n = new Set(x); if (n.has(id)) n.delete(id); else n.add(id); return n; }); };
   const byId = useMemo(() => new Map(all.map((r) => [r.id, r])), [all]);
   const rowTitle = (r?: BulkRow) => (!r ? '' : mode === 'pilot'
     ? `${String(r.dep_place_raw || r.dep_place || '?').toUpperCase()} → ${String(r.arr_place_raw || r.arr_place || '?').toUpperCase()}`
@@ -217,7 +224,13 @@ export default function BulkEditScreen() {
     ? (field === 'operation_type' ? (DRONE_OPERATION[String(v)] ?? (v || 'none')) : field === 'pilot_role' ? (DRONE_ROLES.find((x) => x.key === v)?.label ?? (v || 'none')) : String(v || 'none'))
     : field === 'is_night' ? (num(v) ? 'yes' : 'no') : hours(num(v)));
 
-  const go = (s: Step) => { setError(''); setShowAll(false); setStep(s); };
+  const go = (s: Step) => {
+    if (excluded.size) {   // bortvalda i förhandsvisningen är inte längre valda
+      setSelected((sel) => { const n = new Set(sel); excluded.forEach((id) => n.delete(id)); return n; });
+      setExcluded(new Set());
+    }
+    setError(''); setShowAll(false); setStep(s);
+  };
   const pickAction = (key: string) => { tap(); setActionKey(key); setChoice(null); setNightValues(null); };
   const toPreview = async () => {
     if (actionKey === 'nightcalc') {   // räknas om varje gång: urvalet kan ha ändrats
@@ -461,10 +474,12 @@ export default function BulkEditScreen() {
           )}
 
           {/* ═══ 3 · Före och efter ═══ */}
-          {step === 'preview' && plan && built && (
+          {step === 'preview' && plan && fullPlan && built && (
             <View style={{ gap: 18 }}>
               <Head title={plan.changes.length ? `${plural(plan.changes.length, 'flight')} will change` : 'Nothing to change'}
-                lead={plan.changes.length ? `${built.label}. Nothing is saved until you tap the button below, and you can undo it afterwards.` : 'None of the flights you selected need this change. Go back to pick other flights or another change.'} />
+                lead={plan.changes.length ? `${built.label}. Nothing is saved until you tap the button below, and you can undo it afterwards.`
+                  : fullPlan.changes.length ? 'You have taken out every flight. Tick the ones you want to change.'
+                  : 'None of the flights you selected need this change. Go back to pick other flights or another change.'} />
               {plan.totals.length > 0 && (
                 <View style={s.card0}>
                   <View style={s.totHead}><Text style={[s.eyebrow, { color: Colors.primary, flex: 1 }]}>TOTAL IN YOUR LOGBOOK</Text><Text style={s.eyebrow}>BEFORE → AFTER</Text></View>
@@ -478,42 +493,60 @@ export default function BulkEditScreen() {
                   ))}
                 </View>
               )}
-              {(plan.skipped.length > 0 || plan.unchanged > 0) && (
-                <View style={s.card}>
-                  <Text style={s.cardTitle}>{plural(plan.skipped.length + plan.unchanged, 'flight')} left as {plan.skipped.length + plan.unchanged === 1 ? 'it is' : 'they are'}</Text>
-                  <View style={{ gap: 4, marginTop: 6 }}>
-                    {plan.unchanged > 0 && <Text style={s.cardSub}>{plan.unchanged.toLocaleString('en-US')} · Already {plan.unchanged === 1 ? 'has' : 'have'} this value</Text>}
-                    {skippedByReason(plan.skipped).map((g) => <Text key={g.reason} style={s.cardSub}>{g.count.toLocaleString('en-US')} · {g.reason}</Text>)}
+              {(() => {
+                const out = fullPlan.changes.length - plan.changes.length;   // bortvalda här i listan
+                const left = plan.skipped.length + plan.unchanged + out;
+                if (!left) return null;
+                return (
+                  <View style={s.card}>
+                    <Text style={s.cardTitle}>{plural(left, 'flight')} left as {left === 1 ? 'it is' : 'they are'}</Text>
+                    <View style={{ gap: 4, marginTop: 6 }}>
+                      {out > 0 && <Text style={s.cardSub}>{out.toLocaleString('en-US')} · Taken out by you below</Text>}
+                      {plan.unchanged > 0 && <Text style={s.cardSub}>{plan.unchanged.toLocaleString('en-US')} · Already {plan.unchanged === 1 ? 'has' : 'have'} this value</Text>}
+                      {skippedByReason(plan.skipped).map((g) => <Text key={g.reason} style={s.cardSub}>{g.count.toLocaleString('en-US')} · {g.reason}</Text>)}
+                    </View>
                   </View>
-                </View>
-              )}
-              {plan.changes.length > 0 && (
+                );
+              })()}
+              {fullPlan.changes.length > 0 && (
                 <View style={{ gap: 10 }}>
-                  <Text style={s.eyebrow}>EVERY FLIGHT THAT CHANGES</Text>
+                  <View style={{ gap: 4 }}>
+                    <Text style={s.eyebrow}>EVERY FLIGHT THAT CHANGES</Text>
+                    <Text style={s.cardSub}>Tap a flight to leave it out.</Text>
+                  </View>
                   <View style={s.card0}>
-                    {(showAll ? plan.changes.slice(0, 400) : plan.changes.slice(0, 25)).map((c, i) => {
+                    {(showAll ? fullPlan.changes.slice(0, 400) : fullPlan.changes.slice(0, 25)).map((c, i) => {
                       const r = byId.get(c.id);
+                      const on = !excluded.has(c.id);
+                      const night = r ? nightOf(mode, r) : 0;
+                      // Det som redan står på flygningen, så att ändringen går att bedöma
+                      const meta = !r ? [] : mode === 'pilot'
+                        ? [`TOTAL ${hours(num(r.total_time))}`, !('night' in c.fields) && `NIGHT ${hours(night)}`, !('nvg' in c.fields) && num(r.nvg) > 0 && `NVG ${hours(num(r.nvg))}`]
+                        : [`TOTAL ${hours(num(r.total_time))}`, !('night_time' in c.fields) && `NIGHT ${hours(night)}`, !('category' in c.fields) && r.category, !('flight_mode' in c.fields) && r.flight_mode];
                       return (
-                        <View key={c.id} style={[s.chRow, i > 0 && s.sep]}>
-                          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                        <TouchableOpacity key={c.id} onPress={() => toggleExcluded(c.id)} activeOpacity={0.75} style={[s.chRow, i > 0 && s.sep]}
+                          accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={`${shortDate(r?.date)} ${rowTitle(r)}`}>
+                          <Check on={on} />
+                          <View style={[{ flex: 1, minWidth: 0, gap: 2 }, !on && s.chOut]}>
                             <Text style={s.rowTitle} numberOfLines={1}>{rowTitle(r)}</Text>
-                            <Text style={s.rowSub} numberOfLines={1}>{shortDate(r?.date)}</Text>
+                            <Text style={s.rowSub} numberOfLines={1}>{[shortDate(r?.date), r ? rowSub(r) : ''].filter(Boolean).join(' · ')}</Text>
+                            <Text style={s.rowTags} numberOfLines={1}>{meta.filter(Boolean).join(' · ')}</Text>
                           </View>
-                          <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                            {Object.entries(c.fields).filter(([f]) => f !== 'is_night').slice(0, 4).map(([f, ch]) => (
+                          <View style={[{ alignItems: 'flex-end', gap: 2 }, !on && s.chOut]}>
+                            {on ? Object.entries(c.fields).filter(([f]) => f !== 'is_night').slice(0, 4).map(([f, ch]) => (
                               <Text key={f} style={s.chField}>{FIELD_LABEL[f] ?? f} <Text style={s.chFrom}>{show(f, ch.from)}</Text> → <Text style={s.chTo}>{show(f, ch.to)}</Text></Text>
-                            ))}
+                            )) : <Text style={s.chField}>Left as it is</Text>}
                           </View>
-                        </View>
+                        </TouchableOpacity>
                       );
                     })}
                   </View>
-                  {plan.changes.length > 25 && !showAll && (
+                  {fullPlan.changes.length > 25 && !showAll && (
                     <TouchableOpacity onPress={() => setShowAll(true)} style={{ alignSelf: 'center', padding: 6 }} accessibilityRole="button">
-                      <Text style={s.link}>Show {plural(Math.min(400, plan.changes.length) - 25, 'more flight')}</Text>
+                      <Text style={s.link}>Show {plural(Math.min(400, fullPlan.changes.length) - 25, 'more flight')}</Text>
                     </TouchableOpacity>
                   )}
-                  {showAll && plan.changes.length > 400 && <Text style={[s.cardSub, { textAlign: 'center' }]}>And {plural(plan.changes.length - 400, 'more flight')} with the same change.</Text>}
+                  {showAll && fullPlan.changes.length > 400 && <Text style={[s.cardSub, { textAlign: 'center' }]}>And {plural(fullPlan.changes.length - 400, 'more flight')} with the same change.</Text>}
                 </View>
               )}
               {!!error && <Text style={s.note}>{error}</Text>}
@@ -644,6 +677,7 @@ const s = StyleSheet.create({
   totBefore: { fontFamily: FONT_MONO, fontSize: 14, color: '#8FB0CC' },
   totAfter: { fontFamily: FONT_MONO, fontSize: 15, fontWeight: '700', color: Colors.textPrimary, minWidth: 56, textAlign: 'right' },
   chRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10 },
+  chOut: { opacity: 0.4 },
   chField: { fontFamily: FONT_MONO, fontSize: 11.5, color: '#8FB0CC' },
   chFrom: { color: '#8FB0CC' },
   chTo: { color: Colors.textPrimary, fontWeight: '700' },
