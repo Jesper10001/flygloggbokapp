@@ -437,6 +437,102 @@ export function completeGridFromHeaders(grid: PageGrid, words: VisionBox[]): Pag
   return { ...g, columns: [...g.columns, ...added].sort((a, b) => a.left - b.left) };
 }
 
+// ── Finjustering av kolumnerna, en i taget ──────────────────────────────────
+
+const SNAP_TEXT = new Set(['date', 'aircraft_type', 'registration', 'dep_place', 'arr_place']);
+const snapDigits = (v: unknown) => String(v ?? '').replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+
+/**
+ * Sista steget i inpassningen: varje kolumn flyttas i sidled dit boken faktiskt har den. alignGrid lägger hela
+ * rutnätet rätt med EN förskjutning och EN skala över uppslaget; en kolumn vars kanter Claude angav lite fel
+ * (ofta de smala längst till höger: landningar dag/natt, remarks) ligger då kvar snett, fast resten stämmer.
+ *
+ * Underlag per kolumn:
+ *  - den tryckta rubriken ovanför (PIC, Dual, IFR, Remarks …; "Day/Night" ger gränsen mellan landningarnas halvor)
+ *  - värdena Claude läste i kolumnen, där Vision hittar exakt ett ord med samma tecken på samma rad nära kolumnen
+ * Minst två samstämmiga mätningar krävs, och flytten är aldrig större än ungefär en kolumnbredd. En kolumn utan
+ * eget underlag följer med de andra på samma sida av uppslaget när de är överens. Kolumner som efter flytten går
+ * in i varandra delar på gränsen.
+ */
+export function snapColumns(grid: PageGrid, rows: AlignRow[], words: VisionBox[]): { grid: PageGrid; moved: string[] } {
+  if (!grid.columns.length || !words.length) return { grid, moved: [] };
+  const spine = grid.spine ?? 0.5;
+  const cxOf = (w: { x: number; w: number }) => w.x + w.w / 2;
+  const mid = (c: { left: number; right: number }) => (c.left + c.right) / 2;
+  const med = (xs: number[]) => { const o = [...xs].sort((a, b) => a - b); return o[Math.floor(o.length / 2)]; };
+  const header = words.filter((w) => w.y + w.h <= grid.tableTop + 0.01 && w.y >= grid.tableTop - 0.3);
+  const dayNight = header.find((w) => norm(w.text).includes('DAYNIGHT'));
+
+  const evidence: (number | null)[] = grid.columns.map((col) => {
+    if (!col.field) return null;
+    const w = col.right - col.left, cx = mid(col);
+    if (!(w > 0)) return null;
+    const reach = Math.max(0.01, Math.min(0.04, w * 0.8));
+    const obs: number[] = [];
+    // Rubriken väger som två mätningar: den är tryckt och står mitt över kolumnen.
+    const re = HEADER_FIELDS.find(([, f]) => f === col.field)?.[0];
+    const head = re ? header.filter((t) => re.test(norm(t.text)) && Math.abs(cxOf(t) - cx) <= w / 2 + reach)
+      .sort((a, b) => Math.abs(cxOf(a) - cx) - Math.abs(cxOf(b) - cx))[0] : undefined;
+    if (head) obs.push(cxOf(head) - cx, cxOf(head) - cx);
+    if (dayNight && (col.field === 'landings_day' || col.field === 'landings_night')) {
+      const edge = col.field === 'landings_day' ? col.right : col.left;   // gränsen mellan dag och natt
+      if (Math.abs(cxOf(dayNight) - edge) <= w + reach) obs.push(cxOf(dayNight) - edge, cxOf(dayNight) - edge);
+    }
+    // Värdena, utom i breda textkolumner där texten inte står mitt i kolumnen.
+    if (w <= 0.12) {
+      const text = SNAP_TEXT.has(col.field);
+      for (const r of rows) {
+        const raw = r.values[col.field];
+        const want = text ? norm(raw ?? '') : snapDigits(raw);
+        if (!want || (text ? want.length < 3 : Number(want) === 0)) continue;
+        const band = rowBand(grid, r.rowIndex, cx);
+        const hits = words.filter((t) => {
+          const ty = t.y + t.h / 2;
+          if (ty < band.y - band.h * 0.2 || ty > band.y + band.h * 1.2) return false;
+          if (Math.abs(cxOf(t) - cx) > w / 2 + reach || t.w > Math.max(w * 1.8, 0.03)) return false;
+          const n = norm(t.text);
+          return text ? (n === want || (want.length >= 4 && withinEdit1(n, want))) : snapDigits(t.text) === want;
+        });
+        if (hits.length === 1) obs.push(cxOf(hits[0]) - cx);
+      }
+    }
+    if (obs.length < 2) return null;
+    const o = [...obs].sort((a, b) => a - b);
+    const spread = o[Math.floor((o.length - 1) * 0.75)] - o[Math.floor((o.length - 1) * 0.25)];
+    if (spread > Math.max(0.006, w * 0.35)) return null;   // mätningarna spretar: inget säkert läge
+    return Math.max(-reach, Math.min(reach, med(obs)));
+  });
+
+  // Sidans gemensamma förskjutning (när kolumnerna med underlag är överens) för dem som saknar eget.
+  const sideOf = (c: { left: number; right: number }) => (mid(c) >= spine ? 'r' : 'l');
+  const shared: Record<string, number> = { l: 0, r: 0 };
+  for (const sd of ['l', 'r']) {
+    const ev = evidence.filter((e, i): e is number => e != null && sideOf(grid.columns[i]) === sd).sort((a, b) => a - b);
+    if (ev.length >= 2 && ev[ev.length - 1] - ev[0] <= 0.012) shared[sd] = med(ev);
+  }
+
+  const MIN = 0.0025;   // mindre än så syns inte
+  const moved: string[] = [];
+  const shifted = grid.columns.map((c, i) => {
+    const dx = evidence[i] ?? shared[sideOf(c)];
+    if (Math.abs(dx) < MIN) return c;
+    if (c.field) moved.push(`${c.field} ${dx > 0 ? '+' : ''}${(dx * 100).toFixed(1)} %`);
+    return { ...c, left: Math.max(0, Math.min(1, c.left + dx)), right: Math.max(0, Math.min(1, c.right + dx)) };
+  });
+  if (!moved.length) return { grid, moved };
+  // Grannar som går in i varandra delar på gränsen.
+  const order = shifted.map((_, i) => i).sort((a, b) => shifted[a].left - shifted[b].left);
+  for (let k = 0; k < order.length - 1; k++) {
+    const a = shifted[order[k]], b = shifted[order[k + 1]];
+    if (a.right > b.left && a.left < b.left && a.right < b.right) {
+      const edge = (a.right + b.left) / 2;
+      shifted[order[k]] = { ...a, right: edge };
+      shifted[order[k + 1]] = { ...b, left: edge };
+    }
+  }
+  return { grid: { ...grid, columns: shifted }, moved };
+}
+
 // Talfält vars kolumn kan flyttas om värdena står någon annanstans.
 const NUMERIC_FIELDS = ['total_time', 'pic', 'co_pilot', 'dual', 'instructor', 'ifr', 'night', 'sim', 'multi_pilot', 'single_pilot', 'nvg'];
 

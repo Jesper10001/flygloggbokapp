@@ -63,7 +63,7 @@ import {
   buildPageGrid, cellRect, rowRect, rowBand, mappedBoxRect, unionRect, hitTest, columnFor, type PageGrid, type Rect,
 } from '../../services/scanGeometry';
 import {
-  alignGrid, chooseBookGrid, type BookColumns, type AlignRow, completeGridFromHeaders, crossCheckCounts, measureRows, relocateColumnsByValues, reconcileSimSpill, pageTotalsByVision, columnMovePlan, type ColumnMove, type VisionBox,
+  alignGrid, chooseBookGrid, snapColumns, type BookColumns, type AlignRow, completeGridFromHeaders, crossCheckCounts, measureRows, relocateColumnsByValues, reconcileSimSpill, pageTotalsByVision, columnMovePlan, type ColumnMove, type VisionBox,
 } from '../../services/scanAlign';
 import type { LogbookLayout } from '../../services/logbookLayout';
 import type { OcrFlightResult } from '../../types/flight';
@@ -943,9 +943,19 @@ export default function ScanReviewScreen() {
             if (again.source === 'own') return;
             console.log(`[SCAN] Uppslag ${k + 1} fick bokens kolumner (${input.score.toFixed(2)} → ${again.score.toFixed(2)})`);
             pageInputs.current.set(k, { ...input, score: again.score });
-            patchPage(k, { grid: again.grid });
+            patchPage(k, { grid: snapColumns(again.grid, input.rows, input.words).grid });
           });
         }
+        // Sista finjusteringen: varje kolumn för sig dit den tryckta rubriken och värdena faktiskt står. Den
+        // gemensamma inpassningen ovan lämnar kvar kolumner vars kanter angavs lite fel (ofta landningar och
+        // remarks längst till höger). Görs efter mallvalet, så att bokens mall inte ärver ett enskilt fotos läge.
+        const snapped = snapColumns(grid, newRows.map((r) => ({
+          rowIndex: r.rowIndex,
+          values: Object.fromEntries(['date', ...SCORE_FIELDS].filter((f) => !(f === 'total_time' && r.data.flight_type === 'sim'))
+            .map((f) => [f, String((r.data as any)[f] ?? '')]).filter(([, v]) => v !== '')),
+        })), words);
+        grid = snapped.grid;
+        if (snapped.moved.length) console.log(`[SCAN] Kolumner finjusterade uppslag ${i + 1}: ${snapped.moved.join(', ')}`);
 
         // Simulatorpass lästa som flygtid (och simulatortid kopierad till Dual, IFR …): Vision och sidans summor avgör.
         const spilled = reconcileSimSpill(newRows, result.pageTotals?.by_field, grid, words);
