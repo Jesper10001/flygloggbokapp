@@ -21,9 +21,9 @@ const SAFE_GREEN = DR.success; // "datan finns kvar" — tydligt grön (cyan-acc
 type Mode = 'manned' | 'drone';
 type Layout = 'full' | 'essential';
 
-const LOGBOOKS: Record<Mode, { title: string; line1: string; line2: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  manned: { title: 'Pilot', line1: 'Aeroplanes and helicopters', line2: 'Licences, currency and Pilot CV', icon: 'airplane-outline' },
-  drone: { title: 'Drone', line1: 'Commercial, military or hobby', line2: 'VLOS to BVLOS, EASA categories', icon: 'hardware-chip-outline' },
+const LOGBOOKS: Record<Mode, { title: string; line1: string; icon: keyof typeof Ionicons.glyphMap }> = {
+  manned: { title: 'Pilot', line1: 'Aeroplanes and helicopters', icon: 'airplane-outline' },
+  drone: { title: 'Drone', line1: 'Commercial, military or hobby', icon: 'hardware-chip-outline' },
 };
 
 function Radio({ on }: { on: boolean }) {
@@ -116,14 +116,13 @@ export function ModeToggleRow({ mode, onConfirmSwitch }: {
                 <TouchableOpacity key={m} onPress={() => setPickMode(m)} activeOpacity={0.8}
                   style={[st.option, on && st.optionOn]}
                   accessibilityRole="radio" accessibilityState={{ selected: on }}
-                  accessibilityLabel={`${lb.title} logbook. ${lb.line1}. ${lb.line2}`}>
+                  accessibilityLabel={`${lb.title} logbook. ${lb.line1}`}>
                   <View style={[st.optIcon, { backgroundColor: on ? Colors.primary + '24' : 'rgba(255,255,255,0.06)' }]}>
                     <Ionicons name={lb.icon} size={19} color={on ? Colors.primary : Colors.textSecondary} />
                   </View>
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text style={st.optTitle}>{lb.title}</Text>
                     <Text style={st.optSub}>{lb.line1}</Text>
-                    <Text style={st.optSub}>{lb.line2}</Text>
                   </View>
                   <Radio on={on} />
                 </TouchableOpacity>
