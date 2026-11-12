@@ -2,12 +2,12 @@
 // Samma utseende som "Update available" (UpdateAvailableModal, förlagan som lämnas orörd) via GlassDialog, men
 // inget att göra: uppdateringen är redan installerad. Vad som är nytt står i constants/updateNotes.json, en post
 // per uppdatering, och bara posterna sedan popupen senast visades tas med (services/updateNotes.ts). Utan nya
-// poster visas bara rubriken och brödtexten.
+// poster visas bara rubriken och brödtexten. Det här är det enda som syns av en EAS Update: hämtningen är tyst
+// (components/SilentUpdates.tsx).
 
 import { useEffect, useState } from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import * as Updates from 'expo-updates';
-import { create } from 'zustand';
 import { Colors } from '../constants/colors';
 import { GlassDialog } from './GlassDialog';
 import { getSetting, setSetting } from '../db/flights';
@@ -19,10 +19,6 @@ const APP_ICON = require('../assets/applogo-cyanonnavy.png');
 const SEEN_KEY = 'last_seen_update_id';
 const NOTES_KEY = 'last_seen_update_notes'; // senaste posten i constants/updateNotes.json som användaren redan har
 const KIND_LABEL: Record<ReleaseNote['kind'], string> = { new: 'New', fix: 'Fixed', improved: 'Improved', other: '' };
-
-// Rutan är öppen: "Update ready" (UpdateDownloadBanner) väntar tills den stängts. Händer när ännu en rättning
-// hämtats medan den här visar den förra.
-export const useUpdateAppliedOpen = create<{ open: boolean }>(() => ({ open: false }));
 
 /** Id för uppdateringen som körs, om det är en nedladdad EAS Update (inte appens inbyggda kod eller dev). */
 function runningUpdateId(): string | null {
@@ -65,11 +61,6 @@ export function UpdateAppliedModal() {
   const notes = shown?.notes ?? [];
   const more = shown?.more ?? false;
   const visible = !!shown && !tourActive && !storeUpdate;
-  useEffect(() => {
-    useUpdateAppliedOpen.setState({ open: visible });
-    return () => useUpdateAppliedOpen.setState({ open: false }); // skärmen kan lämnas medan rutan är öppen
-  }, [visible]);
-
   return (
     <GlassDialog
       visible={visible}

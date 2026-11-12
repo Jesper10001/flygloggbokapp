@@ -1,5 +1,5 @@
 // Delningsrutan (iOS UIActivityViewController) för allt appen exporterar och delar. Medan den är uppe väntar appens
-// egna popup-rutor (GlassDialog, t.ex. "Update ready" när en EAS-uppdatering hämtats klart): en native Modal som
+// egna popup-rutor (GlassDialog, t.ex. "Your fleet is ready"): en native Modal som
 // öppnas ovanpå delningsrutan kan låsa hela skärmen, samma sak som ovanpå kartorna. Rutan öppnas först när
 // pågående animationer och tryck är klara, så att den inte krockar med en ruta som håller på att stängas.
 

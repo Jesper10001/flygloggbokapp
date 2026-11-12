@@ -33,7 +33,7 @@ import { ToastHost } from '../components/Toast';
 import { SavedFlightNotice } from '../components/SavedFlightNotice';
 import { FleetDoneHost } from '../components/FleetDoneModal';
 import { SplashOverlay } from '../components/SplashOverlay';
-import { UpdateDownloadBanner } from '../components/UpdateDownloadBanner';
+import { SilentUpdates } from '../components/SilentUpdates';
 import { TourHost } from '../components/TourHost';
 import { PaywallHost } from '../components/PaywallHost';
 import { CoinShopHost } from '../components/CoinShopSheet';
@@ -381,7 +381,7 @@ export default function RootLayout() {
       <SavedFlightNotice />
       <FleetDoneHost />
       <SplashOverlay />
-      <UpdateDownloadBanner />
+      <SilentUpdates />
       <TourHost />
       <PaywallHost />
       <CoinShopHost />
