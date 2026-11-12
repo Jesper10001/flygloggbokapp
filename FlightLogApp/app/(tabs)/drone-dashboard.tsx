@@ -15,7 +15,7 @@ import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { WorkloadBar, LoadRing, StressFactorChip, loadZoneColor, LOAD_MAX } from '../../components/WorkloadGauge';
+import { LoadRing, StressFactorChip, loadZoneColor, LOAD_MAX } from '../../components/WorkloadGauge';
 import { DraftBanner } from '../../components/DraftBanner';
 import { StressInfoButton } from '../../components/StressInfo';
 import * as Location from 'expo-location';
@@ -203,8 +203,6 @@ export default function DroneDashboardScreen() {
             </View>
           )}
         </View>
-        {/* Stapel: spektrum fram till vredet, 100 %-markering i mitten (= pilot, components/WorkloadGauge). */}
-        <WorkloadBar index={stress.index} />
         {/* Ring + readouts */}
         <View style={s.telPctRow}>
           <StressRing stress={stress} size={110} />

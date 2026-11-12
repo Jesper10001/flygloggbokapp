@@ -33,6 +33,7 @@ import { enrichDroneFleet } from '../../services/droneLookup';
 import { askAiConsent, isAiConsentError } from '../../services/aiConsent';
 import { scanDroneFlightLog, type ScannedDroneDay } from '../../services/droneLogScan';
 import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../../utils/tokenGate';
+import { compareRegistrations } from '../../utils/registrationSort';
 import { useFlightStore } from '../../store/flightStore';
 import { presentPaywall } from '../../services/purchases';
 import { FREE_TIER_LIMIT_DRONE } from '../../constants/easa';
@@ -1830,7 +1831,7 @@ export default function AddDroneFlightScreen() {
               {regsForModel.length === 0 ? (
                 <Text style={styles.ddEmpty}>No registrations — tap + to add</Text>
               ) : (() => {
-                const sorted = [...regsForModel].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+                const sorted = [...regsForModel].sort(compareRegistrations);
                 const ROWS = 8; const cols: string[][] = [];
                 for (let i = 0; i < sorted.length; i += ROWS) cols.push(sorted.slice(i, i + ROWS));
                 return (

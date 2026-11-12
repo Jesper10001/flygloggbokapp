@@ -61,7 +61,11 @@ export default function DroneLogbookScreen() {
   const [showBooks, setShowBooks] = useState(false);
   const [showOverview, setShowOverview] = useState(false);
   const [setup, setSetup] = useState<{ mode: 'create' | 'edit'; initial: DigitalBook | null } | null>(null);
-  const [transcribe, setTranscribe] = useState(false);
+  // Uppslaget som transkriberas. Det sparas vid trycket på knappen: rutan vrider skärmen till stående, och
+  // listan bakom kan då hoppa till ett annat uppslag. Förut följde rutan med dit (visade fel uppslag).
+  const [transcribe, setTranscribe] = useState<LogbookSpread | null>(null);
+  // Bara en bläddring med fingret får byta uppslag. Rullningen som en vridning av skärmen ger räknas inte.
+  const userScroll = useRef(false);
   const [leaving, setLeaving] = useState(false);
 
   const listRef = useRef<FlatList>(null);
@@ -278,14 +282,19 @@ export default function DroneLogbookScreen() {
             initialScrollIndex={Math.max(0, visibleSpreads.length - 1)}
             getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
             initialNumToRender={1} maxToRenderPerBatch={2} windowSize={3}
-            onMomentumScrollEnd={(e) => setActiveIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
+            onScrollBeginDrag={() => { userScroll.current = true; }}
+            onMomentumScrollEnd={(e) => {
+              if (!userScroll.current) return;
+              userScroll.current = false;
+              setActiveIndex(Math.round(e.nativeEvent.contentOffset.x / width));
+            }}
             renderItem={({ item }) => (
               <SpreadWebView spread={item} template={effectiveTemplate!} pilotName={pilotName} timeFormat={timeFormat} width={width} signature={signature} />
             )}
           />
           <View style={[styles.footerHint, { paddingBottom: insets.bottom + 6 }]}>
             {recent ? (
-              <TouchableOpacity style={styles.transcribeBtn} onPress={() => current && setTranscribe(true)} activeOpacity={0.85}>
+              <TouchableOpacity style={styles.transcribeBtn} onPress={() => current && setTranscribe(current)} activeOpacity={0.85}>
                 <Ionicons name="reader-outline" size={16} color={Colors.primary} />
                 <Text style={styles.transcribeTxt}>{current ? t('dlb_transcribe_pages').replace('{pages}', `${current.page_left}–${current.page_right}`) : t('dlb_transcribe')}</Text>
               </TouchableOpacity>
@@ -383,14 +392,14 @@ export default function DroneLogbookScreen() {
       </Modal>
 
       {/* ── Transkriberings-hjälp: zooma in uppslaget, panorera kolumn för kolumn ── */}
-      {transcribe && current && effectiveTemplate && (
+      {transcribe && effectiveTemplate && (
         <TranscribeOverlay
-          spread={current}
+          spread={transcribe}
           template={effectiveTemplate}
           pilotName={pilotName}
           timeFormat={timeFormat}
           signature={signature}
-          onClose={() => setTranscribe(false)}
+          onClose={() => setTranscribe(null)}
         />
       )}
     </View>

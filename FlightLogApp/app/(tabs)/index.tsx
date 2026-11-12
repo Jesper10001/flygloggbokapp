@@ -71,7 +71,7 @@ const SHOW_GREETING = false;
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeStore } from '../../store/themeStore';
 import type { Flight } from '../../types/flight';
-import { WorkloadBar, LoadRing, StressFactorChip, loadZoneColor, LOAD_MAX } from '../../components/WorkloadGauge';
+import { LoadRing, StressFactorChip, loadZoneColor, LOAD_MAX } from '../../components/WorkloadGauge';
 import { StressInfoButton } from '../../components/StressInfo';
 import { DraftBanner } from '../../components/DraftBanner';
 import * as Haptics from 'expo-haptics';
@@ -905,9 +905,6 @@ export default function DashboardScreen() {
             </View>
           )}
         </View>
-
-        {/* Stapel: spektrum fram till vredet, 100 %-markering i mitten (components/WorkloadGauge). */}
-        <WorkloadBar index={stress.index} />
 
         {/* Percentage display */}
         <View style={s.telPctRow}>

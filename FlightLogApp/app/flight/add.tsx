@@ -38,6 +38,7 @@ import { useLanguageStore } from '../../store/languageStore';
 import { useThemeStore } from '../../store/themeStore';
 import { FREE_TIER_LIMIT } from '../../constants/easa';
 import { calcFlightTime, isValidTime, placeCode } from '../../utils/format';
+import { compareRegistrations } from '../../utils/registrationSort';
 import { buildInstants, computeDarkWindow, instantFromDateTime, CIVIL_TWILIGHT_DEG } from '../../utils/flightTime';
 import { classifyRouteEvents } from '../../utils/eventClassify';
 import { solarAltitudeDeg } from '../../utils/sun';
@@ -3646,14 +3647,15 @@ export default function AddFlightScreen() {
               </View>
             )}
 
-            {/* Dropdownflik: registration — vertikala kolumner, alfabetisk + numerisk ordning (KILO10 före KILO22).
+            {/* Dropdownflik: registration — vertikala kolumner, bokstavsdelen först och sedan numret (KILO10 före KILO22;
+                KIL026 med nolla hamnar bredvid KILO26 med bokstaven O, se utils/registrationSort).
                 Aldrig i sim (där skapar man alltid en ny simulator-etikett, återanvänder ingen registrering). */}
             {regOpen && form.flight_type !== 'sim' && (
               <View style={[styles.ddFlyout, { left: 0, right: 0 }]}>
                 {recentRegs.length === 0 ? (
                   <Text style={styles.ddEmpty}>{t('no_saved_registrations')}</Text>
                 ) : (() => {
-                  const sorted = [...recentRegs].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+                  const sorted = [...recentRegs].sort(compareRegistrations);
                   const ROWS = 8;
                   const cols: string[][] = [];
                   for (let i = 0; i < sorted.length; i += ROWS) cols.push(sorted.slice(i, i + ROWS));
