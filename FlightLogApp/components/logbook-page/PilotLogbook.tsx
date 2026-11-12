@@ -73,8 +73,9 @@ export function PilotLogbook() {
   // Manuellt vy-byte rensar deep-link-expansionen → List öppnas i grundform.
   const switchView = (v: LogView) => { setView(v); setExpand({ year: null, monthKey: null }); };
   // Pennan till vänster om väljaren öppnar Edit flights (app/bulk-edit.tsx): ändra många flygningar på en gång.
-  // Inte under rundturen (exempelflygningarna finns inte i databasen) och inte utan flygningar.
-  const canEdit = realFlights.length > 0 && !tourDemo && !tourActive;
+  // Bara i list-vyn (inte i Book eller Fleet), inte under rundturen (exempelflygningarna finns inte i databasen)
+  // och inte utan flygningar.
+  const canEdit = view === 'list' && realFlights.length > 0 && !tourDemo && !tourActive;
   const toggleNode = (
     // alignItems: 'stretch' → pennans ruta får exakt samma höjd som väljaren, vad den än är.
     <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 8 }}>

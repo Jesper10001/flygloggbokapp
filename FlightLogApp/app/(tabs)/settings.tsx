@@ -10,7 +10,7 @@ import { FONT_SERIF } from '../../components/logbook-page/tokens';
 import { useFlightStore } from '../../store/flightStore';
 import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
 import { coinShopAvailable } from '../../services/coinPacks';
-import { UpgradeCard, CoinsCard, PaywallPreviewCard, type PlanTheme } from '../../components/PlanCoinsSection';
+import { UpgradeCard, CoinsCard, type PlanTheme } from '../../components/PlanCoinsSection';
 import { CoinInfoDialog } from '../../components/CoinInfoDialog';
 import { ExportPagesDialog } from '../../components/ExportPagesDialog';
 import { Colors } from '../../constants/colors';
@@ -514,7 +514,6 @@ export default function SettingsScreen() {
         {/* Uppgradering uppåt + Blade coins (components/PlanCoinsSection, samma i drönarläget). Hanteringen av abonnemanget ligger på profilsidan. */}
         <UpgradeCard T={planTheme} />
         <CoinsCard T={planTheme} onInfo={() => setShowCoinInfo(true)} />
-        <PaywallPreviewCard T={planTheme} />
       </View>
 
       {/* ── Fria flygningar-mätare: manuellt loggade flygningar mot gratisgränsen (importerade räknas ej).
@@ -880,16 +879,6 @@ export default function SettingsScreen() {
       {/* Blades introduction — centrerad pillerknapp (design C2). */}
       <IntroductionButton onPress={() => beginTour(isDrone ? 'drone' : 'pilot')} />
       <View style={{ marginTop: 6, marginBottom: 28, alignItems: 'center' }}>
-        {/* Bara i TestFlight-bygget: den nya onboardingen att titta på, utan att något sparas. */}
-        {NEW_PAYWALLS ? (
-          <TouchableOpacity onPress={() => router.push('/onboarding?preview=1' as any)} activeOpacity={0.7}
-            hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
-            style={{ minHeight: 44, justifyContent: 'center', marginTop: 6 }}>
-            <Text style={{ fontSize: 13, fontWeight: '500', color: Colors.textSecondary, borderBottomWidth: 1, borderBottomColor: '#2A4260', paddingBottom: 2 }}>
-              Preview the new onboarding
-            </Text>
-          </TouchableOpacity>
-        ) : null}
       </View>
 
 

@@ -370,7 +370,6 @@ export default function RootLayout() {
         <Stack.Screen name="settings/auditlog" options={{ title: 'Change log', presentation: 'modal' }} />
         <Stack.Screen name="settings/custom-export" options={{ title: 'Custom export', presentation: 'modal' }} />
         <Stack.Screen name="settings/premium" options={{ title: 'Premium', headerShown: false }} />
-        <Stack.Screen name="paywall-preview" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
         {/* Modal som de andra settings-sidorna (dras ned för att stänga). RevenueCats Customer Center och paywall
             visas från rotvyn och syns inte ovanpå ett modalfönster → profilsidan stängs först (SubscriptionPanel closeFirst). */}
         <Stack.Screen name="settings/profile" options={{ title: 'Profile', presentation: 'modal' }} />

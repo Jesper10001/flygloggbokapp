@@ -302,7 +302,17 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
         ) : null}
 
         {step === 'questions' ? (
-          <Screen insets={insets} scrollRef={qScroll} footer={<Cta label="See what Blades does for you" disabled={!answered} onPress={() => go('solution')} />}>
+          <Screen insets={insets} scrollRef={qScroll} footer={(
+            <View style={{ gap: 4 }}>
+              <Cta label="See what Blades does for you" disabled={!answered} onPress={() => go('solution')} />
+              {/* Diskret genväg förbi frågorna och lösningssidan, direkt till betalväggen med provveckan
+                  (afterReady: timmarna i stället för den som redan betalar eller när köp inte går). */}
+              <Pressable onPress={() => { tap(); afterReady(); }} disabled={waiting} accessibilityRole="button" accessibilityLabel="Skip the questions"
+                hitSlop={8} style={{ alignSelf: 'center', minHeight: 40, justifyContent: 'center', paddingHorizontal: 16 }}>
+                {waiting ? <ActivityIndicator color="#7FA8C8" size="small" /> : <Text style={{ fontSize: 14, fontWeight: '600', color: '#7FA8C8' }}>Skip</Text>}
+              </Pressable>
+            </View>
+          )}>
             <Text style={s.eyebrow}>ABOUT YOUR FLYING</Text>
             <Text style={s.h1}>A few quick questions.</Text>
             <Text style={s.sub}>So we can show you what Blades does for you.</Text>

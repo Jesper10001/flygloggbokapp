@@ -26,6 +26,9 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Fixed: Editing a flight keeps its flight rules and IFR time, and the flight page shows your changes right away.
 
 ### Alla ändringar
+- Onboardingen: diskret "Skip" under "See what Blades does for you" på frågesidan, som hoppar direkt till betalväggen med provveckan (afterReady; den som redan betalar eller när köp inte går kommer till timmarna).
+- Settings: förhandsvisningarna borttagna före bygget (raderna "Preview: …", app/paywall-preview.tsx, previewPaywall, och länken "Preview the new onboarding").
+- Logbook: pennan för Edit flights syns bara i list-vyn, inte i Book (digitala loggboken) eller Fleet (components/logbook-page/PilotLogbook.tsx).
 - Bara TestFlight: "Preview: free week" öppnar nu onboardingens egen betalvägg (app/paywall-preview.tsx med components/onboarding/OnboardingPaywall, priser och gratisvecka från App Store) i stället för RevenueCats standardmall för erbjudandet onboarding, som aldrig visas i appen.
 - Bara TestFlight/dev (TEST_BUILD): tre rader i Settings under Blade coins, "Preview: Premium & Max", "Preview: free week" och "Preview: Blade coins", som öppnar respektive RevenueCat-paywall (premium_max, onboarding, coins) oavsett plan, även med Max (components/PlanCoinsSection.tsx PaywallPreviewCard, services/purchases.ts previewPaywall; pilot och drönare). För skärmdumparna till App Review.
 - Enhetens id sparas i Keychain (services/anthropicClient.ts, loadDeviceId; nyckeln blades_device_id): första gången dagens identifierForVendor, sedan alltid det sparade. Samma id är X-Device-ID mot proxyn och app_user_id i RevenueCat (services/purchases.ts), så coin-saldot, promokoder och prenumerationen följer med en ominstallation på samma telefon. app/_layout.tsx väntar in id:t före första anropet.
