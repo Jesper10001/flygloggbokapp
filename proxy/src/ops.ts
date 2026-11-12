@@ -75,7 +75,7 @@ const DEADLINES = [
 // ── Hjälpare ─────────────────────────────────────────────────────────────────
 
 class NotConfigured extends Error {
-  constructor(what: string) { super(`Inte kopplat än (${what} saknas)`); }
+  constructor(what: string, message?: string) { super(message ?? `Inte kopplat än (${what} saknas)`); }
 }
 
 type Point = { d: string; v: number | null };
@@ -502,7 +502,8 @@ async function sentryData(env: OpsEnv) {
       ? getJson(`${base}/organizations/${org}/sessions/?project=${env.SENTRY_PROJECT_ID}&field=${q('sum(session)')}&field=${q('count_unique(user)')}&field=${q('crash_free_rate(session)')}&statsPeriod=${DAYS}d&interval=1d`, init)
       : Promise.resolve({ status: 0, json: null, headers: new Headers() }),
   ]);
-  if (issues.status === 401 || issues.status === 403) throw new Error('Sentry godkände inte token');
+  // Gratisplanen (Developer) har inget API: kortet visar det utan larm och fylls i igen av sig självt efter en uppgradering.
+  if (issues.status === 401 || issues.status === 403) throw new NotConfigured('Sentry', `Sentry-API:t svarar inte (${issues.status}). Gratisplanen har inget API – uppgradera till Team så kommer felen tillbaka här.`);
   if (issues.status !== 200) throw new Error(`Sentry svarade ${issues.status}`);
   // Testfel (skickade av Claude för att visa hur sidan ser ut) märks "TEST från Claude" och räknas aldrig:
   // de syns inte i listan, i räknarna eller i larmen. Riktiga fel kan inte råka filtreras bort.

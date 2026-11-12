@@ -1,0 +1,492 @@
+/* BLADES — the app's own look on the page: the paper logbook, the fleet cards and the airport globe. */
+
+@font-face { font-family: "Fraunces"; src: url(../fonts/fraunces-roman.woff2) format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url(../fonts/jetbrains-mono-latin-wght-normal.woff2) format("woff2"); font-weight: 100 800; font-style: normal; font-display: swap; }
+
+.inapp {
+  /* The app's navy palette (constants/colors.ts) */
+  --app-bg: #0a1628;
+  --app-card: #0f1e3a;
+  --app-elev: #152338;
+  --app-border: #1a3a5a;
+  --app-sep: #122030;
+  --app-text2: #7fa8c8;
+  --app-muted: #3a5a7a;
+  --app-accent: #00c8e8;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --fraunces: "Fraunces", Georgia, serif;
+
+  background: var(--app-bg);
+  color: var(--white);
+  padding: clamp(96px, 11vw, 150px) 0 clamp(96px, 11vw, 150px);
+  overflow: hidden;
+  overflow: clip;   /* clips like hidden, but lets the logbook stay pinned while you scroll */
+}
+.demo { max-width: 1240px; margin: clamp(64px, 8vw, 104px) auto 0; padding: 0 var(--pad); }
+.inapp > .demo:first-child { margin-top: 0; }   /* the section opens on the fleet cards */
+.demo-text { max-width: 640px; margin-bottom: 28px; }
+.demo-text h3 { font-family: var(--serif); font-weight: 400; font-size: clamp(28px, 2.8vw, 40px); letter-spacing: -0.02em; line-height: 1.1; }
+.demo-text p { margin-top: 10px; color: var(--mist); }
+
+/* ---------- Logbook spread (the app's own HTML, scaled to fit) ---------- */
+.book-frame {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #ece3cc;
+  box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.7);
+}
+.book { display: block; border: 0; transform-origin: 0 0; background: #ece3cc; }
+.book-hint { display: none; }
+@media (max-width: 820px) {
+  .book-frame { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
+  .book-hint { display: block; margin-top: 12px; font-size: 14px; color: var(--mist); }
+}
+
+/* ---------- Fleet cards (components/logbook-page/FleetCard.tsx) ---------- */
+/* On a band that flows like the feature cards (js/site.js), from edge to edge of the screen */
+.marquee-fleet { --gap: 10px; margin-inline: calc(50% - 50vw); }
+.marquee-fleet .strip, .marquee-fleet .set { align-items: flex-start; }
+.marquee-fleet .fc { zoom: 0.5; }   /* the cards at half their size in the app */
+.js .marquee-fleet { padding: 4px 0 22px; }
+.fc {
+  flex: 0 0 min(340px, 84vw);
+  position: relative; overflow: hidden;
+  border-radius: 18px; background: var(--app-card);
+  box-shadow: inset 0 0 0 1px var(--app-border);
+  color: var(--white);
+  user-select: none;
+  animation: fc-in 0.5s var(--ease) both;
+}
+.fc:nth-child(2) { animation-delay: 0.05s; } .fc:nth-child(3) { animation-delay: 0.1s; } .fc:nth-child(4) { animation-delay: 0.15s; }
+@keyframes fc-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.fc.drone { --app-elev: #16314e; --app-text2: #a8bfd6; --app-muted: #5a7fa0; }
+.fc-banner { position: relative; height: 110px; overflow: hidden; background: var(--app-elev); }
+/* Photo and cut-out share one placement, as in the app: 1.05 × the card's width, a little above centre */
+.fc { --cw: min(340px, 84vw); }
+.fc-top { position: relative; }
+.fc-photo, .fc-cut {
+  position: absolute; left: calc(var(--cw) * -0.025); max-width: none;
+  width: calc(var(--cw) * 1.05); height: calc(var(--cw) * 1.05 / var(--ar, 1.5));
+  top: calc(min(0px, (110px - var(--cw) * 1.05 / var(--ar, 1.5)) * 0.42));
+  -webkit-user-drag: none; pointer-events: none;
+}
+/* The aircraft itself, over the faded photo, spilling down into the space above the name (and fading out there,
+   so the name stays readable) */
+.fc-cutwrap {
+  position: absolute; z-index: 2; left: 0; right: 0; top: 0; height: 134px; overflow: hidden; pointer-events: none;
+  -webkit-mask-image: linear-gradient(to bottom, #000 80%, transparent); mask-image: linear-gradient(to bottom, #000 80%, transparent);
+}
+.fc-cut { filter: drop-shadow(0 8px 8px rgba(10, 22, 40, 0.55)); }
+.fc.has-cut .fc-body { position: relative; z-index: 1; padding-top: 26px; }
+.fc.has-cut .fc-body .fc-head { position: relative; }
+.fc-banner::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(15, 30, 58, 0) 38%, rgba(15, 30, 58, 0.533) 78%, #0f1e3a 100%); }
+.fc-credit {
+  position: absolute; z-index: 3; top: 9px; left: 10px; max-width: 62%;
+  font: 9px/1.3 var(--sans); color: rgba(255, 255, 255, 0.78); text-decoration: none;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fc-credit:hover { color: var(--white); text-decoration: underline; }
+.fc-body { padding: 13px 15px 14px; }
+.fc-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-bottom: 8px; margin-bottom: 3px; border-bottom: 1px solid var(--app-sep); }
+.fc-type { font: 600 27px/1.1 var(--fraunces); letter-spacing: -0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc-maker { margin-top: 3px; font: 12px/1.2 var(--sans); color: var(--app-muted); }
+.fc-total { font: 600 24px/1 var(--fraunces); white-space: nowrap; }
+.fc-h { font: 700 10.5px var(--mono); color: var(--app-accent); }
+.fc.drone .fc-head { border-bottom: 0; margin-bottom: 13px; padding-bottom: 0; }
+.fc-ft { display: flex; align-items: baseline; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid var(--app-sep); }
+.fc-ft span { font: 700 9px var(--mono); letter-spacing: 1px; text-transform: uppercase; color: var(--app-muted); }
+.fc-ft b { font: 600 30px/1 var(--fraunces); }
+.fc-ft b i { font: 700 11px var(--mono); color: var(--app-accent); font-style: normal; }
+.fc-group { margin-top: 11px; }
+.fc-gh { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; font: 700 8.5px var(--mono); letter-spacing: 1.2px; text-transform: uppercase; color: var(--app-accent); }
+.fc-gh svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.fc-row { display: flex; }
+.fc-cell { flex: 1; min-width: 0; padding: 0 11px; display: grid; gap: 3px; }
+.fc-cell:first-child { padding-left: 0; }
+.fc-cell + .fc-cell { border-left: 1px solid var(--app-sep); }
+.fc-cell span { font: 700 8.5px var(--mono); letter-spacing: 1px; text-transform: uppercase; color: var(--app-muted); }
+.fc-cell b { font: 700 15px var(--mono); white-space: nowrap; }
+.fc-cell b i { font: 500 9px var(--mono); font-style: normal; color: var(--app-muted); }
+.fc-regs { margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--app-sep); }
+.fc-regs-h { display: flex; justify-content: space-between; margin-bottom: 7px; font: 700 8.5px var(--mono); letter-spacing: 1px; color: var(--app-muted); }
+.fc-regs-h b { font-size: 9px; color: var(--app-text2); }
+.fc-reg { display: flex; align-items: baseline; gap: 8px; padding: 3px 0; }
+.fc-reg[hidden] { display: none; }
+.fc-reg b { font: 700 13px var(--mono); letter-spacing: 0.3px; color: var(--app-text2); }
+.fc-reg i { flex: 1; border-bottom: 1px dotted var(--app-border); transform: translateY(-3px); }
+.fc-reg span { font: 10.5px var(--mono); color: var(--app-muted); }
+.fc-more {
+  display: block; width: 100%; min-height: 40px; margin-top: 9px; padding: 6px 0; cursor: pointer;
+  border: 1px solid var(--app-border); border-radius: 8px; background: none;
+  font: 700 9.5px var(--mono); letter-spacing: 0.6px; color: var(--app-accent);
+}
+.fc-more:hover { background: rgba(0, 200, 232, 0.08); }
+.fc-foot { display: flex; align-items: flex-end; margin-top: 11px; }
+.fc-foot div { display: grid; gap: 2px; margin-right: 18px; }
+.fc-foot span { font: 700 8.5px var(--mono); letter-spacing: 0.8px; text-transform: uppercase; color: var(--app-muted); }
+.fc-foot b { font: 700 11px var(--mono); color: var(--app-text2); }
+
+/* ---------- Airport globe ---------- */
+.globe-panel {
+  position: relative;
+  border-radius: clamp(20px, 2.4vw, 30px);
+  overflow: hidden;
+  background: radial-gradient(ellipse 80% 70% at 50% 60%, #102542 0%, #060d1a 70%);
+  box-shadow: inset 0 0 0 1px var(--app-border);
+}
+/* The words and the search sit on a shade of the night, so they read over the turning globe */
+.globe-panel::before {
+  content: ""; position: absolute; z-index: 1; inset: 0 auto 0 0; width: min(520px, 55%); pointer-events: none;
+  background: linear-gradient(90deg, rgba(6, 13, 26, 0.88), rgba(6, 13, 26, 0.55) 60%, rgba(6, 13, 26, 0));
+}
+.globe-text { position: absolute; z-index: 3; left: clamp(22px, 4vw, 48px); top: clamp(22px, 4vw, 44px); max-width: 360px; pointer-events: none; }
+.globe-text h3 { font-family: var(--serif); font-weight: 400; font-size: clamp(28px, 2.8vw, 40px); letter-spacing: -0.02em; line-height: 1.1; }
+.globe-text p { margin-top: 10px; color: var(--mist); }
+.globe { position: relative; z-index: 0; height: clamp(520px, 62vw, 720px); isolation: isolate; }
+/* On a computer the globe turns to the right of the words; with an airport open it moves left of the card. Its canvas is
+   wider than the panel, so the globe can move without an edge showing (its size follows the height, not the width). */
+@media (min-width: 821px) {
+  .globe { width: 130%; transform: translateX(-3.85%); transition: transform 1.2s var(--ease); }
+  .has-airport .globe { transform: translateX(-17.7%); }
+}
+.globe > div { z-index: 0; }
+.globe canvas { display: block; outline: none; }
+.globe { pointer-events: none; }
+/* Map pins (components/GlobalAirportMap.tsx) */
+.gp {
+  transform: translate(-50%, -50%);
+  background: rgba(15, 22, 38, 0.92);
+  color: var(--white);
+  font: 800 12px/1 Menlo, var(--mono);
+  letter-spacing: 0.3px; font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: box-shadow 0.2s ease;
+}
+.gp-cluster { min-width: 34px; height: 28px; padding: 0 9px; border-radius: 9px; display: grid; place-items: center; box-shadow: inset 0 0 0 1.5px var(--app-accent); }
+.gp-ap { padding: 4px 7px; border-radius: 10px; font-size: 11px; letter-spacing: 0.5px; box-shadow: inset 0 0 0 1px var(--app-accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .fc { animation: none; }
+}
+@media (max-width: 820px) {
+  .globe-panel::before { display: none; }
+  .globe { height: 460px; }
+  .globe-text { position: static; max-width: none; padding: 26px 22px 0; }
+  .globe-text p { font-size: 15px; }
+}
+
+/* ---------- Find airport (components/AirportQuickSearch.tsx, AirportInfoCard.tsx, AirportRunwaySnippet.tsx) ---------- */
+.gp-sel { box-shadow: inset 0 0 0 1.5px #f5c84b, 0 0 12px rgba(245, 200, 75, 0.9); z-index: 2; }
+
+.ap-find { position: absolute; z-index: 4; left: clamp(22px, 4vw, 48px); top: clamp(170px, 18vw, 220px); width: min(340px, calc(100% - 44px)); }
+.ap-search {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 10px 4px 9px; border-radius: 14px;
+  background: rgba(6, 11, 22, 0.85);
+  box-shadow: inset 0 0 0 1px rgba(0, 200, 232, 0.4);
+}
+.ap-search:focus-within { box-shadow: inset 0 0 0 1.5px var(--app-accent); }
+.ap-sicon { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: rgba(0, 200, 232, 0.13); }
+.ap-sicon svg { width: 18px; height: 18px; fill: none; stroke: var(--app-accent); stroke-width: 2.2; stroke-linecap: round; }
+#ap-q {
+  flex: 1; min-width: 0; height: 44px; border: 0; outline: 0; background: none;
+  color: var(--white); font: 700 16px var(--sans); letter-spacing: 0.2px;
+}
+#ap-q::placeholder { color: rgba(255, 255, 255, 0.5); font-weight: 600; }
+.ap-clear { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 50%; cursor: pointer; background: rgba(255, 255, 255, 0.12); }
+.ap-clear svg { width: 14px; height: 14px; fill: none; stroke: var(--white); stroke-width: 2.4; stroke-linecap: round; }
+.ap-clear[hidden] { display: none; }
+.ap-list {
+  list-style: none; margin: 6px 0 0; padding: 0;
+  max-height: 234px; overflow-y: auto; overscroll-behavior: contain;
+  border-radius: 12px; background: rgba(6, 11, 22, 0.97);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15), 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+.ap-list[hidden] { display: none; }
+.ap-row { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 11px 12px; cursor: pointer; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.ap-row:last-child { border-bottom: 0; }
+.ap-row:hover, .ap-row[aria-selected="true"] { background: rgba(0, 200, 232, 0.12); }
+.ap-row b { font: 800 14px Menlo, var(--mono); letter-spacing: 0.4px; color: var(--white); }
+.ap-row-mid { display: grid; min-width: 0; }
+.ap-row-name { font: 600 13px var(--sans); color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-row-place { margin-top: 1px; font: 500 11px var(--sans); color: rgba(255, 255, 255, 0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-row i { font: 700 12px var(--sans); font-style: normal; color: rgba(255, 255, 255, 0.7); }
+/* A few airports to try, one tap each */
+.ap-try { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+.ap-try span { margin-right: 4px; font: 700 10px var(--mono); letter-spacing: 1.2px; text-transform: uppercase; color: var(--app-text2); }
+.ap-try button {
+  padding: 7px 10px; border-radius: 9px; cursor: pointer;
+  border: 1px solid rgba(0, 200, 232, 0.35); background: rgba(6, 11, 22, 0.85);
+  font: 800 12px Menlo, var(--mono); letter-spacing: 0.5px; color: var(--white);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.ap-try button:hover { background: rgba(0, 200, 232, 0.14); border-color: var(--app-accent); }
+.ap-empty { padding: 20px; text-align: center; font: 12.5px var(--sans); color: rgba(255, 255, 255, 0.55); }
+
+.ap-result {
+  position: absolute; z-index: 4; right: clamp(16px, 2.4vw, 28px); top: clamp(16px, 2.4vw, 28px);
+  width: min(440px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow-y: auto;
+  display: grid; gap: 10px;
+  animation: fc-in 0.45s var(--ease) both;
+}
+.ap-result[hidden] { display: none; }
+.ap-card {
+  position: relative; border-radius: 14px;
+  padding: 14px 46px 14px 16px;
+  background: rgba(15, 22, 38, 0.96);
+  box-shadow: inset 0 0 0 1px var(--app-border);
+}
+.ap-close { position: absolute; top: 6px; right: 6px; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 15px; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.22); background: rgba(255, 255, 255, 0.14); }
+.ap-close svg { width: 17px; height: 17px; fill: none; stroke: var(--white); stroke-width: 2.4; stroke-linecap: round; }
+.ap-top { display: flex; gap: 12px; align-items: flex-start; }
+.ap-id { display: grid; justify-items: center; }
+.ap-id b { font: 800 22px Menlo, var(--mono); letter-spacing: 1px; color: var(--app-accent); }
+.ap-flag { margin-top: 3px; font-size: 20px; line-height: 1; }
+.ap-main { min-width: 0; padding-top: 2px; }
+.ap-name { font: 600 13px/1.3 var(--sans); color: #a9c3dc; }
+.ap-meta { margin-top: 5px; font: 700 10.5px var(--sans); letter-spacing: 0.3px; color: var(--app-accent); white-space: pre; }
+.ap-place { margin-top: 4px; font: 600 11.5px var(--sans); color: var(--app-text2); }
+.ap-freqs { display: flex; margin: 12px -30px 0 0; }
+.ap-freqs div { flex: 0 0 25%; display: grid; gap: 2px; padding-right: 6px; }
+.ap-freqs div + div { padding-left: 10px; border-left: 1px solid rgba(255, 255, 255, 0.16); }
+.ap-freqs span { font: 700 9px Menlo, var(--mono); letter-spacing: 0.6px; color: #5a7fa0; }
+.ap-freqs b { font: 800 16px var(--sans); font-variant-numeric: tabular-nums; color: var(--white); }
+
+.ap-snip { position: relative; height: 315px; border-radius: 14px; overflow: hidden; background: #0f1e3a; box-shadow: inset 0 0 0 1px var(--app-border); }
+.ap-tiles { position: absolute; inset: 0; }
+.ap-tile { position: absolute; max-width: none; user-select: none; -webkit-user-drag: none; }
+.ap-rwy { position: absolute; inset: 0; }
+.ap-rwy polygon { fill: rgba(24, 24, 27, 0.82); stroke: rgba(255, 255, 255, 0.9); stroke-width: 1.2; stroke-linejoin: round; }
+.ap-ident, .ap-dim { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; color: var(--white); text-shadow: 0 0 3px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.95); pointer-events: none; }
+.ap-ident { font: 800 11px var(--sans); letter-spacing: 0.5px; }
+.ap-dim { font: 700 9px var(--sans); letter-spacing: 0.3px; }
+.ap-dot { position: absolute; width: 12px; height: 12px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--app-accent); box-shadow: 0 0 0 2px var(--white); }
+.ap-nodata { position: absolute; top: 10px; left: 10px; padding: 4px 8px; border-radius: 8px; background: rgba(15, 22, 38, 0.9); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18); font: 700 10.5px var(--sans); color: var(--app-text2); }
+.ap-attr {
+  position: absolute; left: 8px; right: 8px; bottom: 6px;
+  font: 9px/1.3 var(--sans); color: rgba(255, 255, 255, 0.82); text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none;
+}
+.ap-snip.no-imagery { background: #0f1e3a radial-gradient(circle at 50% 50%, #16304f 0%, #0f1e3a 70%); }
+
+@media (max-width: 820px) {
+  .ap-find { position: static; width: auto; margin: 16px 22px 0; }
+  .ap-result { position: static; width: auto; max-height: none; margin: 14px 16px 0; }
+}
+
+/* ---------- "Appears as it would in your actual logbook": the pilot logbook, or at the button, the drone logbook ---------- */
+.lbk {
+  position: relative; background: var(--night); color: var(--white); padding: clamp(72px, 9vw, 120px) 0 clamp(56px, 7vw, 96px);
+  overflow: hidden;
+  overflow: clip;   /* a book seen close up on a phone reaches past the screen's edges */
+}
+/* One pane at a time, in the same place: the other waits underneath, laid out (so its book can be measured) but unseen */
+.lbk-panes { position: relative; }
+.lbk-pane { padding: 6px max(var(--pad), calc((100% - 1240px) / 2)) 24px; }
+.lbk-pane:not(.on) { position: absolute; left: 0; right: 0; top: 0; visibility: hidden; pointer-events: none; }
+.lbk-pane.leaving { visibility: visible; animation: lbkOut 0.26s ease both; }
+.lbk-pane.on.entering { animation: lbkIn 0.42s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes lbkOut { to { opacity: 0; transform: translateX(calc(var(--lbk-dir, 1) * -28px)); } }
+@keyframes lbkIn { from { opacity: 0; transform: translateX(calc(var(--lbk-dir, 1) * 28px)); } }
+/* The heading, as in "Log a flight. In 10 seconds." */
+.lbk-copy { margin-bottom: clamp(28px, 4vw, 44px); }
+.lbk-copy h2 { font-family: var(--sans); font-weight: 800; font-size: clamp(32px, 4.2vw, 60px); line-height: 1.02; letter-spacing: -0.045em; }
+.lbk-copy h2 em { display: block; font-family: var(--serif); font-weight: 500; letter-spacing: -0.02em; color: var(--cyan); }
+/* Pilot or drone: a small switch under the heading, the one on show lit */
+.lbk-sw {
+  display: inline-flex; margin-top: 22px; padding: 3px; border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(8, 16, 30, 0.55);
+}
+.lbk-sw button {
+  padding: 8px 16px; border: 0; border-radius: 999px; background: none; cursor: pointer;
+  font: 600 13px/1 var(--sans); letter-spacing: 0.01em; color: var(--mist); transition: color 0.2s ease, background-color 0.2s ease;
+}
+.lbk-sw button:hover { color: var(--white); }
+.lbk-sw button[aria-pressed="true"] { color: var(--white); cursor: default; background: rgba(0, 200, 232, 0.14); box-shadow: inset 0 0 0 1px rgba(0, 200, 232, 0.42); }
+.lbk-sw button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+@media (max-width: 820px) {
+  .lbk-copy h2 { font-size: min(32px, 8vw); }
+  .lbk-copy h2 em { display: inline; }   /* both headings in two lines, so the switch stays put */
+  .lbk-sw { margin-top: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lbk-pane.leaving, .lbk-pane.on.entering { animation: none; }
+}
+
+/* ---------- The paper logbook that opens and leafs through by itself (js/bookflip.js) ---------- */
+.book-stage { position: relative; }
+.flip-on .book-frame { opacity: var(--fq, 0); }
+.flip-on .book-swipe, .flip-on .book-hint { display: none; }
+.book-text { margin: 28px 0 0; }
+.book-text a { color: inherit; text-decoration: underline; text-decoration-color: rgba(25, 198, 230, 0.55); text-underline-offset: 0.2em; }
+.book-text a:hover { color: var(--white); text-decoration-color: var(--cyan); }
+
+.flip {
+  position: absolute; left: 0; top: 0; z-index: 2;
+  width: var(--fw, 100%); height: var(--fh, 300px);
+  pointer-events: none;
+  opacity: calc(1 - var(--fq, 0));
+  /* --zx/--zy: on a phone, the camera's travel across the book seen close up */
+  transform: translate(var(--zx, 0px), var(--zy, 0px)) translateX(calc(var(--shift, 1) * -25%)) scale(var(--fz, 0.82));
+  transform-origin: 50% 50%;
+}
+/* Perspective on the book itself and no shared 3D space: each leaf is drawn as its own layer, so the
+   stacking order (z-index) holds in Safari too. */
+.flip-book { position: absolute; inset: 0; perspective: 2400px; -webkit-perspective: 2400px; }
+.flip-shadow {
+  position: absolute; left: 4%; right: 4%; bottom: -9%; height: 16%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.7), transparent);
+  filter: blur(8px);
+  transform: translateX(calc(var(--shift, 1) * 22%)) scaleX(calc(0.55 + (1 - var(--shift, 1)) * 0.45));
+}
+/* Leather: a navy board with a fine grain */
+.cover, .flip-board {
+  background:
+    radial-gradient(120% 90% at 28% 12%, rgba(255, 255, 255, 0.08), transparent 55%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    linear-gradient(160deg, #1d355d 0%, #10203d 58%, #0b1730 100%);
+  background-size: auto, 180px 180px, auto;
+}
+/* The boards of the binding stand a little proud of the pages */
+.flip-board { position: absolute; top: -1.8%; bottom: -2.6%; width: 51.6%; border-radius: 3px 10px 10px 3px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 22px 40px -20px rgba(0, 0, 0, 0.85); }
+.flip-board.r { left: 50%; }
+.flip-board.l { right: 50%; border-radius: 10px 3px 3px 10px; opacity: var(--landed, 0); }
+/* Page edges: the turned pages pile up on the left, the ones still to come wait on the right */
+.flip-block.l {
+  position: absolute; top: 0; left: 0; width: 50%; height: 100%;
+  border-radius: 6px 2px 2px 6px;
+  background: repeating-linear-gradient(180deg, #efe6cf 0 1px, #d3c6a8 1px 2px);
+  opacity: var(--landed, 0);
+  transform: translate(calc(-1.2px - var(--tl, 0) * 0.9px), calc(1px + var(--tl, 0) * 0.6px));
+}
+.leaf, .flip-base {
+  position: absolute; left: 50%; top: 0; width: 50%; height: 100%;
+  transform-origin: 0 50%;
+  transform-style: preserve-3d; -webkit-transform-style: preserve-3d;
+}
+.leaf { transform: rotateY(calc(var(--r, 0) * -180deg)); }
+/* The page turned by hand, over the open spread (below the fold's shadow) */
+.leaf-turn { z-index: 50; }
+.face {
+  position: absolute; inset: 0;
+  -webkit-backface-visibility: hidden; backface-visibility: hidden;
+  border-radius: 2px 6px 6px 2px;
+  overflow: hidden;
+}
+.face.back { transform: rotateY(180deg); border-radius: 6px 2px 2px 6px; }
+/* A page: the real page image (set by js/bookflip.js); ruled lines until it has loaded */
+.paper {
+  background:
+    linear-gradient(180deg, #efe6ce 0 13%, transparent 13%),
+    repeating-linear-gradient(180deg, transparent 0 calc(var(--fh, 300px) / 15 - 1px), rgba(138, 112, 72, 0.32) calc(var(--fh, 300px) / 15 - 1px) calc(var(--fh, 300px) / 15)),
+    repeating-linear-gradient(90deg, transparent 0 11%, rgba(138, 112, 72, 0.26) 11% calc(11% + 1px)),
+    #f5eedb;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+/* The gutter darkens towards the spine; a hairline edge on the outside */
+.face.front.paper { box-shadow: inset 26px 0 28px -20px rgba(70, 48, 14, 0.5), inset -1px 0 0 rgba(120, 96, 56, 0.25); }
+.face.back.paper { box-shadow: inset -26px 0 28px -20px rgba(70, 48, 14, 0.5), inset 1px 0 0 rgba(120, 96, 56, 0.25); }
+/* The page block still to come shows its edges at the right */
+.flip-base .face.front { overflow: visible; box-shadow: inset 26px 0 28px -20px rgba(70, 48, 14, 0.5), 1px 1px 0 #d6c9ac, 2px 2px 0 #f1e8d2, 3px 2px 0 #d0c3a5, 4px 3px 0 #ede4cc, 5px 3px 0 #c9bb9c; }
+/* While a page turns: shade towards the spine, a little light on the far edge */
+.face::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.34), rgba(0, 0, 0, 0) 58%, rgba(255, 255, 255, 0.16));
+  opacity: var(--sh, 0);
+}
+/* The fold in the middle once the book lies open */
+.flip-book::after {
+  content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 3%; z-index: 60; pointer-events: none;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, rgba(40, 26, 6, 0), rgba(40, 26, 6, 0.16) 42%, rgba(40, 26, 6, 0.3) 50%, rgba(40, 26, 6, 0.16) 58%, rgba(40, 26, 6, 0));
+  opacity: var(--open, 0);
+}
+.cover {
+  border-radius: 3px 10px 10px 3px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), inset 12px 0 14px -8px rgba(0, 0, 0, 0.7);
+  display: grid; place-items: center;
+}
+/* The hinge groove next to the spine */
+.cover::before { content: ""; position: absolute; top: 0; bottom: 0; left: 6%; width: 3px; background: linear-gradient(90deg, rgba(0, 0, 0, 0.5), rgba(255, 255, 255, 0.08)); }
+.cover-in {
+  position: absolute; inset: 8% 7% 8% 11%;
+  border: 1.5px solid rgba(212, 180, 106, 0.7); border-radius: 4px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(0, 0, 0, 0.45);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6%;
+  color: #d4b46a; text-align: center;
+}
+.cover-in img { width: 17%; height: auto; opacity: 0.9; filter: sepia(1) saturate(2.2) hue-rotate(-12deg) brightness(0.95); }
+/* Gold foil, pressed into the leather */
+.cover-title {
+  font-family: var(--serif); font-weight: 600; letter-spacing: 0.18em; line-height: 1.15;
+  font-size: clamp(11px, calc(var(--fh, 300px) * 0.075), 30px);
+  background: linear-gradient(180deg, #f6e2a6 0%, #c79b47 55%, #e9cd84 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.55));
+}
+.cover-sub { font-family: var(--sans); font-weight: 600; letter-spacing: 0.32em; font-size: clamp(7px, calc(var(--fh, 300px) * 0.032), 12px); opacity: 0.85; }
+.endpaper {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    linear-gradient(90deg, #0b1730, #15294b);
+  background-size: 180px 180px, auto;
+  box-shadow: inset -12px 0 14px -8px rgba(0, 0, 0, 0.6);
+}
+
+/* The book takes the finger and the mouse (js/bookflip.js): sideways it turns the pages, or close up on a phone moves
+   the book; up and down still scrolls the page. The spread as HTML behind it stays hidden. */
+.flip-on .book-frame { pointer-events: none; }
+.flip-on .book-stage { touch-action: pan-y; user-select: none; -webkit-user-select: none; outline: none; }
+.flip-browse .book-stage { cursor: grab; }
+.flip-browse .book-stage:active { cursor: grabbing; }
+.flip-on .book-stage:focus-visible { box-shadow: 0 0 0 2px var(--cyan); border-radius: 12px; }
+@media (max-width: 820px) {
+  .flip-on .book-frame { overflow: hidden; }
+  .flip-near .book-hint { display: block; }
+  .flip-near .book-swipe { display: inline; }
+}
+/* Which pages are open: read out, not shown (js/bookflip.js) */
+.bn-pages { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- Round buttons: a stop / start toggle (js/more.js) ---------- */
+.fp-b {
+  display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; cursor: pointer;
+  border: 1px solid rgba(0, 200, 232, 0.45); background: rgba(0, 200, 232, 0.1); color: var(--white);
+  transition: background-color 0.2s ease;
+}
+.fp-b:hover { background: rgba(0, 200, 232, 0.2); }
+.fp-b svg { width: 18px; height: 18px; fill: none; stroke: #00C8E8; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.fp-b .fp-play { fill: #00C8E8; stroke: none; }
+.fp-toggle .fp-play, .fp-stopped .fp-toggle .fp-pause { display: none; }
+.fp-stopped .fp-toggle .fp-play { display: block; }
+@media (prefers-reduced-motion: reduce) {
+  .fp-toggle { display: none; }
+}
+
+
+/* ---- Fleet cards, simpler: one layout for aircraft and drones, fewer figures, larger type ---- */
+.marquee-fleet { --gap: 14px; }
+.marquee-fleet .strip, .marquee-fleet .set { align-items: stretch; }
+.marquee-fleet .fc { zoom: 0.74; }
+.fc-body { padding: 16px 18px 18px; }
+.fc.has-cut .fc-body { padding-top: 28px; }
+.fc-head, .fc.drone .fc-head { align-items: flex-end; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--app-sep); }
+.fc-type { font-size: 26px; }
+.fc-maker { margin-top: 4px; font-size: 13.5px; color: var(--app-text2); }
+.fc-total { font-size: 22px; }
+.fc-h { font-size: 12px; }
+.fc-cell { padding: 0 12px; gap: 5px; }
+.fc-cell span { font: 600 11px var(--sans); letter-spacing: 0.02em; text-transform: none; color: var(--app-text2); }
+.fc-cell b { font-size: 16px; }
+.fc-cell b i { font-size: 11px; }
+.fc-regs { margin-top: 16px; padding-top: 14px; }
+.fc-regs-h { align-items: center; margin-bottom: 8px; }
+.fc-regs-h span { font: 600 11px var(--sans); letter-spacing: 0.02em; color: var(--app-text2); }
+.fc-reg { padding: 4px 0; }
+.fc-reg b { font-size: 14px; color: var(--white); }
+.fc-reg span { font-size: 12.5px; color: var(--app-text2); }
+.fc-more { display: inline; width: auto; min-height: 0; margin: 0; padding: 4px 0 4px 10px; border: 0; border-radius: 0; font: 600 12px var(--sans); letter-spacing: 0; }
+.fc-more:hover { background: none; text-decoration: underline; text-underline-offset: 0.2em; }

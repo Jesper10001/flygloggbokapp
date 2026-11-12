@@ -1,0 +1,15 @@
+# Styles and scripts are always checked against the server (cheap ETag check), so an update is
+# seen on the next visit instead of after Cloudflare's default 4-hour browser cache.
+/css/*
+  Cache-Control: public, max-age=0, must-revalidate
+/js/*
+  Cache-Control: public, max-age=0, must-revalidate
+/demo/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+# The same site on Cloudflare's own addresses (blades-website.pages.dev, previews, single deployments) stays out of
+# search results, so Google only lists blades-app.com.
+https://:project.pages.dev/*
+  X-Robots-Tag: noindex
+https://:version.:project.pages.dev/*
+  X-Robots-Tag: noindex

@@ -1,11 +1,11 @@
 #!/bin/zsh
-# Deploys the website (website-v4) to blades-app.com.
+# Deploys the website (website-v5, live since 2026-11-12; website-v4 is the previous version) to blades-app.com.
 # First stamps every css/js link and the logbook demo pages with a short hash of the file
 # (site.css?v=3c07dd40; also /css/... in 404.html, which links from the root), so browsers fetch changed files at once: the blades-app.com zone keeps them
 # in the browser cache for 4 hours. data-manned/data-unmanned are the logbook frame's manned/unmanned sources.
 # The site's one server-side bit, /api/price (Premium price by the visitor's country), lives in website-functions/.
 set -e
-cd "$(dirname "$0")/website-v4"
+cd "$(dirname "$0")/website-v5"
 python3 - <<'PY'
 import glob, hashlib, re
 files = glob.glob('css/*.css') + glob.glob('js/*.js') + glob.glob('demo/*.html')
@@ -21,4 +21,4 @@ cd ../website-functions
 # Run from website-functions/ so Pages picks up its functions/ (the site's own /api/price) next to the pages.
 # --branch main: production (blades-app.com) whatever git branch this runs on; without it another branch would only
 # make a preview.
-npx wrangler pages deploy ../website-v4 --project-name blades-website --branch main --commit-dirty=true
+npx wrangler pages deploy ../website-v5 --project-name blades-website --branch main --commit-dirty=true
