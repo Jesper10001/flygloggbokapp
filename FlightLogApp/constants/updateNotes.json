@@ -2,6 +2,13 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 113,
+      "date": "2026-11-12",
+      "notes": [
+        "Improved: Block import times are one field again. Nothing is selected when you tap, and the cross clears the field."
+      ]
+    },
+    {
       "id": 112,
       "date": "2026-11-12",
       "notes": [
