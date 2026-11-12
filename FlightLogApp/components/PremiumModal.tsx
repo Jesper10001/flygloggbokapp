@@ -20,6 +20,7 @@ const N = {
 
 const ICON_MAP: Record<string, keyof typeof Ionicons.glyphMap> = {
   infinite: 'infinite-outline',
+  insights: 'analytics-outline',
   coin: 'sparkles-outline',
   camera: 'camera-outline',
   sparkle: 'search-outline',
@@ -31,7 +32,8 @@ const PRIMARY_FEATURES = [
   { icon: 'coin', t: 'Blade-coins refilled every month' },
   { icon: 'camera', t: 'Scan your paper logbook with AI' },
   { icon: 'sparkle', t: 'AI lookup of aircraft and runways' },
-  { icon: 'offline', t: 'Everything else in Blades, free forever' },
+  { icon: 'insights', t: 'Projections, Next licence, Best week and Longest XC' },
+  { icon: 'offline', t: 'Logging, import, export and your logbook stay free' },
 ];
 
 interface Props {
@@ -96,7 +98,7 @@ export function PremiumModal({ visible, onClose, feature }: Props) {
 
             {/* Lead */}
             <Text style={s.lead}>
-              Premium gives you <Text style={s.leadBold}>unlimited flights</Text> and a monthly refill of <Text style={s.leadBold}>Blade-coins</Text> for AI. Everything else stays free.
+              Premium gives you <Text style={s.leadBold}>unlimited flights</Text> and a monthly refill of <Text style={s.leadBold}>Blade-coins</Text> for AI, plus the full Insights. Your logbook, import and export stay free.
             </Text>
 
             {/* Feature list */}

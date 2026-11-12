@@ -11,6 +11,7 @@ import { runEncryptionSelfTest } from '../db/sqlite';
 import { seedIcaoAirports } from '../db/icao';
 import { getSetting, setSetting } from '../db/flights';
 import { checkPromoEntitlement } from '../services/promo';
+import { loadDeviceId } from '../services/anthropicClient';
 import { configurePurchases, refreshEntitlement } from '../services/purchases';
 import { Colors } from '../constants/colors';
 import { useLanguageStore } from '../store/languageStore';
@@ -148,6 +149,8 @@ export default function RootLayout() {
         await useAppLockStore.getState().load().catch(() => {});
         // DEV-ONLY: verifierar att SQLCipher är aktivt och att fel nyckel avvisas. Loggar [crypto] ... i konsolen.
         if (__DEV__) runEncryptionSelfTest();
+        // Enhetens id (Keychain) måste finnas innan något anrop till proxyn eller RevenueCat (anthropicClient).
+        await loadDeviceId().catch(() => null);
         // Promo-kod (gratis Premium): cache-först (snabbt/offline) → server-verifiering i bakgrunden.
         // Servern (proxyns KV) är sanningskällan → revocera en testare genom att ta bort KV-nyckeln.
         // promo_premium: '1' = Premium från en kod, 'max' = Blades Max från en kod.

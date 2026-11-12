@@ -6,16 +6,28 @@ Varje version har två delar:
 
 Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsnittet om till versionen. Se RELEASE.md.
 
-## Unreleased (blir 1.0.1)
+## Unreleased
 
 ### What's New
+
+### Alla ändringar
+
+## 1.0.1 – byggs 2026-11-12
+
+### What's New
+- New: Scan your paper logbook. Photograph your pages and Blades reads every flight for you to check.
+- New: Blades Max, with 500 Blade coins every month, and packs of extra Blade coins for Premium and Max.
+- New: Start with a photo of your latest logbook page. Blades reads your totals and the aircraft on it.
 - New: Small fixes now reach you right away, without waiting for an App Store update.
-- New: Your logbook is automatically backed up on your device before every update.
+- New: Your logbook is backed up on your device before every update.
+- New: A weather card on the dashboard with category, wind, visibility, cloud, QNH and the next forecast change.
+- Improved: Block import by hand, with time per aircraft or drone, simulator types and military drone categories.
 - Fixed: Logbook totals in the EASA AMC1 layout now fill every column, also in PDF exports.
-- Improved: A clearer "What's new" message when a new version is available.
 - Fixed: Editing a flight keeps its flight rules and IFR time, and the flight page shows your changes right away.
 
 ### Alla ändringar
+- Enhetens id sparas i Keychain (services/anthropicClient.ts, loadDeviceId; nyckeln blades_device_id): första gången dagens identifierForVendor, sedan alltid det sparade. Samma id är X-Device-ID mot proxyn och app_user_id i RevenueCat (services/purchases.ts), så coin-saldot, promokoder och prenumerationen följer med en ominstallation på samma telefon. app/_layout.tsx väntar in id:t före första anropet.
+- 1.0.1 förberedd: version 1.0.1 i app.json, NEW_PAYWALLS_LIVE = true (Blades Max och coin-paketen syns i App Store-bygget), licenslistan genererad om (constants/licenses.json).
 - Promokoder för Blades Max och 500 Blade coins (proxy/src/promo.ts, deployad 2026-11-12, version c5b8d3ce): nya hemligheter PROMO_CODES_MAX (Max för alltid, en enhet per kod, lyfter även Premium) och PROMO_CODES_COINS (500 coins en gång som köpta coins, en enhet per kod); /redeem svarar kind/coins/reason (409 = redan använd), /entitlement har promo_tier. Appen: rutan "Redeem a code" (app/settings/premium.tsx) visar "500 Blade coins added", "Blades Max unlocked" eller "Code already used"; promo_premium = 'max' ger nivån Max vid start (app/_layout.tsx, services/purchases.ts). Test: proxy/scripts/test-promo.cjs.
 - Skanningen öppen för alla från 1.0.1 (SCAN_OPEN = true i store/scanStore.ts): Logbook scan, hela boken och Block import med foto. QUOTA_EXEMPT_DEVICES i proxyn tömd (deployad), så skanningar kostar coins även på utvecklarens telefon.
 - Block import: tillbaka till ett fält per tid ("478:48", tangentbord med kolon), inget markeras när man trycker och krysset i fältet tömmer det; de separata fälten för timmar och minuter borttagna (kolonet låg snett och det var svårt att radera). Radernas tidsfält lite bredare för krysset.
@@ -24,6 +36,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Block import från foto: varje ställe som tar ett foto (rutan "Photograph your latest page", Year by year, Retake, Add photo, Photograph och "+" bland årsstaplarna, Try again) frågar nu "Take a photo" eller "Choose from your camera roll" i en GlassDialog, som Logbook scan; år för år går att välja flera bilder ur kamerarullen i valfri ordning. Raden "Use a photo you took" och coin-pillret "About 30 coins a photo" på rutan borttagna. Bilder ur kamerarullen skalas alltid ner till högst 2000 px bred JPEG.
 - Block import från foto (pilot, bakom SCAN_OPEN som skanningen): ny startsida i app/import/manual.tsx med samma uppbyggnad som Logbook scan ("Photograph your latest page", Year by year, Use a photo you took, Enter by hand, How it works, Works best with). Skanningskameran har läget ?totals=one|years|more (ett foto läggs fram direkt; år för år: senaste uppslaget och ett per årsskifte), fotona går via store/totalsScanStore.ts. Claude läser summaraderna per kolumn, flygplanen och årets rader vid årsskiften (services/totalsScan.ts, verktyget emit_totals, Sonnet 5.5, ingen proxyändring); koden räknar och kontrollerar: Brought forward + this page = Total to date (annars gult), årsslut = Brought forward + årets rader, tid per år = skillnaden mellan årsslut, saknade årsskiften slås ihop med ett gult kort "Photograph". Läsningen visas med Blade-myntet (BladeProgress) som Logbook scan och Import logbook. Formuläret fylls i med kameramärke på lästa fält, raden under totalen visar kontrollen eller hur året räknats fram, flygplan på fotot läggs in och nya typer läggs till i Fleet (med bakgrundsberikning) vid Add. Test: scripts/test-totals-scan.cjs.
 - Block import manually ombyggd efter designtavlan (pilot: app/import/manual.tsx, drönare: app/drone-import/manual.tsx, delade byggstenar i components/experience/ExperienceKit.tsx): "All at once" / "Year by year", totaltiden som stor LED-siffra (DSEG7 som Log flight), fält läggs till med knappar, kontroll om delarna går ihop med totalen, år för år med stapeldiagram per år. Tid per flygplanstyp respektive drönare med mätaren "Left to give out"; sparas som en summeringsrad per typ/drönare plus en rad utan typ med resten och alla nedbrytningar (ny drönarmodell läggs till i Fleet vid Save). Pilot: simulatortid per typ (FFS, FTD, FNPT II, FNPT I, BITD, CPT/PPT, CBT) som sim-rader med sim_category (sparades inte alls förut). Drönare: militära kategorier MRPAS/RPAS och NATO-klasser i ny kolumn h_other_cats (JSON, additiv migrering) som getDroneHoursBank lägger till kategorierna i Insights. Imported data: simulatorraderna hör till samma manuella import och räknas inte in i flygtiden. Test: scripts/test-experience-save.cjs (riktig SQLite).
+- Premium-rutan (components/PremiumModal.tsx): raden "Everything else in Blades, free forever" stämde inte längre sedan Projections, Next licence, Best week och Longest XC blev Premium. Listan har nu raden "Projections, Next licence, Best week and Longest XC" och slutar med "Logging, import, export and your logbook stay free"; inledningen säger "plus the full Insights. Your logbook, import and export stay free."
 - Registreringar sparade två gånger, en gång med nolla och en gång med bokstaven O (KIL026 och KILO26), slås ihop en gång vid appstart (db/registrationTwins.ts, inställningen reg_oz_merged). Stavningen som flest registreringar i flottan har vinner (services/registrationTwins.ts). Flygningarna ändras genom applyBulkEdit, så ändringen står i audit_log och kan ångras under Edit flights → Recent changes; simulatorpass och summarader rörs inte. Tester: scripts/test-registration-twins.cjs, scripts/test-registration-merge.cjs (riktig SQLite).
 - Import (CSV m.m.): ny kontroll "0 or O in registrations" i rapporten före Save. En registrering i filen som redan finns med den andra stavningen i loggboken (eller på fler rader i filen) sparas med den stavningen; "Keep as written" per registrering behåller filens.
 - Log flight, "+" vid Registration: skriver man en registrering som redan finns sparad med nolla i stället för O (eller tvärtom) väljs den sparade, ingen ny läggs till.

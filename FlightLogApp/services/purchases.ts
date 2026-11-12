@@ -16,7 +16,7 @@
 import { Platform } from 'react-native';
 import * as Application from 'expo-application';
 import type { CustomerInfo, PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
-import { getDeviceId } from './anthropicClient';
+import { getDeviceId, loadDeviceId } from './anthropicClient';
 import { getSetting } from '../db/flights';
 import { useFlightStore, type SubscriptionTier } from '../store/flightStore';
 import { NEW_PAYWALLS, PLANS_OFFERING_ID, ONBOARDING_OFFERING_ID } from '../constants/paywalls';
@@ -47,14 +47,16 @@ export function purchasesAvailable(): boolean {
   return !!Purchases && !!key;
 }
 
-// Stabilt app_user_id = iOS identifierForVendor — SAMMA värde som X-Device-ID (cachas där vid
-// start). Vi hämtar det direkt här (await) så RevenueCat aldrig råkar konfigureras med bundle-id-
-// fallbacken innan cachen hunnit sättas → annars skulle alla iOS-användare dela EN subscriber.
+// Stabilt app_user_id = enhetens id ur Keychain (loadDeviceId) — SAMMA värde som X-Device-ID. Vi väntar in det
+// (await) så RevenueCat aldrig råkar konfigureras med bundle-id-fallbacken innan id:t finns → annars skulle alla
+// iOS-användare dela EN subscriber.
 async function stableAppUserId(): Promise<string> {
   try {
+    const id = await loadDeviceId();
+    if (id) return id;
     if (Platform.OS === 'ios') {
-      const id = await Application.getIosIdForVendorAsync?.();
-      if (id) return id;
+      const idfv = await Application.getIosIdForVendorAsync?.();
+      if (idfv) return idfv;
     }
   } catch { /* fall igenom */ }
   return getDeviceId();

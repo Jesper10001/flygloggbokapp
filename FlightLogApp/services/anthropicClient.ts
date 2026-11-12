@@ -12,6 +12,7 @@
 // Proxyn lägger på API-nyckeln — den finns inte i appen.
 // Fallback till direkt Anthropic-anrop om PROXY_URL inte är satt (lokalt dev-läge).
 import * as Application from 'expo-application';
+import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 const PROXY_URL = process.env.EXPO_PUBLIC_PROXY_URL ?? '';
@@ -22,15 +23,37 @@ const API_URL = PROXY_URL || 'https://api.anthropic.com/v1/messages';
 const USE_PROXY = !!PROXY_URL;
 const ANTHROPIC_VERSION = '2023-06-01';
 
-// Anonym device-ID för telemetri/kvoter — inte personuppgift.
-// iOS: identifierForVendor (unikt per enhet) hämtas asynkront en gång och cachas.
-// Utan detta föll iOS tillbaka på bundle-id → ALLA iOS-användare delade samma id.
+// Anonym device-ID för telemetri/kvoter — inte personuppgift. Samma id är X-Device-ID mot proxyn och
+// app_user_id i RevenueCat, och coin-saldot, promokoder och prenumerationen hör ihop med det.
+// iOS: identifierForVendor byts om appen raderas och installeras om; då skulle köpta coins försvinna. Därför
+// sparas id:t i Keychain första gången (finns kvar efter en ominstallation på samma telefon och följer med en
+// krypterad säkerhetskopia) och används sedan alltid. Första gången är det dagens identifierForVendor, så
+// befintliga användare behåller sitt id. Utan id föll iOS tillbaka på bundle-id → alla delade samma id.
+const DEVICE_ID_KEY = 'blades_device_id';
+const ID_OPTS: SecureStore.SecureStoreOptions = { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK };
 let cachedDeviceId: string | null = null;
-try {
-  if (Platform.OS === 'ios') {
-    Application.getIosIdForVendorAsync?.().then((id) => { if (id) cachedDeviceId = id; }).catch(() => {});
+let idPromise: Promise<string | null> | null = null;
+
+/** Läser (eller sparar första gången) enhetens id. Körs vid start; anrop därefter får det cachade. */
+export function loadDeviceId(): Promise<string | null> {
+  if (!idPromise) {
+    idPromise = (async () => {
+      if (Platform.OS !== 'ios') return null;
+      try {
+        const saved = await SecureStore.getItemAsync(DEVICE_ID_KEY, ID_OPTS);
+        if (saved) { cachedDeviceId = saved; return saved; }
+      } catch { /* Keychain otillgänglig → identifierForVendor som förut */ }
+      const idfv = await Application.getIosIdForVendorAsync?.().catch(() => null);
+      if (idfv) {
+        cachedDeviceId = idfv;
+        try { await SecureStore.setItemAsync(DEVICE_ID_KEY, idfv, ID_OPTS); } catch { /* nästa start försöker igen */ }
+      }
+      return idfv ?? null;
+    })();
   }
-} catch { /* ignore */ }
+  return idPromise;
+}
+try { loadDeviceId(); } catch { /* ignore */ }
 
 export function getDeviceId(): string {
   if (cachedDeviceId) return cachedDeviceId;
