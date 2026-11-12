@@ -1,585 +1,450 @@
-import { useState, useRef } from 'react';
-import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Alert, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform,
-} from 'react-native';
+// "Block import manually" (pilot) — tidigare erfarenhet som klumpsumma eller år för år.
+// Totaltiden är huvudsaken; resten läggs till med knappar och syns först när den lagts till.
+// Tiden kan ges ut per flygplanstyp (mätaren visar hur mycket som är kvar). Sparas som:
+//   • en summeringsrad (flight_type='summary') per flygplanstyp med typens tid,
+//   • en summeringsrad utan typ med resten av tiden + alla nedbrytningar (PIC, IFR, landningar …),
+//   • en sim-rad (flight_type='sim', sim_category) per simulatortyp — hålls utanför flygtiden.
+// Alla rader har remarks "Blades previous experience" (+ år för summeringsraderna år för år).
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { insertFlight, getFirstFlightDate, dayBefore } from '../../db/flights';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  insertFlight, getFirstFlightDate, dayBefore, getFleetRegistrationTypes, getRecentAircraftTypes,
+} from '../../db/flights';
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
-import { useTranslation } from '../../hooks/useTranslation';
+import {
+  type XPalette, toMin, hm, minToHours, Card, Section, ModeSwitch, HeroTotal, TimeRow, Tile, SplitBar, SumCheck,
+  Hint, ChipGroup, AllocationMeter, AddPicker, YearBars, YearHeader, SaveBar, ALLOC_COLORS,
+} from '../../components/experience/ExperienceKit';
 
-// Alla "enter totals"-rader (lump + year-by-year) taggas med denna remarks-text (+ år för year-by-year).
 const PREV_EXP_REMARK = 'Blades previous experience';
 
-// ── Typdef ────────────────────────────────────────────────────────────────────
+// ── Fält ─────────────────────────────────────────────────────────────────────
 
-interface YearBlock {
+type Field = { key: string; label: string };
+const ROLE: Field[] = [{ key: 'pic', label: 'PIC' }, { key: 'co_pilot', label: 'Co-pilot' }, { key: 'dual', label: 'Dual' }, { key: 'instructor', label: 'Instructor' }];
+const CREW: Field[] = [{ key: 'single_pilot', label: 'Single pilot' }, { key: 'multi_pilot', label: 'Multi-pilot' }];
+const COND: Field[] = [{ key: 'ifr', label: 'IFR' }, { key: 'night', label: 'Night' }, { key: 'nvg', label: 'NVG' }];
+const LAND: Field[] = [{ key: 'landings_day', label: 'Day' }, { key: 'landings_night', label: 'Night' }];
+const SPECIAL: Field[] = [
+  { key: 'examiner', label: 'Examiner' }, { key: 'safety_pilot', label: 'Safety pilot' }, { key: 'spic', label: 'SPIC' },
+  { key: 'ferry_pic', label: 'Ferry PIC' }, { key: 'observer', label: 'Observer' }, { key: 'relief_crew', label: 'Relief crew' },
+];
+const SIMS = [
+  { key: 'sim_FFS', cat: 'FFS', label: 'FFS', sub: 'Full flight simulator' },
+  { key: 'sim_FTD', cat: 'FTD', label: 'FTD', sub: 'Flight training device' },
+  { key: 'sim_FNPT_II', cat: 'FNPT_II', label: 'FNPT II', sub: 'Flight and navigation procedures trainer II' },
+  { key: 'sim_FNPT_I', cat: 'FNPT_I', label: 'FNPT I', sub: 'Flight and navigation procedures trainer I' },
+  { key: 'sim_BITD', cat: 'BITD', label: 'BITD', sub: 'Basic instrument training device' },
+  { key: 'sim_CPT_PPT', cat: 'CPT_PPT', label: 'CPT/PPT', sub: 'Cockpit or procedures trainer' },
+  { key: 'sim_CBT', cat: 'CBT', label: 'CBT', sub: 'Computer-based training' },
+] as const;
+const CREW_COLORS = ['#7FE3F3', '#00C8E8'];
+
+interface Ac { id: string; type: string; time: string }
+interface Block {
   id: string;
   year: string;
-  total_time: string;
-  pic: string;
-  co_pilot: string;
-  dual: string;
-  instructor: string;
-  ifr: string;
-  night: string;
-  nvg: string;
-  multi_pilot: string;
-  single_pilot: string;
-  landings_day: string;
-  landings_night: string;
-  aircraft_type: string;
-  remarks: string;
-  // Special roles
-  examiner: string;
-  safety_pilot: string;
-  spic: string;
-  ferry_pic: string;
-  observer: string;
-  relief_crew: string;
-  // Simulator
-  sim_ffs: string;
-  sim_ftd: string;
-  sim_fnpt_ii: string;
-  sim_fnpt_i: string;
-  sim_bitd: string;
-  sim_cpt_ppt: string;
-  sim_cbt: string;
+  total: string;
+  v: Record<string, string>;
+  shown: string[];
+  aircraft: Ac[];
+  showAircraft: boolean;
 }
 
-function emptyBlock(year = ''): YearBlock {
-  return {
-    id: `${Date.now()}-${Math.random()}`,
-    year,
-    total_time: '', pic: '', co_pilot: '', dual: '', instructor: '',
-    ifr: '', night: '', nvg: '', multi_pilot: '', single_pilot: '',
-    landings_day: '', landings_night: '',
-    aircraft_type: '', remarks: '',
-    examiner: '', safety_pilot: '', spic: '', ferry_pic: '', observer: '', relief_crew: '',
-    sim_ffs: '', sim_ftd: '', sim_fnpt_ii: '', sim_fnpt_i: '', sim_bitd: '', sim_cpt_ppt: '', sim_cbt: '',
+const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const emptyBlock = (year = ''): Block => ({ id: uid(), year, total: '', v: {}, shown: [], aircraft: [], showAircraft: false });
+const simMins = (b: Block) => SIMS.reduce((a, s) => a + toMin(b.v[s.key] ?? ''), 0);
+const isReady = (b: Block) => toMin(b.total) > 0 || simMins(b) > 0;
+const validYear = (y: string) => { const n = parseInt(y, 10); return n >= 1950 && n <= 2099; };
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const niceDate = (iso: string) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  return m ? `${parseInt(m[3], 10)} ${MONTHS[parseInt(m[2], 10) - 1]} ${m[1]}` : iso;
+};
+
+// ── Ett block (hela formuläret för klumpsumman eller ett år) ──────────────────
+
+function BlockForm({
+  P, block, yearly, fleet, onChange,
+}: {
+  P: XPalette; block: Block; yearly: boolean;
+  fleet: { label: string; regs: number }[];
+  onChange: (fn: (b: Block) => Block) => void;
+}) {
+  const [moreRoles, setMoreRoles] = useState(false);
+  const total = toMin(block.total);
+  const val = (k: string) => block.v[k] ?? '';
+  const setVal = (k: string) => (v: string) => onChange((b) => ({ ...b, v: { ...b.v, [k]: v } }));
+  const show = (k: string) => onChange((b) => (b.shown.includes(k) ? b : { ...b, shown: [...b.shown, k] }));
+  const has = (k: string) => block.shown.includes(k) || !!val(k);
+  const shownOf = (fs: readonly Field[]) => fs.filter((f) => has(f.key));
+  const hiddenOf = (fs: readonly Field[]) => fs.filter((f) => !has(f.key));
+
+  const role = shownOf(ROLE), crew = shownOf(CREW), cond = shownOf(COND), land = shownOf(LAND), special = shownOf(SPECIAL);
+  const sims = SIMS.filter((s) => has(s.key));
+  const hiddenSims = SIMS.filter((s) => !has(s.key));
+  const acMins = block.aircraft.map((a) => toMin(a.time));
+  const showAircraft = block.showAircraft || block.aircraft.length > 0;
+  const nothingShown = !showAircraft && !role.length && !crew.length && !cond.length && !land.length && !special.length && !sims.length;
+
+  const roleMain = ['pic', 'co_pilot', 'dual'].filter((k) => has(k));
+  const roleSum = roleMain.reduce((a, k) => a + toMin(val(k)), 0);
+  const crewSum = crew.reduce((a, f) => a + toMin(val(f.key)), 0);
+
+  const taken = new Set(block.aircraft.map((a) => a.type.trim().toUpperCase()));
+  const suggestions = fleet
+    .filter((f) => !taken.has(f.label.toUpperCase()))
+    .map((f) => ({ key: f.label, label: f.label, sub: f.regs ? `${f.regs} in Fleet` : undefined }));
+  const fleetRegs = (type: string) => fleet.find((f) => f.label.toUpperCase() === type.trim().toUpperCase())?.regs;
+  const acSub = (type: string) => {
+    const n = fleetRegs(type);
+    if (n == null) return 'New type';
+    return n ? `${n} ${n === 1 ? 'registration' : 'registrations'} in Fleet` : 'In your logbook';
   };
-}
 
-// ── Hjälpfunktioner ───────────────────────────────────────────────────────────
+  const tilesRow = (fs: Field[], integer?: boolean) => (
+    <View style={{ flexDirection: 'row', gap: 8 }}>
+      {fs.map((f) => <Tile key={f.key} P={P} label={f.label} value={val(f.key)} onChange={setVal(f.key)} integer={integer} />)}
+    </View>
+  );
 
-function parseH(v: string): number {
-  const t = v.trim().replace(',', '.');
-  if (!t) return 0;
-  if (t.includes(':')) {
-    const [h, m] = t.split(':').map(Number);
-    return Math.round((h + (m || 0) / 60) * 100) / 100;
-  }
-  return parseFloat(t) || 0;
-}
-
-function blockDate(year: string): string {
-  const y = parseInt(year);
-  if (y >= 1950 && y <= 2099) return `${y}-12-31`;
-  return new Date().toISOString().slice(0, 10);
-}
-
-function blockHasData(b: YearBlock): boolean {
-  return parseH(b.total_time) > 0;
-}
-
-// ── Styles ───────────────────────────────────────────────────────────────────
-
-function makeStyles() {
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background },
-    content: { padding: 16, paddingBottom: 48, gap: 12 },
-
-    title: { color: Colors.textPrimary, fontSize: 24, fontWeight: '800' },
-    subtitle: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
-
-    modeRow: {
-      flexDirection: 'row', gap: 0,
-      backgroundColor: Colors.elevated, borderRadius: 10,
-      borderWidth: 1, borderColor: Colors.border,
-      padding: 3,
-    },
-    modeBtn: {
-      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      gap: 6, paddingVertical: 9, borderRadius: 8,
-    },
-    modeBtnActive: {
-      backgroundColor: Colors.primary,
-    },
-    modeText: {
-      color: Colors.textSecondary, fontSize: 13, fontWeight: '700',
-    },
-    modeTextActive: {
-      color: Colors.textInverse,
-    },
-    addYearBtn: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      gap: 8, paddingVertical: 11,
-      backgroundColor: Colors.primary + '18',
-      borderRadius: 10, borderWidth: 1, borderColor: Colors.primary + '55',
-    },
-    addYearText: { color: Colors.primary, fontSize: 14, fontWeight: '700' },
-
-    // ── Block ──
-    block: {
-      backgroundColor: Colors.card, borderRadius: 14,
-      borderWidth: 1, borderColor: Colors.border,
-      overflow: 'hidden',
-    },
-    blockHeader: {
-      flexDirection: 'row', alignItems: 'center', gap: 8,
-      backgroundColor: Colors.elevated,
-      paddingHorizontal: 14, paddingVertical: 10,
-      borderBottomWidth: 1, borderBottomColor: Colors.separator,
-    },
-    yearInput: {
-      flex: 1, color: Colors.textPrimary, fontSize: 16, fontWeight: '800',
-      fontFamily: 'Menlo',
-    },
-
-    groupLabel: {
-      color: Colors.textMuted, fontSize: 10, fontWeight: '700',
-      textTransform: 'uppercase', letterSpacing: 1,
-      paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2,
-    },
-
-    fieldRow: {
-      flexDirection: 'row', alignItems: 'center',
-      paddingHorizontal: 14, paddingVertical: 6,
-      borderBottomWidth: 1, borderBottomColor: Colors.separator,
-    },
-    fieldLabel: {
-      color: Colors.textSecondary, fontSize: 13, flex: 1,
-    },
-    fieldInput: {
-      color: Colors.textPrimary, fontSize: 14, fontWeight: '600',
-      fontFamily: 'Menlo', fontVariant: ['tabular-nums'],
-      textAlign: 'right', minWidth: 72,
-      paddingVertical: 4, paddingHorizontal: 6,
-      backgroundColor: Colors.elevated, borderRadius: 6,
-      borderWidth: 1, borderColor: Colors.border,
-    },
-    fieldInputText: {
-      fontFamily: undefined, fontVariant: undefined,
-      textAlign: 'left', minWidth: 120,
-    },
-    fieldUnit: {
-      color: Colors.textMuted, fontSize: 11, width: 18,
-      textAlign: 'right', marginLeft: 4,
-    },
-
-    aircraftToggle: {
-      flexDirection: 'row', alignItems: 'center', gap: 8,
-      paddingVertical: 11, paddingHorizontal: 14,
-      backgroundColor: Colors.card, borderRadius: 10,
-      borderWidth: 1, borderColor: Colors.border,
-    },
-    aircraftToggleText: { color: Colors.primary, fontSize: 13, fontWeight: '600' },
-
-    aircraftBlock: {
-      backgroundColor: Colors.card, borderRadius: 14,
-      borderWidth: 1, borderColor: Colors.border,
-      overflow: 'hidden',
-    },
-
-    crewGrid: {
-      flexDirection: 'row', flexWrap: 'wrap',
-      gap: 8, padding: 12,
-    },
-    crewBtn: {
-      flex: 1, minWidth: '45%',
-      backgroundColor: Colors.elevated, borderRadius: 10,
-      borderWidth: 1, borderColor: Colors.border,
-      padding: 10, alignItems: 'center', gap: 2,
-    },
-    crewBtnActive: {
-      backgroundColor: Colors.primary + '1A',
-      borderColor: Colors.primary,
-    },
-    crewBtnLabel: {
-      color: Colors.textSecondary, fontSize: 12, fontWeight: '700', textAlign: 'center',
-    },
-    crewBtnLabelActive: { color: Colors.primary },
-    crewBtnSub: {
-      color: Colors.textMuted, fontSize: 10, textAlign: 'center',
-    },
-
-    saveBtn: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      backgroundColor: Colors.accent, borderRadius: 12,
-      paddingVertical: 15, gap: 8, marginTop: 4,
-    },
-    saveBtnText: { color: Colors.textInverse, fontSize: 16, fontWeight: '700' },
-    hint: { color: Colors.textMuted, fontSize: 11, textAlign: 'center', lineHeight: 16 },
-  });
-}
-
-// ── Formulärrad ───────────────────────────────────────────────────────────────
-
-function FieldRow({
-  label, value, onChange, integer, text, placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  integer?: boolean;
-  text?: boolean;
-  placeholder?: string;
-}) {
-  const styles = makeStyles();
   return (
-    <View style={styles.fieldRow}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput
-        style={[styles.fieldInput, text && styles.fieldInputText]}
-        value={value}
-        onChangeText={onChange}
-        placeholder={placeholder ?? (text ? '' : '0')}
-        placeholderTextColor={Colors.textMuted}
-        keyboardType={text ? 'default' : integer ? 'number-pad' : 'decimal-pad'}
-        autoCapitalize="none"
-        selectTextOnFocus
+    <>
+      <HeroTotal
+        P={P}
+        label={yearly ? `Flight time in ${block.year || 'this year'}` : 'Total flight time'}
+        value={block.total}
+        onChange={(v) => onChange((b) => ({ ...b, total: v }))}
+        hint={yearly ? 'The flight time for the year. Type 214:10 or 214.2.' : 'The "Total to date" line on your last logbook page. Type 1248:30 or 1248.5.'}
       />
-      {!text && !integer && <Text style={styles.fieldUnit}>h</Text>}
-    </View>
+
+      {showAircraft ? (
+        <Section P={P} title="Aircraft" note="optional">
+          <Card P={P}>
+            <AllocationMeter P={P} total={total} parts={acMins} noun="an aircraft" />
+            {block.aircraft.map((a, i) => (
+              <TimeRow
+                key={a.id}
+                P={P}
+                label={a.type}
+                sub={acSub(a.type)}
+                dot={ALLOC_COLORS[i % ALLOC_COLORS.length]}
+                value={a.time}
+                onChange={(v) => onChange((b) => ({ ...b, aircraft: b.aircraft.map((x) => (x.id === a.id ? { ...x, time: v } : x)) }))}
+                onRemove={() => onChange((b) => ({ ...b, aircraft: b.aircraft.filter((x) => x.id !== a.id) }))}
+              />
+            ))}
+            <AddPicker
+              P={P}
+              label="Add aircraft"
+              note="Fleet or new type"
+              placeholder="Aircraft type, e.g. C172"
+              suggestions={suggestions}
+              onPick={(_k, text) => {
+                const type = text.trim();
+                if (!type || taken.has(type.toUpperCase())) return;
+                onChange((b) => ({ ...b, aircraft: [...b.aircraft, { id: uid(), type, time: '' }] }));
+              }}
+            />
+          </Card>
+          <Hint P={P}>Time you don't give to an aircraft is saved without a type.</Hint>
+        </Section>
+      ) : null}
+
+      {role.length ? (
+        <Section P={P} title="Role" noteLed={roleSum ? hm(roleSum) : undefined}>
+          <Card P={P}>
+            {role.map((f, i) => (
+              <TimeRow key={f.key} P={P} label={f.label} value={val(f.key)} onChange={setVal(f.key)} first={i === 0}
+                share={total ? toMin(val(f.key)) / total : 0} />
+            ))}
+          </Card>
+          {roleMain.length >= 2 ? (
+            <SumCheck P={P} parts={roleSum} total={total}
+              ok="PIC, co-pilot and dual add up to your total"
+              over="PIC, co-pilot and dual are more than your total"
+              under="PIC, co-pilot and dual" />
+          ) : null}
+        </Section>
+      ) : null}
+
+      {crew.length ? (
+        <Section P={P} title="Crew" noteLed={crewSum ? hm(crewSum) : undefined}>
+          <Card P={P}>
+            <SplitBar P={P} style={{ marginHorizontal: 16, marginTop: 16, marginBottom: 6 }}
+              parts={CREW.map((f, i) => ({ v: toMin(val(f.key)), color: CREW_COLORS[i] }))} />
+            {crew.map((f, i) => (
+              <TimeRow key={f.key} P={P} label={f.label} dot={CREW_COLORS[CREW.indexOf(f)]} value={val(f.key)} onChange={setVal(f.key)} first={i === 0} />
+            ))}
+          </Card>
+          {crew.length === 2 ? (
+            <SumCheck P={P} parts={crewSum} total={total}
+              ok="Single and multi-pilot add up to your total"
+              over="Single and multi-pilot are more than your total"
+              under="Single and multi-pilot" />
+          ) : null}
+        </Section>
+      ) : null}
+
+      {cond.length ? <Section P={P} title="Conditions">{tilesRow(cond)}</Section> : null}
+      {land.length ? <Section P={P} title="Landings">{tilesRow(land, true)}</Section> : null}
+
+      {special.length ? (
+        <Section P={P} title="Special roles">
+          <Card P={P}>
+            {special.map((f, i) => <TimeRow key={f.key} P={P} label={f.label} value={val(f.key)} onChange={setVal(f.key)} first={i === 0} />)}
+          </Card>
+        </Section>
+      ) : null}
+
+      {sims.length ? (
+        <Section P={P} title="Simulator" noteLed={simMins(block) ? hm(simMins(block)) : undefined}>
+          <Card P={P}>
+            {sims.map((s, i) => <TimeRow key={s.key} P={P} label={s.label} sub={s.sub} value={val(s.key)} onChange={setVal(s.key)} first={i === 0} />)}
+            {hiddenSims.length ? (
+              <View style={{ padding: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: P.sep }}>
+                <ChipGroup P={P} title="Add a simulator type" items={hiddenSims.map((s) => ({ label: s.label, onPress: () => show(s.key) }))} />
+              </View>
+            ) : null}
+          </Card>
+          <Hint P={P}>Simulator time is kept apart and not added to your flight time.</Hint>
+        </Section>
+      ) : null}
+
+      <Section P={P} title={nothingShown ? 'Add detail' : 'Add more'} note={nothingShown ? 'optional' : undefined}>
+        <Card P={P} style={{ padding: 16, gap: 16 }}>
+          {!showAircraft ? (
+            <ChipGroup P={P} title="Aircraft · give your hours to each type"
+              items={[{ label: 'Add aircraft', onPress: () => onChange((b) => ({ ...b, showAircraft: true })) }]} />
+          ) : null}
+          <ChipGroup P={P} title="Role" items={hiddenOf(ROLE).map((f) => ({ label: f.label, onPress: () => show(f.key) }))} />
+          <ChipGroup P={P} title="Crew" items={hiddenOf(CREW).map((f) => ({ label: f.label, onPress: () => show(f.key) }))} />
+          <ChipGroup P={P} title="Conditions" items={hiddenOf(COND).map((f) => ({ label: f.label, onPress: () => show(f.key) }))} />
+          <ChipGroup P={P} title="Landings" items={hiddenOf(LAND).map((f) => ({ label: `${f.label} landings`, onPress: () => show(f.key) }))} />
+          {!sims.length ? (
+            <ChipGroup P={P} title="Simulator · kept apart from flight time" items={SIMS.map((s) => ({ label: s.label, onPress: () => show(s.key) }))} />
+          ) : null}
+          {hiddenOf(SPECIAL).length ? (
+            moreRoles
+              ? <ChipGroup P={P} title="Special roles" items={hiddenOf(SPECIAL).map((f) => ({ label: f.label, onPress: () => show(f.key) }))} />
+              : <ChipGroup P={P} title="Less common" items={[{ label: 'Special roles', onPress: () => setMoreRoles(true) }]} />
+          ) : null}
+        </Card>
+        {nothingShown ? <Hint P={P}>Each one you tap becomes a field above. Only what you fill in is saved.</Hint> : null}
+      </Section>
+    </>
   );
 }
 
-// ── Årsblock ──────────────────────────────────────────────────────────────────
-
-function Block({
-  block, onChange, onRemove, canRemove, showYear = true,
-}: {
-  block: YearBlock;
-  onChange: (key: keyof YearBlock, val: string) => void;
-  onRemove: () => void;
-  canRemove: boolean;
-  showYear?: boolean;
-}) {
-  const styles = makeStyles();
-  const { t } = useTranslation();
-  const set = (key: keyof YearBlock) => (val: string) => onChange(key, val);
-
-  const SPECIAL_ROLES: { key: keyof YearBlock; label: string }[] = [
-    { key: 'examiner', label: t('role_examiner') },
-    { key: 'safety_pilot', label: t('role_safety_pilot') },
-    { key: 'spic', label: t('role_spic') },
-    { key: 'ferry_pic', label: t('role_ferry_pic') },
-    { key: 'observer', label: t('role_observer') },
-    { key: 'relief_crew', label: t('role_relief_crew') },
-  ];
-  const SIM_TYPES: { key: keyof YearBlock; label: string }[] = [
-    { key: 'sim_ffs', label: 'FFS' },
-    { key: 'sim_ftd', label: 'FTD' },
-    { key: 'sim_fnpt_ii', label: 'FNPT II' },
-    { key: 'sim_fnpt_i', label: 'FNPT I' },
-    { key: 'sim_bitd', label: 'BITD' },
-    { key: 'sim_cpt_ppt', label: 'CPT/PPT' },
-    { key: 'sim_cbt', label: 'CBT' },
-  ];
-
-  const [showRoles, setShowRoles] = useState(false);
-  const [activeRoles, setActiveRoles] = useState<Set<string>>(new Set());
-  const [showSim, setShowSim] = useState(false);
-  const [activeSims, setActiveSims] = useState<Set<string>>(new Set());
-
-  const addRole = (key: string) => setActiveRoles(prev => new Set([...prev, key]));
-  const addSim = (key: string) => setActiveSims(prev => new Set([...prev, key]));
-
-  return (
-    <View style={styles.block}>
-      {/* Årsrubrik — visas bara i year-by-year mode */}
-      {showYear ? (
-        <View style={styles.blockHeader}>
-          <Ionicons name="calendar-outline" size={14} color={Colors.primary} />
-          <TextInput
-            style={styles.yearInput}
-            value={block.year}
-            onChangeText={set('year')}
-            placeholder={t('year_optional')}
-            placeholderTextColor={Colors.textMuted}
-            keyboardType="number-pad"
-            maxLength={4}
-          />
-          {canRemove && (
-            <TouchableOpacity onPress={onRemove} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="trash-outline" size={16} color={Colors.danger} />
-            </TouchableOpacity>
-          )}
-        </View>
-      ) : (
-        <View style={[styles.blockHeader, { justifyContent: 'center' }]}>
-          <Ionicons name="layers-outline" size={14} color={Colors.primary} />
-          <Text style={{ color: Colors.textPrimary, fontSize: 14, fontWeight: '700' }}>{t('total_experience')}</Text>
-        </View>
-      )}
-
-      {/* Flight times */}
-      <Text style={styles.groupLabel}>{t('flight_times_group')}</Text>
-      <FieldRow label={t('total_flight_time')} value={block.total_time}   onChange={set('total_time')} />
-      <FieldRow label={t('pic')}               value={block.pic}          onChange={set('pic')} />
-      <FieldRow label={t('co_pilot')}          value={block.co_pilot}     onChange={set('co_pilot')} />
-      <FieldRow label={t('dual')}              value={block.dual}         onChange={set('dual')} />
-      <FieldRow label={t('instructor')}        value={block.instructor}   onChange={set('instructor')} />
-      <FieldRow label={t('multi_pilot')}       value={block.multi_pilot}  onChange={set('multi_pilot')} />
-      <FieldRow label={t('single_pilot')}      value={block.single_pilot} onChange={set('single_pilot')} />
-
-      {/* Special roles expand */}
-      <TouchableOpacity
-        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}
-        onPress={() => setShowRoles(v => !v)}
-        activeOpacity={0.7}
-      >
-        <Ionicons name={showRoles ? 'chevron-down' : 'chevron-forward'} size={13} color={Colors.textMuted} />
-        <Text style={{ color: Colors.textSecondary, fontSize: 12, fontWeight: '700' }}>{t('special_role')}</Text>
-      </TouchableOpacity>
-      {showRoles && (
-        <View style={{ paddingBottom: 4 }}>
-          {SPECIAL_ROLES.map(r => activeRoles.has(r.key) ? (
-            <FieldRow key={r.key} label={r.label} value={block[r.key]} onChange={set(r.key)} />
-          ) : (
-            <TouchableOpacity
-              key={r.key}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 6 }}
-              onPress={() => addRole(r.key)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="add-circle-outline" size={15} color={Colors.primary} />
-              <Text style={{ color: Colors.primary, fontSize: 13, fontWeight: '600' }}>{r.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      {/* Operational conditions */}
-      <Text style={styles.groupLabel}>{t('operational')}</Text>
-      <FieldRow label={t('ifr')}   value={block.ifr}   onChange={set('ifr')} />
-      <FieldRow label={t('night')} value={block.night} onChange={set('night')} />
-      <FieldRow label="NVG"       value={block.nvg}   onChange={set('nvg')} />
-
-      {/* Simulator expand */}
-      <TouchableOpacity
-        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}
-        onPress={() => setShowSim(v => !v)}
-        activeOpacity={0.7}
-      >
-        <Ionicons name={showSim ? 'chevron-down' : 'chevron-forward'} size={13} color={Colors.textMuted} />
-        <Text style={{ color: Colors.textSecondary, fontSize: 12, fontWeight: '700' }}>{t('simulator')}</Text>
-      </TouchableOpacity>
-      {showSim && (
-        <View style={{ paddingBottom: 4 }}>
-          {SIM_TYPES.map(s => activeSims.has(s.key) ? (
-            <FieldRow key={s.key} label={s.label} value={block[s.key]} onChange={set(s.key)} />
-          ) : (
-            <TouchableOpacity
-              key={s.key}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 6 }}
-              onPress={() => addSim(s.key)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="add-circle-outline" size={15} color={Colors.primary} />
-              <Text style={{ color: Colors.primary, fontSize: 13, fontWeight: '600' }}>{s.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      {/* Landings */}
-      <Text style={styles.groupLabel}>{t('landings')}</Text>
-      <FieldRow label={t('day')}   value={block.landings_day}   onChange={set('landings_day')}  integer />
-      <FieldRow label={t('night')} value={block.landings_night} onChange={set('landings_night')} integer />
-
-    </View>
-  );
-}
-
-// ── Huvud ─────────────────────────────────────────────────────────────────────
+// ── Skärmen ───────────────────────────────────────────────────────────────────
 
 export default function ManualExperienceScreen() {
-  const styles = makeStyles();
-  const { t } = useTranslation();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   // Från onboarding → efter sparad starttotal gå DIREKT till dashboarden (inte tillbaka till onboarding).
   const { from } = useLocalSearchParams<{ from?: string }>();
   const finishNav = () => (from === 'onboarding' ? router.replace('/(tabs)') : router.back());
   const { loadFlights, loadStats } = useFlightStore();
-
+  const P: XPalette = {
+    bg: Colors.background, card: Colors.card, elevated: Colors.elevated, border: Colors.border, sep: Colors.separator,
+    text: Colors.textPrimary, text2: Colors.textSecondary, muted: Colors.textMuted, accent: Colors.primary,
+    onAccent: Colors.textInverse, success: Colors.success, warning: Colors.warning, danger: Colors.danger,
+  };
   const currentYear = String(new Date().getFullYear());
+
   const [mode, setMode] = useState<'lump' | 'yearly'>('lump');
-  const [blocks, setBlocks] = useState<YearBlock[]>([emptyBlock('')]);
+  const [blocks, setBlocks] = useState<Block[]>([emptyBlock('')]);
+  const [selected, setSelected] = useState<string>(blocks[0].id);
+  const [fleet, setFleet] = useState<{ label: string; regs: number }[]>([]);
+  const [firstFlight, setFirstFlight] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  const updateBlock = (id: string, key: keyof YearBlock, val: string) => {
-    setBlocks(prev => prev.map(b => b.id === id ? { ...b, [key]: val } : b));
-  };
-
-  const addBlock = () => {
-    const years = blocks.map(b => parseInt(b.year)).filter(y => !isNaN(y));
-    const prevYear = years.length ? String(Math.min(...years) - 1) : '';
-    setBlocks(prev => [emptyBlock(prevYear), ...prev]);
-  };
-
-  const removeBlock = (id: string) => {
-    setBlocks(prev => prev.filter(b => b.id !== id));
-  };
-
-  const readyBlocks = blocks.filter(blockHasData);
-
+  const [error, setError] = useState<string | null>(null);
   const savingRef = useRef(false);
-  const saveAll = async () => {
-    if (!readyBlocks.length) {
-      Alert.alert(t('nothing_to_save'), t('enter_flight_time'));
-      return;
-    }
-    // Synkron spärr mot dubbeltryck (state-`disabled` hinner inte ritas om).
-    if (savingRef.current) return;
+
+  useEffect(() => {
+    (async () => {
+      const [regs, recent, first] = await Promise.all([
+        getFleetRegistrationTypes().catch(() => []),
+        getRecentAircraftTypes().catch(() => [] as string[]),
+        getFirstFlightDate().catch(() => null),
+      ]);
+      setFirstFlight(first);
+      // Typer ur Fleet (antal registreringar) + typer som bara finns i loggboken.
+      const map = new Map<string, { label: string; regs: number }>();
+      for (const r of regs) {
+        const k = r.aircraft_type.trim().toUpperCase();
+        if (!k) continue;
+        const cur = map.get(k) ?? { label: r.aircraft_type.trim(), regs: 0 };
+        cur.regs += 1;
+        map.set(k, cur);
+      }
+      for (const t of recent) {
+        const k = (t || '').trim().toUpperCase();
+        if (k && !map.has(k)) map.set(k, { label: t.trim(), regs: 0 });
+      }
+      setFleet([...map.values()].sort((a, b) => b.regs - a.regs || a.label.localeCompare(b.label)));
+    })();
+  }, []);
+
+  const block = blocks.find((b) => b.id === selected) ?? blocks[0];
+  const update = (id: string) => (fn: (b: Block) => Block) => { setError(null); setBlocks((bs) => bs.map((b) => (b.id === id ? fn(b) : b))); };
+
+  const switchMode = (m: 'lump' | 'yearly') => {
+    if (m === mode) return;
+    setError(null);
+    // Det man redan skrivit följer med: klumpsumman blir årets block, och tvärtom det valda året.
+    const keep = { ...block, year: m === 'yearly' ? (block.year || currentYear) : '' };
+    setBlocks([keep]);
+    setSelected(keep.id);
+    setMode(m);
+  };
+  const addEarlier = () => {
+    const years = blocks.map((b) => parseInt(b.year, 10)).filter((y) => !isNaN(y));
+    const nb = emptyBlock(String(years.length ? Math.min(...years) - 1 : parseInt(currentYear, 10)));
+    setBlocks((bs) => [nb, ...bs]);
+    setSelected(nb.id);
+  };
+  const removeBlock = (id: string) => {
+    const rest = blocks.filter((b) => b.id !== id);
+    if (!rest.length) return;
+    setBlocks(rest);
+    setSelected(rest[rest.length - 1].id);
+  };
+
+  const sorted = useMemo(
+    () => [...blocks].sort((a, b) => (parseInt(a.year, 10) || 9999) - (parseInt(b.year, 10) || 9999)),
+    [blocks],
+  );
+  const ready = blocks.filter(isReady);
+  const sumTotal = ready.reduce((a, b) => a + toMin(b.total), 0);
+  const overGiven = ready.find((b) => b.aircraft.reduce((a, x) => a + toMin(x.time), 0) > toMin(b.total));
+  const badYear = mode === 'yearly' && ready.some((b) => !validYear(b.year));
+  const lumpDate = firstFlight ? dayBefore(firstFlight) : new Date().toISOString().slice(0, 10);
+
+  let ctaLabel = 'Add';
+  let disabled = false;
+  if (!ready.length) { ctaLabel = 'Enter your total time'; disabled = true; }
+  else if (overGiven) { ctaLabel = 'Aircraft add up to more than the total'; disabled = true; }
+  else if (badYear) { ctaLabel = 'Enter a year from 1950 to 2099'; disabled = true; }
+  else if (mode === 'yearly') ctaLabel = `Add ${ready.length} ${ready.length === 1 ? 'year' : 'years'}${sumTotal ? ' ·' : ''}`;
+  else if (!toMin(block.total)) ctaLabel = 'Add simulator time';
+  const ledMins = mode === 'yearly' ? sumTotal : toMin(block.total);
+  const anyAircraft = ready.some((b) => b.aircraft.some((a) => toMin(a.time) > 0));
+  const info = mode === 'yearly'
+    ? `Each year is saved dated 31 Dec of that year${anyAircraft ? ', one entry per aircraft' : ''}.`
+    : `Saved ${anyAircraft ? 'as one entry per aircraft' : 'as one entry'} dated ${niceDate(lumpDate)}${firstFlight ? ', the day before your first flight in Blades' : ''}.`;
+
+  const save = async () => {
+    if (disabled || savingRef.current) return;
     savingRef.current = true;
     setSaving(true);
-    let saved = 0;
+    setError(null);
     try {
-      // Lump: datera raden DAGEN INNAN första riktiga flygningen (fallback: idag om inga flygningar finns).
-      const firstFlight = await getFirstFlightDate();
-      const lumpDate = firstFlight ? dayBefore(firstFlight) : new Date().toISOString().slice(0, 10);
-      for (const b of readyBlocks) {
-        // Remarks: "Blades previous experience" (lump) / "... YYYY" (year-by-year).
-        const remarks = b.year ? `${PREV_EXP_REMARK} ${b.year}` : PREV_EXP_REMARK;
-        await insertFlight({
-          date: b.year ? blockDate(b.year) : lumpDate,
-          aircraft_type: b.aircraft_type || '',
-          registration: '',
-          dep_place: '',
-          arr_place: '',
-          dep_utc: '',
-          arr_utc: '',
-          total_time: String(parseH(b.total_time)),
-          ifr:           String(parseH(b.ifr)),
-          night:         String(parseH(b.night)),
-          pic:           String(parseH(b.pic)),
-          co_pilot:      String(parseH(b.co_pilot)),
-          dual:          String(parseH(b.dual)),
-          instructor:    String(parseH(b.instructor)),
-          multi_pilot:   String(parseH(b.multi_pilot)),
-          single_pilot:  String(parseH(b.single_pilot)),
-          landings_day:  String(parseInt(b.landings_day) || 0),
-          landings_night: String(parseInt(b.landings_night) || 0),
-          remarks,
-          flight_rules: 'VFR',
-          second_pilot: '',
-          nvg: String(parseH(b.nvg)),
-          examiner: String(parseH(b.examiner)),
-          safety_pilot: String(parseH(b.safety_pilot)),
-          spic: String(parseH(b.spic)),
-          ferry_pic: String(parseH(b.ferry_pic)),
-          observer: String(parseH(b.observer)),
-          relief_crew: String(parseH(b.relief_crew)),
-          tng_count: '0',
-          flight_type: 'summary',
-        }, { source: 'import' });
-        saved++;
+      const firstNow = await getFirstFlightDate();
+      const lump = firstNow ? dayBefore(firstNow) : new Date().toISOString().slice(0, 10);
+      const base = {
+        registration: '', dep_place: '', arr_place: '', dep_utc: '', arr_utc: '', flight_rules: 'VFR', second_pilot: '', tng_count: '0',
+        ifr: '0', night: '0', pic: '0', co_pilot: '0', dual: '0', instructor: '0', multi_pilot: '0', single_pilot: '0',
+        landings_day: '0', landings_night: '0', nvg: '0', examiner: '0', safety_pilot: '0', spic: '0', ferry_pic: '0', observer: '0', relief_crew: '0',
+      };
+      for (const b of ready) {
+        const date = mode === 'yearly' ? `${parseInt(b.year, 10)}-12-31` : lump;
+        const remarks = mode === 'yearly' ? `${PREV_EXP_REMARK} ${parseInt(b.year, 10)}` : PREV_EXP_REMARK;
+        const v = (k: string) => b.v[k] ?? '';
+        const h = (k: string) => minToHours(toMin(v(k)));
+        const total = toMin(b.total);
+        // 1) En rad per flygplanstyp (bara tiden).
+        let given = 0;
+        for (const a of b.aircraft) {
+          const m = toMin(a.time);
+          if (m <= 0 || !a.type.trim()) continue;
+          given += m;
+          await insertFlight({ ...base, date, aircraft_type: a.type.trim(), total_time: minToHours(m), remarks, flight_type: 'summary' } as any, { source: 'import' });
+        }
+        // 2) Resten + alla nedbrytningar på en rad utan typ.
+        const breakdown = {
+          pic: h('pic'), co_pilot: h('co_pilot'), dual: h('dual'), instructor: h('instructor'),
+          multi_pilot: h('multi_pilot'), single_pilot: h('single_pilot'), ifr: h('ifr'), night: h('night'), nvg: h('nvg'),
+          examiner: h('examiner'), safety_pilot: h('safety_pilot'), spic: h('spic'), ferry_pic: h('ferry_pic'),
+          observer: h('observer'), relief_crew: h('relief_crew'),
+          landings_day: String(parseInt(v('landings_day'), 10) || 0), landings_night: String(parseInt(v('landings_night'), 10) || 0),
+        };
+        const rest = Math.max(0, total - given);
+        const hasBreakdown = Object.values(breakdown).some((x) => parseFloat(x) > 0);
+        if (rest > 0 || hasBreakdown) {
+          await insertFlight({ ...base, ...breakdown, date, aircraft_type: '', total_time: minToHours(rest), remarks, flight_type: 'summary' } as any, { source: 'import' });
+        }
+        // 3) Simulatortid: en sim-rad per typ (exakt remarks → räknas som tidigare erfarenhet, inte bokrad).
+        for (const s of SIMS) {
+          const m = toMin(v(s.key));
+          if (m <= 0) continue;
+          await insertFlight({ ...base, date, aircraft_type: '', total_time: minToHours(m), remarks: PREV_EXP_REMARK, flight_type: 'sim', sim_category: s.cat } as any, { source: 'import' });
+        }
       }
-
       await Promise.all([loadFlights(), loadStats()]);
-      // Importen klar → vanlig bekräftelse.
-      Alert.alert(
-        t('done_exclamation'),
-        `${saved} ${t('block_saved')}`,
-        [{ text: 'OK', onPress: finishNav }],
-      );
+      finishNav();
     } catch (e: any) {
-      Alert.alert(t('fel'), e.message);
+      setError(`Could not save: ${e?.message ?? 'unknown error'}`);
     } finally {
       savingRef.current = false;
       setSaving(false);
     }
   };
 
+  const idx = sorted.findIndex((b) => b.id === block.id);
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'android' ? 'height' : undefined}
-    >
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: P.bg }} behavior={Platform.OS === 'android' ? 'height' : undefined}>
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 16, paddingTop: 22, paddingBottom: 32, gap: 22 }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
         automaticallyAdjustKeyboardInsets
       >
-        <Text style={styles.title}>{t('manual_experience')}</Text>
-        <Text style={styles.subtitle}>{t('manual_experience_sub')}</Text>
-
-        {/* Mode toggle */}
-        <View style={styles.modeRow}>
-          <TouchableOpacity
-            style={[styles.modeBtn, mode === 'lump' && styles.modeBtnActive]}
-            onPress={() => {
-              setMode('lump');
-              setBlocks([emptyBlock('')]);
-            }}
-            activeOpacity={0.75}
-          >
-            <Ionicons name="layers-outline" size={14} color={mode === 'lump' ? Colors.textInverse : Colors.textSecondary} />
-            <Text style={[styles.modeText, mode === 'lump' && styles.modeTextActive]}>{t('lump_sum')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.modeBtn, mode === 'yearly' && styles.modeBtnActive]}
-            onPress={() => {
-              if (mode !== 'yearly') {
-                setMode('yearly');
-                setBlocks([emptyBlock(currentYear)]);
-              }
-            }}
-            activeOpacity={0.75}
-          >
-            <Ionicons name="calendar-outline" size={14} color={mode === 'yearly' ? Colors.textInverse : Colors.textSecondary} />
-            <Text style={[styles.modeText, mode === 'yearly' && styles.modeTextActive]}>{t('year_by_year')}</Text>
-          </TouchableOpacity>
+        <View>
+          <Text style={{ color: P.text, fontSize: 27, lineHeight: 32, fontWeight: '800', letterSpacing: -0.5 }}>Hours from before Blades</Text>
+          <Text style={{ color: P.text2, fontSize: 15, lineHeight: 21, marginTop: 8 }}>
+            Copy the totals from your old logbook. They count in all your stats without typing in every flight.
+          </Text>
         </View>
-
-        {/* Add year button (only in yearly mode) */}
-        {mode === 'yearly' && (
-          <TouchableOpacity style={styles.addYearBtn} onPress={addBlock} activeOpacity={0.8}>
-            <Ionicons name="add-circle-outline" size={16} color={Colors.primary} />
-            <Text style={styles.addYearText}>{t('add_year')}</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Blocks */}
-        {blocks.map(block => (
-          <Block
-            key={block.id}
-            block={block}
-            onChange={(key, val) => updateBlock(block.id, key, val)}
-            onRemove={() => removeBlock(block.id)}
-            canRemove={mode === 'yearly' && blocks.length > 1}
-            showYear={mode === 'yearly'}
-          />
-        ))}
-
-        {/* Spara */}
-        <TouchableOpacity
-          style={[styles.saveBtn, (saving || !readyBlocks.length) && { opacity: 0.5 }]}
-          onPress={saveAll}
-          disabled={saving || !readyBlocks.length}
-          activeOpacity={0.8}
-        >
-          {saving
-            ? <ActivityIndicator color={Colors.textInverse} />
-            : (
-              <>
-                <Ionicons name="checkmark-circle" size={20} color={Colors.textInverse} />
-                <Text style={styles.saveBtnText}>
-                  {t('save')} {readyBlocks.length} {readyBlocks.length === 1 ? t('block_singular') : t('block_plural')}
-                </Text>
-              </>
-            )}
-        </TouchableOpacity>
-
-        <Text style={styles.hint}>
-          {t('manual_hint')}
-        </Text>
+        <ModeSwitch P={P} mode={mode} onChange={switchMode} />
+        {mode === 'yearly' ? (
+          <>
+            <YearBars
+              P={P}
+              years={sorted.map((b) => ({ id: b.id, year: b.year, mins: toMin(b.total) }))}
+              selected={block.id}
+              onSelect={setSelected}
+              onAddEarlier={addEarlier}
+              addLabel={String((Math.min(...blocks.map((b) => parseInt(b.year, 10)).filter((y) => !isNaN(y)), parseInt(currentYear, 10) + 1)) - 1)}
+            />
+            <YearHeader
+              P={P}
+              year={block.year}
+              onYear={(y) => update(block.id)((b) => ({ ...b, year: y }))}
+              index={Math.max(0, idx)}
+              count={blocks.length}
+              onRemove={blocks.length > 1 ? () => removeBlock(block.id) : undefined}
+            />
+          </>
+        ) : null}
+        <BlockForm key={block.id} P={P} block={block} yearly={mode === 'yearly'} fleet={fleet} onChange={update(block.id)} />
       </ScrollView>
+      <SaveBar
+        P={P}
+        info={info}
+        label={ctaLabel}
+        led={!disabled && ledMins > 0 ? hm(ledMins) : undefined}
+        disabled={disabled}
+        saving={saving}
+        onPress={save}
+        error={error}
+        bottomInset={insets.bottom}
+      />
     </KeyboardAvoidingView>
   );
 }

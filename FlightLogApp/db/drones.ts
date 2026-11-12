@@ -498,6 +498,7 @@ export interface DroneFlightFormData {
   // Överlappande nedbrytnings-timmar för bulk-historik (summary). Anges som h-strängar, default 0.
   h_vlos?: string; h_evlos?: string; h_bvlos?: string;
   h_a1?: string; h_a2?: string; h_a3?: string; h_specific?: string; h_certified?: string;
+  h_other_cats?: string;   // JSON {kategori: timmar} för militära/NATO-kategorier (bara summeringsrader)
   h_night?: string;
   vfr?: string;
   flight_rules?: string;  // 'VFR' | 'Y' | 'Z' | 'IFR'
@@ -529,8 +530,8 @@ export async function insertDroneFlight(data: DroneFlightFormData): Promise<numb
       is_night, night_time, vfr, flight_rules, has_observer, observer_name, wind_ms,
       co_pilot_fpv, dual, instructor, ifr, landings_day, landings_night, operation_type, remarks, source,
       h_vlos, h_evlos, h_bvlos, h_a1, h_a2, h_a3, h_specific, h_certified, h_night,
-      pilot_role, second_pilot, second_pilot_role, extra_pilots
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      pilot_role, second_pilot, second_pilot_role, extra_pilots, h_other_cats
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       data.date,
       data.drone_id,
@@ -577,6 +578,7 @@ export async function insertDroneFlight(data: DroneFlightFormData): Promise<numb
       (data.second_pilot ?? '').trim(),
       data.second_pilot_role ?? '',
       data.extra_pilots ?? '',
+      data.h_other_cats ?? '',
     ]
   );
   return res.lastInsertRowId as number;
@@ -813,6 +815,20 @@ export async function getDroneHoursBank(cut?: string): Promise<DroneHoursBank> {
     WHERE ${cut ? 'date >= ? AND ' : ''}COALESCE(category, '') NOT IN ('', 'A1', 'A2', 'A3', 'Specific', 'Certified')
     GROUP BY category HAVING h > 0 ORDER BY h DESC
   `, args);
+  // Militära/NATO-timmar från summeringsrader (h_other_cats, JSON) läggs till samma kategorier.
+  const otherJson = await db.getAllAsync<{ h_other_cats: string }>(
+    `SELECT h_other_cats FROM drone_flights WHERE ${cut ? 'date >= ? AND ' : ''}COALESCE(h_other_cats, '') != ''`, args,
+  ).catch(() => [] as { h_other_cats: string }[]);
+  const otherMap = new Map<string, number>(other.map((o) => [o.category, Number(o.h) || 0]));
+  for (const r of otherJson) {
+    try {
+      const obj = JSON.parse(r.h_other_cats) as Record<string, number>;
+      for (const [k, h] of Object.entries(obj)) {
+        if (Number(h) > 0) otherMap.set(k, Math.round(((otherMap.get(k) ?? 0) + Number(h)) * 100) / 100);
+      }
+    } catch { /* trasig JSON hoppas över */ }
+  }
+  const otherCats = [...otherMap.entries()].sort((a, b) => b[1] - a[1]);
   const bf = cut ? ZERO_DRONE_BACKFILL : await getDroneBackfill();
   const v = (key: string) => Number(row?.[key]) || 0;
   const add = (key: string, bfKey: keyof typeof bf) => Math.round((v(key) + (bf[bfKey] ?? 0)) * 100) / 100;
@@ -824,7 +840,7 @@ export async function getDroneHoursBank(cut?: string): Promise<DroneHoursBank> {
     landings_day: v('landings_day'), landings_night: v('landings_night'),
     cats: [
       ...BANK_CATS.map(([label, key]) => ({ label, v: add(key, key) })),
-      ...other.map((o) => ({ label: o.category, v: Number(o.h) || 0 })),
+      ...otherCats.map(([label, h]) => ({ label, v: h })),
     ],
   };
 }

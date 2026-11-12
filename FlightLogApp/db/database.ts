@@ -590,6 +590,9 @@ async function runMigrations(db: SqliteDb): Promise<void> {
   await addColumnIfMissingOnTable(db, 'drone_flights', 'h_specific', 'REAL NOT NULL DEFAULT 0');
   await addColumnIfMissingOnTable(db, 'drone_flights', 'h_certified', 'REAL NOT NULL DEFAULT 0');
   await addColumnIfMissingOnTable(db, 'drone_flights', 'h_night', 'REAL NOT NULL DEFAULT 0');
+  // Militära/NATO-kategorier på summeringsrader (Block import manually): JSON {"MRPAS": 14, "NATO-CI-Mini": 2.5}.
+  // Överlappar totalen som h_a1..h_certified; getDroneHoursBank lägger dem till kategorierna.
+  await addColumnIfMissingOnTable(db, 'drone_flights', 'h_other_cats', "TEXT NOT NULL DEFAULT ''");
   // Drönar-besättning (= pilotens second pilot): egen roll inkl. "Other"-rollerna (constants/droneRoles.ts;
   // tom = härleds ur tidshinkarna) + medpilot med roll + fler medpiloter som JSON [{ role, name }].
   await addColumnIfMissingOnTable(db, 'drone_flights', 'pilot_role', "TEXT NOT NULL DEFAULT ''");

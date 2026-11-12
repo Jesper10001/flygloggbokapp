@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 109,
+      "date": "2026-11-12",
+      "notes": [
+        "New: Block import manually is redesigned. Enter your total first, add only the details you need and see if the parts add up.",
+        "New: Give your past hours to each aircraft or drone and see how much is left to give out.",
+        "New: Past simulator time per simulator type, and military drone categories such as MRPAS, RPAS and NATO classes."
+      ]
+    },
+    {
       "id": 108,
       "date": "2026-11-12",
       "notes": [

@@ -40,6 +40,8 @@ const CATS: { key: keyof Flight; label: string }[] = [
 
 function methodOf(f: Flight): Method {
   if ((f as any).flight_type === 'summary') return 'manual';
+  // Simulatortid från Block import manually (sim-rad med samma remarks) hör till samma manuella import.
+  if ((f as any).flight_type === 'sim' && f.remarks === 'Blades previous experience') return 'manual';
   if (f.source === 'ocr') return 'ocr';
   return 'csv';
 }
@@ -76,7 +78,9 @@ export default function ImportedDataScreen() {
         if (!b) { b = { key, method, when: f.created_at || '', count: 0, ids: [], cats: {}, icaos: [], aircraft: [], pilots: [] }; map.set(key, b); }
         b.count++;
         b.ids.push(f.id);
-        for (const c of CATS) b.cats[c.key as string] = (b.cats[c.key as string] || 0) + (Number((f as any)[c.key]) || 0);
+        // Simulatortid räknas inte in i flygtiden (= getFlightStats).
+        const isSim = (f as any).flight_type === 'sim';
+        for (const c of CATS) if (!isSim) b.cats[c.key as string] = (b.cats[c.key as string] || 0) + (Number((f as any)[c.key]) || 0);
         for (const p of [f.dep_place, f.arr_place]) if (p && !b.icaos.includes(p)) b.icaos.push(p);
         const at = (f.aircraft_type || '').trim(); if (at && !b.aircraft.includes(at)) b.aircraft.push(at);
         const sp = (f.second_pilot || '').trim(); if (sp && !b.pilots.includes(sp)) b.pilots.push(sp);
