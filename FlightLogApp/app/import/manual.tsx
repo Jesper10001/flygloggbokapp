@@ -16,6 +16,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { HowItWorks } from '../../components/HowItWorks';
 import { BladeProgress } from '../../components/BladeProgress';
+import { GlassDialog, DialogOption } from '../../components/GlassDialog';
 import { isScanCameraAvailable } from '../../modules/scan-camera';
 import { SCAN_OPEN, type ScanImage } from '../../store/scanStore';
 import { useTotalsScanStore, type TotalsMode } from '../../store/totalsScanStore';
@@ -348,8 +349,8 @@ function EqLine({ P, eq }: { P: XPalette; eq: Eq }) {
 
 // ── Startsidan ────────────────────────────────────────────────────────────────
 
-function StartPage({ P, onPhoto, onLibrary, onYears, onHand }: {
-  P: XPalette; onPhoto: () => void; onLibrary: () => void; onYears: () => void; onHand: () => void;
+function StartPage({ P, onPhoto, onYears, onHand }: {
+  P: XPalette; onPhoto: () => void; onYears: () => void; onHand: () => void;
 }) {
   const line = (icon: keyof typeof Ionicons.glyphMap, title: string, status: string, onPress: () => void, a11y: string) => (
     <TouchableOpacity style={st.line} onPress={onPress} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={a11y}>
@@ -373,16 +374,11 @@ function StartPage({ P, onPhoto, onLibrary, onYears, onHand }: {
         </View>
         <Text style={{ color: P.text, fontSize: 17, fontWeight: '800', marginTop: 2 }}>Photograph your latest page</Text>
         <Text style={{ color: P.text2, fontSize: 12.5, textAlign: 'center', lineHeight: 17 }}>
-          One photo of the last spread you filled in, with the Total to date line at the bottom.
+          Take a photo of the last spread you filled in, or choose one from your camera roll. The Total to date line must be in it.
         </Text>
-        <View style={[st.coin, { borderColor: Colors.gold + '55' }]}>
-          <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.gold }} />
-          <Text style={{ color: Colors.gold, fontSize: 12, fontWeight: '700' }}>About 30 coins a photo</Text>
-        </View>
       </TouchableOpacity>
       <View style={[st.lines, { borderColor: P.border, backgroundColor: P.card }]}>
         {line('calendar-outline', 'Year by year', 'One photo per new year', onYears, 'Year by year: photograph your latest page and every spread where a new year starts')}
-        {line('images-outline', 'Use a photo you took', 'Library', onLibrary, 'Choose a photo of your latest page from your library')}
         {line('create-outline', 'Enter by hand', 'No photo', onHand, 'Enter your totals by hand')}
       </View>
       <HowItWorks steps={[
@@ -411,7 +407,6 @@ function StartPage({ P, onPhoto, onLibrary, onYears, onHand }: {
 const st = StyleSheet.create({
   upload: { alignItems: 'center', gap: 8, paddingVertical: 26, paddingHorizontal: 18, borderRadius: 16, borderWidth: 1.5, borderStyle: 'dashed' },
   uploadIcon: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  coin: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 26, paddingHorizontal: 10, borderRadius: 13, borderWidth: 1, marginTop: 2 },
   lines: { borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
   line: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, paddingHorizontal: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.cardBorder, marginBottom: -StyleSheet.hairlineWidth },
   lineTitle: { flex: 1, fontSize: 14.5, fontWeight: '600' },
@@ -596,12 +591,46 @@ export default function ManualExperienceScreen() {
     if (res.canceled || !res.assets?.length) return;
     const images: ScanImage[] = [];
     for (const a of res.assets) {
-      const actions: ImageManipulator.Action[] = (a.width ?? 0) > 2000 ? [{ resize: { width: 2000 } }] : [];
+      // Kamerarullens bilder kan vara 12 MP (HEIC): alltid ner till högst 2000 px bred JPEG, som skanningen.
+      const actions: ImageManipulator.Action[] = (a.width ?? 9999) > 2000 ? [{ resize: { width: 2000 } }] : [];
       const out = await ImageManipulator.manipulateAsync(a.uri, actions, { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true });
       if (out.base64) images.push({ base64: out.base64, mediaType: 'image/jpeg', width: out.width, height: out.height });
     }
     if (images.length) readPhotos({ mode: m, images });
   };
+
+  // Kamera eller kamerarulle (som Logbook scan). Valet stängs först; kameran/bildväljaren öppnas när rutan är borta.
+  const [sourceFor, setSourceFor] = useState<TotalsMode | null>(null);
+  const cameraAvailable = isScanCameraAvailable();
+  const choosePhoto = (m: TotalsMode) => setSourceFor(m);
+  const pickSource = (key: 'camera' | 'library') => {
+    const m = sourceFor;
+    setSourceFor(null);
+    if (!m) return;
+    setTimeout(() => { if (key === 'camera') openCamera(m); else pickLibrary(m); }, 350);
+  };
+  const SOURCE_TEXT: Record<TotalsMode, { eyebrow: string; title: string; body: string; lib: string }> = {
+    one: { eyebrow: 'BLOCK IMPORT', title: 'Your latest page', body: 'The last spread you filled in, with the Total to date line at the bottom.', lib: 'A photo of your latest spread, with the bottom lines in it.' },
+    years: { eyebrow: 'YEAR BY YEAR', title: 'Your latest page and each new year', body: 'Your latest spread and every spread where a new year starts.', lib: 'Choose them all at once, in any order. Blades finds which is which.' },
+    more: { eyebrow: 'YEAR BY YEAR', title: 'Another new year', body: 'A spread where a new year starts.', lib: 'Choose one or more spreads where a new year starts.' },
+  };
+  const sourceDialog = (
+    <GlassDialog
+      visible={sourceFor != null}
+      onClose={() => setSourceFor(null)}
+      eyebrow={sourceFor ? SOURCE_TEXT[sourceFor].eyebrow : ''}
+      title={sourceFor ? SOURCE_TEXT[sourceFor].title : ''}
+      body={sourceFor ? SOURCE_TEXT[sourceFor].body : ''}
+      secondary={{ label: 'Cancel', onPress: () => setSourceFor(null) }}
+    >
+      <View style={{ alignSelf: 'stretch', gap: 8, marginTop: 14 }}>
+        {cameraAvailable ? (
+          <DialogOption icon="camera-outline" title="Take a photo" sub="The camera finds the spread, straightens it and takes the photo when it is sharp." onPress={() => pickSource('camera')} />
+        ) : null}
+        <DialogOption icon="images-outline" title="Choose from your camera roll" sub={sourceFor ? SOURCE_TEXT[sourceFor].lib : ''} onPress={() => pickSource('library')} />
+      </View>
+    </GlassDialog>
+  );
 
   const block = blocks.find((b) => b.id === selected) ?? blocks[0];
   const update = (id: string) => (fn: (b: Block) => Block) => { setError(null); setBlocks((bs) => bs.map((b) => (b.id === id ? fn(b) : b))); };
@@ -617,7 +646,7 @@ export default function ManualExperienceScreen() {
     setMode(m);
   };
   const addEarlier = () => {
-    if (fromPhotos) { openCamera('more'); return; }
+    if (fromPhotos) { choosePhoto('more'); return; }
     const years = blocks.map((b) => parseInt(b.year, 10)).filter((y) => !isNaN(y));
     const nb = emptyBlock(String(years.length ? Math.min(...years) - 1 : parseInt(currentYear, 10)));
     setBlocks((bs) => [nb, ...bs]);
@@ -753,13 +782,14 @@ export default function ManualExperienceScreen() {
           safeTop={false}
           onClose={() => { setReading(null); setStage(photoSource ? 'form' : 'start'); }}
           closeLabel="Cancel"
-          onRetry={reading.retry ? () => { setReading(null); setStage(photoSource ? 'form' : 'start'); openCamera(reading.retry!); } : undefined}
+          onRetry={reading.retry ? () => { setReading(null); setStage(photoSource ? 'form' : 'start'); choosePhoto(reading.retry!); } : undefined}
           action={reading.status === 'error' && reading.outOfCoins ? {
             label: 'Get more coins',
             // Betalväggen visas inte över en modal: stäng Block import först.
             onPress: () => { router.back(); setTimeout(() => openCoinShop({ reason: 'out' }), 600); },
           } : undefined}
         />
+        {sourceDialog}
       </View>
     );
   }
@@ -773,7 +803,7 @@ export default function ManualExperienceScreen() {
           ? `${merged[0].fromYear} and ${merged[0].year} are together. Photograph the spread where ${merged[0].year} starts to split them.`
           : `${merged.map(blockLabel).join(', ')} hold more than one year. Photograph the spreads where each new year starts to split them.`}
       </Text>
-      <TouchableOpacity onPress={() => openCamera('more')} accessibilityRole="button"
+      <TouchableOpacity onPress={() => choosePhoto('more')} accessibilityRole="button"
         style={{ height: 36, paddingHorizontal: 12, borderRadius: 10, backgroundColor: P.warning, justifyContent: 'center' }}>
         <Text style={{ color: '#2A1D00', fontSize: 13, fontWeight: '700' }}>Photograph</Text>
       </TouchableOpacity>
@@ -792,9 +822,8 @@ export default function ManualExperienceScreen() {
         {stage === 'start' ? (
           <StartPage
             P={P}
-            onPhoto={() => openCamera('one')}
-            onLibrary={() => pickLibrary('one')}
-            onYears={() => openCamera('years')}
+            onPhoto={() => choosePhoto('one')}
+            onYears={() => choosePhoto('years')}
             onHand={() => setStage('form')}
           />
         ) : (
@@ -813,7 +842,7 @@ export default function ManualExperienceScreen() {
                     {photoSource.noYear ? `. ${photoSource.noYear} ${photoSource.noYear === 1 ? 'photo had' : 'photos had'} no new year on it` : ''}
                   </Text>
                 </View>
-                <TouchableOpacity onPress={() => openCamera(photoSource.years ? 'more' : 'one')} accessibilityRole="button" style={{ height: 44, justifyContent: 'center', paddingHorizontal: 4 }}>
+                <TouchableOpacity onPress={() => choosePhoto(photoSource.years ? 'more' : 'one')} accessibilityRole="button" style={{ height: 44, justifyContent: 'center', paddingHorizontal: 4 }}>
                   <Text style={{ color: P.accent, fontSize: 14, fontWeight: '600' }}>{photoSource.years ? 'Add photo' : 'Retake'}</Text>
                 </TouchableOpacity>
               </View>
@@ -878,6 +907,7 @@ export default function ManualExperienceScreen() {
           bottomInset={insets.bottom}
         />
       ) : null}
+      {sourceDialog}
     </KeyboardAvoidingView>
   );
 }
