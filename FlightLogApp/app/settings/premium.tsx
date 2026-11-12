@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 import { useFlightStore } from '../../store/flightStore';
 import { setSetting, getSetting } from '../../db/flights';
-import { redeemPromo } from '../../services/promo';
+import { redeemAndApply } from '../../services/promo';
 import { getPremiumOffering, purchasePackage, restorePurchases, refreshTokenQuota } from '../../services/purchases';
 import { useToastStore } from '../../components/Toast';
 import { GlassDialog, DialogIcon } from '../../components/GlassDialog';
@@ -124,31 +124,13 @@ export default function PremiumScreen() {
   const applyPromo = async () => {
     if (promoBusy) return;
     setPromoBusy(true);
-    const res = await redeemPromo(promoCode);
+    const res = await redeemAndApply(promoCode);
     setPromoBusy(false);
-    if (!res.ok) {
-      if (res.reason === 'used') Alert.alert('Code already used', 'This code has already been used on another phone, or its coins are already added here.');
-      else if (res.reason === 'offline') Alert.alert('No connection', 'Connect to the internet and try again.');
-      else Alert.alert('Invalid code', 'That promo code is not valid.');
-      return;
-    }
+    if (!res.ok) { Alert.alert(res.title, res.body); return; }
     setPromoOpen(false);
     setPromoCode('');
-    if (res.kind === 'coins') {
-      refreshTokenQuota();
-      Alert.alert(`${res.coins ?? 500} Blade coins added`, 'They never expire and are used after your monthly coins.', [{ text: 'OK' }]);
-      return;
-    }
-    if (res.kind === 'max') {
-      await setSetting('promo_premium', 'max').catch(() => {});
-      useFlightStore.getState().setTier('max');
-      refreshTokenQuota();
-      Alert.alert('Blades Max unlocked', 'Your promo access is now active, with 500 Blade coins every month.', [{ text: 'OK', onPress: () => router.back() }]);
-      return;
-    }
-    if ((await getSetting('promo_premium').catch(() => null)) !== 'max') await setSetting('promo_premium', '1').catch(() => {});
-    if (!useFlightStore.getState().isPremium) setIsPremium(true);
-    Alert.alert('Blades Premium unlocked', 'Your promo access is now active.', [{ text: 'OK', onPress: () => router.back() }]);
+    // Coins: kvar på sidan. Premium eller Max: tillbaka när rutan stängs.
+    Alert.alert(res.title, res.body, [{ text: 'OK', onPress: res.kind === 'coins' ? undefined : () => router.back() }]);
   };
 
   return (

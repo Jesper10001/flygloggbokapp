@@ -45,3 +45,34 @@ export async function checkPromoEntitlement(): Promise<{ premium: boolean; promo
     return null;
   }
 }
+
+/**
+ * Löser in en kod och sätter det den ger i appen: nivån (promo_premium = '1' eller 'max', butikens nivå) eller
+ * coin-saldot. Returnerar rubrik och text till rutan som visas efteråt. Används av Settings och Premium-sidan.
+ */
+export async function redeemAndApply(code: string): Promise<{ ok: boolean; kind?: PromoKind; title: string; body: string }> {
+  const res = await redeemPromo(code);
+  if (!res.ok) {
+    if (res.reason === 'used') return { ok: false, title: 'Code already used', body: 'This code has already been used on another phone, or its coins are already added here.' };
+    if (res.reason === 'offline') return { ok: false, title: 'No connection', body: 'Connect to the internet and try again.' };
+    return { ok: false, title: 'Invalid code', body: 'That promo code is not valid.' };
+  }
+  // Sena require: db, store och purchases importerar i sin tur anthropicClient (ingen cirkel vid modulstart).
+  const { getSetting, setSetting } = require('../db/flights');
+  const { useFlightStore } = require('../store/flightStore');
+  const { refreshTokenQuota } = require('./purchases');
+  if (res.kind === 'coins') {
+    refreshTokenQuota();
+    return { ok: true, kind: res.kind, title: `${res.coins ?? 500} Blade coins added`, body: 'They never expire and are used after your monthly coins.' };
+  }
+  if (res.kind === 'max') {
+    await setSetting('promo_premium', 'max').catch(() => {});
+    useFlightStore.getState().setTier('max');
+    refreshTokenQuota();
+    return { ok: true, kind: res.kind, title: 'Blades Max unlocked', body: 'Your promo access is now active, with 500 Blade coins every month.' };
+  }
+  if ((await getSetting('promo_premium').catch(() => null)) !== 'max') await setSetting('promo_premium', '1').catch(() => {});
+  if (!useFlightStore.getState().isPremium) useFlightStore.getState().setIsPremium(true);
+  refreshTokenQuota();
+  return { ok: true, kind: 'premium', title: 'Blades Premium unlocked', body: 'Your promo access is now active.' };
+}

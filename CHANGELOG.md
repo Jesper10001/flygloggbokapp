@@ -26,6 +26,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Fixed: Editing a flight keeps its flight rules and IFR time, and the flight page shows your changes right away.
 
 ### Alla ändringar
+- Rättat: "Redeem promo code" under ABOUT i Settings (pilot och drönare) räknade med det gamla svaret från proxyn, så en ogiltig kod visade "Blades Premium unlocked" (bara TestFlight, sedan uppdatering 114). Settings och Premium-sidan använder nu samma inlösning (services/promo.ts redeemAndApply) med rätt besked för Premium, Max, coins och använd kod.
 - Bara TestFlight, tillfälligt (tas bort före bygget 1.0.1): håll inne ABOUT i Settings → app/paywall-preview.tsx, onboardingens betalvägg som en ny användare ser den (getOnboardingPlans({ asNewUser: true }) visar gratisveckan utan kontrollen av Apple-ID:t), för skärmdumpen till App Review.
 - Onboardingen: diskret "Skip" under "See what Blades does for you" på frågesidan, som hoppar direkt till betalväggen med provveckan (afterReady; den som redan betalar eller när köp inte går kommer till timmarna).
 - Settings: förhandsvisningarna borttagna före bygget (raderna "Preview: …", app/paywall-preview.tsx, previewPaywall, och länken "Preview the new onboarding").

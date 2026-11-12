@@ -33,7 +33,7 @@ import { usePilotTypeStore } from '../../store/pilotTypeStore';
 import { useProfileStore, type SubRole } from '../../store/profileStore';
 import { PremiumModal } from '../../components/PremiumModal';
 import { refreshEntitlement } from '../../services/purchases';
-import { redeemPromo } from '../../services/promo';
+import { redeemAndApply } from '../../services/promo';
 import { clearDroneRegistryCategories, getDroneFlightCount, listCertificates } from '../../db/drones';
 import { getSetting, setSetting } from '../../db/flights';
 import { SignatureView, type SignatureData } from '../../components/SignaturePad';
@@ -851,15 +851,12 @@ export default function SettingsScreen() {
           onClick={() => {
             Alert.prompt(
               'Redeem promo code',
-              'Enter your promo code to unlock Blades Premium.',
+              'Enter your code for Blades Premium, Blades Max or Blade coins.',
               async (code?: string) => {
                 const c = (code ?? '').trim();
                 if (!c) return;
-                const ok = await redeemPromo(c).catch(() => false);
-                if (!ok) { Alert.alert('Invalid code', 'That promo code is not valid.'); return; }
-                await setSetting('promo_premium', '1').catch(() => {});
-                setIsPremium(true);
-                Alert.alert('Blades Premium unlocked', 'Your promo access is now active.');
+                const res = await redeemAndApply(c);
+                Alert.alert(res.title, res.body);
               },
               'plain-text',
             );

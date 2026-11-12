@@ -28,7 +28,7 @@ import { TourPress } from '../../components/TourPress';
 import { TourSpot } from '../../components/TourSpot';
 import { useFlightStore } from '../../store/flightStore';
 import { refreshEntitlement } from '../../services/purchases';
-import { redeemPromo } from '../../services/promo';
+import { redeemAndApply } from '../../services/promo';
 import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
 import { coinShopAvailable } from '../../services/coinPacks';
 import { UpgradeCard, CoinsCard, type PlanTheme } from '../../components/PlanCoinsSection';
@@ -474,15 +474,12 @@ export default function DroneSettingsScreen() {
           onPress={() => {
             Alert.prompt(
               'Redeem promo code',
-              'Enter your promo code to unlock Blades Premium.',
+              'Enter your code for Blades Premium, Blades Max or Blade coins.',
               async (code?: string) => {
                 const c = (code ?? '').trim();
                 if (!c) return;
-                const ok = await redeemPromo(c).catch(() => false);
-                if (!ok) { Alert.alert('Invalid code', 'That promo code is not valid.'); return; }
-                await setSetting('promo_premium', '1').catch(() => {});
-                setIsPremium(true);
-                Alert.alert('Blades Premium unlocked', 'Your promo access is now active.');
+                const res = await redeemAndApply(c);
+                Alert.alert(res.title, res.body);
               },
               'plain-text',
             );
