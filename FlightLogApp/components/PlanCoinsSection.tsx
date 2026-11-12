@@ -55,7 +55,9 @@ export function UpgradeCard({ T }: { T: PlanTheme }) {
 export function PaywallPreviewCard({ T }: { T: PlanTheme }) {
   if (!TEST_BUILD) return null;
   const open = async (kind: 'plans' | 'onboarding' | 'coins') => {
-    if (!(await previewPaywall(kind))) Alert.alert('Paywall not available', 'RevenueCat has no paywall for this offering in this build.');
+    // Gratisveckan visas i onboardingens egen betalvägg, inte i RevenueCats: samma sida som i onboardingen.
+    if (kind === 'onboarding') { router.push('/paywall-preview' as any); return; }
+    if (!(await previewPaywall(kind as 'plans' | 'coins'))) Alert.alert('Paywall not available', 'RevenueCat has no paywall for this offering in this build.');
   };
   const row = (label: string, hint: string, kind: 'plans' | 'onboarding' | 'coins') => (
     <TouchableOpacity key={kind} style={[st.card, st.upgrade]} activeOpacity={0.7} accessibilityRole="button"

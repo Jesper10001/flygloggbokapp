@@ -250,14 +250,14 @@ export async function presentManageSubscription(): Promise<boolean> {
 
 /**
  * Bara TestFlight/dev: visar en paywall oavsett vilken plan man har, för skärmdumpar till App Review.
- * 'plans' = Premium och Max, 'onboarding' = samma med gratisveckan, 'coins' = coin-paketen.
+ * 'plans' = Premium och Max, 'coins' = coin-paketen. (Gratisveckan: app/paywall-preview.tsx, onboardingens egen sida.)
  * false om paywallen inte kunde visas (ingen RevenueCat, eller erbjudandet saknas).
  */
-export async function previewPaywall(kind: 'plans' | 'onboarding' | 'coins'): Promise<boolean> {
+export async function previewPaywall(kind: 'plans' | 'coins'): Promise<boolean> {
   if (!configured || !Purchases || !RevenueCatUI) return false;
   try {
     const offerings = await Purchases.getOfferings();
-    const id = kind === 'plans' ? PLANS_OFFERING_ID : kind === 'onboarding' ? ONBOARDING_OFFERING_ID : require('./coinPacks').COIN_OFFERING_ID;
+    const id = kind === 'plans' ? PLANS_OFFERING_ID : require('./coinPacks').COIN_OFFERING_ID;
     const offering = offerings?.all?.[id];
     if (!offering) return false;
     await RevenueCatUI.presentPaywall({ offering });
