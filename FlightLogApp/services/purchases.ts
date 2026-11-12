@@ -143,7 +143,9 @@ const DAYS_PER_UNIT: Record<string, number> = { DAY: 1, WEEK: 7, MONTH: 30, YEAR
  * gratis introduktionserbjudande och RevenueCat säger att användaren har rätt till det (Apple ger det en gång per
  * Apple-ID och prenumerationsgrupp); okänt läge visas som vanligt pris. Tom lista när köp inte går.
  */
-export async function getOnboardingPlans(): Promise<PlanOption[]> {
+// asNewUser (bara förhandsvisningen i TestFlight): provperioden visas som för en ny användare, utan kontrollen av
+// Apple-ID:t, så att skärmdumpen till App Review visar gratisveckan även på en telefon som redan prenumererar.
+export async function getOnboardingPlans(opts?: { asNewUser?: boolean }): Promise<PlanOption[]> {
   if (!configured || !Purchases) return [];
   try {
     const offerings = await Purchases.getOfferings();
@@ -168,7 +170,7 @@ export async function getOnboardingPlans(): Promise<PlanOption[]> {
     const ELIGIBLE = Purchases.INTRO_ELIGIBILITY_STATUS?.INTRO_ELIGIBILITY_STATUS_ELIGIBLE ?? 2;
     return list.map(({ tier, pkg }) => {
       const intro = pkg.product.introPrice;
-      const free = !!intro && intro.price === 0 && elig[pkg.product.identifier]?.status === ELIGIBLE;
+      const free = !!intro && intro.price === 0 && (opts?.asNewUser || elig[pkg.product.identifier]?.status === ELIGIBLE);
       const days = free ? (DAYS_PER_UNIT[intro!.periodUnit] ?? 0) * (intro!.periodNumberOfUnits || 1) * (intro!.cycles || 1) : 0;
       return { tier, pkg, priceString: pkg.product.priceString, trialDays: days };
     });

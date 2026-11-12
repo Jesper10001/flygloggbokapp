@@ -26,6 +26,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Fixed: Editing a flight keeps its flight rules and IFR time, and the flight page shows your changes right away.
 
 ### Alla ändringar
+- Bara TestFlight, tillfälligt (tas bort före bygget 1.0.1): håll inne ABOUT i Settings → app/paywall-preview.tsx, onboardingens betalvägg som en ny användare ser den (getOnboardingPlans({ asNewUser: true }) visar gratisveckan utan kontrollen av Apple-ID:t), för skärmdumpen till App Review.
 - Onboardingen: diskret "Skip" under "See what Blades does for you" på frågesidan, som hoppar direkt till betalväggen med provveckan (afterReady; den som redan betalar eller när köp inte går kommer till timmarna).
 - Settings: förhandsvisningarna borttagna före bygget (raderna "Preview: …", app/paywall-preview.tsx, previewPaywall, och länken "Preview the new onboarding").
 - Logbook: pennan för Edit flights syns bara i list-vyn, inte i Book (digitala loggboken) eller Fleet (components/logbook-page/PilotLogbook.tsx).

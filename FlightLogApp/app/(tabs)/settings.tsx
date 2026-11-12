@@ -1,4 +1,4 @@
-import { SCAN_OPEN } from '../../store/scanStore';
+import { SCAN_OPEN, TEST_BUILD } from '../../store/scanStore';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, TextInput, Switch, Linking, LayoutAnimation, Modal, Pressable, AppState } from 'react-native';
@@ -149,18 +149,21 @@ function CollapsibleSectionHeader({
   children,
   expanded,
   onPress,
+  onLongPress,
   tourPressId,
   right,
 }: {
   children: string;
   expanded: boolean;
   onPress: () => void;
+  onLongPress?: () => void;
   tourPressId?: string; // Blades introduction: cyan tryck-markering när rundturen pekar hit
   right?: React.ReactNode; // valfritt innehåll till höger om etiketten (t.ex. app-version på ABOUT)
 }) {
   return (
     <TouchableOpacity
       onPress={onPress}
+      onLongPress={onLongPress}
       activeOpacity={0.7}
       style={{
         flexDirection: 'row',
@@ -779,6 +782,9 @@ export default function SettingsScreen() {
       <CollapsibleSectionHeader
         expanded={expandedSection === 'about'}
         onPress={() => toggleSection('about')}
+        // Bara TestFlight: håll inne ABOUT → onboardingens betalvägg som en ny användare ser den (gratisveckan),
+        // för skärmdumpen till App Review. Tas bort före bygget 1.0.1.
+        onLongPress={TEST_BUILD ? () => router.push('/paywall-preview' as any) : undefined}
         right={
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={{ fontSize: 13, color: Colors.textMuted, fontFamily: 'Menlo' }}>{appVersion}</Text>
