@@ -17,7 +17,7 @@ export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAdd
   onAddPhoto?: (flight: Flight) => void; // snabbknapp för att lägga till media (visas bara utan befintligt media)
   onShare?: (flight: Flight) => void;     // dela flygningen med sin second pilot (rund ikon i headern); visas bara när den är satt
   onShareFile?: (flight: Flight) => void; // långt tryck på delaknappen: spara flygningen som fil
-  showLabel?: boolean; // false på icke-senaste kort i karusellen → strecket går hela vägen vänster
+  showLabel?: boolean; // false på icke-senaste kort i karusellen → datumet står till vänster i stället för rubriken
 }) {
   const { formatTime, timeFormat } = useTimeFormat();
   const { nightFrac, darkOnsetUtc } = useNightFraction(f);
@@ -55,9 +55,13 @@ export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAdd
         <LinearGradient colors={[accent + '22', Colors.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: '100%', height: '100%', position: 'absolute' }} />
         {/* header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8 }}>
-          {showLabel && <Text style={{ fontFamily: FONT_MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.8, textTransform: 'uppercase', color: accent }}>Latest flight</Text>}
+          {/* Senaste kortet: rubriken till vänster och datumet till höger. Övriga kort har ingen rubrik,
+              där står datumet till vänster i rubrikens ställe. */}
+          {showLabel
+            ? <Text style={{ fontFamily: FONT_MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.8, textTransform: 'uppercase', color: accent }}>Latest flight</Text>
+            : <Text style={{ fontFamily: FONT_MONO, fontSize: 10, color: Colors.textSecondary }}>{dateLabel}</Text>}
           <View style={{ flex: 1, height: 1, backgroundColor: accent + '33' }} />
-          <Text style={{ fontFamily: FONT_MONO, fontSize: 10, color: Colors.textSecondary }}>{dateLabel}</Text>
+          {showLabel && <Text style={{ fontFamily: FONT_MONO, fontSize: 10, color: Colors.textSecondary }}>{dateLabel}</Text>}
           {/* Add media: rund ikon till vänster om delaknappen, samma storlek (visas bara utan befintligt media).
               Tryckytan är 44 pt och drar in headerns kant (negativa marginaler) så att kortets höjd inte ändras. */}
           {onAddPhoto && !f.photo_uri && (

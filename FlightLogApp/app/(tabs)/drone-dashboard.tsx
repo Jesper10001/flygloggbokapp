@@ -359,8 +359,11 @@ function DroneLatestFlightCard({ flight: f, accent, showLabel, onPress, onAddPho
       <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={{ borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: accent + '55' }}>
         <LinearGradient colors={[accent + '22', DR.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: '100%', height: '100%', position: 'absolute' }} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8 }}>
-          {showLabel && <Text style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.8, textTransform: 'uppercase', color: accent }}>Latest flight</Text>}
-          {/* Add media: till höger om "Latest flight" (senaste kortet) resp. övre vänstra hörnet (= pilot). */}
+          {/* Senaste kortet: rubriken till vänster och datumet till höger. Övriga kort: datumet till vänster (= pilot). */}
+          {showLabel
+            ? <Text style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.8, textTransform: 'uppercase', color: accent }}>Latest flight</Text>
+            : <Text style={{ fontFamily: MONO, fontSize: 10, color: DR.text3 }}>{dateLabel}</Text>}
+          {/* Add media: till höger om rubriken (senaste kortet) resp. datumet (övriga kort). */}
           {onAddPhoto && !f.photo_uri && !f.photo_local_id && (
             <TouchableOpacity onPress={() => onAddPhoto(f)} activeOpacity={0.8} hitSlop={8}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: DR.warning + '1A', borderWidth: 1, borderColor: DR.warning + '66' }}>
@@ -369,7 +372,7 @@ function DroneLatestFlightCard({ flight: f, accent, showLabel, onPress, onAddPho
             </TouchableOpacity>
           )}
           <View style={{ flex: 1, height: 1, backgroundColor: accent + '33' }} />
-          <Text style={{ fontFamily: MONO, fontSize: 10, color: DR.text3 }}>{dateLabel}</Text>
+          {showLabel && <Text style={{ fontFamily: MONO, fontSize: 10, color: DR.text3 }}>{dateLabel}</Text>}
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingBottom: 6 }}>
           <Text style={{ fontFamily: SERIF, fontSize: 20, fontWeight: '600', color: DR.text }} numberOfLines={1}>{f.mission_type || 'Flight'}</Text>
