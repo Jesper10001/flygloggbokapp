@@ -1,4 +1,4 @@
-import { SCAN_OPEN, TEST_BUILD } from '../../store/scanStore';
+import { SCAN_OPEN } from '../../store/scanStore';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, TextInput, Switch, Linking, LayoutAnimation, Modal, Pressable, AppState } from 'react-native';
@@ -782,9 +782,6 @@ export default function SettingsScreen() {
       <CollapsibleSectionHeader
         expanded={expandedSection === 'about'}
         onPress={() => toggleSection('about')}
-        // Bara TestFlight: håll inne ABOUT → onboardingens betalvägg som en ny användare ser den (gratisveckan),
-        // för skärmdumpen till App Review. Tas bort före bygget 1.0.1.
-        onLongPress={TEST_BUILD ? () => router.push('/paywall-preview' as any) : undefined}
         right={
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={{ fontSize: 13, color: Colors.textMuted, fontFamily: 'Menlo' }}>{appVersion}</Text>
