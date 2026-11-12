@@ -31,7 +31,7 @@ import { refreshEntitlement } from '../../services/purchases';
 import { redeemPromo } from '../../services/promo';
 import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
 import { coinShopAvailable } from '../../services/coinPacks';
-import { UpgradeCard, CoinsCard, type PlanTheme } from '../../components/PlanCoinsSection';
+import { UpgradeCard, CoinsCard, PaywallPreviewCard, type PlanTheme } from '../../components/PlanCoinsSection';
 import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { useAltitudeUnitStore } from '../../store/altitudeUnitStore';
 import { useAiConsentStore } from '../../store/aiConsentStore';
@@ -308,6 +308,7 @@ export default function DroneSettingsScreen() {
         {/* Uppgradering uppåt + Blade coins (components/PlanCoinsSection, samma som pilotsidan). Hanteringen av abonnemanget ligger på profilsidan. */}
         <UpgradeCard T={planTheme} />
         <CoinsCard T={planTheme} onInfo={() => setShowCoinInfo(true)} />
+        <PaywallPreviewCard T={planTheme} />
       </View>
 
       {/* ── Fria flygningar-mätare: manuellt loggade drönarflygningar mot gratisgränsen.

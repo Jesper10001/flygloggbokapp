@@ -11,7 +11,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useFlightStore } from '../store/flightStore';
 import { useTokenQuotaStore } from '../store/tokenQuotaStore';
-import { presentPaywall, presentManageSubscription, restorePurchases } from '../services/purchases';
+import { presentPaywall, presentManageSubscription, restorePurchases, previewPaywall } from '../services/purchases';
+import { TEST_BUILD } from '../store/scanStore';
 import { useToastStore } from './Toast';
 import { Colors } from '../constants/colors';
 import { FREE_TIER_LIMIT } from '../constants/easa';
@@ -46,6 +47,30 @@ export function UpgradeCard({ T }: { T: PlanTheme }) {
       <Text style={[st.upgradeHint, { color: T.label }]} numberOfLines={1}>{toMax ? '500 coins a month' : 'Unlimited flights'}</Text>
       <Ionicons name="chevron-forward" size={16} color={GOLD} />
     </TouchableOpacity>
+  );
+}
+
+// Bara i TestFlight och dev-bygget: öppna varje paywall oavsett plan (även med Max), för skärmdumparna som
+// App Review vill ha på produkterna. Syns aldrig i App Store-bygget.
+export function PaywallPreviewCard({ T }: { T: PlanTheme }) {
+  if (!TEST_BUILD) return null;
+  const open = async (kind: 'plans' | 'onboarding' | 'coins') => {
+    if (!(await previewPaywall(kind))) Alert.alert('Paywall not available', 'RevenueCat has no paywall for this offering in this build.');
+  };
+  const row = (label: string, hint: string, kind: 'plans' | 'onboarding' | 'coins') => (
+    <TouchableOpacity key={kind} style={[st.card, st.upgrade]} activeOpacity={0.7} accessibilityRole="button"
+      accessibilityLabel={`Preview ${label}`} onPress={() => open(kind)}>
+      <Text style={[st.label, { color: T.label }]}>{label}</Text>
+      <Text style={[st.upgradeHint, { color: T.label }]} numberOfLines={1}>{hint}</Text>
+      <Ionicons name="eye-outline" size={16} color={T.label} />
+    </TouchableOpacity>
+  );
+  return (
+    <>
+      {row('Preview: Premium & Max', 'TestFlight only', 'plans')}
+      {row('Preview: free week', 'TestFlight only', 'onboarding')}
+      {row('Preview: Blade coins', 'TestFlight only', 'coins')}
+    </>
   );
 }
 

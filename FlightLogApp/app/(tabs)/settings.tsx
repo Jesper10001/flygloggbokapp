@@ -10,7 +10,7 @@ import { FONT_SERIF } from '../../components/logbook-page/tokens';
 import { useFlightStore } from '../../store/flightStore';
 import { useTokenQuotaStore } from '../../store/tokenQuotaStore';
 import { coinShopAvailable } from '../../services/coinPacks';
-import { UpgradeCard, CoinsCard, type PlanTheme } from '../../components/PlanCoinsSection';
+import { UpgradeCard, CoinsCard, PaywallPreviewCard, type PlanTheme } from '../../components/PlanCoinsSection';
 import { CoinInfoDialog } from '../../components/CoinInfoDialog';
 import { ExportPagesDialog } from '../../components/ExportPagesDialog';
 import { Colors } from '../../constants/colors';
@@ -514,6 +514,7 @@ export default function SettingsScreen() {
         {/* Uppgradering uppåt + Blade coins (components/PlanCoinsSection, samma i drönarläget). Hanteringen av abonnemanget ligger på profilsidan. */}
         <UpgradeCard T={planTheme} />
         <CoinsCard T={planTheme} onInfo={() => setShowCoinInfo(true)} />
+        <PaywallPreviewCard T={planTheme} />
       </View>
 
       {/* ── Fria flygningar-mätare: manuellt loggade flygningar mot gratisgränsen (importerade räknas ej).
