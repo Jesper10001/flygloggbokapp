@@ -85,7 +85,7 @@ const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const emptyBlock = (year = ''): Block => ({ id: uid(), year, total: '', v: {}, shown: [], aircraft: [], showAircraft: false, photo: [], flags: [] });
 const blockLabel = (b: Block) => (b.fromYear === undefined ? b.year : periodLabel({ from: b.fromYear, to: parseInt(b.year, 10) || 0 }));
 const simMins = (b: Block) => SIMS.reduce((a, s) => a + toMin(b.v[s.key] ?? ''), 0);
-const isReady = (b: Block) => toMin(b.total) > 0 || simMins(b) > 0;
+const isReady = (b: Block) => toMin(b.total) > 0 || simMins(b) > 0 || (b.simRead ?? 0) > 0;
 const validYear = (y: string) => { const n = parseInt(y, 10); return n >= 1950 && n <= 2099; };
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -130,8 +130,8 @@ function BlockForm({
   const fleetRegs = (type: string) => fleet.find((f) => f.label.toUpperCase() === type.trim().toUpperCase())?.regs;
   const acSub = (type: string) => {
     const n = fleetRegs(type);
-    if (n == null) return 'New type';
-    return n ? `${n} ${n === 1 ? 'registration' : 'registrations'} in Fleet` : 'In your logbook';
+    if (n == null) return 'New type, added to Fleet';
+    return n ? `${n} in Fleet` : 'In your logbook';
   };
 
   const ph = (k: string) => block.photo.includes(k);
@@ -163,7 +163,7 @@ function BlockForm({
                 key={a.id}
                 P={P}
                 label={a.type}
-                sub={a.found ? `On your photo · ${acSub(a.type)}` : acSub(a.type)}
+                sub={a.found && !toMin(a.time) ? `On your photo · ${acSub(a.type)}. Type your hours in it.` : a.found ? `On your photo · ${acSub(a.type)}` : acSub(a.type)}
                 dot={ALLOC_COLORS[i % ALLOC_COLORS.length]}
                 value={a.time}
                 onChange={(v) => onChange((b) => ({ ...b, aircraft: b.aircraft.map((x) => (x.id === a.id ? { ...x, time: v } : x)) }))}
@@ -235,7 +235,38 @@ function BlockForm({
         </Section>
       ) : null}
 
-      {sims.length ? (
+      {block.simRead ? (
+        // Simulatortid från fotot: vilken typ (eller vilka typer) direkt, med det som är kvar att fördela.
+        <Section P={P} title="Simulator" note="kept apart from flight time">
+          <Card P={P}>
+            <AllocationMeter P={P} total={block.simRead} parts={sims.map((s) => toMin(val(s.key)))} noun="a simulator type" />
+            {sims.map((s, i) => (
+              <TimeRow key={s.key} P={P} label={s.label} sub={s.sub} dot={ALLOC_COLORS[i % ALLOC_COLORS.length]} value={val(s.key)} onChange={setVal(s.key)}
+                onRemove={() => onChange((b) => ({ ...b, shown: b.shown.filter((k) => k !== s.key), v: { ...b.v, [s.key]: '' } }))} />
+            ))}
+            {hiddenSims.length ? (
+              <View style={{ padding: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: P.sep, gap: 10 }}>
+                {!sims.length ? (
+                  <Text style={{ color: P.text, fontSize: 14, fontWeight: '600' }}>What type of simulator?</Text>
+                ) : null}
+                <ChipGroup
+                  P={P}
+                  title={sims.length ? 'Another type' : 'Choose one, or several if you flew more than one type'}
+                  items={hiddenSims.map((s) => ({
+                    label: s.label,
+                    // Den nya typen får det som är kvar; ändra tiden om den ska delas.
+                    onPress: () => onChange((b) => {
+                      const left = (b.simRead ?? 0) - SIMS.reduce((a, x) => a + toMin(b.v[x.key] ?? ''), 0);
+                      return { ...b, shown: [...b.shown, s.key], v: { ...b.v, [s.key]: left > 0 ? hm(left) : '' } };
+                    }),
+                  }))}
+                />
+              </View>
+            ) : null}
+          </Card>
+          <Hint P={P}>Time you don't give a type is saved as simulator time without a type.</Hint>
+        </Section>
+      ) : sims.length ? (
         <Section P={P} title="Simulator" noteLed={simMins(block) ? hm(simMins(block)) : undefined}>
           <Card P={P}>
             {sims.map((s, i) => <TimeRow key={s.key} P={P} label={s.label} sub={s.sub} value={val(s.key)} onChange={setVal(s.key)} first={i === 0} />)}
@@ -252,12 +283,6 @@ function BlockForm({
       <Section P={P} title={block.photo.length ? 'Not in your logbook?' : nothingShown ? 'Add detail' : 'Add more'} note={nothingShown ? 'optional' : undefined}>
         <Card P={P} style={{ padding: 16, gap: 16 }}>
           {block.photo.length ? <Text style={{ color: P.text2, fontSize: 13, lineHeight: 18 }}>Add what your logbook has no column for, like NVG.</Text> : null}
-          {block.simRead && !simMins(block) ? (
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-              <Ionicons name="camera-outline" size={14} color={P.text2} />
-              <Text style={{ color: P.text, fontSize: 13, lineHeight: 18, flex: 1 }}>Your logbook shows {hm(block.simRead)} h in simulators. Choose the simulator type below.</Text>
-            </View>
-          ) : null}
           {!showAircraft ? (
             <ChipGroup P={P} title="Aircraft · give your hours to each type"
               items={[{ label: 'Add aircraft', onPress: () => onChange((b) => ({ ...b, showAircraft: true })) }]} />
@@ -266,7 +291,7 @@ function BlockForm({
           <ChipGroup P={P} title="Crew" items={hiddenOf(CREW).map((f) => ({ label: f.label, onPress: () => show(f.key) }))} />
           <ChipGroup P={P} title="Conditions" items={hiddenOf(COND).map((f) => ({ label: f.label, onPress: () => show(f.key) }))} />
           <ChipGroup P={P} title="Landings" items={hiddenOf(LAND).map((f) => ({ label: `${f.label} landings`, onPress: () => show(f.key) }))} />
-          {!sims.length ? (
+          {!sims.length && !block.simRead ? (
             <ChipGroup P={P} title="Simulator · kept apart from flight time" items={SIMS.map((s) => ({ label: s.label, onPress: () => show(s.key) }))} />
           ) : null}
           {hiddenOf(SPECIAL).length ? (
@@ -664,25 +689,21 @@ export default function ManualExperienceScreen() {
     [blocks],
   );
   const ready = blocks.filter(isReady);
-  const sumTotal = ready.reduce((a, b) => a + toMin(b.total), 0);
   const overGiven = ready.find((b) => b.aircraft.reduce((a, x) => a + toMin(x.time), 0) > toMin(b.total));
   const badYear = mode === 'yearly' && ready.some((b) => !validYear(b.year));
   const lumpDate = firstFlight ? dayBefore(firstFlight) : new Date().toISOString().slice(0, 10);
   const merged = blocks.filter((b) => b.fromYear != null && parseInt(b.year, 10) > b.fromYear);
 
-  let ctaLabel = 'Add';
-  let disabled = false;
-  if (!ready.length) { ctaLabel = 'Enter your total time'; disabled = true; }
-  else if (overGiven) { ctaLabel = 'Aircraft add up to more than the total'; disabled = true; }
-  else if (badYear) { ctaLabel = 'Enter a year from 1950 to 2099'; disabled = true; }
-  else if (mode === 'yearly') ctaLabel = `Add ${ready.length} ${ready.length === 1 ? (fromPhotos ? 'part' : 'year') : (fromPhotos ? 'parts' : 'years')}${sumTotal ? ' ·' : ''}`;
-  else if (!toMin(block.total)) ctaLabel = 'Add simulator time';
-  const ledMins = mode === 'yearly' ? sumTotal : toMin(block.total);
+  // Knappen säger bara Save; varför den är grå står i raden ovanför.
+  const blocked = !ready.length ? 'Enter your total time to save.'
+    : overGiven ? 'Your aircraft add up to more than the total. Lower one of them to save.'
+      : badYear ? 'Enter a year from 1950 to 2099 to save.' : null;
+  const disabled = !!blocked;
   const anyAircraft = ready.some((b) => b.aircraft.some((a) => toMin(a.time) > 0));
   const firstPeriod = blocks.find((b) => b.fromYear === null);
-  const info = mode === 'yearly'
+  const info = blocked ?? (mode === 'yearly'
     ? `Each year is saved dated 31 Dec${anyAircraft ? ', one entry per aircraft' : ''}.${firstPeriod ? ` Everything up to ${firstPeriod.year} is saved as one entry.` : ''}`
-    : `Saved ${anyAircraft ? 'as one entry per aircraft' : 'as one entry'} dated ${niceDate(lumpDate)}${firstFlight ? ', the day before your first flight in Blades' : ''}.`;
+    : `Saved ${anyAircraft ? 'as one entry per aircraft' : 'as one entry'} dated ${niceDate(lumpDate)}${firstFlight ? ', the day before your first flight in Blades' : ''}.`);
 
   const save = async () => {
     if (disabled || savingRef.current) return;
@@ -732,10 +753,17 @@ export default function ManualExperienceScreen() {
           await insertFlight({ ...base, ...breakdown, date, aircraft_type: '', total_time: minToHours(rest), remarks, flight_type: 'summary' } as any, { source: 'import' });
         }
         // 3) Simulatortid: en sim-rad per typ (exakt remarks → räknas som tidigare erfarenhet, inte bokrad).
+        let simGiven = 0;
         for (const s of SIMS) {
           const m = toMin(v(s.key));
           if (m <= 0) continue;
+          simGiven += m;
           await insertFlight({ ...base, date, aircraft_type: '', total_time: minToHours(m), remarks: PREV_EXP_REMARK, flight_type: 'sim', sim_category: s.cat } as any, { source: 'import' });
+        }
+        // Simulatortid från fotot som inte fått någon typ: sparas ändå, utan typ.
+        const simLeft = (b.simRead ?? 0) - simGiven;
+        if (simLeft > 0) {
+          await insertFlight({ ...base, date, aircraft_type: '', total_time: minToHours(simLeft), remarks: PREV_EXP_REMARK, flight_type: 'sim', sim_category: '' } as any, { source: 'import' });
         }
       }
       for (const t of newTypes) await addAircraftTypeToRegistry(t).catch(() => {});
@@ -898,8 +926,7 @@ export default function ManualExperienceScreen() {
         <SaveBar
           P={P}
           info={info}
-          label={ctaLabel}
-          led={!disabled && ledMins > 0 ? hm(ledMins) : undefined}
+          label="Save"
           disabled={disabled}
           saving={saving}
           onPress={save}

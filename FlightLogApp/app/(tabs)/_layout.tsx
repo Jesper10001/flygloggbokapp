@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { Redirect, Tabs, useRouter } from 'expo-router';
 import { useAppVariantStore } from '../../store/appVariantStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +15,7 @@ import { FlightLimitModal } from '../../components/FlightLimitModal';
 import { TourSpot } from '../../components/TourSpot';
 import { GlassTabBar } from '../../components/GlassTabBar';
 import { AppBackground } from '../../components/AppBackground';
+import { useLayoutEpochStore } from '../../store/layoutEpochStore';
 import { useDroneAccentStore } from '../../store/droneAccentStore';
 
 const PAGE_SIZE = 12; // flygningar per blad
@@ -68,6 +69,9 @@ export default function TabsLayout() {
     <View style={{ flex: 1 }}>
     <AppBackground accent={isDrone ? accent : Colors.primary} />
     <Tabs
+      // Efter skanningskameran (liggande) ritas flikarnas innehåll om från början, så ingen text blir kvar
+      // klippt eller suddig (store/layoutEpochStore). Fliken man står på behålls.
+      screenLayout={({ children }: { children: ReactNode }) => <EpochRemount>{children}</EpochRemount>}
       // Lägesbytet navigerar EXPLICIT till rätt dashboard (settings/drone-settings, deferred
       // efter re-render) → ingen remount-key behövs. /(tabs) löser sig till manned-ankaret
       // 'index'; drönarläget navigeras explicit till '/(tabs)/drone-dashboard'.
@@ -241,4 +245,10 @@ function DroneFabButton({ onPress }: { premium: boolean; onPress: () => void }) 
       </TouchableOpacity>
     </View>
   );
+}
+
+// Nyckeln byts när kameran har vridit tillbaka till stående → innehållet monteras om.
+function EpochRemount({ children }: { children: ReactNode }) {
+  const epoch = useLayoutEpochStore((st) => st.epoch);
+  return <Fragment key={epoch}>{children}</Fragment>;
 }

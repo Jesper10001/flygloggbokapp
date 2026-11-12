@@ -247,19 +247,17 @@ export default function DroneManualExperienceScreen() {
     [blocks],
   );
   const ready = blocks.filter((b) => blockTotal(b) > 0);
-  const sumTotal = ready.reduce((a, b) => a + blockTotal(b), 0);
   const overGiven = ready.find((b) => b.drones.reduce((a, d) => a + toMin(d.time), 0) > blockTotal(b));
   const badYear = mode === 'yearly' && ready.some((b) => !validYear(b.year));
 
-  let ctaLabel = 'Add';
-  let disabled = false;
-  if (!ready.length) { ctaLabel = 'Enter your total time'; disabled = true; }
-  else if (overGiven) { ctaLabel = 'Drones add up to more than the total'; disabled = true; }
-  else if (badYear) { ctaLabel = 'Enter a year from 1950 to 2099'; disabled = true; }
-  else if (mode === 'yearly') ctaLabel = `Add ${ready.length} ${ready.length === 1 ? 'year' : 'years'} ·`;
-  const info = mode === 'yearly'
+  // Knappen säger bara Save; varför den är grå står i raden ovanför.
+  const blocked = !ready.length ? 'Enter your total time to save.'
+    : overGiven ? 'Your drones add up to more than the total. Lower one of them to save.'
+      : badYear ? 'Enter a year from 1950 to 2099 to save.' : null;
+  const disabled = !!blocked;
+  const info = blocked ?? (mode === 'yearly'
     ? 'Each year is saved as a summary dated 31 Dec. It counts in your totals and is not listed as flights.'
-    : 'Saved as a summary. It counts in your totals and is not listed as a flight.';
+    : 'Saved as a summary. It counts in your totals and is not listed as a flight.');
 
   const save = async () => {
     if (disabled || savingRef.current) return;
@@ -369,8 +367,7 @@ export default function DroneManualExperienceScreen() {
       <SaveBar
         P={P}
         info={info}
-        label={ctaLabel}
-        led={!disabled ? hm(mode === 'yearly' ? sumTotal : blockTotal(block)) : undefined}
+        label="Save"
         disabled={disabled}
         saving={saving}
         onPress={save}

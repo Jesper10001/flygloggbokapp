@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 112,
+      "date": "2026-11-12",
+      "notes": [
+        "Improved: Block import times are clearer, with separate hours and minutes you can change without selecting the whole time.",
+        "New: Simulator time from your logbook asks right away which simulator type it was, and you can split it between types.",
+        "Fixed: Text in the Logbook header could look blurred or cut off after using the logbook camera."
+      ]
+    },
+    {
       "id": 111,
       "date": "2026-11-12",
       "notes": [

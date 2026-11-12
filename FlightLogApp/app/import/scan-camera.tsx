@@ -19,6 +19,7 @@ import { setScanBatch, spreadLimit, scanSpreadLimit, type ScanImage } from '../.
 import { useFlightStore } from '../../store/flightStore';
 import { useScanBookStore } from '../../store/scanBookStore';
 import { useTotalsScanStore, type TotalsMode } from '../../store/totalsScanStore';
+import { useLayoutEpochStore } from '../../store/layoutEpochStore';
 import {
   ScanCameraView, isScanCameraAvailable,
   type ScanCameraHandle, type ScanStatus, type ScanCapture, type ScanState,
@@ -134,7 +135,11 @@ export default function ScanCameraScreen() {
     const tick = () => {
       const d = Dimensions.get('window');
       const waitedMs = Date.now() - started;
-      if ((d.height > d.width && waitedMs >= 230) || waitedMs >= 900) go();
+      if ((d.height > d.width && waitedMs >= 230) || waitedMs >= 900) {
+        go();
+        // Flikarna under ritades i liggande format: rita om dem rent när vi är tillbaka i stående.
+        setTimeout(() => useLayoutEpochStore.getState().bump(), 400);
+      }
       else setTimeout(tick, 40);
     };
     setTimeout(tick, 230);

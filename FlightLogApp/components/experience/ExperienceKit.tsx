@@ -1,7 +1,7 @@
 // Byggstenar för "Block import manually" (pilot + drönare): LED-fält med ghost-8:or, mätaren
 // "Left to give out", års-staplarna, sektioner och knapprader. Färgerna kommer in som en palett
 // så pilot (Colors) och drönare (DR + accent) delar samma utseende.
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, type TextStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FONT_LED7 } from '../logflight/tokens';
@@ -39,56 +39,96 @@ export const cleanInt = (v: string) => v.replace(/\D/g, '');
 
 // ── LED ───────────────────────────────────────────────────────────────────────
 
-function glow(color: string, r: number): TextStyle {
-  return { textShadowColor: color, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: r };
-}
+// Samma LED-siffror som Hours bank (Insights): DSEG7, fet, utan sken och utan svaga 8:or bakom.
+const LED: TextStyle = { fontFamily: FONT_LED7, fontWeight: '800', letterSpacing: 1 };
+// DSEG7 är ett monospace-typsnitt: varje siffra tar lika stor plats (≈ 0,82 em inkl. letterSpacing).
+const charW = (size: number) => Math.ceil(size * 0.82 + 1);
 
-/** Lysande LED-text (summor, kvar att fördela, knappens siffra). */
+/** LED-text (summor, kvar att fördela). */
 export function LedText({ children, size = 15, color, style }: { children: string; size?: number; color: string; style?: TextStyle }) {
-  return (
-    <Text style={[{ fontFamily: FONT_LED7, fontSize: size, fontWeight: '700', letterSpacing: 1, color }, glow(color, size > 18 ? 7 : 5), style]} numberOfLines={1}>
-      {children}
-    </Text>
-  );
+  return <Text style={[LED, { fontSize: size, color }, style]} numberOfLines={1}>{children}</Text>;
 }
 
-/** LED-inmatning med svaga 8:or bakom (som LedDisplay i Log flight). */
+/** Delar "1248:30" / "1248.5" i timmar och minuter för fälten. */
+function splitHM(v: string): { h: string; m: string } {
+  if (!v) return { h: '', m: '' };
+  const mins = toMin(v);
+  return { h: String(Math.floor(mins / 60)), m: String(mins % 60).padStart(2, '0') };
+}
+
+/** LED-inmatning. Tider: ett fält för timmar och ett för minuter, så man ändrar det ena utan att markera allt.
+ *  Antal (landningar): ett fält. Inget markeras när man trycker; markören hamnar sist. */
 export function LedInput({
-  value, onChangeText, P, size = 15, align = 'right', width, integer, placeholder, label, autoFocus, onFocus, onBlur,
+  value, onChangeText, P, size = 15, align = 'right', width, integer, label, onFocus, onBlur,
 }: {
   value: string; onChangeText: (v: string) => void; P: XPalette; size?: number; align?: 'left' | 'right';
   width?: number; integer?: boolean; placeholder?: string; label: string; autoFocus?: boolean;
   onFocus?: () => void; onBlur?: () => void;
 }) {
-  const ph = placeholder ?? (integer ? '--' : '--:--');
-  const ghost = (value || ph).replace(/[\d-]/g, '8');
-  const lh = Math.round(size * 1.5);
-  const base: TextStyle = {
-    fontFamily: FONT_LED7, fontSize: size, fontWeight: '700', letterSpacing: 1, lineHeight: lh,
-    textAlign: align, padding: 0, margin: 0,
+  const lh = Math.round(size * 1.35);
+  const base: TextStyle = { ...LED, fontSize: size, lineHeight: lh, height: lh + 4, padding: 0, margin: 0, color: P.text };
+  // Det användaren skriver hålls lokalt (en halvskriven minut "4" ska inte bli "04" under fingrarna);
+  // värdet utifrån tas in när det ändras av något annat än fälten själva.
+  const [hm2, setHm2] = useState(() => splitHM(value));
+  const sent = useRef(value);
+  useEffect(() => {
+    if (value !== sent.current) { sent.current = value; setHm2(splitHM(value)); }
+  }, [value]);
+  const emit = (h: string, m: string) => {
+    setHm2({ h, m });
+    const out = !h && !m ? '' : `${parseInt(h || '0', 10)}:${String(Math.min(59, parseInt(m || '0', 10))).padStart(2, '0')}`;
+    sent.current = out;
+    onChangeText(out);
   };
+  const minsRef = useRef<TextInput>(null);
+  const justify = align === 'right' ? 'flex-end' : 'flex-start';
+  if (integer) {
+    return (
+      <View style={{ width, flex: width ? undefined : 1, minWidth: 0, flexDirection: 'row', justifyContent: justify }}>
+        <TextInput
+          value={value}
+          onChangeText={(v) => onChangeText(cleanInt(v))}
+          placeholder="--"
+          placeholderTextColor={P.muted}
+          keyboardType="number-pad"
+          accessibilityLabel={label}
+          onFocus={onFocus}
+          onBlur={onBlur}
+          style={[base, { minWidth: charW(size) * Math.max(2, value.length) + 4, textAlign: align }]}
+        />
+      </View>
+    );
+  }
   return (
-    <View style={{ position: 'relative', width, flex: width ? undefined : 1, minWidth: 0, justifyContent: 'center' }}>
-      <Text
-        style={[base, { position: 'absolute', left: 0, right: 0, color: P.text, opacity: 0.08 }]}
-        numberOfLines={1}
-        accessibilityElementsHidden
-        importantForAccessibility="no"
-      >
-        {ghost}
-      </Text>
+    <View style={{ width, flex: width ? undefined : 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: justify }}>
       <TextInput
-        value={value}
-        onChangeText={(v) => onChangeText(integer ? cleanInt(v) : cleanTime(v))}
-        placeholder={ph}
+        value={hm2.h}
+        onChangeText={(v) => emit(cleanInt(v).slice(0, 5), hm2.m)}
+        placeholder="--"
         placeholderTextColor={P.muted}
-        keyboardType={integer ? 'number-pad' : 'numbers-and-punctuation'}
-        selectTextOnFocus
-        autoFocus={autoFocus}
+        keyboardType="number-pad"
+        accessibilityLabel={`${label}, hours`}
         onFocus={onFocus}
         onBlur={onBlur}
-        accessibilityLabel={label}
-        style={[base, { color: P.text, height: lh }, value ? glow(P.text, size > 18 ? 8 : 5) : null]}
+        style={[base, { width: charW(size) * Math.max(2, hm2.h.length) + 4, textAlign: 'right' }]}
+      />
+      <Text style={[base, { width: Math.ceil(size * 0.45), textAlign: 'center' }]}>:</Text>
+      <TextInput
+        ref={minsRef}
+        value={hm2.m}
+        onChangeText={(v) => {
+          let m = cleanInt(v).slice(0, 2);
+          if (m.length === 2 && parseInt(m, 10) > 59) m = '59';
+          emit(hm2.h, m);
+        }}
+        placeholder="--"
+        placeholderTextColor={P.muted}
+        keyboardType="number-pad"
+        maxLength={2}
+        accessibilityLabel={`${label}, minutes`}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        style={[base, { width: charW(size) * 2 + 4, textAlign: 'left' }]}
       />
     </View>
   );
@@ -197,7 +237,7 @@ export function TimeRow({
           {photo ? <PhotoMark P={P} /> : null}
         </View>
         {flag ? <Text style={{ color: P.warning, fontSize: 12, marginTop: 1 }} numberOfLines={1}>Check this against your logbook</Text>
-          : sub ? <Text style={{ color: P.text2, fontSize: 12, marginTop: 1 }} numberOfLines={1}>{sub}</Text> : null}
+          : sub ? <Text style={{ color: P.text2, fontSize: 12, lineHeight: 16, marginTop: 1 }} numberOfLines={2}>{sub}</Text> : null}
       </View>
       <LedInput P={P} value={value} onChangeText={onChange} width={112} integer={integer} label={label} />
       {!integer ? <Text style={{ color: P.text2, fontSize: 13, width: 9 }}>h</Text> : null}
