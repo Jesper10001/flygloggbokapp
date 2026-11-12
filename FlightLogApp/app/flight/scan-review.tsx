@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image, Pressable, TouchableOpacity, TextInput, Alert,
-  ActivityIndicator, Animated, Easing, Keyboard, useWindowDimensions, Platform, Dimensions,
+  ActivityIndicator, Animated, Easing, Keyboard, useWindowDimensions, Platform, Dimensions, AppState,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -63,7 +63,7 @@ import {
   buildPageGrid, cellRect, rowRect, rowBand, mappedBoxRect, unionRect, hitTest, columnFor, type PageGrid, type Rect,
 } from '../../services/scanGeometry';
 import {
-  alignGrid, chooseBookGrid, type BookColumns, type AlignRow, completeGridFromHeaders, crossCheckCounts, measureRows, relocateColumnsByValues, reconcileSimSpill, pageTotalsByVision, columnMovePlan, type ColumnMove, type VisionBox,
+  alignGrid, chooseBookGrid, type BookColumns, type AlignRow, completeGridFromHeaders, untangleColumns, crossCheckCounts, measureRows, relocateColumnsByValues, reconcileSimSpill, pageTotalsByVision, columnMovePlan, type ColumnMove, type VisionBox,
 } from '../../services/scanAlign';
 import type { LogbookLayout } from '../../services/logbookLayout';
 import type { OcrFlightResult } from '../../types/flight';
@@ -596,6 +596,25 @@ export default function ScanReviewScreen() {
     return undefined;
   }, [full]);
   useEffect(() => { if (full === 'entering' && W > H) setFull('on'); }, [full, W, H]);
+  // Vrids telefonen upp medan helskärmsläget är på ska bilden ligga kvar: låset sätts om tills skärmen ligger
+  // ned igen (iOS släpper ibland igenom vridningen trots låset). Detsamma när appen kommer tillbaka från bakgrunden.
+  const [fsUpright, setFsUpright] = useState(false);
+  useEffect(() => {
+    if (full !== 'on' || W > H) return undefined;
+    const lock = () => { ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {}); };
+    lock();
+    let n = 0;
+    const iv = setInterval(() => { if (++n > 12) { clearInterval(iv); return; } lock(); }, 250);
+    const late = setTimeout(() => setFsUpright(true), 1800);
+    return () => { clearInterval(iv); clearTimeout(late); setFsUpright(false); };
+  }, [full, W, H]);
+  useEffect(() => {
+    if (full !== 'on') return undefined;
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active') ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
+    });
+    return () => sub.remove();
+  }, [full]);
   const [saving, setSaving] = useState(false);
   const [fatal, setFatal] = useState<string | null>(null);
   const [known, setKnown] = useState<Set<string>>(new Set());
@@ -903,6 +922,9 @@ export default function ScanReviewScreen() {
         const before = aligned.grid.columns.length;
         grid = completeGridFromHeaders(aligned.grid, words);
         if (grid.columns.length > before) console.log(`[SCAN] ${grid.columns.length - before} kolumner tillagda från rubrikerna`);
+        // En kolumn som skannern lagt över flera andra (oftast datumet) får sin egen plats bredvid dem.
+        const tidy = untangleColumns(grid, words);
+        if (tidy !== grid) { console.log('[SCAN] En kolumn låg över flera andra och har lagts på sin egen plats'); grid = tidy; }
         // Varje rads läge mäts mot Visions ord (sidan buktar ofta, så raderna är inte jämnt fördelade).
         grid = measureRows(grid, newRows.map((r) => ({
           rowIndex: r.rowIndex,
@@ -929,7 +951,7 @@ export default function ScanReviewScreen() {
             .map((f) => [f, String((r.data as any)[f] ?? '')]).filter(([, v]) => v !== '')),
         }));
         const choice = chooseBookGrid(grid, scoreRows, words, bookGridRef.current);
-        grid = choice.grid;
+        grid = untangleColumns(choice.grid, words);
         console.log(`[SCAN] Kolumner uppslag ${i + 1}: ${Object.entries(choice.scores).map(([k, v]) => `${k} ${v.toFixed(2)}`).join(' · ')} → ${choice.source}`);
         pageInputs.current.set(i, { rows: scoreRows, words, score: choice.score });
         // Vision läser handskrift ojämnt, så nivån är låg; varje uppslag väljer ändå det som stämmer bäst.
@@ -943,7 +965,7 @@ export default function ScanReviewScreen() {
             if (again.source === 'own') return;
             console.log(`[SCAN] Uppslag ${k + 1} fick bokens kolumner (${input.score.toFixed(2)} → ${again.score.toFixed(2)})`);
             pageInputs.current.set(k, { ...input, score: again.score });
-            patchPage(k, { grid: again.grid });
+            patchPage(k, { grid: untangleColumns(again.grid, input.words) });
           });
         }
 
@@ -989,6 +1011,8 @@ export default function ScanReviewScreen() {
           asked++;
         }
         if (checks.length) console.log(`[SCAN] Landningar som skiljer sig från Vision: ${checks.length}${landingsConfirmed ? ' — summorna stämmer med Claudes läsning, ingen fråga' : `, ${asked} frågor`}`);
+      } else if (grid) {
+        grid = untangleColumns(grid);
       }
 
       if (__DEV__) {
@@ -2445,19 +2469,19 @@ export default function ScanReviewScreen() {
         )}
         {!ready && (
           <View style={s.fsCenter}>
-            {full === 'entering' && fsLate ? (
+            {(full === 'entering' && fsLate) || fsUpright ? (
               <>
                 <Ionicons name="phone-landscape-outline" size={32} color="#B4C9DD" />
                 <Text style={s.fsHint}>Turn your phone sideways</Text>
               </>
-            ) : <ActivityIndicator color={Colors.primary} />}
+            ) : full === 'on' ? null : <ActivityIndicator color={Colors.primary} />}
           </View>
         )}
 
         {/* Knappar: tillbaka till frågorna, uppslag, ögat */}
         {full !== 'leaving' && (
           <>
-            <TouchableOpacity style={[s.fsBtn, { left: padL + 4, top: 10 }]} onPress={() => { closeFsCell(); setFull('leaving'); }}
+            <TouchableOpacity style={[s.fsBtn, { left: padL + 4, top: landscape ? 10 : insets.top + 6 }]} onPress={() => { closeFsCell(); setFull('leaving'); }}
               accessibilityRole="button" accessibilityLabel="Leave full screen">
               <Ionicons name="contract-outline" size={20} color="#fff" />
             </TouchableOpacity>

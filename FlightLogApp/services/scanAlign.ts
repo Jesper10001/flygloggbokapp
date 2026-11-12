@@ -437,6 +437,64 @@ export function completeGridFromHeaders(grid: PageGrid, words: VisionBox[]): Pag
   return { ...g, columns: [...g.columns, ...added].sort((a, b) => a.left - b.left) };
 }
 
+// Fält som får vara breda och ha andra kolumner inuti sig (fri text, eller en grupp med handskrivna underkolumner).
+const WIDE_OK = new Set(['remarks', 'other_flight_time']);
+// Tryckta rubriker som visar var en kolumn står, när den måste läggas om.
+const UNTANGLE_HEADERS: Record<string, RegExp> = { date: /^DATE/ };
+
+/**
+ * En kolumn som ligger över flera andra kolumner får sin egen plats. Skannern anger ibland en kolumn (i
+ * praktiken datumet) med kanter som täcker grannarna: då ritas dess värde bakom de andra, och varje tryck i de
+ * kolumnerna träffar den. Kolumnen flyttas till den lediga ytan bredvid kolumnerna den täckte: dit den tryckta
+ * rubriken står om Vision hittat den, annars intill dem med en rimlig bredd. Ett friskt rutnät rörs inte
+ * (samma objekt tillbaka).
+ */
+export function untangleColumns(grid: PageGrid, words: VisionBox[] = []): PageGrid {
+  const fielded = grid.columns.filter((c) => c.field);
+  if (fielded.length < 4) return grid;
+  const mid = (c: { left: number; right: number }) => (c.left + c.right) / 2;
+  const width = (c: { left: number; right: number }) => c.right - c.left;
+  const spine = grid.spine ?? 0.5;
+  const header = words.filter((w) => w.y + w.h <= grid.tableTop + 0.01 && w.y >= grid.tableTop - 0.3);
+  const pad = 0.004, eps = 0.003;
+  let changed = false;
+  const columns = grid.columns.map((c) => {
+    if (!c.field || WIDE_OK.has(c.field)) return c;
+    const inside = fielded.filter((o) => o !== c && width(o) < width(c) && mid(o) > c.left && mid(o) < c.right)
+      .sort((a, b) => a.left - b.left);
+    if (inside.length < 2) return c;
+    const first = inside[0], last = inside[inside.length - 1];
+    const widths = inside.map(width).sort((a, b) => a - b);
+    const med = widths[Math.floor(widths.length / 2)];
+    const onLeftPage = (first.left + last.right) / 2 < spine;
+    const others = fielded.filter((o) => o !== c);
+    // Lediga ytan till vänster och till höger om kolumnerna den täckte (inom samma sida av uppslaget).
+    const gapL = { from: Math.max(onLeftPage ? 0 : spine, ...others.filter((o) => o.right <= first.left + eps).map((o) => o.right)), to: first.left };
+    const gapR = { from: last.right, to: Math.min(onLeftPage ? spine : 1, ...others.filter((o) => o.left >= last.right - eps).map((o) => o.left)) };
+    const room = (g: { from: number; to: number }) => g.to - g.from;
+    const re = UNTANGLE_HEADERS[c.field];
+    const head = re ? header.find((w) => re.test(norm(w.text))) : undefined;
+    const headX = head ? head.x + head.w / 2 : NaN;
+    const side: 'l' | 'r' | null =
+      head && headX > gapL.from && headX < gapL.to ? 'l'
+        : head && headX > gapR.from && headX < gapR.to ? 'r'
+          : c.field === 'date' && room(gapL) >= med * 0.3 ? 'l'        // datumet står först i boken
+            : room(gapL) >= med * 0.3 && room(gapL) >= room(gapR) ? 'l'
+              : room(gapR) >= med * 0.3 ? 'r' : null;
+    if (!side) return c;   // ingen ledig yta: lämnas (träff-testet väljer ändå den smalaste kolumnen)
+    const g = side === 'l' ? gapL : gapR;
+    const headHere = head && headX > g.from && headX < g.to ? head : undefined;
+    changed = true;
+    if (side === 'l') {
+      const left = headHere ? Math.min(headHere.x - pad, g.to - med) : g.to - med * 1.4;
+      return { ...c, left: Math.max(g.from, left), right: g.to };
+    }
+    const right = headHere ? Math.max(headHere.x + headHere.w + pad, g.from + med) : g.from + med * 1.4;
+    return { ...c, left: g.from, right: Math.min(g.to, right) };
+  });
+  return changed ? { ...grid, columns: columns.sort((a, b) => a.left - b.left) } : grid;
+}
+
 // Talfält vars kolumn kan flyttas om värdena står någon annanstans.
 const NUMERIC_FIELDS = ['total_time', 'pic', 'co_pilot', 'dual', 'instructor', 'ifr', 'night', 'sim', 'multi_pilot', 'single_pilot', 'nvg'];
 

@@ -255,8 +255,13 @@ export function unionRect(rects: (Rect | null)[]): Rect | null {
 
 /** Vilken rad och kolumn en punkt (0–1) träffar, eller null utanför tabellen. */
 export function hitTest(grid: PageGrid, x: number, y: number): { rowIndex: number; field: string | null } | null {
-  const col = grid.columns.find((c) => x >= c.left && x <= c.right);
-  if (!col) return null;
+  const hits = grid.columns.filter((c) => x >= c.left && x <= c.right);
+  if (hits.length === 0) return null;
+  // Ligger kolumner över varandra vinner den smalaste (helst en med fält): en kolumn som blivit för bred ska
+  // inte ta trycken från kolumnerna den täcker.
+  const narrowest = (cs: GridColumn[]) => cs.reduce((a, b) => (b.right - b.left < a.right - a.left ? b : a));
+  const fielded = hits.filter((c) => c.field);
+  const col = narrowest(fielded.length ? fielded : hits);
   // Raden vars band (vid kolumnen) innehåller punkten — banden följer sidans buktning.
   for (let r = 1; r <= grid.rowsPerPage; r++) {
     const band = rowBand(grid, r, x);

@@ -572,5 +572,38 @@ console.log('18. Värden lästa i grannkolumnen (Dual som egentligen är Co-pilo
   ok(A.columnMovePlan(read(), printed, grid, words, 'dual', 'co_pilot', 'right') === null, 'fel sida ger ingen plan');
 }
 
+console.log('Kolumn som ligger över flera andra (untangleColumns, hitTest)');
+{
+  const col = (field, left, right) => ({ field, label: field, left, right });
+  const healthy = {
+    tableTop: 0.2, tableBottom: 0.85, rowsPerPage: 13, source: 'aligned', spine: 0.5,
+    columns: [col('date', 0.05, 0.10), col('aircraft_type', 0.10, 0.14), col('registration', 0.14, 0.19), col('dep_place', 0.19, 0.23),
+      col('dep_utc', 0.23, 0.27), col('arr_place', 0.27, 0.31), col('arr_utc', 0.31, 0.35), col('total_time', 0.35, 0.40),
+      col('pic', 0.55, 0.60), col('dual', 0.60, 0.65), col('remarks', 0.70, 0.95)],
+  };
+  ok(A.untangleColumns(healthy) === healthy, 'ett friskt rutnät rörs inte');
+  // Datumet angivet över typ … ankomstplats (som på ett riktigt uppslag): ritas bakom de andra och tar trycken.
+  const broken = { ...healthy, columns: healthy.columns.map((c) => (c.field === 'date' ? col('date', 0.10, 0.31) : c)) };
+  const yRow3 = G.cellRect(broken, 3, 'pic').y + 0.001;
+  ok(G.hitTest(broken, 0.12, yRow3).field === 'aircraft_type', `tryck på typ träffar typ, inte datum (${G.hitTest(broken, 0.12, yRow3).field})`);
+  ok(G.hitTest(broken, 0.29, yRow3).field === 'arr_place', 'tryck på ankomstplats träffar ankomstplats');
+  ok(G.hitTest(healthy, 0.07, yRow3).field === 'date' && G.hitTest(healthy, 0.8, yRow3).field === 'remarks', 'friskt rutnät: som förut');
+  const fixed = A.untangleColumns(broken);
+  const d = fixed.columns.find((c) => c.field === 'date');
+  ok(fixed !== broken && near(d.right, 0.10) && d.left < 0.10 && d.left > 0.03, `datumet läggs till vänster om typ (${d.left.toFixed(3)}–${d.right.toFixed(3)})`);
+  ok(fixed.columns.filter((c) => c.field !== 'date').every((c) => { const o = healthy.columns.find((x) => x.field === c.field); return o.left === c.left && o.right === c.right; }), 'övriga kolumner orörda');
+  ok(A.untangleColumns(fixed) === fixed, 'en gång räcker');
+  ok(G.hitTest(fixed, 0.08, yRow3).field === 'date', 'tryck i datumkolumnen träffar datum');
+  // Med den tryckta rubriken från Vision följer kolumnen rubrikens vänsterkant.
+  const withHead = A.untangleColumns(broken, [{ text: 'Date of flight', x: 0.045, y: 0.12, w: 0.05, h: 0.012 }]);
+  const dh = withHead.columns.find((c) => c.field === 'date');
+  ok(near(dh.left, 0.041) && near(dh.right, 0.10), `rubriken styr vänsterkanten (${dh.left.toFixed(3)}–${dh.right.toFixed(3)})`);
+  // Remarks får vara bred med kolumner inuti; en kolumn över bara EN annan rörs inte.
+  const wideRemarks = { ...healthy, columns: healthy.columns.map((c) => (c.field === 'remarks' ? col('remarks', 0.50, 0.95) : c)) };
+  ok(A.untangleColumns(wideRemarks) === wideRemarks, 'remarks lämnas');
+  const one = { ...healthy, columns: healthy.columns.map((c) => (c.field === 'date' ? col('date', 0.05, 0.14) : c)) };
+  ok(A.untangleColumns(one) === one, 'överlapp med en enda kolumn lämnas');
+}
+
 console.log(fails === 0 ? '\ninga fel' : `\n${fails} fel`);
 process.exit(fails === 0 ? 0 : 1);
