@@ -150,8 +150,11 @@ export default function RootLayout() {
         if (__DEV__) runEncryptionSelfTest();
         // Promo-kod (gratis Premium): cache-först (snabbt/offline) → server-verifiering i bakgrunden.
         // Servern (proxyns KV) är sanningskällan → revocera en testare genom att ta bort KV-nyckeln.
-        const promoCached = (await getSetting('promo_premium').catch(() => null)) === '1';
-        if (promoCached) useFlightStore.getState().setIsPremium(true);
+        // promo_premium: '1' = Premium från en kod, 'max' = Blades Max från en kod.
+        const promoVal = await getSetting('promo_premium').catch(() => null);
+        const promoCached = promoVal === '1' || promoVal === 'max';
+        if (promoVal === 'max') useFlightStore.getState().setTier('max');
+        else if (promoCached) useFlightStore.getState().setIsPremium(true);
         // Bara en riktig promokod cachas som promo_premium — en RevenueCat-prenumeration får inte ligga kvar som
         // "promo" offline efter att den gått ut (RevenueCat-SDK:n sköter prenumerationen). Äldre proxy utan
         // promo-fält → som förut.
@@ -159,8 +162,9 @@ export default function RootLayout() {
           if (!res) return;
           const promo = res.promo ?? res.premium;
           // Bara uppåt från free: en Max-nivå från RevenueCat ska inte skrivas om till Premium.
-          if (res.premium && !useFlightStore.getState().isPremium) useFlightStore.getState().setIsPremium(true);
-          if (promo) await setSetting('promo_premium', '1').catch(() => {});
+          if (res.promoTier === 'max' && !useFlightStore.getState().isMax) useFlightStore.getState().setTier('max');
+          else if (res.premium && !useFlightStore.getState().isPremium) useFlightStore.getState().setIsPremium(true);
+          if (promo) await setSetting('promo_premium', res.promoTier === 'max' ? 'max' : '1').catch(() => {});
           else if (promoCached) {
             await setSetting('promo_premium', '0').catch(() => {});
             if (!res.premium) useFlightStore.getState().setIsPremium(false);

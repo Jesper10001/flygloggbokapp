@@ -6,6 +6,7 @@ import { costUsd } from './pricing';
 import { quotaTokens } from './quotaWeight';
 import { scanReach, passSize, grantScanPass, scanPassCovers, noteScanRead } from './scanPass';
 import { getCredits, grantPurchase, revokePurchase, splitCharge, hasAllowance, COIN_PACKS } from './credits';
+import { redeemCode, promoTierOf } from './promo';
 
 // OpsEnv: driftsidan /ops och supportmejlen (src/ops.ts) — nycklar för Sentry, RevenueCat, App Store Connect m.m.
 interface Env extends OpsEnv {
@@ -17,6 +18,8 @@ interface Env extends OpsEnv {
   CF_ACCOUNT_ID: string;
   STATS_PASSWORD: string;
   PROMO_CODES?: string; // kommaseparerade promo-koder (secret) → gratis Blades Premium. Aldrig i app-bundlen.
+  PROMO_CODES_MAX?: string;   // (secret) → Blades Max, en enhet per kod (promo.ts)
+  PROMO_CODES_COINS?: string; // (secret) → 500 Blade coins en gång, en enhet per kod (promo.ts)
   APP_KEY?: string;     // valfri app-autentisering: krävs i X-App-Key om satt (se AI-proxyn). Vilande om osatt.
   REVENUECAT_SECRET_KEY?: string;   // RevenueCat v2 secret key (sk_…) — läser kunds active entitlements. Secret.
   REVENUECAT_PROJECT_ID?: string;   // RevenueCat projekt-id (proj…) — behövs i v2-URL:en.
@@ -186,9 +189,13 @@ async function kvGetMigrating(kv: KVNamespace, key: string, legacyKey: string, p
   return old;
 }
 
+// Nivån från en promokod: '1' = Premium, 'max' = Max (promo.ts).
+async function promoTier(kv: KVNamespace | undefined, dk: DevKeys): Promise<'max' | 'premium' | 'free'> {
+  if (!kv) return 'free';
+  return promoTierOf(await kvGetMigrating(kv, `promo:${dk.hash}`, `promo:${dk.legacy}`));
+}
 async function promoActive(kv: KVNamespace | undefined, dk: DevKeys): Promise<boolean> {
-  if (!kv) return false;
-  return (await kvGetMigrating(kv, `promo:${dk.hash}`, `promo:${dk.legacy}`)) === '1';
+  return (await promoTier(kv, dk)) !== 'free';
 }
 
 // ── RevenueCat v2: server-side premium (kan inte spoofas via headers) ─────────
@@ -247,8 +254,11 @@ async function checkRcTier(deviceId: string, env: Env): Promise<string> {
 // klientens X-Tier/X-Premium-headers.
 async function resolveTier(deviceId: string, env: Env): Promise<string> {
   const tier = await checkRcTier(deviceId, env);
-  if (tier !== 'free') return tier;
-  return (await promoActive(env.QUOTA_KV, await deviceKeys(deviceId))) ? 'premium' : 'free';
+  if (tier === 'max') return tier;
+  // En Max-kod lyfter även en Premium-prenumerant till Max; en Premium-kod lyfter bara free.
+  const promo = await promoTier(env.QUOTA_KV, await deviceKeys(deviceId));
+  if (promo === 'max') return 'max';
+  return tier !== 'free' ? tier : promo;
 }
 
 // ── Provveckan: Premiums eller Max funktioner, men gratispottens coins ─────────
@@ -1144,7 +1154,8 @@ export default {
     if (url.pathname === '/entitlement' && request.method === 'GET') {
       const devId = request.headers.get('X-Device-ID') ?? 'unknown';
       const premium = isPaid(await resolveTier(devId, env));
-      const promo = premium && await promoActive(env.QUOTA_KV, await deviceKeys(devId));
+      const pTier = await promoTier(env.QUOTA_KV, await deviceKeys(devId));
+      const promo = premium && pTier !== 'free';
       // ?debug=1: RevenueCats svarskoder (inga nycklar), t.ex. 403 = nyckeln saknar behörighet.
       if (url.searchParams.get('debug') === '1') {
         const rc = { entitlements: (await rcFetchActive(devId, env)).status, subscriptions: (await rcTrialStatus(devId, env)).status };
@@ -1152,7 +1163,8 @@ export default {
           headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
         });
       }
-      return new Response(JSON.stringify({ premium, promo }), {
+      // promo_tier: vilken nivå koden ger ('max' | 'premium' | 'free'), så appen visar Max för en Max-kod.
+      return new Response(JSON.stringify({ premium, promo, promo_tier: pTier }), {
         headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
       });
     }
@@ -1164,16 +1176,16 @@ export default {
       const dk = await deviceKeys(request.headers.get('X-Device-ID') ?? 'unknown');
       let code = '';
       try { code = String((JSON.parse(await request.text()) as any)?.code ?? ''); } catch { /* ogiltig body */ }
-      const norm = code.trim().toUpperCase();
-      const valid = norm.length > 0 && (env.PROMO_CODES ?? '')
-        .split(',').map((c) => c.trim().toUpperCase()).filter(Boolean).includes(norm);
-      if (!valid) {
-        return new Response(JSON.stringify({ ok: false }), {
-          status: 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+      // Premium-, Max- och coin-koder (promo.ts). Bindningarna sparas permanent (ingen TTL).
+      const res = env.QUOTA_KV ? await redeemCode(env.QUOTA_KV, env, dk.hash, code) : { ok: false, reason: 'invalid' as const };
+      if (!res.ok) {
+        return new Response(JSON.stringify({ ok: false, kind: res.kind, reason: res.reason }), {
+          status: res.reason === 'used' ? 409 : 400, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
         });
       }
-      if (env.QUOTA_KV) await env.QUOTA_KV.put(`promo:${dk.hash}`, '1'); // permanent (ingen TTL)
-      return new Response(JSON.stringify({ ok: true, premium: true }), {
+      // Nivån syns direkt: resolveTier läser promo:<enhet> vid varje anrop (bara RevenueCat cachas).
+      // premium: äldre appar läser bara den (true för Premium- och Max-koder).
+      return new Response(JSON.stringify({ ok: true, kind: res.kind, coins: res.coins, premium: res.kind !== 'coins' }), {
         headers: { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
       });
     }

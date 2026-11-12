@@ -8,9 +8,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 import { useFlightStore } from '../../store/flightStore';
-import { setSetting } from '../../db/flights';
+import { setSetting, getSetting } from '../../db/flights';
 import { redeemPromo } from '../../services/promo';
-import { getPremiumOffering, purchasePackage, restorePurchases } from '../../services/purchases';
+import { getPremiumOffering, purchasePackage, restorePurchases, refreshTokenQuota } from '../../services/purchases';
 import { useToastStore } from '../../components/Toast';
 import { GlassDialog, DialogIcon } from '../../components/GlassDialog';
 import { FREE_TIER_LIMIT } from '../../constants/easa';
@@ -124,13 +124,30 @@ export default function PremiumScreen() {
   const applyPromo = async () => {
     if (promoBusy) return;
     setPromoBusy(true);
-    const ok = await redeemPromo(promoCode);
+    const res = await redeemPromo(promoCode);
     setPromoBusy(false);
-    if (!ok) { Alert.alert('Invalid code', 'That promo code is not valid.'); return; }
-    await setSetting('promo_premium', '1').catch(() => {});
-    setIsPremium(true);
+    if (!res.ok) {
+      if (res.reason === 'used') Alert.alert('Code already used', 'This code has already been used on another phone, or its coins are already added here.');
+      else if (res.reason === 'offline') Alert.alert('No connection', 'Connect to the internet and try again.');
+      else Alert.alert('Invalid code', 'That promo code is not valid.');
+      return;
+    }
     setPromoOpen(false);
     setPromoCode('');
+    if (res.kind === 'coins') {
+      refreshTokenQuota();
+      Alert.alert(`${res.coins ?? 500} Blade coins added`, 'They never expire and are used after your monthly coins.', [{ text: 'OK' }]);
+      return;
+    }
+    if (res.kind === 'max') {
+      await setSetting('promo_premium', 'max').catch(() => {});
+      useFlightStore.getState().setTier('max');
+      refreshTokenQuota();
+      Alert.alert('Blades Max unlocked', 'Your promo access is now active, with 500 Blade coins every month.', [{ text: 'OK', onPress: () => router.back() }]);
+      return;
+    }
+    if ((await getSetting('promo_premium').catch(() => null)) !== 'max') await setSetting('promo_premium', '1').catch(() => {});
+    if (!useFlightStore.getState().isPremium) setIsPremium(true);
     Alert.alert('Blades Premium unlocked', 'Your promo access is now active.', [{ text: 'OK', onPress: () => router.back() }]);
   };
 
@@ -226,9 +243,9 @@ export default function PremiumScreen() {
         visible={promoOpen}
         onClose={() => { setPromoOpen(false); setPromoCode(''); }}
         icon={<DialogIcon name="pricetag-outline" color={N.gold} />}
-        eyebrow="Blades Premium"
-        title="Promo code"
-        body="Enter your code to unlock Blades Premium."
+        eyebrow="Promo code"
+        title="Redeem a code"
+        body="Enter your code for Blades Premium, Blades Max or Blade coins."
         primary={{ label: promoBusy ? 'Checking…' : 'Apply', onPress: applyPromo, disabled: promoBusy || !promoCode.trim() }}
         secondary={{ label: 'Cancel', onPress: () => { setPromoOpen(false); setPromoCode(''); } }}
       >

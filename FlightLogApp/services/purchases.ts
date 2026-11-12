@@ -87,15 +87,17 @@ function tierOf(info: CustomerInfo | null | undefined): SubscriptionTier {
 // Nivån = RevenueCat-entitlement, och minst Premium med en promokod (server-verifierad). Skriver ALDRIG över
 // en aktiv promo till free — de två källorna slås ihop.
 async function applyEntitlement(rcTier: SubscriptionTier): Promise<void> {
-  const promo = (await getSetting('promo_premium').catch(() => null)) === '1';
-  useFlightStore.getState().setTier(rcTier === 'free' && promo ? 'premium' : rcTier);
+  // promo_premium: '1' = Premium från en kod, 'max' = Max från en kod (lyfter även en Premium-prenumeration).
+  const promo = await getSetting('promo_premium').catch(() => null);
+  const tier: SubscriptionTier = promo === 'max' ? 'max' : rcTier === 'free' && promo === '1' ? 'premium' : rcTier;
+  useFlightStore.getState().setTier(tier);
   refreshTokenQuota(); // Blade-coin-saldot (server /tokens) ska uppdateras direkt när nivån ändras
 }
 
 // Laddar om coin-saldot från proxyns /tokens. Lazy-require undviker cirkulär import. Kör direkt
 // + en gång till strax efter, så webhooken/serverns premium-cache hinner uppdateras (annars kan
 // första hämtningen råka läsa free-tier en kort stund efter köpet).
-function refreshTokenQuota(): void {
+export function refreshTokenQuota(): void {
   try {
     const { useTokenQuotaStore } = require('../store/tokenQuotaStore');
     const reload = () => useTokenQuotaStore.getState().load().catch(() => {});

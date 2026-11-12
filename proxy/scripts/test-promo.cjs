@@ -1,0 +1,30 @@
+// Test av promokoderna (src/promo.ts): Premium, Max (en enhet per kod) och 500 coins (en gång). Kör: node proxy/scripts/test-promo.cjs
+const fs = require('fs'), path = require('path');
+const ts = require(path.join(__dirname, '../../FlightLogApp/node_modules/typescript'));
+const load = (f, req) => { const m = { exports: {} }; new Function('module', 'exports', 'require', ts.transpileModule(fs.readFileSync(f, 'utf8'), { compilerOptions: { module: 1, target: 9 } }).outputText)(m, m.exports, req); return m.exports; };
+const credits = load(path.join(__dirname, '../src/credits.ts'), () => ({}));
+const P = load(path.join(__dirname, '../src/promo.ts'), (q) => (q === './credits' ? credits : {}));
+const store = new Map(); const kv = { get: async (k) => store.has(k) ? store.get(k) : null, put: async (k, v) => { store.set(k, v); } };
+const env = { PROMO_CODES: 'OLDCODE', PROMO_CODES_MAX: 'MAX-AAAA, max-bbbb', PROMO_CODES_COINS: 'COIN-1111,COIN-2222' };
+let fails = 0; const eq = (g, w, m) => { if (JSON.stringify(g) !== JSON.stringify(w)) { fails++; console.log('FEL', m, JSON.stringify(g), '≠', JSON.stringify(w)); } };
+(async () => {
+  eq(await P.redeemCode(kv, env, 'devA', 'nope'), { ok: false, reason: 'invalid' }, 'ogiltig');
+  eq(await P.redeemCode(kv, env, 'devA', ' oldcode '), { ok: true, kind: 'premium' }, 'premium');
+  eq(store.get('promo:devA'), '1', 'premium sparad');
+  eq(await P.redeemCode(kv, env, 'devA', 'max-bbbb'), { ok: true, kind: 'max' }, 'max');
+  eq(store.get('promo:devA'), 'max', 'max sparad');
+  eq(await P.redeemCode(kv, env, 'devA', 'OLDCODE'), { ok: true, kind: 'premium' }, 'premium-kod sänker inte max');
+  eq(store.get('promo:devA'), 'max', 'fortfarande max');
+  eq(await P.redeemCode(kv, env, 'devA', 'MAX-BBBB'), { ok: true, kind: 'max' }, 'samma enhet igen: ok');
+  eq(await P.redeemCode(kv, env, 'devB', 'MAX-BBBB'), { ok: false, kind: 'max', reason: 'used' }, 'max-kod på annan enhet');
+  eq(await P.redeemCode(kv, env, 'devB', 'coin-1111'), { ok: true, kind: 'coins', coins: 500 }, 'coins');
+  eq(store.get('credits:devB'), String(500 * 200), '500 coins i tokens');
+  eq(await P.redeemCode(kv, env, 'devB', 'COIN-1111'), { ok: false, kind: 'coins', reason: 'used' }, 'coins en gång');
+  eq(store.get('credits:devB'), String(500 * 200), 'inga extra coins');
+  eq(await P.redeemCode(kv, env, 'devC', 'COIN-1111'), { ok: false, kind: 'coins', reason: 'used' }, 'coin-kod på annan enhet');
+  store.set('credits:devC', '-1000');
+  eq(await P.redeemCode(kv, env, 'devC', 'COIN-2222'), { ok: true, kind: 'coins', coins: 500 }, 'coins med skuld');
+  eq(store.get('credits:devC'), String(100000 - 1000), 'skulden dras av');
+  eq([P.promoTierOf('max'), P.promoTierOf('1'), P.promoTierOf(null)], ['max', 'premium', 'free'], 'nivåer');
+  console.log(fails ? `${fails} fel` : 'Alla tester gick igenom'); process.exit(fails ? 1 : 0);
+})();

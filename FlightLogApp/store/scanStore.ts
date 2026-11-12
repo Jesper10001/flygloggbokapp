@@ -20,9 +20,9 @@ export function scanSpreadLimit(paying: boolean): number {
 }
 // Testbygge: dev-builden eller TestFlight-bygget (kanalen preview, bara din telefon). Aldrig App Store-bygget.
 export const TEST_BUILD = __DEV__ || Updates.channel === 'preview';
-// Skanningen av pappersloggboken är pausad i App Store-bygget ("coming soon") men öppen i testbyggena medan den
-// testas. Byt till true när den ska lanseras.
-export const SCAN_OPEN = TEST_BUILD;
+// Skanningen av pappersloggboken (Logbook scan, hela boken och Block import med foto) är öppen för alla från
+// 1.0.1 (användarens beslut 2026-11-12). App Store 1.0 saknar expo-updates och får aldrig den här koden.
+export const SCAN_OPEN = true;
 
 export interface ScanImage {
   base64: string;
