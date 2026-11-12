@@ -51,8 +51,8 @@ import {
 } from '../../services/scanFields';
 import {
   prepareFlight, findUnknownIcaos, flagUnknownIcaos, saveScanRows, saveLearnedCorrections, matchScanRows, EMPTY_SCAN_MATCH, type ScanMatch, columnTotals,
-  detectTimeAddition, fitsTimeAddition, distributeDifference, checkRowSequence, checkLandingPairs, reconcileSimColumn, typicalRowsPerPage, reconcileAddition,
-  rowsMatchBlockTimes, pageTotalsPointAt, suggestAdjustRows, followTotalTime, findExtraRow, headerNamesPilot, applyPilotNamesFromRemarks, type ScanRow,
+  detectTimeAddition, fitsTimeAddition, checkRowSequence, checkLandingPairs, reconcileSimColumn, typicalRowsPerPage, reconcileAddition,
+  rowsMatchBlockTimes, pageTotalsPointAt, findExtraRow, headerNamesPilot, applyPilotNamesFromRemarks, type ScanRow,
 } from '../../services/scanImport';
 import { mergeScan, ledgerStatus, type PaperFix, type LedgerSpread } from '../../services/scanPaperFixes';
 import { loadLedger, saveLedger } from '../../services/paperLedger';
@@ -109,7 +109,11 @@ interface Issue {
   group?: { key: string; members: string[]; rects: Rect[]; sims?: { rowKey: string; sg: Suggestion }[]; remarks?: boolean };   // samma fråga på flera rader
   alsoRows?: string[];   // "New registration": alla rader med samma läsning (frågan står på den första)
   moves?: { side: 'left' | 'right'; field: string }[];   // "fel kolumn": grannkolumnerna värdet kan flyttas till
-  column?: { sum: number; printed: number; miscounted: boolean; extraRow?: { key: string; rowIndex: number }; move?: ColumnMove };   // radsumma mot sidans summa
+  // radsumma mot sidans summa; cells = cellfrågorna som ställs före kolumnens (se sumCell)
+  column?: { sum: number; printed: number; miscounted: boolean; extraRow?: { key: string; rowIndex: number }; move?: ColumnMove; cells?: string[] };
+  // Cellen står i en kolumn vars summa inte går ihop. 'explains' = ett rimligt värde i just den här cellen får
+  // kolumnen att gå ihop (frågas först i kolumnen); 'suspect' = Claude var osäker på cellen.
+  sumCell?: 'explains' | 'suspect';
 }
 
 // Grannkolumnerna (vänster/höger) till ett tal i boken, av samma slag (tid ↔ tid, antal ↔ antal). Från
@@ -409,6 +413,61 @@ function deriveIssues(
       const off = `${fmt(Math.abs(diff))}${count ? (Math.abs(diff) === 1 ? ' landing' : ' landings') : ' h'} ${diff < 0 ? 'short' : 'over'}`;
       const n = move?.keys.length ?? 0;
       const where = move?.evidence === 'vision' ? `on the page ${n === 1 ? 'it stands' : 'they stand'} under ${label(move.to)}` : `${n === 1 ? 'it probably belongs' : 'they probably belong'} under ${label(move?.to ?? '')}`;
+      // Cellerna före kolumnen: en summa som inte går ihop beror nästan alltid på en eller ett par fellästa celler,
+      // och det är dem användaren kan kontrollera mot boken. Varje cell Claude var osäker på i kolumnen frågas
+      // för sig (även på rader som redan finns i loggboken, de räknas i summan), med värdet som får kolumnen att
+      // gå ihop som förslag. Har kolumnen för mycket och exakt en rad har just det talet frågas den cellen också.
+      const cells: string[] = [];
+      if (!move && !extra && !miscounted) {
+        const tol = count ? 0.5 : 0.05;
+        const inSum = rows.filter((r) => r.page === pageIdx && !r.skip && !(c.field === 'total_time' && r.data.flight_type === 'sim'));
+        const num = (r: ScanRow) => parseFloat(String((r.data as any)[c.field] ?? '')) || 0;
+        const sumText = `The column adds up to ${fmt(c.sum)}, but the page total says ${fmt(c.printed)}.`;
+        const sentence = (t: string) => { const x = (t || '').trim(); return !x ? '' : /[.!?]$/.test(x) ? `${x} ` : `${x}. `; };
+        const mark = (issue: Issue, r: ScanRow) => {
+          const fix = Math.round((num(r) + diff) * (count ? 1 : 10)) / (count ? 1 : 10);
+          const fixOk = fix >= 0 && Math.abs(fix - num(r)) >= tol;
+          const own = issue.suggestions.filter((x) => x.field === c.field && !x.toSim);
+          const same = (x: Suggestion) => Math.abs((parseFloat(x.value) || 0) - fix) < tol;
+          issue.sumCell = fixOk && (fix === 0 || own.some(same)) ? 'explains' : 'suspect';
+          if (fixOk) {
+            issue.suggestions = [{ label: fix === 0 ? 'Empty' : fmt(fix), field: c.field, value: fmt(fix) }, ...issue.suggestions.filter((x) => !(x.field === c.field && !x.toSim && same(x)))];
+            issue.reason = `${sentence(issue.reason)}${sumText} ${fix === 0 ? 'With this cell empty' : `With ${fmt(fix)} here`} it adds up.`;
+          } else issue.reason = `${sentence(issue.reason)}${sumText}`;
+          cells.push(issue.id);
+        };
+        for (const r of inSum) {
+          const id = `${r.key}:f:${c.field}`;
+          const existing = out.find((i) => i.id === id);
+          let issue = existing?.kind === 'value' ? existing : undefined;
+          // Ingen fråga än (raden finns redan i loggboken och får annars inga frågor) → cellen frågas ändå.
+          const fi = !existing ? (r.data.field_issues ?? []).find((x) => x.field === c.field) : undefined;
+          if (fi) {
+            issue = {
+              id, kind: 'value', page: pageIdx, rowKey: r.key, field: c.field, title: label(c.field), reason: fi.reason,
+              confidence: fi.confidence || undefined, readAs: fi.read_as,
+              suggestions: [...new Set([fi.suggested_value, ...(fi.options ?? [])].filter((v): v is string => !!v))].map((v) => ({ label: v, field: c.field, value: v })),
+              rect: cellRect(p.grid!, r.rowIndex, c.field) ?? rowRect(p.grid!, r.rowIndex), moves: neighbourColumns(p.grid, c.field),
+            };
+            out.push(issue);
+          }
+          if (issue) mark(issue, r);
+        }
+        if (diff < 0) {
+          const surplus = inSum.filter((r) => num(r) > 0 && Math.abs(num(r) + diff) < tol);
+          const r = surplus.length === 1 ? surplus[0] : null;
+          const id = r ? `${r.key}:f:${c.field}` : '';
+          if (r && !out.some((i) => i.id === id)) {
+            out.push({
+              id, kind: 'value', page: pageIdx, rowKey: r.key, field: c.field, title: label(c.field), sumCell: 'explains',
+              reason: `${sumText} That is exactly the ${fmt(num(r))} on this row too much. Is this cell empty on the page, or does the ${fmt(num(r))} stand in another column?`,
+              suggestions: [{ label: 'Empty', field: c.field, value: '0' }],
+              rect: cellRect(p.grid, r.rowIndex, c.field) ?? rowRect(p.grid, r.rowIndex), moves: neighbourColumns(p.grid, c.field),
+            });
+            cells.push(id);
+          }
+        }
+      }
       const pad = 0.008;
       const moveRect = move?.boxes.length ? unionRect(move.boxes.map((b) => ({ x: b.x - pad, y: b.y - pad, w: b.w + 2 * pad, h: b.h + 2 * pad }))) : null;
       out.push({
@@ -422,12 +481,12 @@ function deriveIssues(
           ? `The rows add up to ${fmt(c.sum)} — exactly ${fmt(-diff)} more than the page total (${fmt(c.printed)}). Row ${extra.rowIndex} looks like a copy of the row next to it, so Claude probably read it twice.`
           : miscounted
             ? `${blocks ? 'Every flight matches its block time' : 'Your other page totals agree with the flights'}, and the rows add up to ${fmt(c.sum)} — but the page total says ${fmt(c.printed)}, ${off}. Most likely a counting slip in your paper logbook.`
-            : `The rows add up to ${fmt(c.sum)}, but the page total says ${fmt(c.printed)}. One of the values in the column is probably misread — tap it to change it.`,
+            : `The rows add up to ${fmt(c.sum)}, but the page total says ${fmt(c.printed)}. One of the values in the column is probably misread. Compare Claude's readings next to the rows with the page and tap the one that's wrong.`,
         suggestions: [],
         // Flytten markerar talen där Vision ser dem (rutnätet kan ligga snett), annars hela kolumnen.
         rect: extra ? rowRect(p.grid, extra.rowIndex)
           : moveRect ?? (col ? { x: col.left, y: p.grid.tableTop, w: col.right - col.left, h: p.grid.tableBottom - p.grid.tableTop } : null),
-        column: { sum: c.sum, printed: c.printed, miscounted, extraRow: extra ? { key: extra.key, rowIndex: extra.rowIndex } : undefined, move },
+        column: { sum: c.sum, printed: c.printed, miscounted, extraRow: extra ? { key: extra.key, rowIndex: extra.rowIndex } : undefined, move, cells },
       });
     }
   });
@@ -494,6 +553,7 @@ function deriveIssues(
   for (const i of out) {
     if ((i.kind !== 'value' && i.kind !== 'choice') || !i.reason) continue;
     if (i.id.startsWith('reg:')) continue;   // en fråga per ny registrering, aldrig ihopslagna
+    if (i.sumCell) continue;                 // celler i en kolumn som inte går ihop frågas var för sig
     // Val (t.ex. simulatortyp) grupperas på fältet; värden på fält + förklaring.
     const key = i.kind === 'choice' ? `${i.page}|${i.field}|choice` : `${i.page}|${i.field}|${i.reason.toLowerCase().replace(/[^a-zåäö]+/g, ' ').trim()}`;
     if (expanded.has(key)) continue;
@@ -528,7 +588,10 @@ function deriveIssues(
     const col = grid ? columnFor(grid, i.field) : null;
     return col ? col.left : i.rect?.x ?? Number.MAX_SAFE_INTEGER;
   };
-  const rowY = (i: Issue) => (i.kind === 'column' ? Number.MAX_SAFE_INTEGER : rowOf.get(i.rowKey)?.rowIndex ?? 0);
+  // Cellen som ensam förklarar skillnaden mot sidans summa först i sin kolumn: den är den troligaste felläsningen.
+  const rowY = (i: Issue) => (i.kind === 'column' ? Number.MAX_SAFE_INTEGER : i.sumCell === 'explains' ? -1 : rowOf.get(i.rowKey)?.rowIndex ?? 0);
+  const ids = new Set(out.map((i) => i.id));
+  for (const i of out) if (i.column?.cells) i.column.cells = i.column.cells.filter((id) => ids.has(id));
   return out.filter((i) => !grouped.has(i.id) && !hidden.has(i.id) && !groupedRemarks.has(i.id)).sort((a, b) => Number(b.kind === 'addition') - Number(a.kind === 'addition')
     || a.page - b.page
     || rank(a) - rank(b)
@@ -676,8 +739,6 @@ export default function ScanReviewScreen() {
   const focusRef = useRef<ScanFocus>('exact');
   // Fältet som tangentbordet redigerar när det inte är frågans eget (t.ex. ankomsttiden i "Times don't add up").
   const [editTarget, setEditTarget] = useState<string | null>(null);
-  // Justering mot sidans summa: kolumnfrågan som justeras och de valda raderna (radnycklar).
-  const [adjust, setAdjust] = useState<{ issueId: string; keys: string[] } | null>(null);
   // Kolumnfrågor där användaren sagt att summan i pappersboken är felräknad (Correct my total) → guiden efter Save.
   const [paperFixed, setPaperFixed] = useState<Set<string>>(new Set());
   const [paperGuide, setPaperGuide] = useState(false);
@@ -1449,7 +1510,6 @@ export default function ScanReviewScreen() {
   }, [issues, rowByKey, pages]);
 
   const select = (sel: Selection) => {
-    setAdjust(null);
     setEditTarget(null);
     Keyboard.dismiss();
     setTyping(false);
@@ -1469,6 +1529,15 @@ export default function ScanReviewScreen() {
     zoomTo(rectFor(selection), typing ? kbHeight : 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kbHeight, typing]);
+  // Kolumnfrågan man hamnade på finns inte längre (summan gick ihop när cellen rättades) → vidare till nästa
+  // öppna fråga efter den man just svarade på.
+  const lastAnswered = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (selection?.kind !== 'issue' || !selection.id.startsWith('col:') || issues.some((i) => i.id === selection.id)) return;
+    const n = nextOpen(lastAnswered.current);
+    select(n ? { kind: 'issue', id: n.id } : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issues, selection]);
 
   // ── Ändringar ──────────────────────────────────────────────────────────────
 
@@ -1569,6 +1638,7 @@ export default function ScanReviewScreen() {
 
   const resolve = (id: string, how: 'ok' | 'changed') => {
     touched.current = true;
+    lastAnswered.current = id;
     const members = issues.find((i) => i.id === id)?.group?.members ?? [];
     setResolved((r) => ({ ...r, [id]: how, ...Object.fromEntries(members.map((m) => [m, how])) }));
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -1645,15 +1715,6 @@ export default function ScanReviewScreen() {
     select(n ? { kind: 'issue', id: n.id } : null);
   };
 
-  // Justera flygningar mot sidans summa (summan i boken står kvar). Blades förslag är förvalt: så få
-  // flygningar som möjligt, högst 0.2 h var, osäkra avläsningar först (suggestAdjustRows). Ett tryck på en
-  // flygning lägger till eller tar bort den.
-  const startAdjust = (issue: Issue) => {
-    const uncertain = new Set(issues.filter((i) => i.kind === 'value' && i.page === issue.page && i.field === issue.field && !isDone(i)).map((i) => i.rowKey));
-    const diff = issue.column ? Math.round((issue.column.printed - issue.column.sum) * 100) / 100 : 0;
-    const keys = suggestAdjustRows(rows, issue.page, issue.field, diff, pagesRef.current[issue.page]?.totals?.by_field, uncertain);
-    setAdjust({ issueId: issue.id, keys: keys.length ? keys : [...uncertain] });
-  };
   // "Correct my total": flygningarna stämmer, summan i pappersboken är fel. Rättelsen (och följdsummorna)
   // listas i guiden efter Save.
   const correctPaperTotal = (issue: Issue) => {
@@ -1671,33 +1732,6 @@ export default function ScanReviewScreen() {
     select(n ? { kind: 'issue', id: n.id } : null);
   };
 
-  const toggleAdjustRow = (key: string, field: string) => {
-    const r = rowByKey.get(key);
-    if (!r || (field === 'total_time' && r.data.flight_type === 'sim')) return;   // simulatorpass räknas inte i total tid
-    Haptics.selectionAsync().catch(() => {});
-    setAdjust((a) => (a ? { ...a, keys: a.keys.includes(key) ? a.keys.filter((k) => k !== key) : [...a.keys, key] } : a));
-  };
-  const applyAdjust = (issue: Issue, field: string, printed: number, values: Map<string, number>) => {
-    touched.current = true;
-    setRows((prev) => prev.map((r) => {
-      const nv = values.get(r.key);
-      if (nv == null) return r;
-      // Flygtiden ändras → funktionstiden som täckte hela flygningen följer med, och natt/IFR … kortas
-      // om de blir längre än flygtiden. Alla ändringar markeras på flygningen.
-      const changes = [{ field, from: String((r.data as any)[field] ?? '0'), to: String(nv) },
-        ...(field === 'total_time' ? followTotalTime(r.data, nv) : [])];
-      let adjusted = r.adjusted ?? [];
-      const data: any = { ...r.data };
-      for (const c of changes) {
-        const from = adjusted.find((a) => a.field === c.field)?.from ?? c.from;
-        data[c.field] = c.to;
-        adjusted = [...adjusted.filter((a) => a.field !== c.field), { field: c.field, from, to: c.to, printed }];
-      }
-      return { ...r, data, adjusted };
-    }));
-    setAdjust(null);
-    resolve(issue.id, 'changed');
-  };
 
   // Svaret på "New aircraft type" gäller alla skrivsätt i typen (asWritten = gruppens id).
   const applyAircraft = (issue: Issue, type: string) => nameType(issue.aircraft!.asWritten, type);
@@ -2135,36 +2169,11 @@ export default function ScanReviewScreen() {
   const readField = !showReadings && page?.grid && selField && (DURATION.has(selField) || COUNT.has(selField))
     && (selectedIssue ? selectedIssue.kind === 'column' || selectedIssue.kind === 'value' : selection?.kind === 'cell') ? selField : null;
   const readCheck = readField ? columnTotals(rows, activePage, page?.totals?.by_field).find((c) => c.field === readField) : undefined;
-  // Justering: sidans summa är facit och ändras aldrig. Skillnaden fördelas på de rader användaren valt (hela
-  // tiondelar, eller hela landningar), och raderna markeras med var i boken avvikelsen finns.
-  const adjusting = !!(adjust && selectedIssue?.kind === 'column' && adjust.issueId === selectedIssue.id && readField && readCheck);
-  const adjDiff = readCheck ? Math.round((readCheck.printed - readCheck.sum) * 100) / 100 : 0;
-  const adjNew = new Map<string, number>();
-  let adjMost = 0;   // största ändringen på en flygning
-  if (adjusting && readField) {
-    const deltas = distributeDifference(adjust!.keys.length, adjDiff, COUNT.has(readField) ? 1 : 0.1);
-    adjMost = Math.max(0, ...deltas.map(Math.abs));
-    adjust!.keys.forEach((key, i) => {
-      const cur = parseFloat(String((rowByKey.get(key)?.data as any)?.[readField] ?? '0')) || 0;
-      adjNew.set(key, Math.round((cur + deltas[i]) * 100) / 100);
-    });
-  }
-  const adjValid = adjusting && adjNew.size > 0 && [...adjNew.values()].every((v) => v >= 0);
   const isCount = !!readField && COUNT.has(readField);
-  // En öppen osäker cell i kolumnen som ensam förklarar skillnaden (t.ex. en överstruken 11 som ska vara 0
-  // eller stå under Night) → summafrågan pekar dit först, före justering och rättelse av summan.
-  const culprit = selectedIssue?.kind === 'column' && !selectedIssue.column?.move && readField && readCheck && !adjusting && adjDiff !== 0
-    ? openIssues.filter((i) => i.kind === 'value' && i.page === selectedIssue.page && i.field === readField)
-      .map((i) => ({ i, r: rowByKey.get(i.rowKey) }))
-      .filter(({ i, r }) => {
-        if (!r) return false;
-        const cur = parseFloat(String((r.data as any)[readField] ?? '')) || 0;
-        const alts = [0, ...i.suggestions.filter((x) => x.field === readField).map((x) => parseFloat(x.value) || 0)];
-        return alts.some((v) => Math.abs(v - cur - adjDiff) < (isCount ? 0.5 : 0.05));
-      })
-      .sort((a, b) => a.r!.rowIndex - b.r!.rowIndex)[0] ?? null
+  // Kolumnfrågan kommer efter kolumnens celler. Öppnas den ändå medan en av dem är obesvarad pekar den dit först.
+  const culprit = selectedIssue?.kind === 'column'
+    ? (selectedIssue.column?.cells ?? []).map((id) => issues.find((i) => i.id === id)).find((i): i is Issue => !!i && !isDone(i)) ?? null
     : null;
-  const fmtDiff = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${isCount ? Math.abs(Math.round(n)) : Math.abs(n).toFixed(1)}${isCount ? '' : ' h'}`;
   const position = selectedIssue && !isDone(selectedIssue) ? openIssues.findIndex((i) => i.id === selectedIssue.id) + 1 : 0;
 
   // En anmärkningsfråga redigerar förslagets fält (t.ex. Second pilot), inte själva anmärkningen.
@@ -2396,6 +2405,24 @@ export default function ScanReviewScreen() {
     const fw = page ? page.width * sc : 0, fh = page ? page.height * sc : 0;
     const box = { x: padL + (availW - fw) / 2, y: (H - fh) / 2, w: fw, h: fh };
     const LEVEL = [s.readingSure, s.readingUnsure, s.readingBad];
+    // Hur säker läsningen är per nivå, i procent. Osäkra celler: medelvärdet av Claudes egen säkerhet för
+    // uppslagets celler på den nivån (utan sådana celler: nivåns gränser). Celler Claude inte flaggat har ingen
+    // egen siffra; där gäller benchmarken (ungefär 1 % av värdena är fel utan att någon fråga pekar på dem).
+    const confs: [number[], number[]] = [[], []];
+    for (const r of pageRows) {
+      if (r.skip) continue;
+      for (const fi of r.data.field_issues ?? []) {
+        const cf = Number(fi.confidence);
+        if (!(cf > 0 && cf <= 1) || resolved[`${r.key}:f:${fi.field}`]) continue;
+        confs[cf < 0.5 ? 1 : 0].push(cf);
+      }
+    }
+    const mean = (xs: number[]) => (xs.length ? `${Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 100)}%` : null);
+    const levels = [
+      ['Positive', `${Math.round((1 - SILENT_ERROR_RATE) * 100)}%`, s.readingSure, '#fff'],
+      ['Uncertain', mean(confs[0]) ?? '50–90%', s.readingUnsure, '#141414'],
+      ['Very unsure', mean(confs[1]) ?? 'under 50%', s.readingBad, '#fff'],
+    ] as const;
     const onFsPress = (e: { nativeEvent: { locationX: number; locationY: number } }) => {
       if (!page?.grid) return;
       const hit = hitTest(page.grid, e.nativeEvent.locationX / box.w, e.nativeEvent.locationY / box.h);
@@ -2509,15 +2536,24 @@ export default function ScanReviewScreen() {
           </>
         )}
 
-        {/* Förklaringen till färgerna och sidans summor, när ögat är på */}
+        {/* Förklaringen till färgerna överst, med hur säker läsningen är på varje nivå; sidans summor nederst */}
         {ready && showReadings && !fsCell && (
-          <View pointerEvents="none" style={[s.fsLegend, { left: padL + 4, bottom: Math.max(insets.bottom, 6) + 2 }]}>
-            {([['Sure', s.readingSure, '#fff'], ['Unsure', s.readingUnsure, '#141414'], ['Very unsure', s.readingBad, '#fff']] as const).map(([t, st2, col]) => (
-              <View key={t} style={[s.fsChip, st2]}><Text style={[s.fsChipText, { color: col }]}>{t}</Text></View>
-            ))}
-            {totalsLine ? <Text style={s.fsTotals} numberOfLines={1}>{totalsLine}</Text> : null}
+          <View pointerEvents="none" style={s.fsLevels}>
+            <View style={s.fsLevelsRow}>
+              {levels.map(([t, pct, st2, col]) => (
+                <View key={t} style={[s.fsLevel, st2]} accessible accessibilityLabel={`${t}: ${pct} sure`}>
+                  <Text style={[s.fsLevelText, { color: col }]}>{t}</Text>
+                  <Text style={[s.fsLevelPct, { color: col }]}>{pct}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         )}
+        {ready && showReadings && !fsCell && totalsLine ? (
+          <View pointerEvents="none" style={[s.fsLegend, { left: padL + 4, bottom: Math.max(insets.bottom, 6) + 2 }]}>
+            <Text style={[s.fsTotals, { marginLeft: 0 }]} numberOfLines={1}>{totalsLine}</Text>
+          </View>
+        ) : null}
 
         {/* Ett svar som gällde fler rader (t.ex. en registrering): vad som ändrades, med Undo. */}
         {ready && learnNote && !fsCell && (
@@ -2535,7 +2571,7 @@ export default function ScanReviewScreen() {
           <View style={[s.fsCard, { width: cardW, left: (W - cardW) / 2, top: 8 }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={s.fsCardTitle} numberOfLines={1}>{label(fsCell.field)}</Text>
-              {lvl > 0 && <View style={[s.fsChip, lvl === 2 ? s.readingBad : s.readingUnsure]}><Text style={[s.fsChipText, { color: lvl === 2 ? '#fff' : '#141414' }]}>{lvl === 2 ? 'Very unsure' : 'Unsure'}</Text></View>}
+              {lvl > 0 && <View style={[s.fsChip, lvl === 2 ? s.readingBad : s.readingUnsure]}><Text style={[s.fsChipText, { color: lvl === 2 ? '#fff' : '#141414' }]}>{lvl === 2 ? 'Very unsure' : 'Uncertain'}</Text></View>}
               <Text style={s.fsCardCtx} numberOfLines={1}>{[cellRow.data.date, [cellRow.data.dep_place, cellRow.data.arr_place].filter(Boolean).join(' → ')].filter(Boolean).join(' · ')}</Text>
               <TouchableOpacity onPress={closeFsCell} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close"><Ionicons name="close" size={20} color="#B4C9DD" /></TouchableOpacity>
             </View>
@@ -2668,8 +2704,8 @@ export default function ScanReviewScreen() {
             </View>
 
             {/* Avläsningarna står till vänster om rutnätets kolumn. Vid en flytt mellan kolumner ligger rutnätet ofta
-                snett, så de skulle täcka talen frågan handlar om → dolda tills man väljer att justera. */}
-            {readField && page.grid && !(selectedIssue?.kind === 'column' && selectedIssue.column?.move && !adjusting) && (() => {
+                snett, så de skulle täcka talen frågan handlar om → dolda då. */}
+            {readField && page.grid && !(selectedIssue?.kind === 'column' && selectedIssue.column?.move) && (() => {
               const grid = page.grid;
               const col = columnFor(grid, readField);
               if (!col) return null;
@@ -2695,15 +2731,8 @@ export default function ScanReviewScreen() {
               const selKey = selection?.kind === 'cell' ? selection.rowKey : selectedIssue?.kind === 'value' ? selectedIssue.rowKey : null;
               return (
                 <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-                  {pageRows.map((r) => {
-                    const nv = adjNew.get(r.key);
-                    const text = nv != null
-                      ? `${bookCell(r.data, readField, timeFormat) || '0'}→${display({ ...r.data, [readField]: String(nv) } as OcrFlightResult, readField, timeFormat) || '0'}`
-                      : bookCell(r.data, readField, timeFormat) || '–';
-                    return pill(`rp-${r.key}`, rowBand(grid, r.rowIndex, cx), text,
-                      nv != null || r.key === selKey ? s.readPillOn : null,
-                      adjusting ? () => toggleAdjustRow(r.key, readField) : () => select({ kind: 'cell', rowKey: r.key, field: readField }), nv != null);
-                  })}
+                  {pageRows.map((r) => pill(`rp-${r.key}`, rowBand(grid, r.rowIndex, cx), bookCell(r.data, readField, timeFormat) || '–',
+                    r.key === selKey ? s.readPillOn : null, () => select({ kind: 'cell', rowKey: r.key, field: readField })))}
                   {readCheck && pill('rp-sum', rowBand(grid, grid.rowsPerPage + 1, cx),
                     `Σ ${readField.startsWith('landings') ? Math.round(readCheck.sum) : Math.round(readCheck.sum * 10) / 10}`,
                     readCheck.ok ? s.readPillOk : s.readPillBad, undefined, true)}
@@ -2806,13 +2835,10 @@ export default function ScanReviewScreen() {
               onAcceptAddition={() => selectedIssue && acceptAddition(selectedIssue)}
               movable={movableValue(selectedIssue, selectedRow)}
               adjust={selectedIssue?.kind === 'column' && readCheck && readField ? {
-                active: adjusting, count: adjust?.keys.length ?? 0, diff: fmtDiff(adjDiff),
-                printed: isCount ? String(Math.round(readCheck.printed)) : String(readCheck.printed),
                 sum: isCount ? String(Math.round(readCheck.sum)) : String(Math.round(readCheck.sum * 10) / 10),
-                most: fmtDiff(adjMost).replace(/^[+−]/, ''),
                 miscounted: !!selectedIssue.column?.miscounted,
                 extraRow: selectedIssue.column?.extraRow?.rowIndex,
-                culpritRow: culprit?.r?.rowIndex,
+                culpritRow: culprit ? rowByKey.get(culprit.rowKey)?.rowIndex : undefined,
                 move: selectedIssue.column?.move ? (() => {
                   const mv = selectedIssue.column.move;
                   const n = mv.keys.length;
@@ -2823,15 +2849,11 @@ export default function ScanReviewScreen() {
                     onPress: () => moveColumnRows(selectedIssue),
                   };
                 })() : undefined,
-                onCulprit: () => { if (culprit) select({ kind: 'issue', id: culprit.i.id }); },
+                onCulprit: () => { if (culprit) select({ kind: 'issue', id: culprit.id }); },
                 onSkipExtra: () => skipExtraRow(selectedIssue),
                 onRealRow: () => setRealRows((r) => new Set([...r, selectedIssue.id])),
-                valid: adjValid,
-                onStart: () => startAdjust(selectedIssue),
                 onCorrect: () => correctPaperTotal(selectedIssue),
                 onCorrectInfo: () => setCorrectInfo(true),
-                onApply: () => { if (adjValid) applyAdjust(selectedIssue, readField, readCheck.printed, adjNew); },
-                onCancel: () => setAdjust(null),
               } : undefined}
               onMove={(to) => selectedIssue && moveToColumn(selectedIssue, to)}
               position={position}
@@ -2983,11 +3005,11 @@ function QuestionPanel(p: {
   onGroupChoice: (value: string) => void;
   movable: string; onMove: (to: string) => void;
   adjust?: {
-    active: boolean; count: number; diff: string; printed: string; sum: string; most: string; miscounted: boolean; valid: boolean;
+    sum: string; miscounted: boolean;
     extraRow?: number; onSkipExtra: () => void; onRealRow: () => void; onCorrectInfo: () => void;
     culpritRow?: number; onCulprit: () => void;
     move?: { label: string; hint: string; onPress: () => void };
-    onStart: () => void; onCorrect: () => void; onApply: () => void; onCancel: () => void;
+    onCorrect: () => void;
   };
   draft: string; timeFormat: TimeFormat;
   onEdit: () => void; onEditField: (field: string) => void; onSave: () => void; onConfirm: () => void;
@@ -3165,20 +3187,6 @@ function QuestionPanel(p: {
               <TouchableOpacity style={[s.btnSecondary, { flex: 1 }]} onPress={p.onConfirm}><Text style={s.btnSecondaryText}>Ignore</Text></TouchableOpacity>
             </View>
           </>
-        ) : issue?.kind === 'column' && p.adjust?.active ? (
-          <>
-            <Text style={s.qHint}>
-              {p.adjust.count
-                ? `Blades picked ${p.adjust.count === 1 ? '1 flight' : `${p.adjust.count} flights`} and split the difference (${p.adjust.diff}) between them — at most ${p.adjust.most} each. Tap a flight to add or remove it. They're marked so you can find them later.`
-                : `Tap the flights that are wrong. The difference (${p.adjust.diff}) is split between them, and they're marked so you can check them in your paper logbook.`}
-            </Text>
-            <View style={s.answerRow}>
-              <TouchableOpacity style={[s.btnPrimary, { flex: 1 }, !p.adjust.valid && { opacity: 0.4 }]} disabled={!p.adjust.valid} onPress={p.adjust.onApply}>
-                <Text style={s.btnPrimaryText}>{p.adjust.count ? `Adjust ${p.adjust.count} flight${p.adjust.count === 1 ? '' : 's'}` : 'Choose flights'}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.btnSecondary} onPress={p.adjust.onCancel}><Text style={s.btnSecondaryText}>Cancel</Text></TouchableOpacity>
-            </View>
-          </>
         ) : issue?.kind === 'column' && p.adjust?.extraRow != null && !done ? (
           <>
             <View style={s.answerRow}>
@@ -3192,9 +3200,10 @@ function QuestionPanel(p: {
             <Text style={s.qHint}>The copy is left out of the import. Nothing changes in your paper logbook.</Text>
           </>
         ) : issue?.kind === 'column' && p.adjust ? (
-          // Två vägar: rätta summan i pappersboken (flygningarna står kvar, guiden efter Save listar alla
-          // följdändringar) eller behåll summan och låt Blades justera flygningar (inget att ändra på papper).
-          // Pekar allt på en felräknad summa är rättelsen förstahandsvalet, annars justeringen.
+          // Cellerna först: är en av kolumnens celler obesvarad pekar frågan dit. Annars rättar man den cell som är
+          // fel (avläsningarna står bredvid raderna), eller säger att summan i pappersboken är felräknad: då står
+          // flygningarna kvar och guiden efter Save listar alla följdändringar. Appen ändrar aldrig flera
+          // flygningar på en gissning för att få summan att gå ihop.
           <>
             {!done && (() => {
               const correct = (primary: boolean) => (
@@ -3208,15 +3217,7 @@ function QuestionPanel(p: {
                   </TouchableOpacity>
                 </View>
               );
-              const keep = (primary: boolean) => (
-                <View key="keep" style={s.colOption}>
-                  <TouchableOpacity style={primary ? s.btnPrimary : s.btnSecondary} onPress={p.adjust!.onStart}>
-                    <Text style={primary ? s.btnPrimaryText : s.btnSecondaryText}>Keep {p.adjust!.printed} · adjust flights</Text>
-                  </TouchableOpacity>
-                  <Text style={s.optionHint}>Blades suggests which flights to change so they add up. Nothing to fix on paper.</Text>
-                </View>
-              );
-              // Värdena står i grannkolumnen → flytten först (exakt), justering och rättelse som andrahandsval.
+              // Värdena står i grannkolumnen → flytten först (exakt), rättelsen av summan som andrahandsval.
               if (p.adjust!.move) return [(
                 <View key="move" style={s.colOption}>
                   <TouchableOpacity style={s.btnPrimary} onPress={p.adjust!.move.onPress}>
@@ -3224,19 +3225,18 @@ function QuestionPanel(p: {
                   </TouchableOpacity>
                   <Text style={s.optionHint}>{p.adjust!.move.hint}</Text>
                 </View>
-              ), keep(false), correct(false)];
-              // En osäker cell förklarar hela skillnaden → den först, de andra vägarna blir andrahandsval.
+              ), correct(false)];
               if (p.adjust!.culpritRow != null) return [(
                 <View key="culprit" style={s.colOption}>
                   <TouchableOpacity style={s.btnPrimary} onPress={p.adjust!.onCulprit}>
                     <Text style={s.btnPrimaryText}>Check row {p.adjust!.culpritRow} first</Text>
                   </TouchableOpacity>
-                  <Text style={s.optionHint}>Claude wasn't sure of that reading, and fixing it would make the column add up.</Text>
+                  <Text style={s.optionHint}>That cell is the most likely misreading in this column.</Text>
                 </View>
-              ), keep(false), correct(false)];
-              return p.adjust!.miscounted ? [correct(true), keep(false)] : [keep(true), correct(false)];
+              ), correct(false)];
+              return [correct(p.adjust!.miscounted)];
             })()}
-            {!done && !p.adjust.miscounted && !p.adjust.move && <Text style={s.qHint}>Or tap one of Claude's readings next to the rows to fix a misread value.</Text>}
+            {!done && !p.adjust.miscounted && !p.adjust.move && p.adjust.culpritRow == null && <Text style={s.qHint}>Tap one of Claude's readings next to the rows to fix a misread value.</Text>}
           </>
         ) : issue?.kind === 'column' ? (
           <>
@@ -3565,6 +3565,11 @@ const s = StyleSheet.create({
   fsPageText: { color: '#fff', fontFamily: MONO, fontSize: 13, fontWeight: '700', backgroundColor: 'rgba(10,22,40,0.82)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, overflow: 'hidden' },
   fsLegend: { position: 'absolute', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(10,22,40,0.82)', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 10 },
   fsChip: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5 },
+  fsLevels: { position: 'absolute', left: 0, right: 0, top: 10, height: 44, alignItems: 'center', justifyContent: 'center' },
+  fsLevelsRow: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(10,22,40,0.82)', paddingHorizontal: 8, paddingVertical: 6, borderRadius: 12 },
+  fsLevel: { flexDirection: 'row', alignItems: 'baseline', gap: 6, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 7 },
+  fsLevelText: { fontFamily: MONO, fontSize: 11, fontWeight: '700' },
+  fsLevelPct: { fontFamily: MONO, fontSize: 13, fontWeight: '800' },
   fsChipText: { fontFamily: MONO, fontSize: 10, fontWeight: '700' },
   fsTotals: { color: '#DCE9F5', fontFamily: MONO, fontSize: 10.5, fontWeight: '600', marginLeft: 6 },
   fsCard: { position: 'absolute', gap: 8, padding: 12, borderRadius: 16, backgroundColor: 'rgba(10,22,40,0.96)', borderWidth: 1, borderColor: 'rgba(127,168,200,0.35)' },
