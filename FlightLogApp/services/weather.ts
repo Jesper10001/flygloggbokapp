@@ -25,7 +25,17 @@ export type DecodedWx = {
   tafStatus: WxStatus | null;
   rawMetar?: string;
   rawTaf?: string;
+  // Väderkortet på dashboarden: observationens tid, fyra korta värden och nästa förändring i TAF.
+  metarObsMs: number | null;
+  cells: WxCells | null;        // null utan METAR
+  tafNext: TafNext | null;      // null utan TAF
 };
+
+// Ett värde på väderkortet: stora siffran och enheten under.
+export type WxCell = { value: string; unit: string };
+export type WxCells = { wind: WxCell; vis: WxCell; cloud: WxCell; qnh: WxCell };
+// Nästa förändring i TAF som en rad, och flygkategorin den ger (null när raden inte säger något om tak/sikt).
+export type TafNext = { text: string; category: FlightCat | null };
 
 const METAR_URL = 'https://aviationweather.gov/api/data/metar';
 const TAF_URL = 'https://aviationweather.gov/api/data/taf';
@@ -212,6 +222,159 @@ function tafProse(t: any): string {
   return periods.join('; ');
 }
 
+// ── Väderkortet på dashboarden: fyra korta värden + nästa förändring i TAF ────
+const NO_CELL: WxCell = { value: '—', unit: '' };
+// 3500 → "3 500" (hårt mellanslag, så talet aldrig bryts).
+const grouped = (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0');
+const isCavok = (m: any) => typeof m?.rawOb === 'string' && /\bCAVOK\b/.test(m.rawOb);
+const COVER_WORD: Record<string, string> = { FEW: 'few', SCT: 'scattered', BKN: 'broken', OVC: 'overcast' };
+
+function windCell(m: any): WxCell {
+  const spd = num(m?.wspd);
+  if (m?.wspd == null || !Number.isFinite(spd)) return NO_CELL;
+  if (spd <= 0) return { value: 'Calm', unit: '' };
+  const d = num(m.wdir);
+  const dir = Number.isFinite(d) ? `${String(Math.round(d)).padStart(3, '0')}°` : 'VRB';
+  const g = num(m.wgst);
+  return { value: `${dir}/${spd}`, unit: Number.isFinite(g) && g > 0 ? `kt, gusts ${g}` : 'kt' };
+}
+
+function visCell(v: any): WxCell {
+  const sm = parseVis(v); // API:t rapporterar sikt i statute miles
+  if (sm == null) return NO_CELL;
+  const km = sm * 1.609344;
+  if ((typeof v === 'string' && v.includes('+')) || km >= 10) return { value: '10+', unit: 'km' };
+  if (km < 1) return { value: String(Math.round((km * 1000) / 50) * 50), unit: 'm' };
+  return { value: String(km < 5 ? Math.round(km * 10) / 10 : Math.round(km)), unit: 'km' };
+}
+
+// Lägsta taket (BKN/OVC). Utan tak: null.
+function ceilingOf(clouds: any): { base: number; cover: string } | null {
+  let best: { base: number; cover: string } | null = null;
+  if (Array.isArray(clouds)) for (const c of clouds) {
+    if ((c?.cover === 'BKN' || c?.cover === 'OVC') && typeof c.base === 'number' && (!best || c.base < best.base)) best = { base: c.base, cover: c.cover };
+  }
+  return best;
+}
+
+// Molnrutan: taket om det finns ett, annars det lägsta lagret.
+function cloudCell(m: any): WxCell {
+  const clouds: any[] = Array.isArray(m?.clouds) ? m.clouds : [];
+  const ceil = ceilingOf(clouds);
+  if (ceil) return { value: grouped(ceil.base), unit: `ft, ${COVER_WORD[ceil.cover]}` };
+  let low: any = null;
+  for (const c of clouds) if (COVER_WORD[c?.cover] && typeof c.base === 'number' && (!low || c.base < low.base)) low = c;
+  if (low) return { value: grouped(low.base), unit: `ft, ${COVER_WORD[low.cover]}` };
+  const cover = clouds[0]?.cover;
+  if (cover === 'OVX') return { value: 'Obscured', unit: '' };
+  if (cover === 'NSC' || cover === 'NCD') return { value: cover, unit: '' };
+  return { value: 'Clear', unit: '' };
+}
+
+function qnhCell(altim: any): WxCell {
+  const a = num(altim);
+  if (!a) return NO_CELL;
+  return a > 100 ? { value: String(Math.round(a)), unit: 'hPa' } : { value: a.toFixed(2), unit: 'inHg' };
+}
+
+export function metarCells(m: any): WxCells {
+  const cavok = isCavok(m);
+  return {
+    wind: windCell(m),
+    vis: cavok ? { value: '10+', unit: 'km' } : visCell(m?.visib),
+    cloud: cavok ? { value: 'CAVOK', unit: '' } : cloudCell(m),
+    qnh: qnhCell(m?.altim),
+  };
+}
+
+// "18z", "18:30z", "06z tomorrow" (dygnet räknas i UTC, som tiden).
+function hourZ(sec: number, nowSec: number): string {
+  const d = new Date(sec * 1000);
+  const hm = d.getUTCMinutes() ? `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}z` : `${pad2(d.getUTCHours())}z`;
+  const days = Math.floor(sec / 86400) - Math.floor(nowSec / 86400);
+  // Längre fram än i morgon (sällsynt, en TAF gäller högst 30 timmar): dagen i parentes, som i den tolkade TAF:en.
+  return days === 1 ? `${hm} tomorrow` : days > 1 ? `${hm} (${pad2(d.getUTCDate())})` : hm;
+}
+
+// En TAF-periods delar som korta texter ('' = perioden säger inget om den delen).
+type TafParts = { cloud: string; wx: string; vis: string; wind: string; gusty: boolean };
+function tafParts(f: any): TafParts {
+  const clouds: any[] = Array.isArray(f?.clouds) ? f.clouds : [];
+  const ceil = ceilingOf(clouds);
+  let cloud = '';
+  if (ceil) cloud = `cloud base ${grouped(ceil.base)} ft`;
+  else {
+    let low: any = null;
+    for (const c of clouds) if (COVER_WORD[c?.cover] && typeof c.base === 'number' && (!low || c.base < low.base)) low = c;
+    const cover = clouds[0]?.cover;
+    cloud = low ? `${CLOUD_COVER[low.cover]} at ${grouped(low.base)} ft`
+      : cover === 'OVX' ? 'sky obscured'
+      : cover ? (CLOUD_COVER[cover] ?? '') : '';
+  }
+  if (cloud && clouds.some((c) => c?.type === 'CB')) cloud += ', cumulonimbus';
+  const v = f?.visib != null ? visCell(f.visib) : NO_CELL;
+  const w = windCell(f);
+  const g = num(f?.wgst);
+  return {
+    cloud,
+    wx: wxProse(f?.wxString),
+    vis: v.value === '—' ? '' : `visibility ${v.value} ${v.unit}`,
+    wind: w.value === '—' ? '' : w.value === 'Calm' ? 'wind calm' : `wind ${w.value} ${w.unit}`,
+    gusty: Number.isFinite(g) && g > 0,
+  };
+}
+
+// Det en TAF-period ändrar, kort. En tillfällig period (TEMPO/PROB) anger bara det som avviker, så allt i den
+// räknas. En ny grundperiod (FM/BECMG) kommer med hela läget, så där jämförs den med perioden före (prev) och
+// bara skillnaden visas. Vinden står med när den är byig eller när inget annat ändras. '' = inget att visa.
+function tafPeriodBrief(f: any, prev?: any): string {
+  const now = tafParts(f);
+  const before = prev ? tafParts(prev) : null;
+  const parts: string[] = [];
+  if (now.cloud && now.cloud !== before?.cloud) parts.push(now.cloud);
+  if (now.wx !== (before?.wx ?? '')) parts.push(now.wx || 'no significant weather');
+  // Sikt på 10 km eller mer är bara värd en plats när den är en förbättring mot perioden före.
+  if (now.vis && now.vis !== before?.vis && (before ? true : now.vis !== 'visibility 10+ km')) parts.push(now.vis);
+  if (now.wind && now.wind !== before?.wind && (now.gusty || !parts.length)) parts.push(now.wind);
+  return parts.join(', ');
+}
+
+// Nästa förändring i en TAF som en rad: en tillfällig period som pågår, annars nästa period som börjar.
+// Grundperioden som gäller just nu är ingen förändring. Ingen förändring kvar → "No change expected before 21z".
+export function tafNextChange(t: any, nowMs: number = Date.now()): TafNext | null {
+  const now = nowMs / 1000;
+  const validTo = num(t?.validTimeTo);
+  if (validTo > 0 && now > validTo) return { text: 'This forecast has expired', category: null };
+  const fcsts: any[] = (Array.isArray(t?.fcsts) ? t.fcsts : []).filter((f: any) => num(f?.timeFrom) > 0);
+  const isTemp = (f: any) => f.fcstChange === 'TEMPO' || f.fcstChange === 'PROB';
+  const ahead = fcsts
+    .filter((f) => {
+      if (num(f.timeFrom) > now) return true;                                   // börjar senare
+      if (isTemp(f)) return num(f.timeTo) > now;                                // tillfällig period som pågår
+      return f.fcstChange === 'BECMG' && num(f.timeBec) > now;                  // övergång som pågår
+    })
+    .sort((a, b) => num(a.timeFrom) - num(b.timeFrom));
+  for (const f of ahead) {
+    // Grundperioden före (för FM/BECMG): den senaste som inte är tillfällig och som börjar tidigare.
+    const prev = isTemp(f) ? undefined : fcsts.filter((p) => !isTemp(p) && num(p.timeFrom) < num(f.timeFrom)).sort((a, b) => num(b.timeFrom) - num(a.timeFrom))[0];
+    const body = tafPeriodBrief(f, prev);
+    if (!body) continue;
+    const from = num(f.timeFrom), to = num(f.timeTo);
+    const started = from <= now;
+    let lead: string;
+    if (isTemp(f)) {
+      const prob = num(f.probability) > 0 ? `${num(f.probability)}% chance` : 'At times';
+      const until = to > 0 ? hourZ(to, now) : '';
+      lead = started ? (until ? `${prob} until ${until}` : prob) : until ? `${prob} ${hourZ(from, now)}–${until}` : `${prob} from ${hourZ(from, now)}`;
+    } else {
+      lead = started ? `By ${hourZ(num(f.timeBec), now)}` : `From ${hourZ(from, now)}`;
+    }
+    // Kategorin hör bara till raden när raden handlar om tak eller sikt (inte en ren vindändring).
+    return { text: `${lead}: ${body}`, category: /cloud|visibility|sky|overcast/.test(body) ? categoryOf(f.clouds, f.visib) : null };
+  }
+  return { text: validTo > 0 ? `No change expected before ${hourZ(validTo, now)}` : 'No change expected', category: null };
+}
+
 // ── Batch-hämtning (kommaseparerade ids → en request per typ) ─────────────────
 async function batchFetch(url: string, ids: string[]): Promise<Map<string, any>> {
   const map = new Map<string, any>();
@@ -258,12 +421,15 @@ async function decodeFromCandidates(candidates: string[], names: Map<string, str
   // METAR
   let metarText = '', metarTimeZ = '', metarStatus: WxStatus | null = null, category: FlightCat | null = null;
   let rawMetar: string | undefined, metarStationName: string | undefined;
+  let metarObsMs: number | null = null, cells: WxCells | null = null;
   if (metarStation) {
     const m = metars.get(metarStation);
     const obsMs = typeof m.obsTime === 'number' ? m.obsTime * 1000 : m.reportTime ? Date.parse(m.reportTime) : NaN;
     metarTimeZ = Number.isFinite(obsMs) ? zulu(obsMs / 1000) : '';
     metarText = metarProse(m);
     metarStatus = metarStatusOf(obsMs);
+    metarObsMs = Number.isFinite(obsMs) ? obsMs : null;
+    cells = metarCells(m);
     category = m.fltCat === 'VFR' || m.fltCat === 'MVFR' || m.fltCat === 'IFR' || m.fltCat === 'LIFR'
       ? m.fltCat : categoryOf(m.clouds, m.visib);
     rawMetar = m.rawOb;
@@ -273,9 +439,11 @@ async function decodeFromCandidates(candidates: string[], names: Map<string, str
   // TAF
   let tafText: string | null = null, tafStatus: WxStatus | null = null;
   let rawTaf: string | undefined, tafStationName: string | undefined;
+  let tafNext: TafNext | null = null;
   if (tafStation) {
     const t = tafs.get(tafStation);
     tafText = tafProse(t) || null;
+    tafNext = tafNextChange(t);
     tafStatus = tafStatusOf(t.validTimeFrom, t.validTimeTo);
     rawTaf = t.rawTAF;
     tafStationName = names.get(tafStation);
@@ -288,6 +456,7 @@ async function decodeFromCandidates(candidates: string[], names: Map<string, str
     tafStation, tafStationName, tafIsAlternate: !!tafStation && tafStation !== primary,
     tafText, tafStatus,
     rawMetar, rawTaf,
+    metarObsMs, cells, tafNext,
   };
 }
 

@@ -2,7 +2,7 @@ import { useAcarsScanStart } from '../../components/AcarsScanChooser';
 import { useEffect, useState, useMemo, useRef, useCallback, Fragment } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Image, Modal, Pressable, Dimensions, useWindowDimensions,
-  StyleSheet, RefreshControl, ActivityIndicator, Animated, Easing,
+  StyleSheet, RefreshControl, Animated, Easing,
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -52,9 +52,9 @@ import { ScanSpeedDial } from '../../components/ScanSpeedDial';
 import { useLogbookScanStart } from '../../components/LogbookScanChooser';
 import { askAiConsent } from '../../services/aiConsent';
 import { batchPlaceNames, getAirportCoordinates } from '../../db/icao';
-import { fetchDecodedWx, fetchDecodedWxNear, type DecodedWx, type WxStatus } from '../../services/weather';
+import { fetchDecodedWx, fetchDecodedWxNear, type DecodedWx } from '../../services/weather';
+import { WxCard, WxFetchingRow, WxNotFoundRow } from '../../components/WxCard';
 import * as Location from 'expo-location';
-import { Marquee } from '../../components/Marquee';
 import { AirportPickerModal } from '../../components/AirportPickerModal';
 import { formatDate, isValidTime } from '../../utils/format';
 import { computeSunWindow } from '../../utils/flightTime';
@@ -62,13 +62,12 @@ import { computeSunWindow } from '../../utils/flightTime';
 let runwayData: Record<string, number[]> = {};
 try { runwayData = require('../../assets/runways.json'); } catch {}
 
-// Hälsningsfrasen ("Good afternoon …") är tillfälligt dold och ersatt av väder-tickern överst.
+// Hälsningsfrasen ("Good afternoon …") är tillfälligt dold och ersatt av vädret överst.
 // Koden för hälsningen finns kvar (greeting/greetingStyle) — sätt denna till true för att återaktivera.
 const SHOW_GREETING = false;
 
 // Färgkod för hur aktuell METAR/TAF är: grön=ny, orange=på väg ut, röd=utgången.
 // Samma nyanser som stressindikatorns zoner (zoneColor) så dashboarden matchar.
-const WX_STATUS_COLOR: Record<WxStatus, string> = { fresh: Colors.success, aging: Colors.warning, stale: Colors.danger };
 import { useTranslation } from '../../hooks/useTranslation';
 import { useThemeStore } from '../../store/themeStore';
 import type { Flight } from '../../types/flight';
@@ -645,9 +644,10 @@ export default function DashboardScreen() {
     try { await (as === 'file' ? shareFlightFile(payload) : shareFlightLink(payload)); } catch { /* delningen avbröts */ }
   };
   const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
-  const [wx, setWx] = useState<DecodedWx | null>(null); // tolkad METAR+TAF (ticker överst)
+  const [wx, setWx] = useState<DecodedWx | null>(null); // tolkad METAR+TAF (väderkortet överst)
   const [wxLoading, setWxLoading] = useState(false);
-  const [wxPickerOpen, setWxPickerOpen] = useState(false); // väder-uppslagsvyn (ändrar EJ tickern)
+  const [wxMissed, setWxMissed] = useState(false); // senaste hämtningen gav inget väder → "No weather found"-raden
+  const [wxPickerOpen, setWxPickerOpen] = useState(false); // väder-uppslagsvyn (ändrar EJ väderkortet)
   const [photoPreview, setPhotoPreview] = useState<Flight | null>(null);
   const [showLatestOps, setShowLatestOps] = useState(false);
   const [weekMapVisible, setWeekMapVisible] = useState(false);
@@ -675,7 +675,7 @@ export default function DashboardScreen() {
     loadPrompt();
     // Göm vädret när man LÄMNAR dashboarden (blur) — off-screen, så det syns aldrig försvinna och inget
     // hoppar under scroll. Nästa gång man kommer tillbaka är det redan dolt → måste dra ner och hämta igen.
-    return () => setWx(null);
+    return () => { setWx(null); setWxMissed(false); };
   }, [loadStats, loadFlights, loadPrompt]));
 
   // Blades introduction — starta den guidade rundturen automatiskt EN gång efter onboarding
@@ -691,30 +691,35 @@ export default function DashboardScreen() {
   const onScanRowLayout = useTourScrollTo('dash-scan', dashScrollRef, 170);
 
   // Väder hämtas INTE automatiskt — bara när man drar ner sidan (pull-to-refresh = "Fetch WX").
-  // Tickern är dold tills dess (visar "Fetch WX ↓"). Närmaste-fält-fallbacken sköts inne i servicen.
-  // Senaste flygningen som faktiskt HAR en ankomstplats (hoppar simulatorpass/ofullständiga rader utan
-  // arr_place — annars försvann "Fetch WX" när den senaste loggade raden var ett sim-pass). Finns ingen
-  // alls → GPS-fallback i loadWeather (= drönarläget).
+  // Väderkortet är dolt tills dess (då står "Fetch WX ↓" på WORKLOAD-raden). Närmaste-fält-fallbacken sköts
+  // inne i servicen. Senaste flygningen som faktiskt HAR en ankomstplats (hoppar simulatorpass/ofullständiga
+  // rader utan arr_place — annars försvann "Fetch WX" när den senaste loggade raden var ett sim-pass). Finns
+  // ingen alls → GPS-fallback i loadWeather (= drönarläget).
   const lastDest = flights.find((f) => !!f.arr_place)?.arr_place ?? '';
   const loadWeather = useCallback(async () => {
     if (mode !== 'manned') { setWx(null); return; }
     setWxLoading(true);
+    setWxMissed(false);
+    let found: DecodedWx | null = null;
     try {
       if (lastDest) {
-        setWx(await fetchDecodedWx(lastDest)); // väder för senaste destinationen
+        found = await fetchDecodedWx(lastDest); // väder för senaste destinationen
       } else {
         // Ingen loggad destination (t.ex. inga flygningar ännu, eller senaste var en simulator utan ankomst)
         // → väder för närmaste station från min position, precis som drönarläget.
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') { setWx(null); return; }
-        const p = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        setWx(await fetchDecodedWxNear(p.coords.latitude, p.coords.longitude));
+        if (status === 'granted') {
+          const p = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          found = await fetchDecodedWxNear(p.coords.latitude, p.coords.longitude);
+        }
       }
-    } catch { setWx(null); }
-    finally { setWxLoading(false); }
+    } catch { found = null; }
+    setWx(found);
+    setWxMissed(!found);
+    setWxLoading(false);
   }, [mode, lastDest]);
   // Göm WX igen om destinationen (eller läget) ändras → dra ner för att hämta på nytt.
-  useEffect(() => { setWx(null); }, [lastDest, mode]);
+  useEffect(() => { setWx(null); setWxMissed(false); }, [lastDest, mode]);
 
   // Stress-readouten animerar ÖKNINGEN efter en loggad flight (prev → nytt värde), inte
   // från 0. Vid mount/reload visas slutvärdet direkt (ingen uppräkning från start).
@@ -877,34 +882,15 @@ export default function DashboardScreen() {
       {/* ── Telemetry Panel ── */}
       <View style={s.telPanel}>
         <TourSpot id="dash-stats" radius={18} inset={2} />
-        {/* Väder-ticker ovanför WORKLOAD (BARA när hämtat; annars ligger "Fetch WX" inline på WORKLOAD-raden). */}
-        {mode === 'manned' && wx && (
-          <TouchableOpacity activeOpacity={0.7} style={s.wxTap} onPress={() => setWxPickerOpen(true)}>
-            <View style={{ flex: 1 }}>
-              <View style={s.wxLine}>
-                <Text style={[s.wxLabel, { color: wx.metarStatus ? WX_STATUS_COLOR[wx.metarStatus] : Colors.textMuted }]} numberOfLines={1}>METAR {wx.metarStation ?? wx.destIcao}</Text>
-                <Marquee
-                  text={wx.metarStation
-                    ? [wx.metarIsAlternate ? `(nearest to ${wx.destIcao})` : '', wx.metarTimeZ, wx.metarText || 'no data'].filter(Boolean).join('   ·   ')
-                    : 'not available'}
-                  textStyle={s.wxScroll} containerStyle={s.wxScrollWrap} speed={55}
-                />
-              </View>
-              <View style={s.wxLine}>
-                <Text style={[s.wxLabel, { color: wx.tafStatus ? WX_STATUS_COLOR[wx.tafStatus] : Colors.textMuted }]} numberOfLines={1}>TAF {wx.tafStation ?? wx.destIcao}</Text>
-                <Marquee
-                  text={wx.tafStation
-                    ? [wx.tafIsAlternate ? `(nearest to ${wx.destIcao})` : '', wx.tafText || 'no data'].filter(Boolean).join('   ·   ')
-                    : 'not available'}
-                  textStyle={s.wxScroll} containerStyle={s.wxScrollWrap} speed={55}
-                />
-              </View>
-            </View>
-            <Ionicons name="search" size={15} color={Colors.textMuted} style={{ marginLeft: 8 }} />
-          </TouchableOpacity>
-        )}
+        {/* Väder ovanför WORKLOAD: kortet när det är hämtat, annars raden "hämtar" eller "inget hittades".
+            Innan man dragit ner står bara "Fetch WX ↓" på WORKLOAD-raden. Tryck på kortet → väder-uppslaget. */}
+        {mode === 'manned' && (wx
+          ? <WxCard wx={wx} loading={wxLoading} byPosition={!lastDest} onPress={() => setWxPickerOpen(true)} />
+          : wxLoading ? <WxFetchingRow place={lastDest} />
+          : wxMissed ? <WxNotFoundRow place={lastDest} />
+          : null)}
 
-        {/* WORKLOAD-rad — "Fetch WX ↓" (eller "Fetching…") ligger INLINE här när vädret inte hämtats. */}
+        {/* WORKLOAD-rad — "Fetch WX ↓" ligger INLINE här tills man dragit ner sidan. */}
         <View style={s.telGaugeHeader}>
           {/* Vänster: WORKLOAD-etikett + state-text (t.ex. NORMAL) bredvid varandra */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -912,14 +898,10 @@ export default function DashboardScreen() {
             {/* Stressfactor: färgad efter de senaste två månaderna → sidan med Flight load över tid. Bara med flygningar under perioden. */}
             {factor.active && <StressFactorChip zone={factor.zone} values={factor.values} onPress={() => router.push('/stressfactor')} />}
           </View>
-          {/* Höger: "Fetch WX ↓" / "Fetching…" längst till höger (bara tills vädret hämtats) */}
-          {mode === 'manned' && !wx && (
+          {/* Höger: "Fetch WX ↓" längst till höger (bara tills man dragit ner; sedan tar raden/kortet ovanför över) */}
+          {mode === 'manned' && !wx && !wxLoading && !wxMissed && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-              {wxLoading ? (
-                <><ActivityIndicator size="small" color={Colors.primary} /><Text style={s.wxFetchHint}>Fetching weather…</Text></>
-              ) : (
-                <><Text style={s.wxFetchHint}>Fetch WX</Text><Ionicons name="arrow-down" size={13} color={Colors.textMuted} /></>
-              )}
+              <Text style={s.wxFetchHint}>Fetch WX</Text><Ionicons name="arrow-down" size={13} color={Colors.textMuted} />
             </View>
           )}
         </View>
@@ -1152,14 +1134,7 @@ function makeDashStyles() { return StyleSheet.create({
   hudHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   hudLabel: { fontSize: 10, fontWeight: '700', color: Colors.primary, letterSpacing: 1.6, fontFamily: 'Menlo' },
   hudGreeting: { fontSize: 28, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.8, marginBottom: 16, fontFamily: 'Georgia' },
-  wxBlock: { marginBottom: 8 }, // tätt ovanför stressindikatorn
-  wxTap: { flexDirection: 'row', alignItems: 'center' },
-  wxFetch: { height: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   wxFetchHint: { fontSize: 13, fontWeight: '700', letterSpacing: 0.5, color: Colors.textSecondary, fontFamily: 'ChakraPetch-SemiBold' },
-  wxLine: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 21 },
-  wxLabel: { width: 96, fontSize: 14, lineHeight: 21, fontFamily: 'ChakraPetch-SemiBold', letterSpacing: 0.3 },
-  wxScrollWrap: { flex: 1, height: 21 },
-  wxScroll: { fontSize: 14, lineHeight: 21, fontFamily: 'ChakraPetch-SemiBold', color: Colors.textPrimary },
 
   newsBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 10,

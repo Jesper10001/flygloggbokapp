@@ -7,7 +7,7 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, useWindowDimensions, Image,
-  Dimensions, Alert, Animated, RefreshControl, ActivityIndicator, Modal, Pressable,
+  Dimensions, Alert, Animated, RefreshControl, Modal, Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDroneScanStart } from '../../components/DroneScanChooser';
@@ -40,15 +40,14 @@ import { UpdateAvailableModal } from '../../components/UpdateAvailableModal';
 import { UpdateAppliedModal } from '../../components/UpdateAppliedModal';
 import { AirportQuickSearch } from '../../components/AirportQuickSearch';
 import { AirportPickerModal } from '../../components/AirportPickerModal';
-import { Marquee } from '../../components/Marquee';
-import { fetchDecodedWxNear, type DecodedWx, type WxStatus } from '../../services/weather';
+import { fetchDecodedWxNear, type DecodedWx } from '../../services/weather';
+import { WxCard, WxFetchingRow, WxNotFoundRow } from '../../components/WxCard';
 import { useTabBarSpace } from '../../components/GlassTabBar';
 import { workloadIndex, stressSeries, stressFactorSummary, hasFlightsIn, type StressZone as FactorZone } from '../../utils/workload';
 import { AutoHeightPager } from '../../components/AutoHeightPager';
 
 const SERIF = 'Georgia';
 const MONO = 'Menlo';
-const WX_STATUS_COLOR: Record<WxStatus, string> = { fresh: Colors.success, aging: Colors.warning, stale: Colors.danger };
 
 // ── Stress-helpers (klon av manned) ─────────────────────────────────────────
 type StressZone = 'low' | 'light' | 'normal' | 'elevated' | 'high' | 'critical';
@@ -118,17 +117,24 @@ export default function DroneDashboardScreen() {
   const kbShift = useRef(new Animated.Value(0)).current; // temporär uppflytt när flygplatssökrutan fokuseras
   const [wx, setWx] = useState<DecodedWx | null>(null);   // METAR/TAF för närmaste station från positionen
   const [wxLoading, setWxLoading] = useState(false);
+  const [wxMissed, setWxMissed] = useState(false); // senaste hämtningen gav inget väder → "No weather found"-raden
   const [wxPickerOpen, setWxPickerOpen] = useState(false);
 
   // Drönare flyger inte mellan flygplatser → hämta väder för NÄRMASTE station från nuvarande position.
   const loadWeatherNear = useCallback(async () => {
     setWxLoading(true);
+    setWxMissed(false);
+    let found: DecodedWx | null = null;
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') { setWx(null); return; }
-      const p = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      setWx(await fetchDecodedWxNear(p.coords.latitude, p.coords.longitude));
-    } catch { setWx(null); } finally { setWxLoading(false); }
+      if (status === 'granted') {
+        const p = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        found = await fetchDecodedWxNear(p.coords.latitude, p.coords.longitude);
+      }
+    } catch { found = null; }
+    setWx(found);
+    setWxMissed(!found);
+    setWxLoading(false);
   }, []);
   useEffect(() => {
     Animated.timing(globeMenuAnim, { toValue: globeMenuOpen ? 1 : 0, duration: globeMenuOpen ? 240 : 160, useNativeDriver: true }).start();
@@ -145,7 +151,7 @@ export default function DroneDashboardScreen() {
       const series = stressSeries(daily, from, today);
       setFactor({ zone: stressFactorSummary(series).zone, values: series.map((p) => p.index), active: hasFlightsIn(daily, from, today) });
     }).catch(() => {});
-    return () => setWx(null); // göm vädret när man lämnar dashboarden (= manned)
+    return () => { setWx(null); setWxMissed(false); }; // göm vädret när man lämnar dashboarden (= manned)
   }, [loadAccent, loadFlights, loadStats]));
 
   // Blades introduction — starta den guidade rundturen automatiskt EN gång efter onboarding
@@ -177,42 +183,23 @@ export default function DroneDashboardScreen() {
       {/* ── 1. Stressindikator (workload-telemetripanel, klon av manned) ── */}
       <View style={s.telPanel}>
         <TourSpot id="dash-stats" radius={18} inset={2} />
-        {/* Väder-ticker (närmaste station från positionen) ovanför WORKLOAD — bara när hämtat. */}
-        {wx && (
-          <TouchableOpacity activeOpacity={0.7} style={s.wxTap} onPress={() => setWxPickerOpen(true)}>
-            <View style={{ flex: 1 }}>
-              <View style={s.wxLine}>
-                <Text style={[s.wxLabel, { color: wx.metarStatus ? WX_STATUS_COLOR[wx.metarStatus] : Colors.textMuted }]} numberOfLines={1}>METAR {wx.metarStation ?? '—'}</Text>
-                <Marquee
-                  text={wx.metarStation ? [wx.metarTimeZ, wx.metarText || 'no data'].filter(Boolean).join('   ·   ') : 'not available'}
-                  textStyle={s.wxScroll} containerStyle={s.wxScrollWrap} speed={55}
-                />
-              </View>
-              <View style={s.wxLine}>
-                <Text style={[s.wxLabel, { color: wx.tafStatus ? WX_STATUS_COLOR[wx.tafStatus] : Colors.textMuted }]} numberOfLines={1}>TAF {wx.tafStation ?? '—'}</Text>
-                <Marquee
-                  text={wx.tafStation ? (wx.tafText || 'no data') : 'not available'}
-                  textStyle={s.wxScroll} containerStyle={s.wxScrollWrap} speed={55}
-                />
-              </View>
-            </View>
-            <Ionicons name="search" size={15} color={Colors.textMuted} style={{ marginLeft: 8 }} />
-          </TouchableOpacity>
-        )}
+        {/* Väder ovanför WORKLOAD (närmaste station från positionen): kortet när det är hämtat, annars raden
+            "hämtar" eller "inget hittades". Innan man dragit ner står bara "Fetch WX ↓" på WORKLOAD-raden. = pilot */}
+        {wx
+          ? <WxCard wx={wx} loading={wxLoading} byPosition onPress={() => setWxPickerOpen(true)} />
+          : wxLoading ? <WxFetchingRow accent={accent} />
+          : wxMissed ? <WxNotFoundRow accent={accent} />
+          : null}
         <View style={s.telGaugeHeader}>
           {/* Vänster: WORKLOAD-etikett + zon bredvid varandra (= pilot) */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={s.telGaugeLabel}>WORKLOAD</Text>
             {factor.active && <StressFactorChip zone={factor.zone} values={factor.values} onPress={() => router.push({ pathname: '/stressfactor', params: { mode: 'drone' } })} />}
           </View>
-          {/* Höger: "Fetch WX ↓" / "Fetching…" längst till höger (bara tills vädret hämtats) = pilot */}
-          {!wx && (
+          {/* Höger: "Fetch WX ↓" längst till höger (bara tills man dragit ner; sedan tar raden/kortet ovanför över) = pilot */}
+          {!wx && !wxLoading && !wxMissed && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-              {wxLoading ? (
-                <><ActivityIndicator size="small" color={accent} /><Text style={s.wxFetchHint}>Fetching weather…</Text></>
-              ) : (
-                <><Text style={s.wxFetchHint}>Fetch WX</Text><Ionicons name="arrow-down" size={13} color={Colors.textMuted} /></>
-              )}
+              <Text style={s.wxFetchHint}>Fetch WX</Text><Ionicons name="arrow-down" size={13} color={Colors.textMuted} />
             </View>
           )}
         </View>
@@ -579,13 +566,8 @@ const s = StyleSheet.create({
   telPanel: { backgroundColor: 'transparent', borderWidth: 0, padding: 4, gap: 14, marginBottom: 14 },
   telGaugeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 20 },
   telGaugeLabel: { fontSize: 9, fontWeight: '700', color: Colors.textSecondary, letterSpacing: 1.2, fontFamily: 'Menlo' },
-  // Väder-ticker (närmaste station) — samma stil som manned dashboard.
-  wxTap: { flexDirection: 'row', alignItems: 'center' },
+  // "Fetch WX"-hinten — samma stil som manned dashboard (väderkortet ligger i components/WxCard).
   wxFetchHint: { fontSize: 13, fontWeight: '700', letterSpacing: 0.5, color: Colors.textSecondary, fontFamily: 'ChakraPetch-SemiBold' },
-  wxLine: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 21 },
-  wxLabel: { width: 96, fontSize: 14, lineHeight: 21, fontFamily: 'ChakraPetch-SemiBold', letterSpacing: 0.3 },
-  wxScrollWrap: { flex: 1, height: 21 },
-  wxScroll: { fontSize: 14, lineHeight: 21, fontFamily: 'ChakraPetch-SemiBold', color: Colors.textPrimary },
   telPctRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   telReadout: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', paddingVertical: 5, paddingHorizontal: 10, backgroundColor: Colors.background + 'CC', borderRadius: 8, borderWidth: 1, borderColor: Colors.cardBorder },
   telReadoutLabel: { fontSize: 10, fontWeight: '700', color: Colors.textMuted, letterSpacing: 1, fontFamily: 'Menlo' },
