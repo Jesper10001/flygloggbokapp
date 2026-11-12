@@ -338,6 +338,30 @@ export function ReviewFlightRow({ T, f, left, onToggleLeave }: { T: ReportTheme;
   );
 }
 
+// En registrering i filen som finns med annan stavning (nolla i stället för O eller tvärtom): den sparas som
+// `to` om man inte väljer att behålla den som den står.
+export function RegTwinRow({ T, from, to, flights, inLogbook, kept, onToggle }: {
+  T: ReportTheme; from: string; to: string; flights: number; inLogbook: boolean; kept: boolean; onToggle: () => void;
+}) {
+  return (
+    <View style={[st.revRow, { backgroundColor: T.bg, borderColor: T.border }]}>
+      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+        <Text style={[st.revRoute, { color: T.text }]} numberOfLines={1}>
+          <Text style={kept ? undefined : { color: T.text2, textDecorationLine: 'line-through' }}>{from}</Text>
+          {kept ? '' : `  →  ${to}`}
+        </Text>
+        <Text style={[st.revSub, { color: T.text2 }]} numberOfLines={2}>
+          {flights} {flights === 1 ? 'flight' : 'flights'} · {kept ? `saved as written, next to ${to}` : inLogbook ? `${to} is how your logbook writes it` : `${to} is how most of the file writes it`}
+        </Text>
+      </View>
+      <TouchableOpacity onPress={onToggle} hitSlop={10} accessibilityRole="button"
+        accessibilityLabel={kept ? `Save ${from} as ${to}` : `Keep ${from} as written`}>
+        <Text style={[st.revLeave, { color: kept ? T.accent : T.text2 }]}>{kept ? `Use ${to}` : 'Keep as written'}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 // Loggbokens flygningar i en krock, som rader i ClashRow.
 export const clashOthers = (m: LogbookMatch, i: number, fmt: (h: number) => string): ClashOther[] =>
   (m.clashes.get(i) ?? []).map((h) => ({ route: h.logged.route, sub: [h.logged.times, h.logged.what, fmt(h.logged.total), h.logged.source].filter(Boolean).join(' · ') }));

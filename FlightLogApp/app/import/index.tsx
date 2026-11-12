@@ -13,7 +13,8 @@ import { askAiConsent, isAiConsentError } from '../../services/aiConsent';
 import { estimateNightForImport, countComputable, type NightBasis, type NightEstimate } from '../../services/importNight';
 import { CondBar } from '../../components/logflight/CondBar';
 import { CountryFlag } from '../../components/CountryFlag';
-import { insertFlight, getAircraftCruiseSpeed, updateAircraftCruiseSpeed, updateAircraftEndurance, addAircraftTypeToRegistry, deleteFlights } from '../../db/flights';
+import { insertFlight, getAircraftCruiseSpeed, updateAircraftCruiseSpeed, updateAircraftEndurance, addAircraftTypeToRegistry, deleteFlights, getFleetRegistrationTypes } from '../../db/flights';
+import { twinMerges } from '../../services/registrationTwins';
 import { matchFlightsToLogbook, idsToRemove, EMPTY_MATCH, type LogbookMatch } from '../../services/logbookMatch';
 import { enrichFleetInBackground } from '../../services/fleetEnrich';
 import { useFleetDoneStore } from '../../components/FleetDoneModal';
@@ -30,7 +31,7 @@ import { getAirportByIcao, addCustomAirport, addTemporaryPlace, getAirportCoordi
 import { useTimeFormat } from '../../hooks/useTimeFormat';
 import {
   ReportHero, AnalysisCard, SectionLabel, CheckGroup, CheckItem, EditRow, TotalsGrid, ListRow, SaveFooter, FOOTER_SPACE, periodOf,
-  ReviewFlightRow, useCheckNav, datesIn, dayMonth, reviewForAi, logbookReview, ClashRow, clashOthers,
+  ReviewFlightRow, RegTwinRow, useCheckNav, datesIn, dayMonth, reviewForAi, logbookReview, ClashRow, clashOthers,
   type ReportTheme, type CheckStatus, type ReviewGroup, type ReviewFlight, type ClashChoice,
 } from '../../components/import/ImportReport';
 
@@ -478,6 +479,10 @@ export default function ImportScreen() {
     setExcluded((p) => { const n = new Set(p); if (c === 'logbook') n.add(i); else n.delete(i); return n; });
     setKeepNew((p) => { const n = new Set(p); if (c === 'new') n.add(i); else n.delete(i); return n; });
   };
+  // Registreringar i filen som finns med annan stavning (nolla i stället för O eller tvärtom) i loggboken eller
+  // på andra rader i filen: de sparas med den stavningen, utom de man väljer att behålla (keepRegs).
+  const [fleetRegs, setFleetRegs] = useState<{ registration: string; n: number }[]>([]);
+  const [keepRegs, setKeepRegs] = useState<Set<string>>(new Set());
   const nav = useCheckNav();
   const [airportMeta, setAirportMeta] = useState<Record<string, { name: string; country: string; known: boolean }>>({});
   // Marschfart + uthållighet för fartygstyper utan registrerade värden
@@ -671,6 +676,7 @@ export default function ImportScreen() {
     setOpenType(null);
     setExcluded(new Set());
     setMatch(EMPTY_MATCH); setKeepNew(new Set());
+    setFleetRegs([]); setKeepRegs(new Set());
     nav.reset();
     setAirportMeta({});
 
@@ -728,6 +734,8 @@ export default function ImportScreen() {
       const m = await matchFlightsToLogbook(res.flights, { withinFile: true }).catch(() => EMPTY_MATCH);
       setMatch(m);
       setExcluded(new Set(m.dups.keys()));
+      // Loggbokens registreringar, för kontrollen av nolla och O (regFixes).
+      setFleetRegs(await getFleetRegistrationTypes().catch(() => []));
 
       // AI-sammanfattning (fritext) — asynkront, blockerar inte förhandsvisningen
       const sumDates = res.flights.map((f) => f.date).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d || '')).sort();
@@ -832,7 +840,9 @@ export default function ImportScreen() {
           explanation === 'temporary' ? '[Off-airport (ZZZZ)]' :
           explanation === 'refuel'    ? '[En-route refuel]' : '';
         const remarks = [f.remarks, remarksNote].filter(Boolean).join(' ');
-        await insertFlight({ ...f, remarks, flight_type: ft, sim_category: simCat as any }, { source: 'import' });
+        // Simulatorpass har en simulator-etikett i stället för registrering: den rörs inte.
+        const registration = ft === 'sim' ? f.registration : regAsSaved(f.registration);
+        await insertFlight({ ...f, registration, remarks, flight_type: ft, sim_category: simCat as any }, { source: 'import' });
         saved++;
       }
       await Promise.all([loadFlights(), loadStats()]);
@@ -911,6 +921,23 @@ export default function ImportScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [result, unknownAirports, timeFormat, match]);
   const included = result ? result.flights.length - excluded.size : 0;
+  // Nolla och O: filens registreringar som ska byta stavning (från → till), med antal flygningar i filen.
+  // Loggbokens stavning vinner; finns ingen av dem i loggboken vinner filens vanligaste (services/registrationTwins).
+  const regFixes = useMemo(() => {
+    if (!result) return [] as { from: string; to: string; flights: number; inLogbook: boolean }[];
+    const inFile = new Map<string, number>();
+    for (const f of result.flights) { const r = String(f.registration ?? '').trim().toUpperCase(); if (r) inFile.set(r, (inFile.get(r) ?? 0) + 1); }
+    const logbook = new Set(fleetRegs.map((r) => r.registration));
+    const merges = twinMerges([...fleetRegs, ...[...inFile].map(([registration, n]) => ({ registration, n }))], logbook);
+    return [...merges].filter(([from]) => inFile.has(from))
+      .map(([from, to]) => ({ from, to, flights: inFile.get(from) ?? 0, inLogbook: logbook.has(to) }))
+      .sort((a, b) => a.to.localeCompare(b.to, undefined, { numeric: true }));
+  }, [result, fleetRegs]);
+  const regAsSaved = (reg: unknown): string => {
+    const raw = String(reg ?? ''), key = raw.trim().toUpperCase();
+    const fix = keepRegs.has(key) ? undefined : regFixes.find((x) => x.from === key);
+    return fix ? fix.to : raw;
+  };
   const removeCount = useMemo(() => idsToRemove(match, keepNew, (i) => excluded.has(i)).length, [match, keepNew, excluded]);
 
   // Flygplatslistan öppnas → slå upp namn + land för koder som saknas (samma som Imported data)
@@ -1166,6 +1193,23 @@ export default function ImportScreen() {
             : <ReviewFlightRow key={f.idx} T={T} f={f} left={excluded.has(f.idx)} onToggleLeave={() => toggleLeave(f.idx)} />
           ))}
           {n > 40 && <Text style={{ color: T.text2, fontSize: 12.5, textAlign: 'center' }}>+ {n - 40} more {n - 40 === 1 ? 'flight' : 'flights'}</Text>}
+        </CheckItem>
+      ),
+    });
+  }
+  if (regFixes.length > 0) {
+    const changed = regFixes.filter((x) => !keepRegs.has(x.from)).length;
+    const status: CheckStatus = changed > 0 ? 'done' : 'info';
+    checks.push({
+      key: 'regs', status,
+      render: (first) => (
+        <CheckItem T={T} first={first} icon="swap-horizontal-outline" title="0 or O in registrations" status={status}
+          statusText={changed > 0 ? `${changed} CORRECTED` : 'KEPT'}
+          summary="A zero and the letter O are easy to mix up. These registrations are already written the other way, so they are saved that way and stay one aircraft in your fleet.">
+          {regFixes.map((x) => (
+            <RegTwinRow key={x.from} T={T} from={x.from} to={x.to} flights={x.flights} inLogbook={x.inLogbook} kept={keepRegs.has(x.from)}
+              onToggle={() => setKeepRegs((p) => { const n = new Set(p); if (n.has(x.from)) n.delete(x.from); else n.add(x.from); return n; })} />
+          ))}
         </CheckItem>
       ),
     });

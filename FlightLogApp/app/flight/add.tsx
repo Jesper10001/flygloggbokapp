@@ -23,7 +23,7 @@ import { IcaoInput } from '../../components/IcaoInput';
 import type { IcaoInputHandle } from '../../components/IcaoInput';
 import { SmartTimeInput } from '../../components/SmartTimeInput';
 import type { SmartTimeInputHandle } from '../../components/SmartTimeInput';
-import { insertFlight, updateFlight, getFlightById, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getRecentRemarks, getRecentSecondPilots, getRecentSecondPilotsWithRole, getSecondPilotsByAircraft, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry, getAircraftEndurance, getAircraftCruiseSpeed, getAircraftCrewType, getAircraftCategory, flagFlightsByRegistration, flagFlightsBySecondPilot, deleteRegistrationFromRegistry, getSavedCrewNames, addSavedCrewNames, deleteSavedCrewName, getManualFlightCount } from '../../db/flights';
+import { insertFlight, updateFlight, getFlightById, getRecentAircraftTypes, getRecentRegistrations, getRecentPlaces, getRecentRemarks, getRecentSecondPilots, getRecentSecondPilotsWithRole, getSecondPilotsByAircraft, getFlights, addToAircraftRegistry, addAircraftTypeToRegistry, getAircraftEndurance, getAircraftCruiseSpeed, getAircraftCrewType, getAircraftCategory, flagFlightsByRegistration, flagFlightsBySecondPilot, deleteRegistrationFromRegistry, getSavedCrewNames, addSavedCrewNames, deleteSavedCrewName, getManualFlightCount, getFleetRegistrationTypes } from '../../db/flights';
 import { AircraftModal } from '../../components/AircraftModal';
 import { FlightLimitModal } from '../../components/FlightLimitModal';
 import { useFlightStore } from '../../store/flightStore';
@@ -39,6 +39,7 @@ import { useThemeStore } from '../../store/themeStore';
 import { FREE_TIER_LIMIT } from '../../constants/easa';
 import { calcFlightTime, isValidTime, placeCode } from '../../utils/format';
 import { compareRegistrations } from '../../utils/registrationSort';
+import { twinOf } from '../../services/registrationTwins';
 import { buildInstants, computeDarkWindow, instantFromDateTime, CIVIL_TWILIGHT_DEG } from '../../utils/flightTime';
 import { classifyRouteEvents } from '../../utils/eventClassify';
 import { solarAltitudeDeg } from '../../utils/sun';
@@ -1846,6 +1847,10 @@ export default function AddFlightScreen() {
         if (!r) return;
         // Sim-etiketter sparas INTE i flygplansregistret → de dyker aldrig upp bland riktiga registreringar.
         if (!isSim) {
+          // Finns samma registrering redan sparad med nolla i stället för O (eller tvärtom)? Då väljs den
+          // sparade, så att det inte blir två av samma luftfartyg (KIL026 bredvid KILO26).
+          const saved = twinOf(r, (await getFleetRegistrationTypes()).map((x) => x.registration));
+          if (saved) { set('registration', saved); return; }
           await addToAircraftRegistry(form.aircraft_type, r);
           setRecentRegs(await getRecentRegistrations(form.aircraft_type));
         }

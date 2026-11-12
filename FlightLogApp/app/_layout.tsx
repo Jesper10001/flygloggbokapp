@@ -24,6 +24,7 @@ import { useOperatorStore } from '../store/operatorStore';
 import { usePilotTypeStore } from '../store/pilotTypeStore';
 import { useProfileStore } from '../store/profileStore';
 import { cleanupDittoEntries } from '../db/ocrLearned';
+import { mergeRegistrationTwinsOnce } from '../db/registrationTwins';
 import { logLogbookDiagnostics } from '../services/logbook/diagnostics';
 import { useTokenQuotaStore } from '../store/tokenQuotaStore';
 import { useRegulationStandardStore } from '../store/regulationStandardStore';
@@ -176,6 +177,9 @@ export default function RootLayout() {
         await usePilotTypeStore.getState().load();
         await useProfileStore.getState().load();
         await cleanupDittoEntries();
+        // Registreringar som finns sparade både med nolla och med bokstaven O (KIL026 och KILO26) slås ihop en
+        // gång, före första skärmen så att Fleet och listorna är rätt direkt. Får aldrig fälla starten.
+        await mergeRegistrationTwinsOnce().catch(() => {});
         if (__DEV__) logLogbookDiagnostics(); // felsökning: loggbokstotaler till Metro-terminalen (bara i dev)
         useTokenQuotaStore.getState().load(); // fire-and-forget — får inte blockera app-starten på nätverk
         // RevenueCat (IAP): konfigurera + synka premium-läget. Fire-and-forget, tyst om native-modulen
