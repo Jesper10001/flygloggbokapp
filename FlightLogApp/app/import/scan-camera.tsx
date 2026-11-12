@@ -18,6 +18,7 @@ import { useScanQuotaStore } from '../../store/scanQuotaStore';
 import { setScanBatch, spreadLimit, scanSpreadLimit, type ScanImage } from '../../store/scanStore';
 import { useFlightStore } from '../../store/flightStore';
 import { useScanBookStore } from '../../store/scanBookStore';
+import { useTotalsScanStore, type TotalsMode } from '../../store/totalsScanStore';
 import {
   ScanCameraView, isScanCameraAvailable,
   type ScanCameraHandle, type ScanStatus, type ScanCapture, type ScanState,
@@ -77,11 +78,16 @@ export default function ScanCameraScreen() {
   const [leaving, setLeaving] = useState(false);
   const leavingRef = useRef(false);
 
-  const bookMode = useLocalSearchParams<{ book?: string }>().book === '1';
+  const params = useLocalSearchParams<{ book?: string; totals?: string }>();
+  const bookMode = params.book === '1';
+  // Block import (?totals=one|years|more): summaraderna läses i app/import/manual.tsx. 'one' = bara senaste
+  // uppslaget (tas och läggs fram direkt), 'years' = senaste uppslaget och sedan ett per årsskifte,
+  // 'more' = fler årsskiften till en import som redan läses.
+  const totals: TotalsMode | null = params.totals === 'one' || params.totals === 'years' || params.totals === 'more' ? params.totals : null;
   const { isPremium, isMax } = useFlightStore();
   // En vanlig skanning: aldrig fler uppslag än coinsen räcker till (skanningsrutans "about N spreads").
-  const [max] = useState(() => (bookMode ? BOOK_MAX : scanSpreadLimit(isPremium || isMax)));
-  const byCoins = !bookMode && max < spreadLimit(isPremium || isMax);
+  const [max] = useState(() => (totals === 'one' ? 1 : totals ? 20 : bookMode ? BOOK_MAX : scanSpreadLimit(isPremium || isMax)));
+  const byCoins = !bookMode && !totals && max < spreadLimit(isPremium || isMax);
   const full = spreads.length >= max;
 
   // Liggande så länge kameran visas (expo-screen-orientation, som bokvyn). Stående igen när den stängs:
@@ -187,6 +193,26 @@ export default function ScanCameraScreen() {
   // kan ritas på rätt ställe.
   const finish = async () => {
     if (spreads.length === 0 || preparing) return;
+    if (totals) {
+      // Block import: samma förberedda JPEG som skanningen, till app/import/manual.tsx som läser summaraderna.
+      setPreparing(true);
+      try {
+        const images: ScanImage[] = [];
+        for (const sp of spreads) {
+          const actions: ImageManipulator.Action[] = sp.width > OCR_WIDTH ? [{ resize: { width: OCR_WIDTH } }] : [];
+          const out = await ImageManipulator.manipulateAsync(sp.uri, actions, { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true });
+          if (out.base64) images.push({ base64: out.base64, mediaType: 'image/jpeg', width: out.width, height: out.height, cropped: true, oriented: true });
+        }
+        spreads.forEach((sp) => { FileSystem.deleteAsync(sp.uri, { idempotent: true }).catch(() => {}); });
+        if (images.length === 0) throw new Error('Could not prepare the photo.');
+        useTotalsScanStore.getState().put({ mode: totals, images });
+        leave(() => router.back());
+      } catch (e: any) {
+        setPreparing(false);
+        Alert.alert('Could not continue', e?.message ?? 'Try again.');
+      }
+      return;
+    }
     if (bookMode) {
       // Fotona (filer i cachen) förbereds i bokens skanning — inget kodas här.
       await useScanBookStore.getState().addPhotos(spreads.map((sp) => ({ uri: sp.uri, width: sp.width, height: sp.height, cropped: true })));
@@ -214,6 +240,13 @@ export default function ScanCameraScreen() {
     }
   };
 
+  // Block import med ett foto: läggs fram så snart det är taget (går att ta om på granskningen).
+  const finishRef = useRef(finish);
+  finishRef.current = finish;
+  useEffect(() => {
+    if (totals === 'one' && spreads.length === 1) finishRef.current();
+  }, [totals, spreads.length]);
+
   // Panelerna: vänster med text, höger med knappar. Ramen får hela ytan däremellan.
   const padL = Math.max(insets.left, 16), padR = Math.max(insets.right, 16);
   const padB = Math.max(insets.bottom, 12) + 8;
@@ -222,7 +255,11 @@ export default function ScanCameraScreen() {
 
   const st = status.state;
   const turned = st === 'turnPage' && spreads.length > 0;
-  const hint = full
+  const hint = totals && turned && !full
+    ? 'Now a spread where a new year starts'
+    : totals && !full && spreads.length === 0 && (st === 'searching' || st === 'starting')
+      ? 'Point the camera at your latest spread, bottom lines included'
+    : full
     ? byCoins
       ? `That's what your coins cover, ${max} spread${max === 1 ? '' : 's'}. Tap Done.`
       : `That's ${max} spreads, the most per ${bookMode ? 'round' : 'scan'}. Tap Done.`
@@ -232,7 +269,9 @@ export default function ScanCameraScreen() {
         ? 'Tap the shutter to take the photo'
         : HINTS[st] ?? HINTS.searching;
   const good = st === 'ready' || st === 'capturing' || turned;
-  const label = full
+  const label = totals
+    ? (totals === 'one' || (totals === 'years' && spreads.length === 0) ? 'LATEST PAGE' : `NEW YEAR ${spreads.length + (totals === 'more' ? 1 : 0)}`)
+    : full
     ? `${spreads.length} SPREAD${spreads.length === 1 ? '' : 'S'} TAKEN`
     : turned ? `SPREAD ${spreads.length} TAKEN` : `SPREAD ${spreads.length + 1}`;
   // Bockarna i den ordning kameran prövar dem: uppslaget i ramen, sedan stilla, sedan skarpt. "dark" kommer
@@ -300,7 +339,9 @@ export default function ScanCameraScreen() {
           )}
           <View style={{ flex: 1 }} />
           <Text style={s.panelFoot}>
-            {full ? 'Tap the photo to look through them.' : autoCapture ? 'The photo is taken by itself.' : 'Auto is off. You take each photo.'}
+            {totals && totals !== 'one' && !full
+              ? 'Photograph every spread where January begins, then tap Done.'
+              : full ? 'Tap the photo to look through them.' : autoCapture ? 'The photo is taken by itself.' : 'Auto is off. You take each photo.'}
           </Text>
         </View>
       )}

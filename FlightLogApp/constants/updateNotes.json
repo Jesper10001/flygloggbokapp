@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 110,
+      "date": "2026-11-12",
+      "notes": [
+        "New: Block import starts from a photo of your latest logbook page. Blades reads your totals and the aircraft on it.",
+        "New: Year by year: photograph each spread where a new year starts, and Blades works out your hours for each year.",
+        "Improved: Values read from the photo are marked, and anything that doesn't add up is shown in yellow to check."
+      ]
+    },
+    {
       "id": 109,
       "date": "2026-11-12",
       "notes": [

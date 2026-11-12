@@ -96,6 +96,11 @@ export function LedInput({
 
 // ── Ytor ──────────────────────────────────────────────────────────────────────
 
+/** Liten kamera efter etiketten: värdet kommer från fotot av loggboken. */
+export function PhotoMark({ P }: { P: XPalette }) {
+  return <Ionicons name="camera-outline" size={12} color={P.text2} accessibilityLabel="from your photo" />;
+}
+
 export function Card({ P, children, style }: { P: XPalette; children: ReactNode; style?: object }) {
   return <View style={[{ backgroundColor: P.card, borderWidth: 1, borderColor: P.border, borderRadius: 16, overflow: 'hidden' }, style]}>{children}</View>;
 }
@@ -147,34 +152,38 @@ export function ModeSwitch({ P, mode, onChange }: { P: XPalette; mode: 'lump' | 
 }
 
 /** Totaltiden: stor LED-siffra. */
-export function HeroTotal({ P, label, value, onChange, hint }: { P: XPalette; label: string; value: string; onChange: (v: string) => void; hint: string }) {
+export function HeroTotal({ P, label, value, onChange, hint, photo, footer }: { P: XPalette; label: string; value: string; onChange: (v: string) => void; hint?: string; photo?: boolean; footer?: ReactNode }) {
   const [focus, setFocus] = useState(false);
   return (
     <View style={{
       backgroundColor: P.card, borderWidth: 1, borderColor: focus ? P.accent : P.border, borderRadius: 20,
       paddingHorizontal: 18, paddingTop: 16, paddingBottom: 14, gap: 4,
     }}>
-      <Text style={{ color: P.text2, fontSize: 11, fontWeight: '700', letterSpacing: 1.3, textTransform: 'uppercase' }}>{label}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <Text style={{ color: P.text2, fontSize: 11, fontWeight: '700', letterSpacing: 1.3, textTransform: 'uppercase' }}>{label}</Text>
+        {photo ? <PhotoMark P={P} /> : null}
+      </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <LedInput P={P} value={value} onChangeText={onChange} size={38} align="left" label={label} onFocus={() => setFocus(true)} onBlur={() => setFocus(false)} />
         <Text style={{ color: P.text2, fontSize: 18, fontWeight: '600' }}>h</Text>
       </View>
-      <Text style={{ color: P.text2, fontSize: 13, lineHeight: 18 }}>{hint}</Text>
+      {hint ? <Text style={{ color: P.text2, fontSize: 13, lineHeight: 18 }}>{hint}</Text> : null}
+      {footer}
     </View>
   );
 }
 
 /** En rad med etikett (+ underrad och färgprick) och LED-fält till höger. */
 export function TimeRow({
-  P, label, sub, dot, value, onChange, share, first, integer, onRemove,
+  P, label, sub, dot, value, onChange, share, first, integer, onRemove, photo, flag,
 }: {
   P: XPalette; label: string; sub?: string; dot?: string; value: string; onChange: (v: string) => void;
-  share?: number; first?: boolean; integer?: boolean; onRemove?: () => void;
+  share?: number; first?: boolean; integer?: boolean; onRemove?: () => void; photo?: boolean; flag?: boolean;
 }) {
   return (
     <View style={{
-      flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: sub ? 58 : 52, paddingHorizontal: 16,
-      borderTopWidth: first ? 0 : 1, borderTopColor: P.sep,
+      flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: sub || flag ? 58 : 52, paddingHorizontal: 16,
+      borderTopWidth: first ? 0 : 1, borderTopColor: P.sep, backgroundColor: flag ? P.warning + '12' : undefined,
     }}>
       {onRemove ? (
         <TouchableOpacity onPress={onRemove} hitSlop={10} accessibilityLabel={`Remove ${label}`}>
@@ -183,8 +192,12 @@ export function TimeRow({
       ) : null}
       {dot ? <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: dot }} /> : null}
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={{ color: P.text, fontSize: 16 }} numberOfLines={1}>{label}</Text>
-        {sub ? <Text style={{ color: P.text2, fontSize: 12, marginTop: 1 }} numberOfLines={1}>{sub}</Text> : null}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ color: P.text, fontSize: 16, flexShrink: 1 }} numberOfLines={1}>{label}</Text>
+          {photo ? <PhotoMark P={P} /> : null}
+        </View>
+        {flag ? <Text style={{ color: P.warning, fontSize: 12, marginTop: 1 }} numberOfLines={1}>Check this against your logbook</Text>
+          : sub ? <Text style={{ color: P.text2, fontSize: 12, marginTop: 1 }} numberOfLines={1}>{sub}</Text> : null}
       </View>
       <LedInput P={P} value={value} onChangeText={onChange} width={112} integer={integer} label={label} />
       {!integer ? <Text style={{ color: P.text2, fontSize: 13, width: 9 }}>h</Text> : null}
@@ -196,11 +209,15 @@ export function TimeRow({
 }
 
 /** Ruta (natt, landningar …) med etikett och LED-fält. */
-export function Tile({ P, label, value, onChange, integer }: { P: XPalette; label: string; value: string; onChange: (v: string) => void; integer?: boolean }) {
+export function Tile({ P, label, value, onChange, integer, photo, flag }: { P: XPalette; label: string; value: string; onChange: (v: string) => void; integer?: boolean; photo?: boolean; flag?: boolean }) {
   return (
-    <View style={{ flex: 1, minWidth: 0, backgroundColor: P.card, borderWidth: 1, borderColor: P.border, borderRadius: 16, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8, gap: 2 }}>
-      <Text style={{ color: P.text2, fontSize: 13, fontWeight: '600' }} numberOfLines={1}>{label}</Text>
+    <View style={{ flex: 1, minWidth: 0, backgroundColor: flag ? P.warning + '12' : P.card, borderWidth: 1, borderColor: flag ? P.warning + '99' : P.border, borderRadius: 16, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8, gap: 2 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+        <Text style={{ color: P.text2, fontSize: 13, fontWeight: '600', flexShrink: 1 }} numberOfLines={1}>{label}</Text>
+        {photo ? <PhotoMark P={P} /> : null}
+      </View>
       <LedInput P={P} value={value} onChangeText={onChange} size={18} align="left" integer={integer} label={label} />
+      {flag ? <Text style={{ color: P.warning, fontSize: 11.5 }} numberOfLines={1}>Check it</Text> : null}
     </View>
   );
 }
@@ -387,10 +404,10 @@ export function AddPicker({
 
 /** Stapel per år; tryck för att fylla i det året, "+" lägger till året före det tidigaste. */
 export function YearBars({
-  P, years, selected, onSelect, onAddEarlier, addLabel,
+  P, years, selected, onSelect, onAddEarlier, addLabel, addIcon, eyebrow,
 }: {
-  P: XPalette; years: { id: string; year: string; mins: number }[]; selected: string;
-  onSelect: (id: string) => void; onAddEarlier: () => void; addLabel: string;
+  P: XPalette; years: { id: string; year: string; mins: number; label?: string; merged?: boolean }[]; selected: string;
+  onSelect: (id: string) => void; onAddEarlier: () => void; addLabel: string; addIcon?: 'add' | 'camera-outline'; eyebrow?: string;
 }) {
   const max = Math.max(1, ...years.map((y) => y.mins));
   const total = years.reduce((a, y) => a + y.mins, 0);
@@ -398,14 +415,14 @@ export function YearBars({
     <Card P={P} style={{ borderRadius: 20, padding: 14, paddingTop: 16, gap: 12 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 2 }}>
         <Text style={{ color: P.text2, fontSize: 11, fontWeight: '700', letterSpacing: 1.3, textTransform: 'uppercase' }}>
-          {years.length} {years.length === 1 ? 'year' : 'years'}
+          {eyebrow ?? `${years.length} ${years.length === 1 ? 'year' : 'years'}`}
         </Text>
         <LedText size={14} color={P.text}>{hm(total)}</LedText>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: 104 }}>
         <TouchableOpacity onPress={onAddEarlier} accessibilityRole="button" accessibilityLabel={`Add ${addLabel}`} style={{ flex: 1, alignItems: 'center', gap: 6 }}>
           <View style={{ width: '100%', maxWidth: 44, height: 34, borderRadius: 7, borderWidth: 1.5, borderStyle: 'dashed', borderColor: P.accent + '77', alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="add" size={16} color={P.accent} />
+            <Ionicons name={addIcon ?? 'add'} size={16} color={P.accent} />
           </View>
           <Text style={{ color: P.text2, fontSize: 12, fontFamily: 'Menlo' }}>{addLabel}</Text>
         </TouchableOpacity>
@@ -420,8 +437,12 @@ export function YearBars({
               accessibilityLabel={`${y.year || 'Year'}, ${hm(y.mins)} hours`}
               style={{ flex: 1, alignItems: 'center', gap: 6 }}
             >
-              <View style={{ width: '100%', maxWidth: 44, height: Math.max(4, Math.round((y.mins / max) * 76)), borderTopLeftRadius: 7, borderTopRightRadius: 7, borderBottomLeftRadius: 3, borderBottomRightRadius: 3, backgroundColor: on ? P.accent : P.accent + '33' }} />
-              <Text style={{ color: on ? P.text : P.text2, fontSize: 12, fontWeight: on ? '700' : '400', fontFamily: 'Menlo' }}>{y.year || '----'}</Text>
+              <View style={{
+                width: '100%', maxWidth: 44, height: Math.max(4, Math.round((y.mins / max) * 76)), borderTopLeftRadius: 7, borderTopRightRadius: 7, borderBottomLeftRadius: 3, borderBottomRightRadius: 3,
+                backgroundColor: y.merged && !on ? 'transparent' : on ? P.accent : P.accent + '33',
+                borderWidth: y.merged ? 1.5 : 0, borderStyle: 'dashed', borderColor: P.warning,
+              }} />
+              <Text style={{ color: on ? P.text : P.text2, fontSize: 12, fontWeight: on ? '700' : '400', fontFamily: 'Menlo' }} numberOfLines={1} adjustsFontSizeToFit>{y.label ?? (y.year || '----')}</Text>
             </TouchableOpacity>
           );
         })}
