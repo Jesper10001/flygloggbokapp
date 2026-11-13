@@ -11,10 +11,12 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 ### What's New
 
 - Improved: A simpler Logbook row in Settings for switching logbook or layout.
+- Improved: Scan your logbook goes straight to checking every flight, without asking what matters most.
 
 ### Alla ändringar
 
 - Settings: kortet "Pilot logbook · Fixed & Rotary wing" + FULL + "Switch logbook or layout" ersatt av en minimalistisk rad i sektionsrubrikernas stil ("LOGBOOK" · "Pilot · Full" · pil) som öppnar samma ark; pilot- och drönarläget (components/settings/ModeToggleRow.tsx).
+- Skanningen: rutan "What matters most to you?" visas inte längre; "Every flight, exactly" gäller alltid (scan-review.tsx focus = 'exact' från start, LogbookScanChooser läser inte längre ett gammalt scan_focus-val).
 
 ## 1.0.1 – byggs 2026-11-12
 

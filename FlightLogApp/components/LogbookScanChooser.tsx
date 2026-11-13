@@ -12,7 +12,6 @@ import { useTranslation } from '../hooks/useTranslation';
 import { setScanBatch, setScanSources, setScanFocus, setScanFromOnboarding, scanSpreadLimit, type ScanImage } from '../store/scanStore';
 import { askAiConsent } from '../services/aiConsent';
 import { presentPaywall } from '../services/purchases';
-import { getSetting } from '../db/flights';
 import { isScanCameraAvailable } from '../modules/scan-camera';
 import { isAvailable as visionAvailable } from '../modules/apple-vision-ocr';
 import { Colors } from '../constants/colors';
@@ -59,12 +58,8 @@ export function useLogbookScanStart({ replace = false, onNoScans }: { replace?: 
   const [open, setOpen] = useState(false);
   const go = (path: '/import/scan-camera' | '/import/scan-crop' | '/flight/scan-review') => (replace ? router.replace(path) : router.push(path));
 
-  // Förra valet av fokus ("What matters most to you?") förväljs när granskningen frågar efter läsningen.
-  useEffect(() => {
-    getSetting('scan_focus').then((v) => {
-      if (v === 'exact' || v === 'balanced' || v === 'totals') setScanFocus(v);
-    }).catch(() => {});
-  }, []);
+  // Fokus är alltid "Every flight, exactly" (2026-11-13); ett gammalt sparat val i scan_focus används inte.
+  useEffect(() => { setScanFocus('exact'); }, []);
 
   const toReview = async (images: ScanImage[]) => {
     for (let i = 0; i < images.length; i++) await useScanQuotaStore.getState().consumeScan();

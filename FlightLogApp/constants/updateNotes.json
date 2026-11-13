@@ -5,6 +5,7 @@
       "id": 121,
       "date": "2026-11-13",
       "notes": [
+        "Improved: Scan your logbook goes straight to checking every flight, without asking first.",
         "Improved: A simpler Logbook row in Settings for switching logbook or layout."
       ]
     },

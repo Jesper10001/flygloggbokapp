@@ -733,7 +733,9 @@ export default function ScanReviewScreen() {
   // Fokus väljs när första uppslaget är läst (FocusDialog), inte före skanningen: Claude läser alltid lika
   // noggrant (med fokus i instruktionen blev läsningen sämre, t.ex. registreringar 69 % i "totals"), och
   // valet avgör bara vilka frågor som ställs. null = inte valt än (alla frågor räknas).
-  const [focus, setFocus] = useState<ScanFocus | null>(null);
+  // 2026-11-13 (användarens beslut): "Every flight, exactly" gäller alltid och rutan visas inte längre;
+  // FocusDialog och de andra lägena ligger kvar i koden men nås inte.
+  const [focus, setFocus] = useState<ScanFocus | null>('exact');
   const [focusPick, setFocusPick] = useState<ScanFocus>(getScanFocus());   // förval: förra valet
   const [choosingFocus, setChoosingFocus] = useState(false);
   const focusRef = useRef<ScanFocus>('exact');
