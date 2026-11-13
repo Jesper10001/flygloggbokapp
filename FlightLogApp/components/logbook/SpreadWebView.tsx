@@ -2,7 +2,7 @@
 // ifyllnadsvyn. interactive=false döljer de tappbara "+"-rutorna (statisk vy).
 // onAspect rapporterar uppslagets höjd/bredd-förhållande (för tight preview).
 
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 import { View, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { renderSpreadHTML } from '../../services/logbook/renderSpread';
@@ -11,7 +11,7 @@ import type { LogbookSpread } from '../../services/logbook/paginate';
 import type { SignatureData } from '../SignaturePad';
 
 export const SpreadWebView = memo(function SpreadWebView({
-  spread, template, pilotName, timeFormat, width, signature, interactive = true, centerVertical = false, margin, bare = false, bgColor = '#ECE3CC', side, onlyThisPageTotal, onAssign, onAspect, onGeometry,
+  spread, template, pilotName, timeFormat, width, signature, interactive = true, centerVertical = false, margin, bare = false, bgColor = '#ECE3CC', side, onlyThisPageTotal, marks, onCell, clearSel = 0, onAssign, onAspect, onGeometry,
 }: {
   spread: LogbookSpread;
   template: LogbookTemplate;
@@ -26,6 +26,9 @@ export const SpreadWebView = memo(function SpreadWebView({
   bgColor?: string;      // bakgrund bakom uppslaget (t.ex. navy i inline-vyn)
   side?: 'left' | 'right'; // rendera bara en halva (en fysisk sida)
   onlyThisPageTotal?: boolean; // skannat uppslag: bara "Total this page"
+  marks?: Record<string, 'unsure' | 'changed'>; // skanningens helskärm: röda/blå celler (renderSpread)
+  onCell?: (row: number, colId: string) => void; // skanningens helskärm: tryck på en cell (gör cellerna tryckbara)
+  clearSel?: number;     // ändras → markeringen i boken tas bort
   onAssign?: (colId: string) => void;
   onAspect?: (ratio: number) => void;   // ratio = renderad höjd / bredd
   // Datarutornas geometri (CSS-px) för transkriberings-rektangeln: första dataradens
@@ -34,9 +37,11 @@ export const SpreadWebView = memo(function SpreadWebView({
   onGeometry?: (g: { top: number; botData: number; botSum: number; colX?: number[] }) => void;
 }) {
   const html = useMemo(
-    () => renderSpreadHTML({ template, spread, rowsPerSpread: spread.rowsPerSpread ?? template.rows_per_spread, pilotName, timeFormat, signature, interactive, centerVertical, margin, bare, side, onlyThisPageTotal }),
-    [template, spread, pilotName, timeFormat, signature, interactive, centerVertical, margin, bare, side, onlyThisPageTotal],
+    () => renderSpreadHTML({ template, spread, rowsPerSpread: spread.rowsPerSpread ?? template.rows_per_spread, pilotName, timeFormat, signature, interactive, centerVertical, margin, bare, side, onlyThisPageTotal, marks, tapCells: !!onCell }),
+    [template, spread, pilotName, timeFormat, signature, interactive, centerVertical, margin, bare, side, onlyThisPageTotal, marks, onCell],
   );
+  const webRef = useRef<WebView>(null);
+  useEffect(() => { if (clearSel) webRef.current?.injectJavaScript('window.__clearSel && window.__clearSel(); true;'); }, [clearSel]);
   // Vid behov: mät uppslagets naturliga höjd/bredd + datarutornas Y-gränser och rapportera tillbaka.
   const injected = (onAspect || onGeometry)
     ? `(function(){var p=function(){try{var W=window.ReactNativeWebView;`
@@ -50,6 +55,7 @@ export const SpreadWebView = memo(function SpreadWebView({
   return (
     <View style={{ width, flex: 1, backgroundColor: bgColor }}>
       <WebView
+        ref={webRef}
         originWhitelist={['*']}
         source={{ html }}
         style={{ flex: 1, backgroundColor: bgColor }}
@@ -60,7 +66,8 @@ export const SpreadWebView = memo(function SpreadWebView({
         onMessage={(e) => {
           try {
             const m = JSON.parse(e.nativeEvent.data);
-            if (m?.type === 'assignCol' && onAssign) onAssign(m.colId);
+            if (m?.type === 'cell' && onCell) onCell(m.r, m.c);
+            else if (m?.type === 'assignCol' && onAssign) onAssign(m.colId);
             else if (m?.type === 'size' && onAspect && m.ratio > 0) onAspect(m.ratio);
             else if (m?.type === 'geom' && onGeometry) onGeometry({ top: m.top, botData: m.botData, botSum: m.botSum, colX: m.colX });
           } catch {}

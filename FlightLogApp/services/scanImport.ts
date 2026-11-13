@@ -14,6 +14,7 @@ import { reconcileBlockTime } from '../utils/flightTime';
 import { clockValue } from '../utils/format';
 import { matchFlightsToLogbook, type DupHit, type ClashHit } from './logbookMatch';
 import { autoPilotFlying } from '../utils/pilotFlying';
+import { personCheck, isPerson } from './scanNames';
 
 export interface ScanRow {
   key: string;            // stabilt id: `${page}:${rowIndex}`
@@ -28,7 +29,9 @@ export interface ScanRow {
   fromRemarks?: boolean;  // second pilot hämtad ur anmärkningen automatiskt (rubriken säger "name of PIC")
   // Användaren tog bort second pilot (texten var ingen person): texten är tillbaka i anmärkningen och hämtas inte
   // igen. Det som behövs för att ångra.
-  crewRemoved?: { name: string; role: string; remarks: string };
+  // auto = namnkontrollen gjorde det (services/scanNames.ts personCheck), inte användaren.
+  crewRemoved?: { name: string; role: string; remarks: string; auto?: boolean };
+  crewChecked?: boolean;  // second pilot ur namnkolumnen som namnkontrollen tittat på (visas i rapportens lista)
 }
 
 /**
@@ -553,11 +556,11 @@ export function suggestFromRemarks(remarks: string, hasSecondPilot: boolean): Oc
   const timed = /\b(PICUS|PIC\/US|P\/US|SPIC|S\/PIC|NVG|NVD|NVIS)\s*(\d+[.,]\d)\b/i.exec(text);
   if (!hasSecondPilot) {
     const first = /^([A-ZÅÄÖ]{2,3})(?=$|[\s,;:/.-])/.exec(text);
-    if (first && !NOT_INITIALS.has(first[1])) {
+    if (first && !NOT_INITIALS.has(first[1]) && personCheck(first[1]).kind === 'initials') {
       return { field: 'second_pilot', value: first[1], original_text: first[1], confidence: 0.7, reason: 'Initials at the start of the remarks' };
     }
     const name = /^([A-ZÅÄÖ][a-zåäöéü]+)\s+([A-ZÅÄÖ][a-zåäöéü]+(?:-[A-ZÅÄÖ][a-zåäöéü]+)?)$/.exec(text);
-    if (name && !NAME_WORDS.has(name[1]) && !NAME_WORDS.has(name[2])) {
+    if (name && !NAME_WORDS.has(name[1]) && !NAME_WORDS.has(name[2]) && isPerson(text)) {
       return { field: 'second_pilot', value: text, original_text: text, confidence: 0.7, reason: 'A full name in the remarks' };
     }
   }
@@ -594,7 +597,7 @@ function leadingName(remarks: string): string | null {
   if (/^[A-Z]{4}\s*[-–>]\s*[A-Z]{4}/.test(remarks.trim())) return null;   // en rutt ("ESKN-ESSA"), inget namn
   const first = m[1].split(/[\s-]/)[0].toUpperCase();
   if (NOT_INITIALS.has(first) || NOT_NAMES.has(first) || /^(PICUS|SPIC|NVG|NVD|NVIS)$/.test(first)) return null;
-  return m[1];
+  return isPerson(m[1]) ? m[1] : null;
 }
 
 // Resten av anmärkningen när namnet flyttats. Ett ditto-tecken ("-11-") får stå kvar som det är skrivet.
@@ -602,7 +605,7 @@ const restOfRemarks = (remarks: string, moved: string) =>
   remarks.replace(moved, '').replace(/^(?:[\s,;:/.]+|-\s+)+/, '').replace(/\s{2,}/g, ' ').trim();
 
 /** Sätter second pilot ur anmärkningen på raderna (per uppslag, i radordning). Antal satta. */
-export function applyPilotNamesFromRemarks(rows: ScanRow[]): number {
+export function applyPilotNamesFromRemarks(rows: ScanRow[], known?: Set<string>): number {
   let n = 0;
   const pages = new Map<number, ScanRow[]>();
   for (const r of rows) { const l = pages.get(r.page) ?? []; l.push(r); pages.set(r.page, l); }
@@ -622,6 +625,8 @@ export function applyPilotNamesFromRemarks(rows: ScanRow[]): number {
         else { const lead = remarks ? leadingName(remarks) : null; if (lead) { name = lead; rest = restOfRemarks(remarks, lead); } }
       }
       if (name && [d.dep_place, d.arr_place].some((p) => (p ?? '').toUpperCase() === name!.toUpperCase())) name = null;   // en plats
+      // Namnkontrollen: "Line check", "Ferry" eller "SELF" blir aldrig en andrepilot (texten står kvar i anmärkningen).
+      if (name && !isPerson(name, known, [d.dep_place ?? '', d.arr_place ?? ''])) name = null;
       if (!name) { prev = null; continue; }
       prev = { name, rest };
       const unsure = (d.field_issues ?? []).some((x) => x.field === 'remarks' || x.field === 'second_pilot');
@@ -639,6 +644,34 @@ export function applyPilotNamesFromRemarks(rows: ScanRow[]): number {
     }
   }
   return n;
+}
+
+// ── Namnkontroll av second pilot ur namnkolumnen ─────────────────────────────
+// Claude läser ibland ord i namnkolumnen som en andrepilot. Är det inget namn (services/scanNames.ts personCheck)
+// flyttas texten till anmärkningen, och rapporten visar det med Undo. "SELF"/"Själv" betyder att piloten själv
+// var befälhavare: den tas bort helt. Namn som redan finns i loggboken godtas alltid.
+export function screenSecondPilots(rows: ScanRow[], known?: Set<string>): { moved: string[]; self: number } {
+  const moved: string[] = [];
+  let self = 0;
+  for (const r of rows) {
+    const d = r.data;
+    const name = String(d.second_pilot ?? '').trim();
+    if (r.skip || !name || r.crewRemoved || r.fromRemarks) continue;
+    const c = personCheck(name, known, [d.dep_place ?? '', d.arr_place ?? '']);
+    if (c.kind === 'self') {
+      r.data = { ...d, second_pilot: '', second_pilot_role: '' } as OcrFlightResult;
+      self++;
+      continue;
+    }
+    if (c.kind !== 'not') continue;
+    const current = String(d.remarks ?? '');
+    const remarks = current.toUpperCase().includes(name.toUpperCase()) ? current : [name, current].filter(Boolean).join(' ');
+    r.crewRemoved = { name, role: d.second_pilot_role ?? '', remarks: current, auto: true };
+    r.crewChecked = true;
+    r.data = { ...d, second_pilot: '', second_pilot_role: '', remarks } as OcrFlightResult;
+    moved.push(`${name} (${c.reason})`);
+  }
+  return { moved, self };
 }
 
 // ── Raderna i ordning: datum, dubbelrader ────────────────────────────────────

@@ -234,7 +234,7 @@ export function ScanReport(p: {
     ? (Math.min(...pageNums) === Math.max(...pageNums) ? `p. ${pageNums[0]}` : `p. ${Math.min(...pageNums)}–${Math.max(...pageNums)}`)
     : pages.length === 1 ? p.pageLabels?.[0] ?? null : null;
   // Second pilots ur anmärkningen (hela skanningen, i bokens ordning) och om listan är utfälld.
-  const crew = pages.flatMap((pg) => pageRowsOf(pg).filter((r) => r.fromRemarks));
+  const crew = pages.flatMap((pg) => pageRowsOf(pg).filter((r) => r.fromRemarks || r.crewChecked));
   const [crewOpen, setCrewOpen] = useState(false);
   // Ögat ("View as logbook") öppnar första uppslaget med flygningar.
   const firstWithRows = pages.find((pg) => pageRowsOf(pg).length > 0) ?? 0;
@@ -340,11 +340,11 @@ export function ScanReport(p: {
               ))}
             </Text>
           )}
-          {/* Second pilot ur anmärkningen (rubriken säger "name of PIC"): fäll ut för att se och rätta namn och roll. */}
+          {/* Second pilot ur anmärkningen, och det namnkontrollen flyttat till anmärkningen: fäll ut för att se och rätta. */}
           {crew.length > 0 && (
             <>
               <TouchableOpacity style={s.heroRow} onPress={() => setCrewOpen((o) => !o)} activeOpacity={0.75}
-                accessibilityRole="button" accessibilityState={{ expanded: crewOpen }} accessibilityLabel={`${crew.filter((r) => !r.crewRemoved).length} second pilots from the remarks`}>
+                accessibilityRole="button" accessibilityState={{ expanded: crewOpen }} accessibilityLabel={`${crew.filter((r) => !r.crewRemoved).length} second pilots`}>
                 <Ionicons name="people-outline" size={17} color={Colors.textSecondary} />
                 <Text style={s.heroRowTitle}>Second pilots</Text>
                 <Text style={s.heroRowCount}>{crew.filter((r) => !r.crewRemoved).length}</Text>
@@ -352,7 +352,7 @@ export function ScanReport(p: {
               </TouchableOpacity>
               {crewOpen && (
                 <View style={{ paddingBottom: 4 }}>
-                  <Text style={s.crewNote}>From the remarks. Tap a role to change it, or a name to correct it. Not a person? Tap ✕ and the text goes back to the remarks.</Text>
+                  <Text style={s.crewNote}>Only names are kept as second pilots. Words that aren't names stay in the remarks. Tap a role to change it, or a name to correct it. Not a person? Tap ✕.</Text>
                   {crew.map((r, k) => (
                     <View key={r.key}>
                       {pages.length > 1 && (k === 0 || crew[k - 1].page !== r.page) && (
@@ -361,7 +361,7 @@ export function ScanReport(p: {
                       {r.crewRemoved ? (
                       <View style={s.crewRow}>
                         <Text style={s.crewDate}>{/^\d{4}-\d{2}-\d{2}$/.test(r.data.date || '') ? `${Number(r.data.date.slice(8, 10))} ${MONTHS[Number(r.data.date.slice(5, 7)) - 1]}` : `Row ${r.rowIndex}`}</Text>
-                        <Text style={s.crewGone} numberOfLines={1}>{r.crewRemoved.name} · in remarks</Text>
+                        <Text style={s.crewGone} numberOfLines={1}>{r.crewRemoved.name} · {r.crewRemoved.auto ? 'not a name, in remarks' : 'in remarks'}</Text>
                         <TouchableOpacity onPress={() => p.onRestoreCrew?.(r.key)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Undo, make ${r.crewRemoved.name} the second pilot again`}>
                           <Text style={s.crewUndo}>Undo</Text>
                         </TouchableOpacity>

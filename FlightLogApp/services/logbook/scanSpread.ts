@@ -19,6 +19,17 @@ const LABEL: Record<string, string> = {
 };
 // Simulatorpass står i FSTD-kolumnen och inte i "Total time of flight" (deriveLogbookFields).
 const FLIGHT_KEY: Record<string, string> = { total_time: 'tt_total', sim: 'fstd' };
+
+// Kolumnen i boken → fältet i den skannade raden (för att ändra en cell i helskärmsläget). Bara fält som
+// står som de är i raden; härledda kolumner (SE/ME m.fl.) ändras via flygningen.
+const EDITABLE = new Set(['date', 'aircraft_type', 'registration', 'dep_place', 'dep_utc', 'arr_place', 'arr_utc', 'total_time', 'sim',
+  'ifr', 'night', 'pic', 'co_pilot', 'dual', 'instructor', 'landings_day', 'landings_night', 'remarks', 'second_pilot',
+  'multi_pilot', 'single_pilot', 'picus', 'spic', 'nvg']);
+export function fieldOfColumn(col: LogbookColumn | undefined): string | null {
+  if (!col?.flightKey) return null;
+  const f = col.flightKey === 'tt_total' ? 'total_time' : col.flightKey === 'fstd' ? 'sim' : col.flightKey;
+  return EDITABLE.has(f) ? f : null;
+}
 const DECIMAL = new Set(['total_time', 'ifr', 'night', 'pic', 'co_pilot', 'dual', 'instructor', 'sim', 'multi_pilot', 'single_pilot', 'picus', 'spic', 'nvg']);
 const INT = new Set(['landings_day', 'landings_night', 'tng_count']);
 const LEFT_PAGE = new Set(['date', 'aircraft_type', 'registration', 'dep_place', 'dep_utc', 'arr_place', 'arr_utc', 'total_time', 'ifr', 'night']);
@@ -139,7 +150,7 @@ export function bookTemplateFromScan(
  */
 export function scanSpreadAsLogbook(
   rows: ScanRow[], grid: PageGrid | null, pages: { left: number | null; right: number | null }, rowsPerPage: number,
-): { template: LogbookTemplate; spread: LogbookSpread; fromPhoto: boolean } {
+): { template: LogbookTemplate; spread: LogbookSpread; fromPhoto: boolean; slotKeys: (string | null)[] } {
   const pageRows = rows.filter((r) => !r.skip).sort((a, b) => a.rowIndex - b.rowIndex);
   const fromGrid = templateFromGrid(grid, otherColumns(pageRows), rowsPerPage);
   const template = fromGrid ?? getTemplate('easa-pilot-logbook');
@@ -155,11 +166,12 @@ export function scanSpreadAsLogbook(
   // Varje flygning på sin tryckta rad; en rad som redan är tagen (eller utanför sidan) hamnar på nästa lediga.
   const size = Math.max(rowsPerPage, pageRows.length);
   const slots: any[] = Array.from({ length: size }, () => null);
+  const slotKeys: (string | null)[] = Array.from({ length: size }, () => null);   // raden (ScanRow.key) per tryckt rad
   for (const r of pageRows) {
     let i = Math.min(Math.max(r.rowIndex - 1, 0), size - 1);
     while (i < size && slots[i]) i++;
     if (i >= size) i = slots.findIndex((s) => !s);
-    if (i >= 0) slots[i] = asFlight(r);
+    if (i >= 0) { slots[i] = asFlight(r); slotKeys[i] = r.key; }
   }
   const flights = slots.map((s) => s ?? {});
 
@@ -172,6 +184,7 @@ export function scanSpreadAsLogbook(
   return {
     template,
     fromPhoto: !!fromGrid,
+    slotKeys,
     spread: {
       spread_number: 1, page_left: left, page_right: pages.right ?? (left ? left + 1 : 0),
       flights: flights as any, rowsPerSpread: size,

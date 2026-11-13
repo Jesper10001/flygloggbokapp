@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 122,
+      "date": "2026-11-13",
+      "notes": [
+        "New: Scan your logbook goes straight to the scan report, with anything unsure marked on each flight.",
+        "New: See your scanned spreads as a logbook and tap any cell to fix it, with your handwriting from the photo next to it.",
+        "Improved: Only names, initials and callsigns become second pilots when you scan."
+      ]
+    },
+    {
       "id": 121,
       "date": "2026-11-13",
       "notes": [

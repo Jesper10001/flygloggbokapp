@@ -60,5 +60,17 @@ ok(r.groups.length === 1, 'accenter spelar ingen roll');
 r = N.resolveNames(['Hansen', 'Larsen'], []);
 ok(r.groups.length === 2, 'olika namn hålls isär');
 
+// ── Namnkontrollen (personCheck) ──
+const P = (t, known, places) => N.personCheck(t, known, places).kind;
+for (const t of ['Anna Berg', 'J. Andersson', 'van der Berg', 'Mustafa Al-Sayed', 'ANNA BERG', 'Wolff', 'BERG', "O'Neil", 'Öberg', 'Dag Hammar', 'K. de la Cruz'])
+  ok(P(t) === 'name', `namn: ${t} (${P(t)})`);
+for (const t of ['SZ', 'PUA', 'TJ', 'J.T.'])
+  ok(P(t) === 'initials', `initialer/callsign: ${t} (${P(t)})`);
+for (const t of ['Line check', 'Ferry', 'LPC', 'ILS', 'Training flight', 'NDB approach', 'SAR mission', 'Övning', 'night circuits',
+  'with instructor', 'Solo', 'ESSA', 'Skill test', 'PICUS 1.2', 'Rwy 19', 'TGL x3', 'Pax 2', 'CHECK', 'flight to ESSA', 'A', 'ok'])
+  ok(P(t, undefined, ['ESSA']) === 'not', `inget namn: ${t} (${P(t, undefined, ['ESSA'])})`);
+for (const t of ['SELF', 'Self', 'Själv']) ok(P(t) === 'self', `själv: ${t} (${P(t)})`);
+ok(P('Ferry', new Set(['FERRY'])) === 'known', 'ett namn som finns i loggboken godtas alltid');
+
 console.log(fails ? `${fails} fel` : 'inga fel');
 process.exit(fails ? 1 : 0);

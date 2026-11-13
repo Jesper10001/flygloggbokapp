@@ -32,6 +32,11 @@ export interface RenderSpreadOpts {
   /** bara "Total this page" (ingen brought forward/to date eller signatur) — ett skannat uppslag, där appen
    *  inte känner bokens löpande summor. */
   onlyThisPageTotal?: boolean;
+  /** Markerade celler i dataraderna, nyckel `${rad}:${kolumn-id}` (rad = 0-baserad bland flygningarna):
+   *  unsure = Claude är osäker (röd), changed = ändrad av användaren (blå). Skanningens helskärmsläge. */
+  marks?: Record<string, 'unsure' | 'changed'>;
+  /** Cellerna går att trycka på: postMessage {type:'cell', r, c}. Skanningens helskärmsläge. */
+  tapCells?: boolean;
 }
 
 // Kolumnerna för en sida (eller hela uppslaget).
@@ -235,7 +240,10 @@ function spreadBody(opts: RenderSpreadOpts): string {
         const align = isNumericCol(c) ? 'num' : (c.format === 'text' ? 'txt' : 'mid');
         const dash = dashAfter.has(c.id) ? ' dash-r' : '';
         const val = f ? cellValue(f, c, timeFormat) : '';
-        return `<td class="cell ${align}${dash}">${val}</td>`;
+        const fi = r - lead;
+        const mark = f ? opts.marks?.[`${fi}:${c.id}`] : undefined;
+        const tap = f && opts.tapCells ? ` data-r="${fi}" data-c="${esc(c.id)}"` : '';
+        return `<td class="cell ${align}${dash}${mark ? ` m-${mark}` : ''}"${tap}>${val}</td>`;
       })
       .join('');
     dataRows.push(`<tr class="row${r % 2 ? ' odd' : ''}">${cells}</tr>`);
@@ -417,6 +425,25 @@ function spreadStyles(contentWidth: number, pageWidth: number, pagePad: number, 
 `;
 }
 
+// Skanningens helskärmsläge: tryck på en cell → markera den och berätta för appen vilken (rad, kolumn-id).
+// window.__clearSel() tar bort markeringen (Cancel i appen).
+const TAP_SCRIPT = `<style>
+  td.m-unsure { background: #F6CFCF !important; color: #B3261E; font-weight: bold; box-shadow: inset 0 0 0 1px #C62F3E; }
+  td.m-changed { color: #0B6FA8; font-weight: bold; }
+  td[data-c] { cursor: pointer; }
+  td.m-sel { background: rgba(0,168,200,0.18) !important; box-shadow: inset 0 0 0 2px #00A8C8 !important; }
+</style>
+<script>
+  window.__clearSel = function () { document.querySelectorAll('td.m-sel').forEach(function (x) { x.classList.remove('m-sel'); }); };
+  document.addEventListener('click', function (e) {
+    var t = e.target && e.target.closest ? e.target.closest('td[data-c]') : null;
+    if (!t) return;
+    window.__clearSel();
+    t.classList.add('m-sel');
+    if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'cell', r: Number(t.getAttribute('data-r')), c: t.getAttribute('data-c') }));
+  });
+</script>`;
+
 // Kolumnbredd som går att rita: en egen mall med trasig bredd (null/NaN) gav förut en ogiltig viewport.
 const safeWidth = (c: LogbookColumn) => (Number.isFinite(c.width) && c.width > 0 ? c.width : 50);
 
@@ -442,6 +469,7 @@ ${opts.centerVertical ? `<style>
 </head>
 <body>
 ${spreadBody(opts)}
+${opts.tapCells ? TAP_SCRIPT : ''}
 </body>
 </html>`;
 }

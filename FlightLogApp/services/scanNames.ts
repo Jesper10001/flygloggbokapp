@@ -82,3 +82,95 @@ export function resolveNames(
   }
   return { groups, nameOf: (written) => { const r = root.get(nameKey(written)); return r ? best(r) : written; } };
 }
+
+// ── Är det en person? ────────────────────────────────────────────────────────
+// Skanningen har tagit ord i anmärkningen eller namnkolumnen för en andrepilot ("Line check", "Ferry", "SELF").
+// Ett namn är för- och efternamn (Anna Berg, J. Andersson, van der Berg), ett efternamn (Wolff, BERG) eller
+// initialer/callsign på två–tre bokstäver (SZ, PUA). Flygtermer, vanliga ord, siffror och meningar är det inte.
+// Ett namn som redan finns i loggboken godtas alltid.
+
+// Flyg- och anmärkningsord (engelska och svenska) som aldrig är en andrepilot. Jämförs som nameKey (A–Z utan
+// accenter), så ÖVNING står som OVNING.
+const NOT_NAME_WORDS = new Set([
+  // Inflygning, navigation, regler
+  'ILS', 'NDB', 'VOR', 'GPS', 'RNAV', 'LOC', 'DME', 'PAR', 'GCA', 'RNP', 'LPV', 'LNAV', 'VNAV', 'RVR', 'GLS', 'SRA', 'ASR',
+  'NPA', 'PA', 'APV', 'TACAN', 'ADF', 'IFR', 'VFR', 'SVFR', 'IMC', 'VMC', 'SID', 'STAR', 'ATC', 'TWR', 'TOWER', 'GND', 'RWY',
+  'RUNWAY', 'APP', 'APPS', 'APPR', 'APPROACH', 'APPROACHES', 'HOLD', 'HOLDS', 'HOLDING', 'MISSED', 'CIRCLING', 'VISUAL', 'NAV',
+  'NAVEX', 'XC', 'CROSS', 'COUNTRY', 'ROUTE', 'VIA', 'WX', 'WEATHER', 'DIVERT', 'DIVERSION', 'RTB', 'RETURN', 'ALT', 'ALTN',
+  // Roller och personal
+  'PIC', 'SIC', 'PICUS', 'SPIC', 'PUS', 'COP', 'COPILOT', 'FO', 'CAPT', 'CAPTAIN', 'CMD', 'COMMANDER', 'PF', 'PM', 'INSTR',
+  'INSTRUCTOR', 'STUDENT', 'TRAINEE', 'CANDIDATE', 'EXAMINER', 'PAX', 'PASSENGER', 'PASSENGERS', 'CREW', 'DUAL', 'SOLO',
+  // Utbildning och kontroller
+  'PC', 'OPC', 'LPC', 'CRM', 'MCC', 'JOC', 'IR', 'EIR', 'CBIR', 'SE', 'ME', 'SP', 'MP', 'SEP', 'MEP', 'CPL', 'PPL', 'LAPL',
+  'ATPL', 'FI', 'CRI', 'IRI', 'TRI', 'SFI', 'TRE', 'SFE', 'FE', 'IRE', 'CRE', 'ATO', 'CAA', 'TS', 'SKILL', 'PROFICIENCY',
+  'CHECK', 'CHECKRIDE', 'CK', 'EXAM', 'EXAMINATION', 'TEST', 'LINE', 'BASE', 'TYPE', 'RATING', 'REVALIDATION', 'RENEWAL',
+  'RECURRENT', 'INITIAL', 'CONVERSION', 'DIFFERENCES', 'FAM', 'FAMILIARISATION', 'FAMILIARIZATION', 'LIFUS', 'IOE',
+  'SUPERVISED', 'RELEASE', 'UPGRADE', 'TRAINING', 'LESSON', 'EXERCISE', 'EX', 'STAGE', 'PHASE', 'BRIEF', 'BRIEFING', 'DEBRIEF',
+  'SCHOOL', 'SIM', 'SIMULATOR', 'FFS', 'FTD', 'FNPT', 'BITD',
+  // Flygningens slag och manövrar
+  'FLIGHT', 'FLT', 'FLYING', 'LOCAL', 'AREA', 'GENERAL', 'HANDLING', 'GH', 'CIRCUIT', 'CIRCUITS', 'CCTS', 'TGL', 'TNG', 'TOUCH',
+  'GO', 'LANDING', 'LANDINGS', 'TAKEOFF', 'TAKEOFFS', 'NIGHT', 'DAY', 'FERRY', 'POSITIONING', 'POS', 'REPO', 'DEADHEAD', 'DH',
+  'TAXI', 'TOW', 'TOWING', 'GLIDER', 'BANNER', 'AEROBATICS', 'SPIN', 'SPINS', 'STALL', 'STALLS', 'STEEP', 'TURNS', 'FORCED',
+  'PFL', 'EFATO', 'EMERG', 'EMERGENCY', 'ENGINE', 'FAILURE', 'OEI', 'AEO', 'AUTO', 'AUTOS', 'AUTOROTATION', 'HOVER',
+  'CONFINED', 'PINNACLE', 'SLOPE', 'MOUNTAIN', 'OFFSHORE', 'RIG', 'SHIP', 'DECK', 'HOIST', 'WINCH', 'SLING', 'EXTERNAL',
+  'LOAD', 'CARGO', 'MISSION', 'SORTIE', 'OPS', 'OPERATION', 'SAR', 'HEMS', 'HHO', 'MEDEVAC', 'AMBULANCE', 'RESCUE', 'POLICE',
+  'PATROL', 'FIRE', 'FIREFIGHTING', 'BAMBI', 'SURVEY', 'PHOTO', 'DEMO', 'AIRTEST', 'TECH', 'MAINT', 'MAINTENANCE', 'ABORT',
+  'ABORTED', 'CANCELLED', 'CANCELED', 'NVG', 'NVD', 'NVIS', 'TER', 'AR', 'LL', 'LLR', 'KF', 'FF', 'ERF', 'TIS',
+  'ACFT', 'AIRCRAFT', 'HELI', 'HELICOPTER', 'PLANE', 'DRONE', 'FIELD', 'STRIP', 'HOME', 'APRON', 'UPPER', 'AIR', 'WORK',
+  'SELF', 'MYSELF', 'NIL', 'NONE', 'NA', 'TBA', 'TBC', 'SEE', 'NOTE', 'NOTES', 'REMARK', 'REMARKS', 'OK',
+  // Vanliga småord
+  'THE', 'AND', 'WITH', 'FROM', 'TO', 'FOR', 'OF', 'IN', 'ON', 'AT', 'BY', 'NO', 'NOT', 'AS', 'ALL', 'GOOD', 'OFF', 'OUT',
+  // Svenska
+  'SKOLFLYG', 'SKOLNING', 'OVNING', 'NATT', 'LOKALT', 'LOKAL', 'NAVIGERING', 'STRACKA', 'FLYGNING', 'FLYG', 'PROV',
+  'KONTROLL', 'UTBILDNING', 'TRAFIKVARV', 'VARV', 'LANDNING', 'LANDNINGAR', 'INFLYGNING', 'INFLYGNINGAR', 'ELEV', 'LARARE',
+  'INSTRUKTOR', 'BEFALHAVARE', 'PASSAGERARE', 'FRAKT', 'OVERFLYGNING', 'FARJNING', 'UPPVISNING', 'RADDNING', 'BRAND',
+  'POLIS', 'AMBULANS', 'SJUKTRANSPORT', 'UPPDRAG', 'TEKNISK', 'PROVFLYGNING', 'AVBRUTEN', 'INSTALLD', 'VADER', 'MED', 'OCH',
+  'TILL', 'FRAN', 'PA', 'SJALV', 'JAG', 'MIG',
+]);
+// Betyder att piloten själv var befälhavare: ingen andrepilot alls (tas bort, inte till anmärkningen).
+const SELF_WORDS = new Set(['SELF', 'MYSELF', 'SJALV', 'JAG', 'MIG']);
+// Småord i namn: van der Berg, af Klint, de la Cruz, bin Rashid.
+const PARTICLES = new Set(['VAN', 'VON', 'DER', 'DEN', 'DE', 'DA', 'DI', 'DU', 'LA', 'LE', 'DEL', 'AF', 'AV', 'TER', 'TEN', 'BIN', 'AL', 'EL', 'MAC', 'MC', 'ST']);
+
+export const isNotNameWord = (word: string) => NOT_NAME_WORDS.has(nameKey(word));
+
+export type PersonKind = 'known' | 'name' | 'initials' | 'self' | 'not';
+
+/** Är texten en person (namn, efternamn, initialer/callsign)? known = nameKey för namn som redan finns. */
+export function personCheck(raw: unknown, known?: Set<string>, places: string[] = []): { kind: PersonKind; reason?: string } {
+  const text = String(raw ?? '').trim().replace(/\s+/g, ' ');
+  const key = nameKey(text);
+  if (!key) return { kind: 'not', reason: 'empty' };
+  if (SELF_WORDS.has(key)) return { kind: 'self' };
+  if (known?.has(key)) return { kind: 'known' };
+  if (/\d/.test(text)) return { kind: 'not', reason: 'contains numbers' };
+  if (places.some((p) => nameKey(p) === key)) return { kind: 'not', reason: 'a place' };
+  const tokens = text.split(/[\s,]+/).map((t) => t.replace(/^[("'“]+|[)"'”.:;]+$/g, '')).filter(Boolean);
+  if (text.length > 40 || tokens.length > 4) return { kind: 'not', reason: 'too long for a name' };
+  if (/[/&+=@#%<>→?!]/.test(text)) return { kind: 'not', reason: 'not a name' };
+  const letters = (t: string) => nameKey(t).replace(/[^A-Z]/g, '');
+  if (tokens.some((t) => NOT_NAME_WORDS.has(letters(t)))) return { kind: 'not', reason: 'an aviation or ordinary word' };
+
+  // Ett ord: initialer/callsign (2–3 bokstäver, även "J.T.") eller ett efternamn med stor bokstav.
+  if (tokens.length === 1) {
+    const t = tokens[0];
+    if (/^([A-Za-zÀ-ÿ]\.?){2,3}$/.test(t) && /^[A-ZÀ-Þ]/.test(t)) return { kind: 'initials' };
+    if (/^[A-ZÀ-Þ][A-Za-zÀ-ÿ'’-]{3,}$/.test(t)) return { kind: 'name' };
+    return { kind: 'not', reason: 'not a name' };
+  }
+  // Flera ord: varje ord ett namn med stor bokstav, en initial (J. eller J) eller ett småord (van, af, de).
+  let named = 0;
+  for (const t of tokens) {
+    if (PARTICLES.has(letters(t)) && /^[a-zà-ÿ]/.test(t)) continue;
+    if (/^[A-ZÀ-Þ]\.?$/.test(t)) continue;
+    if (/^[A-ZÀ-Þ][A-Za-zÀ-ÿ'’-]+$/.test(t)) { named++; continue; }
+    if (PARTICLES.has(letters(t))) continue;
+    return { kind: 'not', reason: 'reads like text, not a name' };
+  }
+  return named ? { kind: 'name' } : { kind: 'not', reason: 'not a name' };
+}
+
+export const isPerson = (raw: unknown, known?: Set<string>, places?: string[]) => {
+  const k = personCheck(raw, known, places).kind;
+  return k === 'known' || k === 'name' || k === 'initials';
+};

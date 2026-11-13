@@ -12,11 +12,17 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 - Improved: A simpler Logbook row in Settings for switching logbook or layout.
 - Improved: Scan your logbook goes straight to checking every flight, without asking what matters most.
+- New: Scan your logbook goes straight to the scan report, with anything unsure marked on each flight.
+- New: See your scanned spreads as a logbook and tap any cell to fix it, with your handwriting from the photo next to it.
+- Improved: Scan your logbook only takes names, initials and callsigns as second pilots. Words like “Line check” stay in the remarks.
 
 ### Alla ändringar
 
 - Settings: kortet "Pilot logbook · Fixed & Rotary wing" + FULL + "Switch logbook or layout" ersatt av en minimalistisk rad i sektionsrubrikernas stil ("LOGBOOK" · "Pilot · Full" · pil) som öppnar samma ark; pilot- och drönarläget (components/settings/ModeToggleRow.tsx).
 - Skanningen: rutan "What matters most to you?" visas inte längre; "Every flight, exactly" gäller alltid (scan-review.tsx focus = 'exact' från start, LogbookScanChooser läser inte längre ett gammalt scan_focus-val).
+- Skanningen: nya Scan report utan handpåläggning (SKIP_REVIEW i scan-review.tsx; det gamla flödet med frågepanelen och ScanReport finns kvar orört bakom flaggan). Läsningsskärmen står kvar tills alla uppslag är lästa, sedan direkt till components/scan/ScanReportSimple.tsx: totaler i LED + ögat, rullistorna Second pilots (namn/roll/✕/Undo) och Models & registrations (IN FLEET/NEW), flight cards äldst överst med datum, sida och rad, kantfärg grön/gul/röd efter Claudes osäkerhet, snabbsvar (Claudes förslag, Looks right, Edit flight → FlightEditor), dubbletter och krockar med loggboken på korten. Design: artifact EEZZQZTdmsVaBrtpZAPqzB.
+- Skanningen, helskärmen (LogbookCrossRef): osäkra celler röda, ändrade blå; tryck på en cell → ruta med en bit av fotot (cellRect, cellen inringad), Claudes skäl och fältet (Save / Looks right). renderSpread fick marks + tapCells (postMessage), SpreadWebView onCell/marks/clearSel, scanSpreadAsLogbook slotKeys + fieldOfColumn. Vanliga loggböcker påverkas inte.
+- Skanningen: namnkontroll för second pilot (services/scanNames.ts personCheck): för- och efternamn, efternamn, initialer/callsign på 2–3 bokstäver godtas, liksom namn som redan finns i loggboken; flyg- och anmärkningsord (engelska + svenska), siffror, platser och meningar godtas inte. Gäller förslag ur anmärkningen, automatisk hämtning ("name of PIC") och Claudes läsning av namnkolumnen (screenSecondPilots: texten flyttas till anmärkningen med Undo i rapporten, "SELF"/"Själv" tas bort). Tester i scripts/test-scan-names.cjs.
 
 ## 1.0.1 – byggs 2026-11-12
 

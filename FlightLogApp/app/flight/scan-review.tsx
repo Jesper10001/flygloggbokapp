@@ -20,7 +20,7 @@ import {
 import { useScanBookStore } from '../../store/scanBookStore';
 import { loadScanFormat, saveScanFormat, formatToLayout, type ScanFormat } from '../../services/scanFormat';
 import { applyValueRules, undoValueRule, noteAnswer, ruleFor, ruleClassOf, upper, type ValueRule, type RuleStash } from '../../services/scanValueRules';
-import { resolveNames } from '../../services/scanNames';
+import { resolveNames, nameKey } from '../../services/scanNames';
 import { checkRegistrations, type RegCheck } from '../../services/scanRegistrations';
 import { prepareSpread, mediaTypeOf } from '../../services/scanPrepare';
 import { resolveScanTypes, typeKey, isVariant, maybeSameType, type TypeGroup, type FleetInfo } from '../../services/scanTypes';
@@ -40,6 +40,7 @@ import { ScanReport, type CellState } from '../../components/scan/ScanReport';
 import { ScanProgress, type ScanPhase } from '../../components/scan/ScanProgress';
 import { FlightEditor } from '../../components/scan/FlightEditor';
 import { LogbookCrossRef } from '../../components/scan/LogbookCrossRef';
+import { ScanReportSimple, type SimpleIssue } from '../../components/scan/ScanReportSimple';
 import { saveScannedTemplate } from '../../services/logbook/bookFromScan';
 import { similarAirports } from '../../services/placeSuggest';
 import { enrichFleetInBackground } from '../../services/fleetEnrich';
@@ -52,7 +53,7 @@ import {
 import {
   prepareFlight, findUnknownIcaos, flagUnknownIcaos, saveScanRows, saveLearnedCorrections, matchScanRows, EMPTY_SCAN_MATCH, type ScanMatch, columnTotals,
   detectTimeAddition, fitsTimeAddition, checkRowSequence, checkLandingPairs, reconcileSimColumn, typicalRowsPerPage, reconcileAddition,
-  rowsMatchBlockTimes, pageTotalsPointAt, findExtraRow, headerNamesPilot, applyPilotNamesFromRemarks, type ScanRow,
+  rowsMatchBlockTimes, pageTotalsPointAt, findExtraRow, headerNamesPilot, applyPilotNamesFromRemarks, screenSecondPilots, type ScanRow,
 } from '../../services/scanImport';
 import { mergeScan, ledgerStatus, type PaperFix, type LedgerSpread } from '../../services/scanPaperFixes';
 import { loadLedger, saveLedger } from '../../services/paperLedger';
@@ -160,6 +161,11 @@ type PageRead = Awaited<ReturnType<typeof ocrScanPage>>;
 
 // Det som står i bokens cell. Ett simulatorpass sparas med passets längd som total tid (appens modell), men i
 // boken står tiden i simulatorkolumnen och "Total time of flight" är tom — visas som SIM där.
+// Nya flödet (2026-11-13): efter skanningen direkt till Scan report (ScanReportSimple) — ingen handpåläggning
+// (frågepanelen) först. Det osäkra visas på flygningarnas kort och i uppslagen i helskärm. false = det gamla
+// flödet med granskningen och den gamla rapporten, som finns kvar orört.
+const SKIP_REVIEW = true;
+
 const SIM_MARK = 'SIM';
 function bookCell(d: OcrFlightResult, field: string, fmt: TimeFormat): string {
   if (field === 'total_time' && d.flight_type === 'sim') return SIM_MARK;
@@ -690,6 +696,7 @@ export default function ScanReviewScreen() {
   const [typesKept, setTypesKept] = useState<Set<string>>(new Set());   // par som användaren sagt är olika flygplan
   // Andrepiloterna: namnen som redan finns, isärhållna namn, och rader användaren själv ändrat.
   const [knownNames, setKnownNames] = useState<{ name: string; n: number }[]>([]);
+  const knownKeysRef = useRef<Set<string>>(new Set());   // namnkontrollen: namn som redan finns godtas alltid
   const [nameSeparate, setNameSeparate] = useState<Set<string>>(new Set());
   const crewEdited = useRef(new Set<string>());
   const nameWritten = useRef(new Map<string, string>());   // namnet som det lästes, per rad
@@ -952,12 +959,15 @@ export default function ScanReviewScreen() {
       if (!pilotNamesRef.current && (result.remarksPilotNames || headerNamesPilot(words.map((w) => w.text)))) {
         pilotNamesRef.current = true;
         console.log(`[SCAN] Anmärkningens rubrik: pilotens namn står där (${result.remarksPilotNames ? 'Claude' : 'Vision'})`);
-        setRows((prev) => { const copy = prev.map((r) => ({ ...r })); return applyPilotNamesFromRemarks(copy) ? copy : prev; });
+        setRows((prev) => { const copy = prev.map((r) => ({ ...r })); return applyPilotNamesFromRemarks(copy, knownKeysRef.current) ? copy : prev; });
       }
       if (pilotNamesRef.current) {
-        const set = applyPilotNamesFromRemarks(newRows);
+        const set = applyPilotNamesFromRemarks(newRows, knownKeysRef.current);
         if (set) console.log(`[SCAN] Second pilot ur anmärkningen på ${set} rader`);
       }
+      // Namnkontrollen på det Claude läst i namnkolumnen: inga namn → till anmärkningen, "SELF" → bort.
+      const screened = screenSecondPilots(newRows, knownKeysRef.current);
+      if (screened.moved.length || screened.self) console.log(`[SCAN] Namnkontroll: ${screened.moved.length} till anmärkningen${screened.moved.length ? ` (${screened.moved.join(', ')})` : ''}, ${screened.self} SELF borttagna`);
       // Osäkra eller okända platskoder → liknande flygplatser som förslag (i bakgrunden, ingen AI).
       for (const r of newRows) for (const f of ['dep_place', 'arr_place'] as const) {
         const c = String(r.data[f] ?? '').toUpperCase();
@@ -1152,7 +1162,7 @@ export default function ScanReviewScreen() {
       const format = book ? await loadScanFormat(book.formatId) : null;
       bookFormatRef.current = format;
       if (format) bookGridRef.current = format.template ?? { columns: format.columns.map((c) => ({ field: c.field, label: c.label, left: c.left, right: c.right })), spine: format.spine, score: -1 };
-      getSecondPilotCounts().then(setKnownNames).catch(() => {});
+      getSecondPilotCounts().then((list) => { knownKeysRef.current = new Set(list.map((x) => nameKey(x.name))); setKnownNames(list); }).catch(() => {});
       try {
         const saved = JSON.parse((await getSetting('scan_value_rules')) || '[]');
         if (Array.isArray(saved)) { rulesRef.current = saved; setRules(saved); }
@@ -1191,6 +1201,7 @@ export default function ScanReviewScreen() {
   const startedAt = useRef(Date.now()).current;
   // Innan granskningen börjar: "What matters most to you?" (FocusDialog) med uppskattad tid och träffsäkerhet.
   useEffect(() => {
+    if (SKIP_REVIEW) return;   // nya flödet: läsningsskärmen står kvar tills allt är läst (se autoReport nedan)
     if (readingPhase || overlay !== 'visible') return;
     if (!focus) { setChoosingFocus(true); return; }
     setOverlay('finishing');
@@ -2126,6 +2137,50 @@ export default function ScanReviewScreen() {
     return now !== was ? 'changed' : null;
   };
 
+  // Nya flödet: när varje uppslag är läst (eller inte gick att läsa) → direkt till rapporten.
+  const autoReport = useRef(false);
+  useEffect(() => {
+    if (!SKIP_REVIEW || autoReport.current || busy || stage === 'report') return;
+    if (!pages.some((pg) => pg.status === 'done') || rows.length === 0) return;
+    autoReport.current = true;
+    (async () => {
+      setScanMatch(await matchScanRows(rows, timeBasis).catch(() => EMPTY_SCAN_MATCH));
+      setStage('report');
+      setOverlay('hidden');
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy, pages, rows.length, stage]);
+
+  // Snabbsvaren i nya rapporten: ett av Claudes förslag, eller "Looks right" (som confirm, för en given fråga).
+  const answerIssue = (id: string, chip: number | null) => {
+    const issue = issues.find((x) => x.id === id);
+    if (!issue) return;
+    if (chip != null) { const sg = issue.suggestions[chip]; if (sg) applySuggestion(issue, sg); return; }
+    if (issue.kind === 'aircraft' && issue.aircraft) { applySuggestion(issue, { label: '', field: 'aircraft_type', value: issue.aircraft.resolved }); return; }
+    if (ruleClassOf(issue.field)) {
+      const keys = issue.group ? issue.group.members.map((m) => m.split(':f:')[0]) : [issue.rowKey];
+      for (const k of keys) { const v = (rowByKey.get(k)?.data as any)?.[issue.field]; learnAnswer(issue.field, k, v, v); }
+    }
+    resolve(issue.id, 'ok');
+  };
+  const simpleIssues: SimpleIssue[] = openIssues.map((i) => {
+    const groupRows = i.group ? new Set(i.group.members.map((m) => m.split(':f:')[0])).size : 1;
+    return {
+      id: i.id, rowKey: i.rowKey,
+      fields: i.kind === 'mismatch' ? ['dep_utc', 'arr_utc', 'total_time'] : [i.field],
+      // Rubriken är oftast bara kolumnens namn (står redan på kortet); annars först, före skälet.
+      text: i.reason && i.title !== label(i.field) ? `${i.title.replace(/\.$/, '')}. ${i.reason}` : (i.reason || i.title),
+      severity: i.readAs || i.kind === 'mismatch' || i.kind === 'column' || i.sumCell === 'explains' ? 'wrong' : 'check',
+      chips: i.suggestions.map((sg) => sg.label).filter(Boolean),
+      also: Math.max(groupRows - 1, i.alsoRows?.length ?? 0),
+    };
+  });
+  const issueForCell = (rowKey: string, field: string) => {
+    const i = openIssues.find((x) => (x.rowKey === rowKey || !!x.alsoRows?.includes(rowKey) || !!x.group?.members.includes(`${rowKey}:f:${field}`))
+      && (x.field === field || (x.kind === 'mismatch' && CLOCK.has(field))));
+    return i ? { id: i.id, reason: i.reason || i.title } : null;
+  };
+
   // Stänga: läsningen slutar. I en hel bok är de lästa uppslagen sparade (öppnas delen igen kostar de inga
   // coins); i en vanlig skanning försvinner de, och coinsen de kostat kommer inte tillbaka.
   const close = () => {
@@ -2229,6 +2284,65 @@ export default function ScanReviewScreen() {
       />
     </Animated.View>
   ) : null;
+
+  if (stage === 'report' && SKIP_REVIEW) {
+    return (
+      <View style={s.root}>
+        <ScanReportSimple
+          rows={rows}
+          pageNumbers={pages.map((pg) => pg.pageNumbers)}
+          timeFormat={timeFormat}
+          insets={insets}
+          issues={simpleIssues}
+          duplicates={duplicates}
+          clashes={Object.fromEntries(Object.entries(scanMatch.clashes).map(([k, v]) => [k, v.length]))}
+          clashChoice={clashChoice}
+          onClash={chooseClash}
+          newRegs={new Set(regChecks.filter((c) => c.isNew).map((c) => c.reg.toUpperCase()))}
+          saving={saving}
+          onAnswer={answerIssue}
+          onEdit={(rowKey) => setEditorKey(rowKey)}
+          onToggleSkip={reportToggle}
+          onPresentLogbook={() => setCrossRefPage(Math.max(0, pages.findIndex((_, idx) => rows.some((r) => r.page === idx))))}
+          onCrewRole={(keys, role) => keys.forEach((k) => editField(k, 'second_pilot_role', role))}
+          onCrewName={(keys, name) => keys.forEach((k) => editField(k, 'second_pilot', name))}
+          onRemoveCrew={removeCrew}
+          onRestoreCrew={restoreCrew}
+          onBack={close}
+          onSave={saveReport}
+        />
+        {editorKey && (
+          <FlightEditor
+            row={rowByKey.get(editorKey) ?? null}
+            timeFormat={timeFormat}
+            openFields={openFieldsFor(editorKey)}
+            onChange={(field, value) => editField(editorKey, field, value)}
+            onPatch={(patch) => patchRow(editorKey, patch)}
+            onToggleSkip={() => reportToggle(editorKey)}
+            onClose={() => setEditorKey(null)}
+          />
+        )}
+        {crossRefPage != null && pages[crossRefPage] && (
+          <LogbookCrossRef
+            spreads={pages.map((pg, idx) => ({ page: idx, rows: rows.filter((r) => r.page === idx), grid: pg.grid, pageNumbers: pg.pageNumbers }))
+              .filter((sp) => sp.rows.length > 0)}
+            initialPage={crossRefPage}
+            rowsPerPage={rowsPerPageOf(crossRefPage)}
+            timeFormat={timeFormat}
+            onClose={() => setCrossRefPage(null)}
+            editing={{
+              cellState,
+              issueFor: issueForCell,
+              photo: (pg) => (pages[pg] ? { uri: pages[pg].uri, width: pages[pg].width, height: pages[pg].height } : null),
+              onSave: (rowKey, field, value) => editField(rowKey, field, value),
+              onLooksRight: (id) => answerIssue(id, null),
+            }}
+          />
+        )}
+        {paperGuide && <PaperFixGuide visible timeFormat={timeFormat} onClose={() => { setPaperGuide(false); leave(); }} />}
+      </View>
+    );
+  }
 
   if (stage === 'report') {
     return (
