@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, Linking, ActivityIndicator, AppState, Image, Alert } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -49,9 +49,12 @@ import { useICloudStore } from '../store/icloudStore';
 import { isEnabled as icloudEnabled, hasRestorableBackup, restoreNow as icloudRestore } from '../services/icloudSync';
 import type { BackupManifest } from '../services/backupManifest';
 import { initCrashReporting } from '../services/crashReporting';
+import { startJsWatchdog, setWatchdogScreen } from '../services/jsWatchdog';
 
 // Kraschrapporter (Sentry) — bara release-byggen med DSN; se services/crashReporting.ts.
 initCrashReporting();
+// Vakten för JavaScript-tråden (frysningar som iPhonens frysningsdetektering inte ser); se services/jsWatchdog.ts.
+startJsWatchdog();
 
 // Erbjud återställning från en hittad iCloud-backup vid nyinstallation. Returnerar true om data
 // återställdes (→ hoppa onboarding och gå direkt in i appen).
@@ -84,6 +87,9 @@ installAlertGuard();
 
 export default function RootLayout() {
   const router = useRouter();
+  // Vakten vet vilken skärm som visas (bara vägen, utan id:n).
+  const pathname = usePathname();
+  useEffect(() => { setWatchdogScreen(pathname); }, [pathname]);
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const [initError, setInitError] = useState<string | null>(null); // start-fel (t.ex. DB kunde inte öppnas)
   const [retryNonce, setRetryNonce] = useState(0);                  // ökas av "Try again" → kör om init

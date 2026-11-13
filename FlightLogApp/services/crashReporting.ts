@@ -27,6 +27,31 @@ export function initCrashReporting(): void {
   }
 }
 
+/** Är Sentry igång (release-bygge med DSN)? */
+export const crashReportingActive = (): boolean => !!sentry;
+
+/** En frysning (services/jsWatchdog.ts) som varning, med skärmen som tagg. No-op utan Sentry. */
+export function reportHang(message: string, data: Record<string, unknown>, kind: string): void {
+  try {
+    sentry?.captureMessage(message, {
+      level: 'warning',
+      tags: { kind, screen: String(data.screen ?? '') },
+      extra: data,
+      fingerprint: [kind, String(data.screen ?? '')],
+    });
+  } catch { /* får aldrig fälla appen */ }
+}
+
+/** Kraschade förra körningen (Sentry rapporterar den själv)? null = vet inte. */
+export async function crashedLastRun(): Promise<boolean | null> {
+  try { return (await sentry?.crashedLastRun?.()) ?? null; } catch { return null; }
+}
+
+/** En brödsmula (t.ex. skärmbyten) som följer med nästa rapport. No-op utan Sentry. */
+export function addBreadcrumb(category: string, message: string): void {
+  try { sentry?.addBreadcrumb({ category, message, level: 'info' }); } catch { /* får aldrig fälla appen */ }
+}
+
 /** Rapportera ett fångat fel (t.ex. från ErrorBoundary). No-op utan Sentry. */
 export function reportError(error: unknown, context?: Record<string, unknown>): void {
   try { sentry?.captureException(error, context ? { extra: context } : undefined); } catch { /* får aldrig fälla appen */ }

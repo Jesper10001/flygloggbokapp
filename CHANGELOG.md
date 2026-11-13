@@ -15,9 +15,11 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - New: Scan your logbook goes straight to the scan report, with anything unsure marked on each flight.
 - New: See your scanned spreads as a logbook and tap any cell to fix it, with your handwriting from the photo next to it.
 - Improved: Scan your logbook only takes names, initials and callsigns as second pilots. Words like “Line check” stay in the remarks.
+- Improved: Blades now notices when it stops responding, so freezes can be found and fixed.
 
 ### Alla ändringar
 
+- Vakt för JavaScript-tråden (services/jsWatchdog.ts, startas i app/_layout.tsx): stopp över 2 s medan appen är framme rapporteras till Sentry som varning (kind js_stall, skärmens väg utan id:n); ett hjärtslag i js-watchdog.json var 5:e s gör att en session som slutade med appen framme (JavaScript fryst eller iOS stängde appen, inte en krasch) rapporteras vid nästa start (js_unclean_exit). Skärmbyten blir brödsmulor. Max 5 rapporter per session. Bara med Sentry (release-bygge med DSN).
 - Settings: kortet "Pilot logbook · Fixed & Rotary wing" + FULL + "Switch logbook or layout" ersatt av en minimalistisk rad i sektionsrubrikernas stil ("LOGBOOK" · "Pilot · Full" · pil) som öppnar samma ark; pilot- och drönarläget (components/settings/ModeToggleRow.tsx).
 - Skanningen: rutan "What matters most to you?" visas inte längre; "Every flight, exactly" gäller alltid (scan-review.tsx focus = 'exact' från start, LogbookScanChooser läser inte längre ett gammalt scan_focus-val).
 - Skanningen: nya Scan report utan handpåläggning (SKIP_REVIEW i scan-review.tsx; det gamla flödet med frågepanelen och ScanReport finns kvar orört bakom flaggan). Läsningsskärmen står kvar tills alla uppslag är lästa, sedan direkt till components/scan/ScanReportSimple.tsx: totaler i LED + ögat, rullistorna Second pilots (namn/roll/✕/Undo) och Models & registrations (IN FLEET/NEW), flight cards äldst överst med datum, sida och rad, kantfärg grön/gul/röd efter Claudes osäkerhet, snabbsvar (Claudes förslag, Looks right, Edit flight → FlightEditor), dubbletter och krockar med loggboken på korten. Design: artifact EEZZQZTdmsVaBrtpZAPqzB.
