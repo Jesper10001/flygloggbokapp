@@ -16,9 +16,11 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - New: See your scanned spreads as a logbook and tap any cell to fix it, with your handwriting from the photo next to it.
 - Improved: Scan your logbook only takes names, initials and callsigns as second pilots. Words like “Line check” stay in the remarks.
 - Improved: Blades now notices when it stops responding, so freezes can be found and fixed.
+- Fixed: The app could stop responding to taps after saving a logbook scan.
 
 ### Alla ändringar
 
+- Rättat (troligen): appen tog inga tryck efter en skanning (globen rörde sig, ingen frysningsnotis = osynligt lager). GlassDialog (t.ex. "Fleet updated" när Fleet-hämtningen blir klar) kunde öppnas medan systemrutan "Saved" syntes, och en Modal ovanpå en Alert kan på iOS bli osynlig men ta alla tryck. services/alertGuard.ts håller nu reda på öppna systemrutor (useSystemAlertStore: knapparna säger till, +550 ms, skyddsnät 45 s) och GlassDialog väntar tills de är stängda.
 - Vakt för JavaScript-tråden (services/jsWatchdog.ts, startas i app/_layout.tsx): stopp över 2 s medan appen är framme rapporteras till Sentry som varning (kind js_stall, skärmens väg utan id:n); ett hjärtslag i js-watchdog.json var 5:e s gör att en session som slutade med appen framme (JavaScript fryst eller iOS stängde appen, inte en krasch) rapporteras vid nästa start (js_unclean_exit). Skärmbyten blir brödsmulor. Max 5 rapporter per session. Bara med Sentry (release-bygge med DSN).
 - Settings: kortet "Pilot logbook · Fixed & Rotary wing" + FULL + "Switch logbook or layout" ersatt av en minimalistisk rad i sektionsrubrikernas stil ("LOGBOOK" · "Pilot · Full" · pil) som öppnar samma ark; pilot- och drönarläget (components/settings/ModeToggleRow.tsx).
 - Skanningen: rutan "What matters most to you?" visas inte längre; "Every flight, exactly" gäller alltid (scan-review.tsx focus = 'exact' från start, LogbookScanChooser läser inte längre ett gammalt scan_focus-val).
