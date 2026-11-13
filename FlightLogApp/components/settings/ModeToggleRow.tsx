@@ -1,5 +1,5 @@
-// Settings-kortet för loggbok och layout (design C2, 2026-11-11). Kortet visar vad man använder nu
-// ("Pilot logbook · Fixed & Rotary wing" + FULL) och knappen "Switch logbook or layout" öppnar ett
+// Settings-raden för loggbok och layout (2026-11-13 minimalistisk, ersatte kortet C2). Raden ser ut som
+// sektionsrubrikerna: "LOGBOOK" + "Pilot · Full" + pil, och ett tryck öppnar ett
 // ark med två val: loggbok (Pilot | Drone) och layout (Full = Blades Extensive | Essential). Knappen längst
 // ner säger vad som händer ("Switch to Drone logbook" osv.), så ingen extra bekräftelseruta behövs.
 // Själva loggboksbytet (switchProfile) sköts av föräldern via onConfirmSwitch; Essential-bytet görs här
@@ -34,6 +34,12 @@ function Radio({ on }: { on: boolean }) {
   );
 }
 
+// Färger som matchar respektive settings-skärms sektionsrubriker.
+const TONES = {
+  manned: { bg: Colors.card, border: Colors.cardBorder, text: Colors.textPrimary, muted: Colors.textMuted, chevron: Colors.primary },
+  drone: { bg: DR.surface, border: DR.border, text: DR.text, muted: DR.muted, chevron: DR.text3 },
+};
+
 export function ModeToggleRow({ mode, onConfirmSwitch }: {
   mode: Mode;
   onConfirmSwitch: (target: Mode) => void;
@@ -44,6 +50,7 @@ export function ModeToggleRow({ mode, onConfirmSwitch }: {
   const [pickMode, setPickMode] = useState<Mode>(mode);
   const [pickLayout, setPickLayout] = useState<Layout>('full');
   const cur = LOGBOOKS[mode];
+  const tone = TONES[mode];
 
   // Inställningarna visas bara i Full (Essential har egna skärmar), så nuvarande layout är alltid Full.
   const openSheet = () => { setPickMode(mode); setPickLayout('full'); setOpen(true); };
@@ -76,21 +83,14 @@ export function ModeToggleRow({ mode, onConfirmSwitch }: {
 
   return (
     <>
-      <View style={st.card}>
-        <View style={st.cardTop}>
-          <View style={{ flex: 1, gap: 3 }}>
-            <Text style={st.cardTitle}>{cur.title} logbook</Text>
-            <Text style={st.cardSub}>{cur.line1}</Text>
-          </View>
-          <View style={st.tag}><Text style={st.tagText}>FULL</Text></View>
-        </View>
-        <TouchableOpacity onPress={openSheet} activeOpacity={0.7} style={st.cardBtn}
-          accessibilityRole="button" accessibilityLabel={`${cur.title} logbook, full layout. Switch logbook or layout`}>
-          <Ionicons name="swap-horizontal" size={18} color={Colors.primary} />
-          <Text style={st.cardBtnText}>Switch logbook or layout</Text>
-          <Ionicons name="chevron-forward" size={17} color={Colors.primary} />
-        </TouchableOpacity>
-      </View>
+      {/* Minimalistisk rad i samma stil som sektionsrubrikerna (GENERAL, ABOUT …): LOGBOOK + "Pilot · Full" + pil. */}
+      <TouchableOpacity onPress={openSheet} activeOpacity={0.7}
+        style={[st.row, { backgroundColor: tone.bg, borderColor: tone.border }]}
+        accessibilityRole="button" accessibilityLabel={`Logbook: ${cur.title}, full layout. Switch logbook or layout`}>
+        <Text style={[st.rowLabel, { color: tone.text }]}>Logbook</Text>
+        <Text style={[st.rowValue, { color: tone.muted }]}>{cur.title} · Full</Text>
+        <Ionicons name="chevron-forward" size={16} color={tone.chevron} style={{ marginLeft: 8 }} />
+      </TouchableOpacity>
 
       <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
         <Pressable style={st.backdrop} onPress={close}>
@@ -181,21 +181,12 @@ export function IntroductionButton({ onPress }: { onPress: () => void }) {
 }
 
 const st = StyleSheet.create({
-  card: {
-    marginHorizontal: 20, marginTop: 24, borderRadius: 20, overflow: 'hidden',
-    backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder,
+  row: {
+    flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginTop: 16,
+    paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, borderWidth: 1,
   },
-  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 15 },
-  iconTile: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  cardTitle: { fontSize: 17.5, fontWeight: '600', color: Colors.textPrimary, letterSpacing: -0.2 },
-  cardSub: { fontSize: 13, color: Colors.textSecondary },
-  tag: { borderWidth: 1, borderColor: Colors.cardBorder, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
-  tagText: { fontSize: 10.5, fontWeight: '700', letterSpacing: 1.4, color: Colors.textSecondary },
-  cardBtn: {
-    minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16,
-    borderTopWidth: 1, borderTopColor: Colors.cardBorder,
-  },
-  cardBtnText: { flex: 1, fontSize: 15, fontWeight: '600', color: Colors.primary },
+  rowLabel: { flex: 1, fontSize: 12, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },
+  rowValue: { fontSize: 13, marginLeft: 8 },
 
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
   sheet: {

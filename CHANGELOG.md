@@ -10,7 +10,11 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
+- Improved: A simpler Logbook row in Settings for switching logbook or layout.
+
 ### Alla ändringar
+
+- Settings: kortet "Pilot logbook · Fixed & Rotary wing" + FULL + "Switch logbook or layout" ersatt av en minimalistisk rad i sektionsrubrikernas stil ("LOGBOOK" · "Pilot · Full" · pil) som öppnar samma ark; pilot- och drönarläget (components/settings/ModeToggleRow.tsx).
 
 ## 1.0.1 – byggs 2026-11-12
 
