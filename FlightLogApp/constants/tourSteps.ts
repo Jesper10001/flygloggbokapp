@@ -55,7 +55,7 @@ export const TOURS: Record<TourMode, TourStep[]> = {
       title: 'Logging an example flight', body: '' },
     { key: 'share', stop: 3, seconds: 9, tab: '/(tabs)', spots: ['dash-share'],
       title: 'Share a flight',
-      body: 'The share button sends the flight to the pilot you flew with, who logs it in Blades with one tap. Hold it to save the flight as a file. The camera adds your photos to the flight.' },
+      body: 'Send the flight to the pilot you flew with, and they log it in Blades with one tap. Hold the button to save the flight as a file instead.' },
     { key: 'logbook', stop: 3, seconds: 9, tab: '/(tabs)/log?view=list', focusToday: true, spots: [`logrow-p${TOUR_EXAMPLE_ID}`],
       title: 'It lands in your logbook',
       body: 'Newest first. Tap any flight to see or change it. The example disappears when the tour ends.' },

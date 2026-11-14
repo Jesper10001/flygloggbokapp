@@ -63,7 +63,7 @@ export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAdd
             : <Text style={{ fontFamily: FONT_MONO, fontSize: 10, color: Colors.textSecondary }}>{dateLabel}</Text>}
           <View style={{ flex: 1, height: 1, backgroundColor: accent + '33' }} />
           {showLabel && <Text style={{ fontFamily: FONT_MONO, fontSize: 10, color: Colors.textSecondary }}>{dateLabel}</Text>}
-          {/* Kamera + dela: en grupp, så att Blades introduction kan lysa upp båda (stoppet "Share a flight"). */}
+          {/* Kamera + dela */}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           {/* Add media: rund ikon till vänster om delaknappen, samma storlek (visas bara utan befintligt media).
               Tryckytan är 44 pt och drar in headerns kant (negativa marginaler) så att kortets höjd inte ändras. */}
@@ -95,10 +95,11 @@ export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAdd
             >
               <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: accent + '24', borderWidth: 1, borderColor: accent + '80' }}>
                 <Ionicons name="share-outline" size={15} color={accent} />
+                {/* Blades introduction: stoppet "Share a flight" lyser bara upp delaknappen. */}
+                {showLabel ? <TourSpot id="dash-share" radius={21} inset={6} /> : null}
               </View>
             </TouchableOpacity>
           )}
-          {showLabel && (onShare || onAddPhoto) ? <TourSpot id="dash-share" radius={22} inset={3} /> : null}
           </View>
         </View>
         {/* route + block */}

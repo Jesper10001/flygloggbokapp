@@ -689,6 +689,8 @@ export default function DashboardScreen() {
   useTourScrollTo('dash-stats', dashScrollRef, 100000);
   const onLogRowLayout = useTourScrollTo('dash-log', dashScrollRef, 170);
   const onScanRowLayout = useTourScrollTo('dash-scan', dashScrollRef, 170);
+  // Stoppet "Share a flight": Latest flight rullas upp mot mitten av skärmen (ovanför rundturens kort).
+  const onShareLayout = useTourScrollTo('dash-share', dashScrollRef, Math.round(Dimensions.get('window').height * 0.3));
 
   // Väder hämtas INTE automatiskt — bara när man drar ner sidan (pull-to-refresh = "Fetch WX").
   // Väderkortet är dolt tills dess (då står "Fetch WX ↓" på WORKLOAD-raden). Närmaste-fält-fallbacken sköts
@@ -942,6 +944,7 @@ export default function DashboardScreen() {
 
       {/* ── Latest flight (svep vänster → senaste 5 flygningarna) ── */}
       {flights[0] && (
+        <View onLayout={onShareLayout}>
         <LatestFlightCarousel
           flights={flights}
           accent={Colors.primary}
@@ -951,6 +954,7 @@ export default function DashboardScreen() {
           onShare={(fl) => shareFlight(fl, 'link')}
           onShareFile={(fl) => shareFlight(fl, 'file')}
         />
+        </View>
       )}
 
       {/* ── Okänd-plats-notiser: en per okänd dep/arr-kod från senaste sparade flighter ── */}

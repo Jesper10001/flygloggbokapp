@@ -5,7 +5,9 @@
 // gratispottens 100 coins; månadens coins kommer när den betalda perioden börjar.
 
 import { useState } from 'react';
-import { View, Text, Pressable, ScrollView, ActivityIndicator, Linking, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ScrollView, ActivityIndicator, Linking, StyleSheet, TextInput } from 'react-native';
+import { GlassDialog, DialogIcon } from '../GlassDialog';
+import { redeemAndApply } from '../../services/promo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -79,6 +81,25 @@ export function OnboardingPaywall({ plans, pilot, lic, paper, overview = false, 
     else if (r === 'unavailable') setNote('Purchases are not available right now. You can start with Free.');
     else if (r === 'error') setNote('The purchase did not go through. Try again.');
   };
+  // Promo code (samma koder som i Settings): Premium/Max → vidare som köpt; coins → en rad under knappen.
+  const [promoOpen, setPromoOpen] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoBusy, setPromoBusy] = useState(false);
+  const [promoMsg, setPromoMsg] = useState('');
+  const closePromo = () => { setPromoOpen(false); setPromoCode(''); setPromoMsg(''); };
+  const applyPromo = async () => {
+    const code = promoCode.trim();
+    if (!code || promoBusy) return;
+    setPromoBusy(true); setPromoMsg('');
+    const r = await redeemAndApply(code).catch(() => ({ ok: false, title: 'No connection', body: 'Connect to the internet and try again.' } as any));
+    setPromoBusy(false);
+    if (!r.ok) { setPromoMsg(`${r.title}. ${r.body}`); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {}); return; }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    closePromo();
+    if (r.kind === 'max' || r.kind === 'premium') onDone({ tier: r.kind, trialDays: 0 });
+    else setNote(`${r.title}. ${r.body}`);
+  };
+
   const restore = async () => {
     if (busy) return;
     setBusy('restore'); setNote('');
@@ -171,6 +192,9 @@ export function OnboardingPaywall({ plans, pilot, lic, paper, overview = false, 
         {/* Priset, provveckan och coinsen står redan på skärmen; Apple kräver att det också framgår att den förnyas. */}
         <Text style={s.fine}>Renews monthly until you cancel.</Text>
         <View style={s.links}>
+          <Pressable onPress={() => setPromoOpen(true)} hitSlop={6} disabled={!!busy} accessibilityRole="button" accessibilityLabel="Enter a promo code">
+            <Text style={s.link}>Promo</Text>
+          </Pressable>
           <Pressable onPress={restore} hitSlop={6} disabled={!!busy} accessibilityRole="button">
             {busy === 'restore' ? <ActivityIndicator size="small" color={SUB} /> : <Text style={s.link}>Restore</Text>}
           </Pressable>
@@ -182,11 +206,39 @@ export function OnboardingPaywall({ plans, pilot, lic, paper, overview = false, 
           </Pressable>
         </View>
       </View>
+
+      <GlassDialog
+        visible={promoOpen}
+        onClose={closePromo}
+        icon={<DialogIcon name="pricetag-outline" color={GOLD} />}
+        eyebrow="Promo code"
+        title="Redeem a code"
+        body={promoMsg || 'Enter your code for Blades Premium, Blades Max or Blade coins.'}
+        primary={{ label: promoBusy ? 'Checking…' : 'Apply', onPress: applyPromo, disabled: promoBusy || !promoCode.trim() }}
+        secondary={{ label: 'Cancel', onPress: closePromo }}
+      >
+        <TextInput
+          value={promoCode}
+          onChangeText={(t) => { setPromoCode(t); setPromoMsg(''); }}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          placeholder="Code"
+          placeholderTextColor={MUTED}
+          style={s.promoInput}
+          returnKeyType="done"
+          onSubmitEditing={applyPromo}
+        />
+      </GlassDialog>
     </View>
   );
 }
 
 const s = StyleSheet.create({
+  promoInput: {
+    alignSelf: 'stretch', marginTop: 16, height: 52, borderRadius: 16, paddingHorizontal: 16, textAlign: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.2)',
+    color: '#FFFFFF', fontSize: 18, fontWeight: '700', letterSpacing: 2,
+  },
   close: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(127,168,200,0.2)', backgroundColor: 'rgba(15,30,58,0.6)', alignItems: 'center', justifyContent: 'center' },
   eyebrow: { fontFamily: MONO, fontSize: 10.5, fontWeight: '700', letterSpacing: 1.9, marginTop: 4 },
   title: { fontFamily: SERIF, fontSize: 28, fontWeight: '600', lineHeight: 31, color: '#FFFFFF', marginTop: 8 },
