@@ -49,6 +49,9 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { setScanImage, SCAN_OPEN } from '../../store/scanStore';
 import { ScanSpeedDial } from '../../components/ScanSpeedDial';
+import { GlassFill } from '../../components/GlassFill';
+// Dashboardens knapprad i klart glas: rundad som flikraden (knapparna är ca 54 pt höga).
+const GLASS_R = 27;
 import { useLogbookScanStart } from '../../components/LogbookScanChooser';
 import { askAiConsent } from '../../services/aiConsent';
 import { batchPlaceNames, getAirportCoordinates, isOffAirportCode } from '../../db/icao';
@@ -523,11 +526,11 @@ function LogFlightButton({ onPress, label, style }: { onPress: () => void; label
   const s = makeDashStyles();
   return (
     <TouchableOpacity style={[s.addBtn, style]} onPress={onPress} activeOpacity={0.9}>
-      {/* Samma bakgrund som latest flight-korten: subtil gradient (accent → surface) */}
-      <LinearGradient colors={[Colors.primary + '22', Colors.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-      <Ionicons name="add-circle" size={18} color={Colors.primary} />
+      {/* Klart glas som flikraden (GlassFill); plustecknet behåller cyan så att knappen syns först. */}
+      <GlassFill radius={GLASS_R} />
+      <Ionicons name="add-circle" size={20} color={Colors.primary} />
       <Text style={s.addBtnText}>{label}</Text>
-      <TourSpot id="dash-log" radius={16} inset={0} />
+      <TourSpot id="dash-log" radius={GLASS_R} inset={0} />
     </TouchableOpacity>
   );
 }
@@ -1020,7 +1023,7 @@ export default function DashboardScreen() {
       {/* ── Log new flight — photolog vänster + fysisk loggbok höger ── */}
       <View style={s.logRow} onLayout={(e) => { onLogRowLayout(e); onScanRowLayout(e); }}>
         {/* Logbook scan är öppen bara när skanningen är lanserad (SCAN_OPEN); annars går knappen direkt till ACARS. */}
-        <ScanSpeedDial style={s.sideBtn} accessibilityLabel="Scan" options={[
+        <ScanSpeedDial style={s.sideBtn} accessibilityLabel="Scan" background={<GlassFill radius={GLASS_R} />} iconColor="#FFFFFF" options={[
           ...(SCAN_OPEN ? [{ key: 'logbook', label: 'Logbook scan', icon: 'book-outline' as const, onPress: logbookScan.start }] : []),
           { key: 'acars', label: 'ACARS scan', icon: 'hardware-chip-outline' as const, onPress: acarsScan.start },
         ]} />
@@ -1032,8 +1035,10 @@ export default function DashboardScreen() {
             router.push('/logbook?recent=1');
           }}
           activeOpacity={0.85}
+          accessibilityRole="button" accessibilityLabel="Your logbooks"
         >
-          <Ionicons name="book" size={22} color={spreadPrompt ? Colors.gold : Colors.primary} />
+          <GlassFill radius={GLASS_R} />
+          <Ionicons name="book" size={22} color={spreadPrompt ? Colors.gold : '#FFFFFF'} />
         </TouchableOpacity>
       </View>
       {/* Ofullständigt utkast från Log Flight ("Save as draft") → fortsätt där man slutade. */}
@@ -1191,12 +1196,13 @@ function makeDashStyles() { return StyleSheet.create({
   },
   telAdviceText: { flex: 1, fontSize: 11, color: Colors.textPrimary, lineHeight: 16 },
 
+  // Klart glas (GlassFill i knappen): ingen egen bakgrund eller ram, rundad som flikraden, mjuk skugga.
   addBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: Colors.surface, borderRadius: 14, paddingVertical: 16, marginTop: 16, marginBottom: 6,
-    borderWidth: 1, borderColor: Colors.primary + '55', overflow: 'hidden',
+    borderRadius: GLASS_R, paddingVertical: 16, marginTop: 16, marginBottom: 6,
+    shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 },
   },
-  addBtnText: { color: Colors.primary, fontSize: 16, fontWeight: '800' },
+  addBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
   physBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: Colors.card, borderRadius: 14, paddingVertical: 16, marginTop: 4, marginBottom: 6,
@@ -1221,8 +1227,8 @@ function makeDashStyles() { return StyleSheet.create({
   unknownSub: { color: Colors.textSecondary, fontSize: 11, fontWeight: '600', marginTop: 1 },
   unknownBtn: { width: 34, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   sideBtn: {
-    width: 54, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.card, borderRadius: 14, borderWidth: 1, borderColor: Colors.primary + '55',
+    width: 54, alignItems: 'center', justifyContent: 'center', borderRadius: GLASS_R,
+    shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 },
   },
 
   sectionHeader: {

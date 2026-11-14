@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { TouchableOpacity, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -9,7 +9,11 @@ import { TourSpot } from './TourSpot';
 // Skanningsknappen på dashboarden: ett tryck öppnar valen som glaskapslar (GlassMenu). Finns bara ett val öppnas
 // det direkt.
 
-export function ScanSpeedDial({ options, style, accessibilityLabel }: { options: GlassMenuOption[]; style?: StyleProp<ViewStyle>; accessibilityLabel: string }) {
+export function ScanSpeedDial({ options, style, accessibilityLabel, background, iconColor = Colors.primary }: {
+  options: GlassMenuOption[]; style?: StyleProp<ViewStyle>; accessibilityLabel: string;
+  background?: ReactNode;   // t.ex. GlassFill (dashboardens glasknappar)
+  iconColor?: string;
+}) {
   const ref = useRef<View>(null);
   const [anchor, setAnchor] = useState<GlassMenuAnchor | null>(null);
   const press = () => {
@@ -22,9 +26,10 @@ export function ScanSpeedDial({ options, style, accessibilityLabel }: { options:
   return (
     <>
       <TouchableOpacity ref={ref as any} style={style} onPress={press} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={accessibilityLabel}>
-        <Ionicons name="scan-outline" size={22} color={Colors.primary} />
+        {background}
+        <Ionicons name="scan-outline" size={22} color={iconColor} />
         {/* Blades introduction: rundturen lyser upp knappen och visar valen själv (ingen ruta öppnas). */}
-        <TourSpot id="dash-scan" radius={14} inset={0} />
+        <TourSpot id="dash-scan" radius={27} inset={0} />
       </TouchableOpacity>
       <GlassMenu anchor={anchor} options={options} onClosed={() => setAnchor(null)} />
     </>
