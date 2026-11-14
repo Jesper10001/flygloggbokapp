@@ -22,10 +22,12 @@ export function notesSince(since: number | null, entries: UpdateNotesEntry[] = U
   // En sammanfattning (summary: true) ersätter alla poster före den som missats: dess rader först, i den ordning
   // de skrevs, sedan rader från senare poster (t.ex. första uppdateringen till App Store-bygget efter många
   // TestFlight-uppdateringar, och en liten uppdatering efter den).
-  const summary = missed.filter((e) => e.summary).reduce<UpdateNotesEntry | null>((m, e) => (!m || e.id > m.id ? e : m), null);
+  // Flera missade sammanfattningar: alla, äldst först (den stora sammanfattningen före en liten senare).
+  const summaries = missed.filter((e) => e.summary).sort((a, b) => a.id - b.id);
+  const summary = summaries[summaries.length - 1] ?? null;
   let lead: ReleaseNote[] = [];
   if (summary) {
-    lead = parseReleaseNotes(summary.notes, Infinity).notes;
+    lead = summaries.flatMap((e) => parseReleaseNotes(e.notes, Infinity).notes);
     missed = missed.filter((e) => e.id > summary.id);
   }
   const items = missed.flatMap((e) => parseReleaseNotes(e.notes, Infinity).notes.map((n, pos) => ({ n, pos, id: e.id })));
