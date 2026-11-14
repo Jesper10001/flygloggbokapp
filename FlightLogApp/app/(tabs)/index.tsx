@@ -528,9 +528,8 @@ function LogFlightButton({ onPress, label, style }: { onPress: () => void; label
   const s = makeDashStyles();
   return (
     <TouchableOpacity style={[s.addBtn, style]} onPress={onPress} activeOpacity={0.9}>
-      {/* Klart glas som flikraden (GlassFill); plustecknet behåller cyan så att knappen syns först. */}
+      {/* Klart glas som flikraden (GlassFill), bara texten (inget plustecken, test 2026-11-14). */}
       <GlassFill radius={GLASS_R} />
-      <Ionicons name="add-circle" size={20} color={Colors.primary} />
       <Text style={s.addBtnText}>{label}</Text>
       <TourSpot id="dash-log" radius={GLASS_R} inset={0} />
     </TouchableOpacity>

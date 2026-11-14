@@ -246,7 +246,7 @@ export default function DroneDashboardScreen() {
       {droneScan.chooser}
       {/* ── 3. Log-flight-rad: scan · B-logga · fysisk bok (= manned) ── */}
       <View style={s.logRow} onLayout={(e) => { onLogRowLayout(e); onScanRowLayout(e); }}>
-        {/* Klart glas som pilotläget och flikraden (GlassFill); plustecknet i accentfärgen. */}
+        {/* Klart glas som pilotläget och flikraden (GlassFill); Log flight utan plustecken (test 2026-11-14). */}
         <TouchableOpacity style={s.sideBtn} activeOpacity={0.85} onPress={droneScan.start} accessibilityRole="button" accessibilityLabel="Scan">
           <GlassFill radius={GLASS_R} />
           <Ionicons name="scan-outline" size={22} color="#FFFFFF" />
@@ -254,7 +254,6 @@ export default function DroneDashboardScreen() {
         </TouchableOpacity>
         <TouchableOpacity style={s.addBtn} onPress={() => router.push('/drone-flight/add')} activeOpacity={0.9}>
           <GlassFill radius={GLASS_R} />
-          <Ionicons name="add-circle" size={20} color={accent} />
           <Text style={[s.addBtnText, { color: '#FFFFFF' }]}>{t('log_new_flight') ?? 'Log flight'}</Text>
           <TourSpot id="dash-log" radius={GLASS_R} inset={0} />
         </TouchableOpacity>
