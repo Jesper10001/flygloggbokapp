@@ -904,8 +904,9 @@ export default function DashboardScreen() {
             Innan man dragit ner står bara "Fetch WX ↓" på WORKLOAD-raden. Tryck på kortet → väder-uppslaget. */}
         {mode === 'manned' && (wx
           ? <WxCard wx={wx} loading={wxLoading} byPosition={!wxPlace} onPress={() => setWxPickerOpen(true)} />
-          : wxLoading ? <WxFetchingRow place={wxPlace} />
-          : wxMissed ? <WxNotFoundRow place={wxPlace} />
+          // Flygplatsens namn i raden ("Fetching weather for Los Angeles International Airport…"), koden om namnet saknas.
+          : wxLoading ? <WxFetchingRow place={wxPlace ? placeNames[wxPlace.toUpperCase()] || wxPlace : ''} />
+          : wxMissed ? <WxNotFoundRow place={wxPlace ? placeNames[wxPlace.toUpperCase()] || wxPlace : ''} />
           : null)}
 
         {/* WORKLOAD-rad — "Fetch WX ↓" ligger INLINE här tills man dragit ner sidan. */}

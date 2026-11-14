@@ -29,6 +29,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Dashboardens väderrader ("Fetching weather for …", "No weather found near …") visar flygplatsens namn i stället för ICAO-koden (koden om namnet saknas).
 - Loggboksguiden, steget Latest flight: Book size-kortet ersatt av "Rows per spread" med samma +/− (4–30) som sidorna; första sidan står redan ovanför och sista sidan frågas inte här.
 - Loggboksguiden, steget Latest flight: "First flight · page" (bokens första sida med flygningar) frågas här med +/− som sidnumret, före "Latest flight · page" (förut "Page number") och Book size, allt ovanför "Which row?". Ligger första sidan efter flygningens sida varnas det och Continue blir "Check the pages" (samma sida går bra). Frågan är borta från steget Older flights.
 - "Blades was updated": flera missade sammanfattningar visas alla, äldst först (post 137 före 144). Post 144 = sammanfattning av glasknapparna (139–143) inför den riktiga appen.
