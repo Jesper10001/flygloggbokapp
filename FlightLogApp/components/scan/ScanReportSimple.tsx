@@ -298,11 +298,16 @@ export function ScanReportSimple(p: {
             <Fragment key={r.key}>
             {header}
             {/* Som dashboardens Latest flight: tonad gradient, ljus kant överst och skugga under (levande, lite 3D). */}
-            <View key={r.key} style={[s.cardShadow, { opacity: out ? 0.55 : 1 }]}>
+            <View key={r.key} style={[s.cardShadow, { opacity: out ? 0.5 : 1 }]}>
             <View style={[s.card, { borderColor: out ? Colors.cardBorder : st.border }]}>
               <LinearGradient colors={[(out ? Colors.textMuted : sev === 'ok' ? Colors.primary : st.fg!) + '14', Colors.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
               <LinearGradient colors={['rgba(255,255,255,0.05)', 'rgba(255,255,255,0)']} style={s.sheen} pointerEvents="none" />
               <View style={s.cardTop}>
+                {/* Bocka i/ur: ibockad = sparas. Urbockat kort dimmas. */}
+                <TouchableOpacity onPress={() => p.onToggleSkip(r.key)} hitSlop={10} style={[s.check, !out && s.checkOn]}
+                  accessibilityRole="checkbox" accessibilityState={{ checked: !out }} accessibilityLabel={out ? 'Not imported. Tap to import this flight.' : 'Imported. Tap to leave this flight out.'}>
+                  {!out && <Ionicons name="checkmark" size={15} color="#0A1628" />}
+                </TouchableOpacity>
                 <Text style={s.cardDate}>{fmtDate(d.date)}</Text>
                 <Text style={s.cardWhere}>{pageOf(r)} · row {r.rowIndex}</Text>
                 <View style={{ flex: 1 }} />
@@ -342,14 +347,7 @@ export function ScanReportSimple(p: {
 
               {dup && (
                 <View style={s.outBox}>
-                  <Text style={[s.small, { flex: 1 }]}>Already in your logbook · not saved again</Text>
-                  <TouchableOpacity onPress={() => p.onToggleSkip(r.key)}><Text style={s.link}>Include</Text></TouchableOpacity>
-                </View>
-              )}
-              {!dup && r.skip && (
-                <View style={s.outBox}>
-                  <Text style={[s.small, { flex: 1 }]}>Left out · not saved</Text>
-                  <TouchableOpacity onPress={() => p.onToggleSkip(r.key)}><Text style={s.link}>Include</Text></TouchableOpacity>
+                  <Text style={[s.small, { flex: 1 }]}>Already in your logbook · tick it to save it again</Text>
                 </View>
               )}
               {!dup && clash && (
@@ -434,6 +432,8 @@ const s = StyleSheet.create({
   monthHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, paddingTop: 10, paddingHorizontal: 4 },
   monthTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '700', letterSpacing: -0.2 },
   monthMeta: { fontFamily: FONT_MONO, fontSize: 11, color: Colors.textSecondary, letterSpacing: 0.4 },
+  check: { width: 24, height: 24, borderRadius: 7, borderWidth: 1.5, borderColor: Colors.textSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 2 },
+  checkOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   cardShadow: { borderRadius: 18, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
   card: { borderRadius: 18, backgroundColor: Colors.surface, borderWidth: 1, overflow: 'hidden' },
   sheen: { position: 'absolute', left: 0, right: 0, top: 0, height: 28 },

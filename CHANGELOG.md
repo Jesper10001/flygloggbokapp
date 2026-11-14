@@ -10,6 +10,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
+- New: Tick or untick each flight in the scan report to choose what gets imported.
 - Improved: Scanning flags fewer cells, and trusts the times you wrote when your other columns agree.
 - Improved: In the scan report, the eye on a flight takes you straight to the unsure cell in your spread, and fixing one cell moves you on to the next.
 - Improved: A simpler Logbook row in Settings for switching logbook or layout.
@@ -22,6 +23,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Nya Scan report: bockruta på varje flight card (ibockad = importeras, standard). Urbockat kort dimmas (opacity 0.5); rutorna "Left out · not saved / Include" är borta. Dubbletter mot loggboken är urbockade från början ("Already in your logbook · tick it to save it again").
 - Skanningens laddskärm: bara "This takes about 30 seconds." (räknat på antalet uppslag, ca 15 s styck), sedan "About … left."; meningen om hur Claude läser är borta.
 - Nya Scan report: med fler än ett uppslag grupperas flight cards per månad och år, med rubrik (t.ex. "July 2023 · 12 flights · 31.4 h · 3 to check").
 - Helskärmsuppslagen: när det sista osäkra på ett uppslag är klart byter vyn själv till nästa uppslag (även om det inte har något osäkert) och väljer dess första osäkra cell.
