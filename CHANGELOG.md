@@ -29,6 +29,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- "Blades was updated": har man missat både sammanfattningen (post 137) och senare poster visas sammanfattningens tre rader först och resten bakom "more" (förut skulle en senare post ha tagit bort sammanfattningen).
 - CSV-/Excel-import: kontrollen "Longer than endurance" är borttagen (app/import/index.tsx). Flygningarna sparas som de står i filen: simulator eller hot refuel bara när filen anger det (och filens simulatortyp behålls), annars normal. Kontrollen finns kvar i Log flight.
 - Dashboardens väder (Fetch WX): är senaste destinationen utan plats (ZZZZ eller en egen plats utan koordinater) hämtas vädret för närmaste station från användarens position, som när inga flygningar finns.
 - "Blades was updated": en post med summary: true i constants/updateNotes.json ersätter alla tidigare missade poster (services/updateNotes.ts notesSince), så att första uppdateringen till App Store-bygget 1.0.1 visar en sammanfattning i stället för tre rader valda ur post 121–136.

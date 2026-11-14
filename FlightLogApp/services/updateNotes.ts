@@ -19,18 +19,24 @@ const RANK: Record<ReleaseNote['kind'], number> = { new: 0, improved: 1, fix: 2,
  *  före Fixed, varje posts första rad före dess andra, och nyare före äldre. Samma rad visas bara en gång. */
 export function notesSince(since: number | null, entries: UpdateNotesEntry[] = UPDATE_NOTES): { notes: ReleaseNote[]; more: boolean } {
   let missed = entries.filter((e) => since == null || e.id > since);
-  // En sammanfattning (summary: true) ersätter alla poster före den som missats: rutan visar bara dess rader,
-  // i den ordning de skrevs (t.ex. första uppdateringen till App Store-bygget efter många TestFlight-uppdateringar).
-  const top = missed.reduce<UpdateNotesEntry | null>((m, e) => (!m || e.id > m.id ? e : m), null);
-  if (top?.summary) missed = [top];
+  // En sammanfattning (summary: true) ersätter alla poster före den som missats: dess rader först, i den ordning
+  // de skrevs, sedan rader från senare poster (t.ex. första uppdateringen till App Store-bygget efter många
+  // TestFlight-uppdateringar, och en liten uppdatering efter den).
+  const summary = missed.filter((e) => e.summary).reduce<UpdateNotesEntry | null>((m, e) => (!m || e.id > m.id ? e : m), null);
+  let lead: ReleaseNote[] = [];
+  if (summary) {
+    lead = parseReleaseNotes(summary.notes, Infinity).notes;
+    missed = missed.filter((e) => e.id > summary.id);
+  }
   const items = missed.flatMap((e) => parseReleaseNotes(e.notes, Infinity).notes.map((n, pos) => ({ n, pos, id: e.id })));
   if (missed.length > 1) items.sort((a, b) => RANK[a.n.kind] - RANK[b.n.kind] || a.pos - b.pos || b.id - a.id);
-  const seen = new Set<string>();
+  const seen = new Set<string>(lead.map((n) => n.text.toLowerCase()));
   const unique = items.filter(({ n }) => {
     const key = n.text.toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
-  return { notes: unique.slice(0, POPUP_MAX).map((x) => x.n), more: unique.length > POPUP_MAX };
+  const all = [...lead, ...unique.map((x) => x.n)];
+  return { notes: all.slice(0, POPUP_MAX), more: all.length > POPUP_MAX };
 }
