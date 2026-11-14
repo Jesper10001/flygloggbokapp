@@ -27,6 +27,9 @@ import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { maybeStartIntroTour, useTourStore } from '../../store/tourStore';
 import { TourSpot, useTourScrollTo } from '../../components/TourSpot';
+import { GlassFill } from '../../components/GlassFill';
+// Knappraden i klart glas: rundad som flikraden (knapparna är ca 54 pt höga).
+const GLASS_R = 27;
 import { DEMO_DRONE_FLIGHTS, DEMO_DRONE_STATS } from '../../constants/tourDemoData';
 import { getDroneStressHours, getDroneStressDaily, getDroneFlights, droneModeLabel, type DroneFlight } from '../../db/drones';
 import { isPhotoSyncAvailable, hasPendingSync, hasUnfinishedReview, getAssetDisplay } from '../../services/dronePhotoSync';
@@ -243,19 +246,21 @@ export default function DroneDashboardScreen() {
       {droneScan.chooser}
       {/* ── 3. Log-flight-rad: scan · B-logga · fysisk bok (= manned) ── */}
       <View style={s.logRow} onLayout={(e) => { onLogRowLayout(e); onScanRowLayout(e); }}>
-        <TouchableOpacity style={[s.sideBtn, { borderColor: accentLine(accent) }]} activeOpacity={0.85}
-          onPress={droneScan.start}>
-          <Ionicons name="scan-outline" size={22} color={accent} />
-          <TourSpot id="dash-scan" radius={14} inset={0} />
+        {/* Klart glas som pilotläget och flikraden (GlassFill); plustecknet i accentfärgen. */}
+        <TouchableOpacity style={s.sideBtn} activeOpacity={0.85} onPress={droneScan.start} accessibilityRole="button" accessibilityLabel="Scan">
+          <GlassFill radius={GLASS_R} />
+          <Ionicons name="scan-outline" size={22} color="#FFFFFF" />
+          <TourSpot id="dash-scan" radius={GLASS_R} inset={0} />
         </TouchableOpacity>
         <TouchableOpacity style={s.addBtn} onPress={() => router.push('/drone-flight/add')} activeOpacity={0.9}>
-          <LinearGradient colors={[accent + '22', DR.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-          <Ionicons name="add-circle" size={18} color={accent} />
-          <Text style={[s.addBtnText, { color: accent }]}>{t('log_new_flight') ?? 'Log flight'}</Text>
-          <TourSpot id="dash-log" radius={16} inset={0} />
+          <GlassFill radius={GLASS_R} />
+          <Ionicons name="add-circle" size={20} color={accent} />
+          <Text style={[s.addBtnText, { color: '#FFFFFF' }]}>{t('log_new_flight') ?? 'Log flight'}</Text>
+          <TourSpot id="dash-log" radius={GLASS_R} inset={0} />
         </TouchableOpacity>
-        <TouchableOpacity style={[s.sideBtn, { borderColor: accentLine(accent) }]} onPress={() => router.push('/drone-logbook?recent=1')} activeOpacity={0.85}>
-          <Ionicons name="book" size={22} color={accent} />
+        <TouchableOpacity style={s.sideBtn} onPress={() => router.push('/drone-logbook?recent=1')} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Your logbooks">
+          <GlassFill radius={GLASS_R} />
+          <Ionicons name="book" size={22} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
       {/* Ofullständigt utkast från Log Flight ("Save as draft") → fortsätt där man slutade (= pilot). */}
@@ -491,10 +496,11 @@ function DronePhotoCarousel({ accent }: { accent: string }) {
         <View style={{ width: GAP }} />
         {/* Sida 2: åtgärder (140px, tre brickor = manned) */}
         <View style={{ width: CARD_W }}>
-          <View style={{ width: CARD_W, height: 140, borderRadius: 14, overflow: 'hidden', backgroundColor: DR.surface, borderWidth: 1, borderColor: DR.border, flexDirection: 'row' }}>
+          <View style={{ width: CARD_W, height: 140, borderRadius: 18, flexDirection: 'row' }}>
+            <GlassFill radius={18} />
             {tiles.map((tile, i) => (
               <TouchableOpacity key={tile.key} disabled={tile.disabled} activeOpacity={0.85} onPress={tile.onPress}
-                style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 4, borderLeftWidth: i ? 1 : 0, borderLeftColor: DR.border, opacity: tile.disabled ? 0.38 : 1 }}>
+                style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 4, borderLeftWidth: i ? StyleSheet.hairlineWidth : 0, borderLeftColor: 'rgba(255,255,255,0.16)', opacity: tile.disabled ? 0.38 : 1 }}>
                 <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: tile.color + '1A', alignItems: 'center', justifyContent: 'center' }}>
                   <Ionicons name={tile.icon} size={21} color={tile.color} />
                 </View>
@@ -574,7 +580,8 @@ const s = StyleSheet.create({
   telAdviceText: { flex: 1, fontSize: 11, color: Colors.textPrimary, lineHeight: 16 },
 
   logRow: { flexDirection: 'row', alignItems: 'stretch', gap: 8, marginTop: 16 },
-  sideBtn: { width: 54, alignItems: 'center', justifyContent: 'center', backgroundColor: DR.surface, borderRadius: 14, borderWidth: 1, borderColor: DR.border },
-  addBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 15, borderRadius: 14, borderWidth: 1, borderColor: DR.border, overflow: 'hidden' },
-  addBtnText: { fontSize: 15, fontWeight: '800' },
+  // Klart glas (GlassFill i knappen): ingen egen bakgrund eller ram, rundad som flikraden, mjuk skugga (= pilot).
+  sideBtn: { width: 54, alignItems: 'center', justifyContent: 'center', borderRadius: GLASS_R, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } },
+  addBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: GLASS_R, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } },
+  addBtnText: { fontSize: 16, fontWeight: '800' },
 });

@@ -356,14 +356,16 @@ function CarouselActions({ cardW, canSync, resumeReview, hasPhoto, onAlbum, onSy
     { key: 'share', icon: 'share-outline', color: Colors.info, label: 'Share', sub: hasPhoto ? undefined : 'No photos', disabled: !hasPhoto, onPress: onShare },
   ];
   return (
-    <View style={{ width: cardW, height: 140, borderRadius: 14, overflow: 'hidden', backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, flexDirection: 'row' }}>
+    // Klart glas som knappraden ovanför (GlassFill), med tunna ljusa skiljelinjer.
+    <View style={{ width: cardW, height: 140, borderRadius: 18, flexDirection: 'row' }}>
+      <GlassFill radius={18} />
       {tiles.map((tile, i) => (
         <TouchableOpacity
           key={tile.key}
           disabled={tile.disabled}
           activeOpacity={0.85}
           onPress={tile.onPress}
-          style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 4, borderLeftWidth: i ? 1 : 0, borderLeftColor: Colors.border, opacity: tile.disabled ? 0.38 : 1 }}
+          style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 4, borderLeftWidth: i ? StyleSheet.hairlineWidth : 0, borderLeftColor: 'rgba(255,255,255,0.16)', opacity: tile.disabled ? 0.38 : 1 }}
         >
           <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: tile.color + '1A', alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name={tile.icon} size={21} color={tile.color} />

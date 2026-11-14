@@ -29,6 +29,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Glas även i drönarläget: knappraden skanna · Log flight · böcker som pilotens (GlassFill, rundade ändar, vita ikoner, plustecknet i accentfärgen). Åtgärdsrutan i fotokarusellen (Flight album · Sync album · Share) i klart glas i båda lägena, med tunna ljusa skiljelinjer och rundning 18.
 - Dashboarden (pilot): knappraden skanna · Log flight · böcker i klart glas som flikraden (design A, artifact 4GJVRQrxgRuYKsS8t9jh5n). Ny components/GlassFill.tsx: iOS 26 → Liquid Glass (expo-glass-effect), annars blur + ljus kant och spegling. Knapparna rundade i ändarna (27 pt), mjuk skugga, vita ikoner och text, plustecknet kvar i cyan; bokknappen guld vid ett nytt uppslag som förut. ScanSpeedDial tar background/iconColor. Drönarens dashboard oförändrad.
 - "Blades was updated": har man missat både sammanfattningen (post 137) och senare poster visas sammanfattningens tre rader först och resten bakom "more" (förut skulle en senare post ha tagit bort sammanfattningen).
 - CSV-/Excel-import: kontrollen "Longer than endurance" är borttagen (app/import/index.tsx). Flygningarna sparas som de står i filen: simulator eller hot refuel bara när filen anger det (och filens simulatortyp behålls), annars normal. Kontrollen finns kvar i Log flight.
