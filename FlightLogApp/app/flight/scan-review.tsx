@@ -2201,15 +2201,33 @@ export default function ScanReviewScreen() {
     if (!i) return null;
     // Svarsalternativ ovanför tangentbordet: frågans förslag för just den här cellen, Claudes egna alternativ och
     // för flygplatser liknande ICAO-koder (ETNB → ETHB), som i den gamla granskningen.
+    return { id: i.id, reason: i.reason || i.title, options: optionsForCell(rowKey, field, i) };
+  };
+  const optionsForCell = (rowKey: string, field: string, i?: Issue | null) => {
     const r = rowByKey.get(rowKey);
-    const cur = String((r?.data as any)?.[field] ?? '').trim().toUpperCase();
-    const fi = (r?.data.field_issues ?? []).find((x) => x.field === field);
-    const opts = [
-      ...i.suggestions.filter((sg) => sg.field === field && !sg.toSim).map((sg) => sg.value),
+    if (!r) return [];
+    const cur = String((r.data as any)[field] ?? '').trim().toUpperCase();
+    const fi = (r.data.field_issues ?? []).find((x) => x.field === field);
+    const opts: (string | undefined)[] = [
+      ...(i ? i.suggestions.filter((sg) => sg.field === field && !sg.toSim).map((sg) => sg.value) : []),
       ...(fi ? [fi.suggested_value, ...(fi.options ?? [])] : []),
-      ...(PLACE.has(field) ? placeAlts[cur] ?? [] : []),
-    ].filter((v): v is string => !!v && v.trim().toUpperCase() !== cur && v !== 'ZZZZ');
-    return { id: i.id, reason: i.reason || i.title, options: [...new Set(opts)].slice(0, 5) };
+    ];
+    if (PLACE.has(field)) {
+      // Platser: liknande koder (ETNB → ETHB), flygningen före/efter (man startar där man landade), radens andra
+      // plats (tur och retur), skanningens vanligaste platser, och ZZZZ (utanför flygplats) sist.
+      const order = rows.filter((x) => !x.skip).sort((a, b) => a.page - b.page || a.rowIndex - b.rowIndex);
+      const k = order.findIndex((x) => x.key === rowKey);
+      const prev = k > 0 ? order[k - 1] : null, next = k >= 0 && k < order.length - 1 ? order[k + 1] : null;
+      opts.push(...(placeAlts[cur] ?? []));
+      opts.push(field === 'dep_place' ? prev?.data.arr_place : next?.data.dep_place);
+      opts.push(field === 'dep_place' ? r.data.arr_place : r.data.dep_place);
+      opts.push(...[...placeCounts.current.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c));
+    }
+    const valid = (v: string) => !PLACE.has(field) || /^[A-Z0-9]{3,4}$/.test(v);
+    const list = [...new Set(opts.map((v) => String(v ?? '').trim().toUpperCase()).filter((v) => v && v !== cur && v !== 'ZZZZ' && valid(v)))].slice(0, 5);
+    if (PLACE.has(field) && cur !== 'ZZZZ') list.push('ZZZZ');
+    // Lagrat format för tider och klockslag (versaler bara för koder).
+    return PLACE.has(field) ? list : [...new Set(opts.filter((v): v is string => !!v && v.trim().toUpperCase() !== cur))].slice(0, 5);
   };
   // Ett svarsalternativ i helskärmen. Samma fråga på flera rader (t.ex. ETNB på tio rader) → samma värde på
   // alla de raderna som har samma läsning.
@@ -2381,6 +2399,7 @@ export default function ScanReviewScreen() {
               onSave: (rowKey, field, value) => editField(rowKey, field, value),
               onLooksRight: (id) => answerIssue(id, null),
               onChoose: chooseCell,
+              optionsFor: (rowKey, field) => optionsForCell(rowKey, field, null),
             }}
           />
         )}

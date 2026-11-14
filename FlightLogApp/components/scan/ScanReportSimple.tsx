@@ -37,9 +37,9 @@ const ROLE_ORDER = ['PIC', 'COP', 'FI', 'SPIC', 'PICUS'];
 const num = (v: unknown) => parseFloat(String(v ?? '').replace(',', '.')) || 0;
 type Tone = { border: string; tint: string; fg?: string; box?: string };
 const STATUS: Record<'ok' | 'check' | 'wrong', Tone> = {
-  ok: { border: 'rgba(0,232,160,0.45)', tint: '' },
-  check: { border: 'rgba(255,184,48,0.75)', tint: 'rgba(255,184,48,0.16)', fg: Colors.warning, box: 'rgba(255,184,48,0.10)' },
-  wrong: { border: 'rgba(255,77,106,0.8)', tint: 'rgba(255,77,106,0.16)', fg: Colors.danger, box: 'rgba(255,77,106,0.10)' },
+  ok: { border: 'rgba(0,232,160,0.32)', tint: '' },
+  check: { border: 'rgba(255,184,48,0.55)', tint: 'rgba(255,184,48,0.16)', fg: Colors.warning, box: 'rgba(255,184,48,0.10)' },
+  wrong: { border: 'rgba(255,77,106,0.6)', tint: 'rgba(255,77,106,0.16)', fg: Colors.danger, box: 'rgba(255,77,106,0.10)' },
 };
 // Kortets celler och vilka fält som markerar dem.
 const CARD_CELLS: { label: string; fields: string[] }[] = [
@@ -282,10 +282,10 @@ export function ScanReportSimple(p: {
           const timeHot = hot.has('total_time') || hot.has('night') || hot.has('sim');
           return (
             // Som dashboardens Latest flight: tonad gradient, ljus kant överst och skugga under (levande, lite 3D).
-            <View key={r.key} style={[s.cardShadow, { opacity: out ? 0.55 : 1, shadowColor: sev === 'ok' || out ? '#000' : st.fg }]}>
+            <View key={r.key} style={[s.cardShadow, { opacity: out ? 0.55 : 1 }]}>
             <View style={[s.card, { borderColor: out ? Colors.cardBorder : st.border }]}>
-              <LinearGradient colors={[(out ? Colors.textMuted : sev === 'ok' ? Colors.primary : st.fg!) + '26', Colors.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-              <LinearGradient colors={['rgba(255,255,255,0.10)', 'rgba(255,255,255,0)']} style={s.sheen} pointerEvents="none" />
+              <LinearGradient colors={[(out ? Colors.textMuted : sev === 'ok' ? Colors.primary : st.fg!) + '14', Colors.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+              <LinearGradient colors={['rgba(255,255,255,0.05)', 'rgba(255,255,255,0)']} style={s.sheen} pointerEvents="none" />
               <View style={s.cardTop}>
                 <Text style={s.cardDate}>{fmtDate(d.date)}</Text>
                 <Text style={s.cardWhere}>{pageOf(r)} · row {r.rowIndex}</Text>
@@ -410,7 +410,7 @@ const s = StyleSheet.create({
   regRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder },
   reg: { fontFamily: FONT_MONO, color: '#FFFFFF', fontSize: 13, fontWeight: '700', minWidth: 74 },
   tag: { fontFamily: FONT_MONO, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
-  cardShadow: { borderRadius: 18, shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 },
+  cardShadow: { borderRadius: 18, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
   card: { borderRadius: 18, backgroundColor: Colors.surface, borderWidth: 1, overflow: 'hidden' },
   sheen: { position: 'absolute', left: 0, right: 0, top: 0, height: 28 },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 10, paddingLeft: 14, paddingRight: 10 },

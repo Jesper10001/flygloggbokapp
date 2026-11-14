@@ -22,6 +22,9 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Helskärmsuppslagen: tangentbordet följer kolumnen — siffror för tider (decimal eller H:MM), klockslag (kolon sätts själv), landningar och datum; bokstäver för platser, typ, registrering, namn och anmärkningar. Fältet byggs om per cell så att rätt tangentbord kommer upp direkt när vyn hoppar till nästa cell.
+- Helskärmsuppslagen: svarsalternativen ligger nu i en egen rad som följer tangentbordet (Keyboard-händelser) i stället för InputAccessoryView, som inte syntes i helskärmen. Platser får alltid förslag: liknande ICAO-koder, flygningen före (avgång = förra landningen) eller efter, radens andra plats, skanningens vanligaste platser och ZZZZ sist — även när läsningen inte är en kod (t.ex. "NOHEDUNE"). Skriver man en plats visas sökträffar ur flygplatsdatabasen (AIRPORTS).
+- Nya Scan report: flight cards mindre glödande (svagare färgton, ljuskant och kant, svart skugga i stället för färgad).
 - Skanningen: färre osäkra celler. Claudes field_issues med confidence ≥ 0.7 blir ingen fråga om Claude inte läst något annat (read_as) eller föreslår ett annat värde (Claude flaggar allt under 0.85). Appens egna kontroller (okänd ICAO, ogiltigt klockslag m.m.) har låg confidence och frågas som förut.
 - Skanningen: skriven totaltid som bekräftas av en annan tidskolumn på raden (PIC/Co-pilot/Dual/Instructor/Night/IFR/Multi/Single = total) väger över avgång/ankomst: ingen tidskonflikt (time_mismatch) och inga frågor om totaltiden, lika stora tider eller klockslagen bara för att klockslagen ger en annan tid (blocktid).
 - Helskärmsuppslagen: svarsalternativ ovanför tangentbordets bokstäver (InputAccessoryView) — frågans förslag, Claudes alternativ och liknande ICAO-koder (ETNB → ETHB). Ett val på en fråga som gäller flera rader sätter samma värde på alla rader med samma läsning och hoppar till nästa osäkra cell.

@@ -5,7 +5,7 @@
 // (TranscribeOverlay), utan de tomma.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, FlatList, useWindowDimensions, Image, TextInput, InputAccessoryView, ScrollView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, FlatList, useWindowDimensions, Image, TextInput, ScrollView, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -14,7 +14,8 @@ import type { ScanRow } from '../../services/scanImport';
 import type { PageGrid } from '../../services/scanGeometry';
 import { scanSpreadAsLogbook, fieldOfColumn } from '../../services/logbook/scanSpread';
 import { cellRect } from '../../services/scanGeometry';
-import { inputValue, parseInput, label as fieldLabel } from '../../services/scanFields';
+import { inputValue, parseInput, shapeInput, label as fieldLabel, PLACE, UPPER, DURATION, CLOCK, COUNT } from '../../services/scanFields';
+import { searchAirports } from '../../db/icao';
 import { SpreadWebView } from '../logbook/SpreadWebView';
 import { TranscribeOverlay } from '../logbook/TranscribeOverlay';
 
@@ -37,6 +38,7 @@ export interface CrossRefEditing {
   onSave: (rowKey: string, field: string, value: string) => void;   // värdet i lagrat format (parseInput)
   onLooksRight: (issueId: string) => void;
   onChoose: (rowKey: string, field: string, value: string) => void;   // svarsalternativ (lagrat format)
+  optionsFor: (rowKey: string, field: string) => string[];             // svarsalternativ utan fråga (t.ex. platser)
 }
 
 export function LogbookCrossRef(p: {
@@ -167,7 +169,25 @@ export function LogbookCrossRef(p: {
     unpick();
     if (bi >= 0) setAdvance({ bi, slot: sel.slot, colId: sel.colId });
   };
-  const chipOpts = selOpen && selIssue?.options?.length ? selIssue.options : [];
+  // Svarsalternativen: frågans eller cellens förslag; för platser sökträffar på det man skriver.
+  const [hits, setHits] = useState<string[]>([]);
+  const baseOpts = sel?.field && ed ? (selIssue?.options?.length ? selIssue.options : ed.optionsFor(sel.rowKey, sel.field)) : [];
+  const typing = !!(sel?.field && PLACE.has(sel.field) && !unchanged && draft.trim().length >= 2);
+  useEffect(() => {
+    if (!typing) { setHits([]); return; }
+    let alive = true;
+    searchAirports(draft.trim(), 5).then((h: any[]) => { if (alive) setHits(h.map((x) => String(x.icao).toUpperCase()).filter((c) => c && c !== draft.trim().toUpperCase()).slice(0, 5)); }).catch(() => {});
+    return () => { alive = false; };
+  }, [typing, draft]);
+  const chipOpts = typing && hits.length ? hits : baseOpts;
+  // Tangentbordets höjd: raden med alternativ ligger precis ovanför bokstäverna.
+  const [kb, setKb] = useState(0);
+  useEffect(() => {
+    const a = Keyboard.addListener('keyboardWillShow', (e) => setKb(e.endCoordinates.height));
+    const b = Keyboard.addListener('keyboardWillHide', () => setKb(0));
+    const c = Keyboard.addListener('keyboardDidShow', (e) => setKb(e.endCoordinates.height));
+    return () => { a.remove(); b.remove(); c.remove(); };
+  }, []);
   useEffect(() => {
     if (!advance) return;
     setAdvance(null);
@@ -301,9 +321,11 @@ export function LogbookCrossRef(p: {
             )}
             {sel.field && (
               <View style={s.editRow}>
-                <TextInput value={draft} onChangeText={(t) => { setDraft(t); setBad(false); }} style={s.editInput} autoFocus
-                  inputAccessoryViewID={Platform.OS === 'ios' && chipOpts.length ? CHIPS_ID : undefined}
-                  autoCapitalize="characters" autoCorrect={false} returnKeyType="done" onSubmitEditing={commit}
+                {/* Nyckel per cell: fältet byggs om vid varje ny cell så att rätt tangentbord (siffror eller
+                    bokstäver) kommer upp direkt — iOS byter inte tangentbord på ett fält som redan har fokus. */}
+                <TextInput key={`${sel.page}|${sel.rowKey}|${sel.field}`} value={draft} onChangeText={(t) => { setDraft(shapeInput(sel.field!, t)); setBad(false); }} style={s.editInput} autoFocus
+                  keyboardType={keyboardFor(sel.field, p.timeFormat)}
+                  autoCapitalize={PLACE.has(sel.field) || UPPER.has(sel.field) ? 'characters' : 'sentences'} autoCorrect={false} returnKeyType="done" onSubmitEditing={commit}
                   accessibilityLabel={fieldLabel(sel.field)} placeholder="Empty" placeholderTextColor={Colors.textMuted} />
                 <TouchableOpacity onPress={unpick} style={s.editCancel} accessibilityRole="button"><Text style={s.editCancelText}>Cancel</Text></TouchableOpacity>
                 <TouchableOpacity onPress={commit} style={s.editSave} accessibilityRole="button">
@@ -318,21 +340,18 @@ export function LogbookCrossRef(p: {
         </View>
       )}
 
-      {/* Svarsalternativen på tangentbordet, ovanför bokstäverna (t.ex. liknande ICAO-koder). */}
-      {Platform.OS === 'ios' && (
-        <InputAccessoryView nativeID={CHIPS_ID} backgroundColor="#0F1E3A">
-          {chipOpts.length > 0 ? (
-            <ScrollView horizontal keyboardShouldPersistTaps="always" showsHorizontalScrollIndicator={false}
-              contentContainerStyle={s.kbChips}>
-              <Text style={s.kbLabel}>CLAUDE SUGGESTS</Text>
-              {chipOpts.map((o) => (
-                <TouchableOpacity key={o} onPress={() => choose(o)} style={s.kbChip} accessibilityRole="button" accessibilityLabel={`Use ${o}`}>
-                  <Text style={s.kbChipText}>{o}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          ) : <View />}
-        </InputAccessoryView>
+      {/* Svarsalternativen ovanför tangentbordets bokstäver (t.ex. liknande ICAO-koder eller flygningen före). */}
+      {sel?.field && kb > 0 && chipOpts.length > 0 && (
+        <View style={[s.kbBar, { bottom: kb, paddingLeft: insets.left + 10, paddingRight: insets.right + 10 }]}>
+          <ScrollView horizontal keyboardShouldPersistTaps="always" showsHorizontalScrollIndicator={false} contentContainerStyle={s.kbChips}>
+            <Text style={s.kbLabel}>{typing && hits.length ? 'AIRPORTS' : 'SUGGESTIONS'}</Text>
+            {chipOpts.map((o) => (
+              <TouchableOpacity key={o} onPress={() => choose(o)} style={s.kbChip} accessibilityRole="button" accessibilityLabel={`Use ${o}`}>
+                <Text style={s.kbChipText}>{o}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
       )}
 
       {byColumn && cur && (
@@ -350,9 +369,17 @@ export function LogbookCrossRef(p: {
   );
 }
 
+// Tangentbordet efter kolumnen: siffror för tider, klockslag, landningar och datum; bokstäver för platser,
+// typ, registrering, namn och anmärkningar.
+function keyboardFor(field: string, timeFormat: 'decimal' | 'hhmm') {
+  if (DURATION.has(field)) return timeFormat === 'hhmm' ? 'numbers-and-punctuation' as const : 'decimal-pad' as const;
+  if (CLOCK.has(field) || COUNT.has(field)) return 'number-pad' as const;
+  if (field === 'date') return 'numbers-and-punctuation' as const;
+  return 'default' as const;
+}
+
 // En bit av fotot: cellen (inringad) med lite av grannarna runt om, i fotots egna proportioner.
 const SNIP_H = 66, SNIP_W = 230;
-const CHIPS_ID = 'scanCellChips';
 function CellSnippet({ photo, grid, rowIndex, field, danger }: {
   photo: { uri: string; width: number; height: number } | null; grid: ScannedSpread['grid']; rowIndex: number; field: string | null; danger: boolean;
 }) {
@@ -392,6 +419,7 @@ const s = StyleSheet.create({
   editCancelText: { color: '#FFFFFF', fontSize: 13 },
   editSave: { height: 36, paddingHorizontal: 16, borderRadius: 18, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
   editSaveText: { color: '#0A1628', fontSize: 13, fontWeight: '800' },
+  kbBar: { position: 'absolute', left: 0, right: 0, backgroundColor: '#0F1E3A', borderTopWidth: 1, borderTopColor: Colors.cardBorder },
   kbChips: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8 },
   kbLabel: { color: Colors.textSecondary, fontSize: 9.5, fontWeight: '800', letterSpacing: 1, marginRight: 2 },
   kbChip: { height: 34, paddingHorizontal: 16, borderRadius: 17, borderWidth: 1, borderColor: Colors.primary, backgroundColor: Colors.primary + '1F', alignItems: 'center', justifyContent: 'center' },

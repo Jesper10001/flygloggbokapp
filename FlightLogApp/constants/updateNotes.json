@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 127,
+      "date": "2026-11-14",
+      "notes": [
+        "New: When you fix an airport in a scan, suggestions appear above the keyboard, like the airport you landed at before.",
+        "Improved: Fixing a cell opens a number keyboard for times and landings, and letters for places and remarks.",
+        "Improved: Calmer flight cards in the scan report."
+      ]
+    },
+    {
       "id": 126,
       "date": "2026-11-14",
       "notes": [
