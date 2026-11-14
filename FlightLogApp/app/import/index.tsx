@@ -415,6 +415,12 @@ function makeStyles() {
   });
 }
 
+// Flygtypen ur filen: bara 'sim' och 'hot_refuel' när filen uttryckligen anger det, annars 'normal'.
+const fileType = (f: OcrFlightResult): 'normal' | 'sim' | 'hot_refuel' => {
+  const t = (f as any).flight_type;
+  return t === 'sim' || t === 'hot_refuel' ? t : 'normal';
+};
+
 export default function ImportScreen() {
   const styles = makeStyles();
   const { t } = useTranslation();
@@ -602,19 +608,9 @@ export default function ImportScreen() {
     });
   };
 
-  // Flygningar som överstiger angiven uthållighet — reaktivt på enduranceInputs
-  const exceedingFlights = useMemo(() => {
-    if (!result) return [];
-    return result.flights
-      .map((f, idx) => ({ f, idx }))
-      .filter(({ f }) => {
-        if ((f as any).flight_type === 'sim') return false; // explicit sim från filen → ingen endurance-fråga
-        const raw = enduranceInputs[f.aircraft_type] ?? '';
-        if (raw.endsWith('.')) return false; // fortfarande inmatning, vänta
-        const endH = parseFloat(raw) || 0;
-        return endH > 0 && parseFloat(f.total_time) > endH;
-      });
-  }, [result, enduranceInputs]);
+  // "Longer than endurance" frågas inte vid import (användarens beslut 2026-11-14): flygningarna sparas som de
+  // står i filen — simulator eller hot refuel bara när filen säger det. Kontrollen finns kvar i Log flight.
+  const exceedingFlights: { f: OcrFlightResult; idx: number }[] = [];
 
   // Flygningar vars avstånd överstiger 1.5× räckvidd (endurance × marschfart)
   const suspiciousFlights = useMemo(() => {
@@ -823,9 +819,7 @@ export default function ImportScreen() {
       }
       // Unknown airports are left unresolved and will appear in dashboard "visited airports"
       // ZZZZ codes are skipped as they are generic placeholders for off-airport places
-      // Flygningar längre än uthållighet default:ar till 'sim' (= det UI:t visar förvalt) om användaren
-      // inte uttryckligen valt hot refuel — annars tappades sim-tiden (sparades som 'normal' → försvann
-      // ur sim-statistiken). Övriga flygningar default:ar till 'normal'.
+      // Flygtypen som den står i filen (simulator eller hot refuel bara när filen säger det), annars normal.
       const exceedingIdx = new Set(exceedingFlights.map((e) => e.idx));
       // Krockar där den nya behålls: loggbokens flygning tas bort först.
       const removed = idsToRemove(match, keepNew, (i) => excluded.has(i));
@@ -833,8 +827,8 @@ export default function ImportScreen() {
       for (let i = 0; i < result.flights.length; i++) {
         if (excluded.has(i)) continue; // "Leave out" i rapporten
         const f = result.flights[i];
-        const ft = flightTypes[i] ?? (exceedingIdx.has(i) ? 'sim' : 'normal');
-        const simCat = ft === 'sim' ? (simCategories[i] ?? 'FFS') : '';
+        const ft = flightTypes[i] ?? (exceedingIdx.has(i) ? 'sim' : fileType(f));
+        const simCat = ft === 'sim' ? (simCategories[i] ?? (String((f as any).sim_category || '').toUpperCase() || 'FFS')) : '';   // filens simulatortyp om den finns
         const explanation = flightExplanations[i];
         const remarksNote =
           explanation === 'temporary' ? '[Off-airport (ZZZZ)]' :
@@ -883,7 +877,7 @@ export default function ImportScreen() {
     const exceed = new Set(exceedingFlights.map((e) => e.idx));
     result.flights.forEach((f, i) => {
       if (excluded.has(i)) return;
-      const ft = flightTypes[i] ?? ((f as any).flight_type === 'sim' || exceed.has(i) ? 'sim' : 'normal');
+      const ft = flightTypes[i] ?? (exceed.has(i) ? 'sim' : fileType(f));
       if (ft === 'sim') out.add(i);
     });
     return out;
