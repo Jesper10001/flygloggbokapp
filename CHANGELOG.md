@@ -29,6 +29,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Loggboksguiden, steget Latest flight: Book size-kortet ersatt av "Rows per spread" med samma +/− (4–30) som sidorna; första sidan står redan ovanför och sista sidan frågas inte här.
 - Loggboksguiden, steget Latest flight: "First flight · page" (bokens första sida med flygningar) frågas här med +/− som sidnumret, före "Latest flight · page" (förut "Page number") och Book size, allt ovanför "Which row?". Ligger första sidan efter flygningens sida varnas det och Continue blir "Check the pages" (samma sida går bra). Frågan är borta från steget Older flights.
 - "Blades was updated": flera missade sammanfattningar visas alla, äldst först (post 137 före 144). Post 144 = sammanfattning av glasknapparna (139–143) inför den riktiga appen.
 - Glasknapparna: "clear" blev för ljust → samma glas med en navy/teal ton (rgba 16,44,70 · 0.55) så att ljusheten ligger nära flight cards, svagare kant. Lätt vibration när man trycker på Log flight och bokknappen (pilot), och på alla tre knapparna i drönarläget, som skanningsknappen. Flikraden oförändrad.

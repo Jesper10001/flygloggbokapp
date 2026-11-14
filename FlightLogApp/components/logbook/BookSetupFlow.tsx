@@ -943,7 +943,28 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, books: booksProp
                   )}
                 </View>
 
-                {!sizeFirst && sizeCard}
+                {/* Bokens storlek här: bara rader per uppslag, med samma +/− (första sidan står ovanför; sista sidan
+                    frågas inte i det här steget). */}
+                {sizeFirst ? null : (
+                  <View style={{ gap: 10 }}>
+                    <View style={s.labelRow}>
+                      <Text style={s.label}>Rows per spread</Text>
+                      <Text style={s.labelHint}>Count the rows on one spread</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <TouchableOpacity style={s.stepBtn} onPress={() => { tap(); setRows(Math.max(4, rs - 1)); }} accessibilityLabel="Fewer rows">
+                        <Ionicons name="remove" size={22} color={Colors.primary} />
+                      </TouchableOpacity>
+                      {/* Bara +/− (4–30): att skriva "12" gick via "1", som spärren då lyfte till 4. */}
+                      <View style={[s.pageInput, { justifyContent: 'center' }]} accessible accessibilityLabel={`${rs} rows per spread`}>
+                        <Text style={{ color: Colors.textPrimary, fontSize: 22, fontWeight: '700', fontFamily: MONO, textAlign: 'center' }}>{rs}</Text>
+                      </View>
+                      <TouchableOpacity style={s.stepBtn} onPress={() => { tap(); setRows(Math.min(30, rs + 1)); }} accessibilityLabel="More rows">
+                        <Ionicons name="add" size={22} color={Colors.primary} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
 
                 <View style={{ gap: 10 }}>
                   <View style={s.labelRow}>
