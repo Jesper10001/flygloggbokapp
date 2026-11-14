@@ -5,7 +5,7 @@
 import DATA from '../constants/updateNotes.json';
 import { parseReleaseNotes, POPUP_MAX, type ReleaseNote } from '../store/versionStore';
 
-export interface UpdateNotesEntry { id: number; notes: string[] }
+export interface UpdateNotesEntry { id: number; notes: string[]; summary?: boolean }
 
 export const UPDATE_NOTES: UpdateNotesEntry[] = DATA.updates;
 /** Den senaste postens id: koden som körs (bygget eller uppdateringen) innehåller allt till och med den. */
@@ -18,7 +18,11 @@ const RANK: Record<ReleaseNote['kind'], number> = { new: 0, improved: 1, fix: 2,
 /** Raderna i posterna efter `since` (null = alla). En post: i den ordning de skrevs. Flera: New före Improved
  *  före Fixed, varje posts första rad före dess andra, och nyare före äldre. Samma rad visas bara en gång. */
 export function notesSince(since: number | null, entries: UpdateNotesEntry[] = UPDATE_NOTES): { notes: ReleaseNote[]; more: boolean } {
-  const missed = entries.filter((e) => since == null || e.id > since);
+  let missed = entries.filter((e) => since == null || e.id > since);
+  // En sammanfattning (summary: true) ersätter alla poster före den som missats: rutan visar bara dess rader,
+  // i den ordning de skrevs (t.ex. första uppdateringen till App Store-bygget efter många TestFlight-uppdateringar).
+  const top = missed.reduce<UpdateNotesEntry | null>((m, e) => (!m || e.id > m.id ? e : m), null);
+  if (top?.summary) missed = [top];
   const items = missed.flatMap((e) => parseReleaseNotes(e.notes, Infinity).notes.map((n, pos) => ({ n, pos, id: e.id })));
   if (missed.length > 1) items.sort((a, b) => RANK[a.n.kind] - RANK[b.n.kind] || a.pos - b.pos || b.id - a.id);
   const seen = new Set<string>();

@@ -51,7 +51,7 @@ import { setScanImage, SCAN_OPEN } from '../../store/scanStore';
 import { ScanSpeedDial } from '../../components/ScanSpeedDial';
 import { useLogbookScanStart } from '../../components/LogbookScanChooser';
 import { askAiConsent } from '../../services/aiConsent';
-import { batchPlaceNames, getAirportCoordinates } from '../../db/icao';
+import { batchPlaceNames, getAirportCoordinates, isOffAirportCode } from '../../db/icao';
 import { fetchDecodedWx, fetchDecodedWxNear, type DecodedWx } from '../../services/weather';
 import { WxCard, WxFetchingRow, WxNotFoundRow } from '../../components/WxCard';
 import * as Location from 'expo-location';
@@ -698,17 +698,27 @@ export default function DashboardScreen() {
   // rader utan arr_place — annars försvann "Fetch WX" när den senaste loggade raden var ett sim-pass). Finns
   // ingen alls → GPS-fallback i loadWeather (= drönarläget).
   const lastDest = flights.find((f) => !!f.arr_place)?.arr_place ?? '';
+  // Destinationen utan plats (ZZZZ, en egen plats utan koordinater) → vädret hämtas för närmaste station från
+  // där användaren är. wxPlace = det som står i raderna "Fetching weather for …" (tomt = "near you").
+  const [destPlaced, setDestPlaced] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    if (!lastDest || isOffAirportCode(lastDest)) { setDestPlaced(false); return; }
+    getAirportCoordinates([lastDest.toUpperCase()]).then((r) => { if (alive) setDestPlaced(r.length > 0); }).catch(() => { if (alive) setDestPlaced(true); });
+    return () => { alive = false; };
+  }, [lastDest]);
+  const wxPlace = destPlaced ? lastDest : '';
   const loadWeather = useCallback(async () => {
     if (mode !== 'manned') { setWx(null); return; }
     setWxLoading(true);
     setWxMissed(false);
     let found: DecodedWx | null = null;
     try {
-      if (lastDest) {
-        found = await fetchDecodedWx(lastDest); // väder för senaste destinationen
+      if (wxPlace) {
+        found = await fetchDecodedWx(wxPlace); // väder för senaste destinationen
       } else {
-        // Ingen loggad destination (t.ex. inga flygningar ännu, eller senaste var en simulator utan ankomst)
-        // → väder för närmaste station från min position, precis som drönarläget.
+        // Ingen destination med plats (inga flygningar ännu, senaste var en simulator utan ankomst, eller
+        // ZZZZ/egen plats utan koordinater) → väder för närmaste station från min position, som drönarläget.
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
           const p = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -719,7 +729,7 @@ export default function DashboardScreen() {
     setWx(found);
     setWxMissed(!found);
     setWxLoading(false);
-  }, [mode, lastDest]);
+  }, [mode, wxPlace]);
   // Göm WX igen om destinationen (eller läget) ändras → dra ner för att hämta på nytt.
   useEffect(() => { setWx(null); setWxMissed(false); }, [lastDest, mode]);
 
@@ -887,9 +897,9 @@ export default function DashboardScreen() {
         {/* Väder ovanför WORKLOAD: kortet när det är hämtat, annars raden "hämtar" eller "inget hittades".
             Innan man dragit ner står bara "Fetch WX ↓" på WORKLOAD-raden. Tryck på kortet → väder-uppslaget. */}
         {mode === 'manned' && (wx
-          ? <WxCard wx={wx} loading={wxLoading} byPosition={!lastDest} onPress={() => setWxPickerOpen(true)} />
-          : wxLoading ? <WxFetchingRow place={lastDest} />
-          : wxMissed ? <WxNotFoundRow place={lastDest} />
+          ? <WxCard wx={wx} loading={wxLoading} byPosition={!wxPlace} onPress={() => setWxPickerOpen(true)} />
+          : wxLoading ? <WxFetchingRow place={wxPlace} />
+          : wxMissed ? <WxNotFoundRow place={wxPlace} />
           : null)}
 
         {/* WORKLOAD-rad — "Fetch WX ↓" ligger INLINE här tills man dragit ner sidan. */}

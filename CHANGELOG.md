@@ -10,6 +10,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
+- Improved: Weather on the dashboard uses the airport nearest you when your last flight has no airport.
 - New: Fleet asks which spelling is right when two registrations look almost the same, like KILO 24 and KIL024.
 - New: Redeem a promo code right on the Premium offer in onboarding.
 - Fixed: Simulator sessions from a scan now count toward recency.
@@ -27,6 +28,8 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Dashboardens väder (Fetch WX): är senaste destinationen utan plats (ZZZZ eller en egen plats utan koordinater) hämtas vädret för närmaste station från användarens position, som när inga flygningar finns.
+- "Blades was updated": en post med summary: true i constants/updateNotes.json ersätter alla tidigare missade poster (services/updateNotes.ts notesSince), så att första uppdateringen till App Store-bygget 1.0.1 visar en sammanfattning i stället för tre rader valda ur post 121–136.
 - Fleet (pilot): snarlika registreringar på samma typ (O/nolla, mellanslag, bindestreck — t.ex. "KILO 24" och "KIL024") frågas längst ner på kortet: "KILO 24 & KIL024 look very similar. Which one is correct?". Valet flyttar alla flygningar och registret till den stavningen via applyBulkEdit (kan ångras under Edit flights → Recent changes); "Both are right" sparas (reg_similar_kept) och frågan kommer inte igen. services/registrationTwins similarGroups + db/registrationTwins syncRegistrations; test i test-registration-twins.cjs.
 - Skanningens laddskärm räknar 20 s per uppslag (var 15 s).
 - Blades introduction (drönare), Insights-stoppet: exemplet visas nu så fort man saknar egna drönarflygningar (förut bara när även drönare och böcker saknades → tom sida). Fylligare exempel (148 flygningar, 96 h, kategorier, siktlägen, Currency med en Stale-kategori och Hours bank med exempelsiffror; DEMO_DRONE_INSIGHTS) och raden "EXAMPLE · YOUR OWN NUMBERS APPEAR AS YOU LOG".
