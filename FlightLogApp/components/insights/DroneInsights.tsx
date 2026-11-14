@@ -14,7 +14,7 @@ import { getCategoryRecency, type CategoryRecency } from '../../db/drones';
 import { FONT_LED7 } from '../logflight/tokens';
 import { useTabBarSpace } from '../GlassTabBar';
 import { useTourStore } from '../../store/tourStore';
-import { DEMO_DRONE_FLIGHTS, DEMO_DRONE_STATS } from '../../constants/tourDemoData';
+import { DEMO_DRONE_INSIGHTS } from '../../constants/tourDemoData';
 import { TourSpot } from '../TourSpot';
 import { DroneHoursBank } from './DroneHoursBank';
 
@@ -50,10 +50,13 @@ export function DroneInsights() {
   const accent = useDroneAccentStore((s) => s.color);
   const loadAccent = useDroneAccentStore((s) => s.load);
   const { flights: realFlights, stats: realStats, loadFlights, loadStats } = useDroneFlightStore();
-  // Blades introduction: är loggboken helt tom visas exempelsiffror på Insights-stoppet (bara i minnet).
-  const tourDemo = useTourStore((st) => st.active && st.demo);
-  const flights = tourDemo ? DEMO_DRONE_FLIGHTS : realFlights;
-  const stats = tourDemo ? DEMO_DRONE_STATS : realStats;
+  // Blades introduction: utan egna drönarflygningar visas exempelsiffror på Insights-stoppet (bara i minnet) —
+  // även när drönare eller böcker redan finns (tourStore.demo kräver att allt är tomt).
+  const tourActive = useTourStore((st) => st.active);
+  const tourDemoFlag = useTourStore((st) => st.demo);
+  const tourDemo = tourActive && (tourDemoFlag || !realStats || realStats.total_flights === 0);
+  const flights = tourDemo ? [] : realFlights;
+  const stats = tourDemo ? DEMO_DRONE_INSIGHTS.stats : realStats;
   const [recency, setRecency] = useState<CategoryRecency[]>([]);
   const [infoOpen, setInfoOpen] = useState(false);
 
@@ -65,8 +68,9 @@ export function DroneInsights() {
   const tabSpace = useTabBarSpace(); // flytande glas-flikrad täcker botten
   const last90 = useMemo(() => {
     const c = new Date(); c.setDate(c.getDate() - 90); const cut = c.toISOString().slice(0, 10);
-    return flights.filter((f) => f.date >= cut).reduce((s, f) => s + (f.total_time || 0), 0);
-  }, [flights]);
+    return tourDemo ? DEMO_DRONE_INSIGHTS.last90 : flights.filter((f) => f.date >= cut).reduce((s, f) => s + (f.total_time || 0), 0);
+  }, [flights, tourDemo]);
+  const shownRecency: CategoryRecency[] = tourDemo ? DEMO_DRONE_INSIGHTS.recency : recency;
 
   if (!stats || stats.total_flights === 0) {
     return (
@@ -83,6 +87,7 @@ export function DroneInsights() {
 
   return (
     <ScrollView style={s.screen} contentContainerStyle={{ padding: 12, paddingBottom: tabSpace + 40, gap: 16 }}>
+      {tourDemo && <Text style={s.demoNote} maxFontSizeMultiplier={1.2}>EXAMPLE · YOUR OWN NUMBERS APPEAR AS YOU LOG</Text>}
       {/* Enat totals-hero (= manned HeroTotals) — LED-numeraler */}
       <View style={s.heroCard}>
         <TourSpot id="insights-top" radius={18} inset={3} />
@@ -117,13 +122,13 @@ export function DroneInsights() {
       </View>
 
       {/* Hours bank (= pilotläget) */}
-      <DroneHoursBank accent={accent} />
+      <DroneHoursBank accent={accent} demo={tourDemo ? DEMO_DRONE_INSIGHTS.bank : undefined} />
 
       {/* Currency — featured (accent-tonad ram, = manned LicenceJourney) */}
-      {recency.length > 0 && (
+      {shownRecency.length > 0 && (
         <Section accent={accent} title="Currency" icon="time-outline" hint="Days since last flight per category" featured onInfo={() => setInfoOpen(true)}>
           <View style={{ gap: 8 }}>
-            {recency.map((r) => (
+            {shownRecency.map((r) => (
               <View key={r.category} style={s.recencyRow}>
                 <View style={[s.catPill, { borderColor: accent + '55', backgroundColor: accent + '14' }]}>
                   <Text style={[s.catPillText, { color: accent }]}>{r.category}</Text>
@@ -247,6 +252,7 @@ function BarRow({ label, value, unit = 'h', pct, accent }: { label: string; valu
 }
 
 const s = StyleSheet.create({
+  demoNote: { color: DR.text2, fontSize: 10.5, fontWeight: '800', letterSpacing: 1.1, marginTop: 4, marginBottom: -6 },
   screen: { flex: 1 },
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 40 },
   emptyText: { color: DR.text2, fontSize: 15, fontWeight: '700', fontFamily: SERIF },

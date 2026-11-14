@@ -26,6 +26,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Blades introduction (drönare), Insights-stoppet: exemplet visas nu så fort man saknar egna drönarflygningar (förut bara när även drönare och böcker saknades → tom sida). Fylligare exempel (148 flygningar, 96 h, kategorier, siktlägen, Currency med en Stale-kategori och Hours bank med exempelsiffror; DEMO_DRONE_INSIGHTS) och raden "EXAMPLE · YOUR OWN NUMBERS APPEAR AS YOU LOG".
 - Latest flight: kamera- och delaknappen satt ihop efter förra ändringen (de låg i en egen grupp utan mellanrum) — samma mellanrum som förut igen.
 - Onboardingens betalvägg: "Promo" till vänster om Restore öppnar samma kodruta som i Settings (redeemAndApply). Premium/Max-kod → vidare som köpt; coins-kod → raden under knappen; fel kod → förklaringen i rutan.
 - Blades introduction, "Share a flight": bara delaknappen lyses upp (inte kameran), Latest flight rullas upp till ungefär en tredjedel ned på skärmen, och texten handlar bara om delning.

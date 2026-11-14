@@ -129,6 +129,31 @@ export const DEMO_DRONE_STATS: DroneStats = {
   cat_a1: 0.7, cat_a2: 0.5, cat_a3: 0.6, cat_specific: 1.5, cat_certified: 0,
 };
 
+// Insights-stoppet (drönare): en fylligare operatör än loggbokens sex exempel, så att sidan ser ut som efter ett
+// år av riktigt flygande. Bara i minnet under rundturen.
+export const DEMO_DRONE_INSIGHTS = {
+  stats: {
+    total_flights: 148, total_time: 96.4, year_to_date: 41.2,
+    vlos: 58.3, evlos: 12.5, bvlos: 25.6, night: 9.8,
+    cat_a1: 14.2, cat_a2: 21.7, cat_a3: 18.9, cat_specific: 41.6, cat_certified: 0,
+  } as DroneStats,
+  last90: 14.5,
+  recency: [
+    { category: 'Specific', daysAgo: 2, lastFlightDate: '', isStale: false },
+    { category: 'A2', daysAgo: 6, lastFlightDate: '', isStale: false },
+    { category: 'A1', daysAgo: 19, lastFlightDate: '', isStale: false },
+    { category: 'A3', daysAgo: 104, lastFlightDate: '', isStale: true },
+  ],
+  bank: {
+    total: 96.4, flights: 148, night_flights: 17,
+    pic: 82.1, sic: 6.3, dual: 8.0, instructor: 0,
+    vlos: 58.3, evlos: 12.5, bvlos: 25.6,
+    night: 9.8, ifr: 0, com: 71.9, pri: 24.5,
+    landings_day: 131, landings_night: 17,
+    cats: [{ label: 'A1', v: 14.2 }, { label: 'A2', v: 21.7 }, { label: 'A3', v: 18.9 }, { label: 'Specific', v: 41.6 }],
+  },
+};
+
 function mkDroneModel(p: Partial<DroneModelFleet>): DroneModelFleet {
   return {
     id: 0, model: '', drone_type: 'multirotor', mtow_g: 0, category: '', drone_class: '', manufacturer: '',

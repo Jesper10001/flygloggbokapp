@@ -9,9 +9,11 @@ import { getDroneHoursBank, type DroneHoursBank as Bank } from '../../db/drones'
 import { HoursBankView, rangeCut, type BankGroup, type BankTheme } from './HoursBank';
 import type { BankRange } from './insightsData';
 
-export function DroneHoursBank({ accent }: { accent: string }) {
+export function DroneHoursBank({ accent, demo }: { accent: string; demo?: Bank }) {
   const [range, setRange] = useState<BankRange>('all');
-  const [b, setB] = useState<Bank | null>(null);
+  const [real, setB] = useState<Bank | null>(null);
+  // Blades introduction: exempelsiffror utan egna flygningar (samma för alla intervall).
+  const b = demo ?? real;
 
   // Läses om när fliken visas och när intervallet byts.
   useFocusEffect(useCallback(() => {
