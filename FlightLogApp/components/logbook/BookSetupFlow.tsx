@@ -260,6 +260,10 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, books: booksProp
   }, [anchorPos, origin.start, origin.lead, fp, rs]);
   const pageNum = anchorEdited ? Math.max(fp, parseInt(page, 10) || fp) : suggest.page;
   const rowNum = Math.max(1, Math.min(rs, anchorEdited ? row : suggest.row));
+  // Den inskrivna sidan för flygningen (innan den lyfts till första sidan): ligger den före bokens första sida
+  // varnas det, och Continue väntar. Samma sida går bra.
+  const typedPage = anchorEdited ? parseInt(page, 10) || 0 : suggest.page;
+  const firstAfterLatest = placing && anchorEdited && typedPage > 0 && fp > typedPage;
   const eFirst = Math.max(1, parseInt(earlierFirst, 10) || fp);
   const eLast = Math.max(eFirst + 1, parseInt(earlierLast, 10) || lp || 100);
   // Bokplanen (services/logbook/setupPlan): uppslaget, plats före flygningen, tidigare böcker (bara första boken).
@@ -625,6 +629,7 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, books: booksProp
   if (step === 'same' && same === null) cta = { ...cta, label: 'Choose one', disabled: true };
   if (step === 'started' && started === null) cta = { ...cta, label: 'Choose one', disabled: true };
   if (step === 'earlier' && !earlierChoice) cta = { ...cta, label: 'Choose where they are', disabled: true };
+  if (step === 'latest' && firstAfterLatest) cta = { ...cta, label: 'Check the pages', disabled: true };
   if (step === 'totals' && !diffMode) {
     cta = { ...cta, label: 'Yes, they all match' };
     cta2 = { label: 'Something is different', onPress: () => { tap(); setTotalsMode('diff'); } };
@@ -896,9 +901,29 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, books: booksProp
                   </TouchableOpacity>
                 </View>
 
+                {/* Bokens första sida med flygningar (efter inledningen) och den här flygningens sida, var för sig, med
+                    samma +/− som sidnumret. Sedan bokens storlek, och sist raden. */}
                 <View style={{ gap: 10 }}>
                   <View style={s.labelRow}>
-                    <Text style={s.label}>Page number</Text>
+                    <Text style={s.label}>First flight · page</Text>
+                    <Text style={s.labelHint}>After the intro pages</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <TouchableOpacity style={s.stepBtn} onPress={() => { tap(); setFirstPage(String(Math.max(1, fp - 1))); }} accessibilityLabel="Previous page">
+                      <Ionicons name="remove" size={22} color={Colors.primary} />
+                    </TouchableOpacity>
+                    <TextInput style={[s.pageInput, firstAfterLatest && { borderColor: Colors.warning }]} value={firstPage} keyboardType="number-pad" selectTextOnFocus
+                      onChangeText={(v) => setFirstPage(v.replace(/\D/g, ''))} placeholder="1" placeholderTextColor={Colors.textMuted}
+                      accessibilityLabel="Page of the first flight in this logbook" />
+                    <TouchableOpacity style={s.stepBtn} onPress={() => { tap(); setFirstPage(String(fp + 1)); }} accessibilityLabel="Next page">
+                      <Ionicons name="add" size={22} color={Colors.primary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={{ gap: 10 }}>
+                  <View style={s.labelRow}>
+                    <Text style={s.label}>{variant !== 'edit' && back === 0 ? 'Latest flight · page' : 'This flight · page'}</Text>
                     <Text style={s.labelHint}>Either side of the spread</Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -911,7 +936,14 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, books: booksProp
                       <Ionicons name="add" size={22} color={Colors.primary} />
                     </TouchableOpacity>
                   </View>
+                  {firstAfterLatest && (
+                    <Text style={s.warnText} accessibilityLiveRegion="polite">
+                      The first flight (page {fp}) can’t come after this flight (page {typedPage}). They can be on the same page.
+                    </Text>
+                  )}
                 </View>
+
+                {!sizeFirst && sizeCard}
 
                 <View style={{ gap: 10 }}>
                   <View style={s.labelRow}>
@@ -966,7 +998,8 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, books: booksProp
                 ? `There are no flights in this logbook yet. The first one goes on page ${fp}, row 1.`
                 : `You haven’t logged any flights yet. Your first flight goes on page ${fp}, row 1.`} />
             )}
-            {!sizeFirst && sizeCard}
+            {/* Utan flygning att placera: bokens storlek sist (med flygning: ovanför raderna). */}
+            {!sizeFirst && !(placing && anchor) && sizeCard}
           </View>
         )}
 
@@ -975,12 +1008,6 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, books: booksProp
           <View style={{ gap: 18 }}>
             <Head title={`Where are your first ${earlier.toLocaleString('en-US')} flights?`}
               lead={`Up to page ${pageNum}, row ${rowNum} there’s room for ${room.toLocaleString('en-US')} flights. Blades has ${written.toLocaleString('en-US')} up to that flight, so ${earlier.toLocaleString('en-US')} are from before this logbook.`} />
-            {/* Bokens första sida med flygningar (efter inledningen) avgör hur många som får plats före raden. */}
-            <View style={[s.card, { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 }]}>
-              <Text style={[s.smallText, { flex: 1, color: Colors.textPrimary }]}>This logbook’s first flight is on page</Text>
-              <TextInput style={s.smallInput} value={firstPage} onChangeText={(v) => setFirstPage(v.replace(/\D/g, ''))} placeholder="1" placeholderTextColor={Colors.textMuted}
-                keyboardType="number-pad" selectTextOnFocus accessibilityLabel="First page with flights in this logbook" />
-            </View>
             <View style={{ gap: 8 }} accessible accessibilityLabel={`${earlier} flights before this logbook, ${room} in it`}>
               <View style={s.barRow}>
                 <View style={[s.barBefore, { flex: Math.max(0.16, earlier / written) }]}><Text style={s.barText}>{earlier.toLocaleString('en-US')}</Text></View>
