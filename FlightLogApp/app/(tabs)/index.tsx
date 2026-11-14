@@ -56,7 +56,7 @@ const GLASS_R = 27;
 const tapHaptic = () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); };
 import { useLogbookScanStart } from '../../components/LogbookScanChooser';
 import { askAiConsent } from '../../services/aiConsent';
-import { batchPlaceNames, getAirportCoordinates, isOffAirportCode } from '../../db/icao';
+import { batchPlaceNames, getAirportCoordinates, isOffAirportCode, getAirportByIcao } from '../../db/icao';
 import { fetchDecodedWx, fetchDecodedWxNear, type DecodedWx } from '../../services/weather';
 import { WxCard, WxFetchingRow, WxNotFoundRow } from '../../components/WxCard';
 import * as Location from 'expo-location';
@@ -714,6 +714,15 @@ export default function DashboardScreen() {
     return () => { alive = false; };
   }, [lastDest]);
   const wxPlace = destPlaced ? lastDest : '';
+  // Flygplatsens namn till väderraderna (placeNames har bara egna platsers namn; riktiga flygplatser står som kod).
+  const [wxPlaceName, setWxPlaceName] = useState('');
+  useEffect(() => {
+    let alive = true;
+    setWxPlaceName('');
+    if (wxPlace) getAirportByIcao(wxPlace.toUpperCase()).then((a: any) => { if (alive && a?.name) setWxPlaceName(a.name); }).catch(() => {});
+    return () => { alive = false; };
+  }, [wxPlace]);
+  const wxPlaceLabel = wxPlace ? wxPlaceName || placeNames[wxPlace.toUpperCase()] || wxPlace : '';
   const loadWeather = useCallback(async () => {
     if (mode !== 'manned') { setWx(null); return; }
     setWxLoading(true);
@@ -905,8 +914,8 @@ export default function DashboardScreen() {
         {mode === 'manned' && (wx
           ? <WxCard wx={wx} loading={wxLoading} byPosition={!wxPlace} onPress={() => setWxPickerOpen(true)} />
           // Flygplatsens namn i raden ("Fetching weather for Los Angeles International Airport…"), koden om namnet saknas.
-          : wxLoading ? <WxFetchingRow place={wxPlace ? placeNames[wxPlace.toUpperCase()] || wxPlace : ''} />
-          : wxMissed ? <WxNotFoundRow place={wxPlace ? placeNames[wxPlace.toUpperCase()] || wxPlace : ''} />
+          : wxLoading ? <WxFetchingRow place={wxPlaceLabel} />
+          : wxMissed ? <WxNotFoundRow place={wxPlaceLabel} />
           : null)}
 
         {/* WORKLOAD-rad — "Fetch WX ↓" ligger INLINE här tills man dragit ner sidan. */}
