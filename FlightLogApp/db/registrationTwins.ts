@@ -13,7 +13,7 @@ import { getDatabase } from './database';
 import { getSetting, setSetting } from './flights';
 import { applyBulkEdit } from './bulkEdits';
 import { protectedReason, type PlannedChange } from '../services/bulkEdit/engine';
-import { twinMerges } from '../services/registrationTwins';
+import { twinMerges, groupId } from '../services/registrationTwins';
 
 const FLAG = 'reg_oz_merged';
 const up = (v: unknown) => String(v ?? '').trim().toUpperCase();
@@ -59,4 +59,42 @@ export async function mergeRegistrationTwinsOnce(): Promise<MergedRegistration[]
   const merged = await mergeRegistrationTwins();
   await setSetting(FLAG, '1');
   return merged;
+}
+
+
+// ── Fleet: användaren väljer den rätta av snarlika stavningar ─────────────────────────────────────────────
+// Samma säkerhet som ovan: applyBulkEdit (ångra under Recent changes), bara registration, simulatorpass och
+// summarader rörs inte; registret flyttas till den valda stavningen.
+export async function syncRegistrations(froms: string[], to: string): Promise<number> {
+  const target = up(to);
+  const fromSet = new Set(froms.map(up).filter((f) => f && f !== target));
+  if (!target || !fromSet.size) return 0;
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ id: number; registration: string; flight_type: string; remarks: string }>(
+    `SELECT id, registration, flight_type, remarks FROM flights WHERE registration != ''`,
+  );
+  const changes: PlannedChange[] = rows
+    .filter((r) => fromSet.has(up(r.registration)) && !protectedReason('pilot', r))
+    .map((r) => ({ id: r.id, fields: { registration: { from: r.registration, to: target } } }));
+  if (changes.length) {
+    await applyBulkEdit('pilot', `Synced registrations to ${target}`, { changes, skipped: [], unchanged: 0, totals: [] });
+  }
+  await db.withTransactionAsync(async () => {
+    for (const from of fromSet) {
+      await db.runAsync(`UPDATE OR IGNORE aircraft_registry SET registration=? WHERE UPPER(TRIM(registration))=?`, [target, from]);
+      await db.runAsync(`DELETE FROM aircraft_registry WHERE UPPER(TRIM(registration))=?`, [from]);
+    }
+  });
+  return changes.length;
+}
+
+const KEPT = 'reg_similar_kept';
+/** Grupper som användaren sagt är olika luftfartyg ("Keep both"). */
+export async function getKeptSimilar(): Promise<Set<string>> {
+  try { return new Set(JSON.parse((await getSetting(KEPT)) || '[]')); } catch { return new Set(); }
+}
+export async function keepSimilar(group: string[]): Promise<void> {
+  const s = await getKeptSimilar();
+  s.add(groupId(group));
+  await setSetting(KEPT, JSON.stringify([...s]));
 }

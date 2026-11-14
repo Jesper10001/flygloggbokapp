@@ -11,6 +11,8 @@ import { Colors } from '../../constants/colors';
 import type { AircraftRegistryEntry } from '../../db/flights';
 import { getAllAircraftTypes, getRegistrationsForType, updateAircraftFleetFields, persistAircraftFleetLookup, deleteRegistrationFromRegistry, deleteAircraftType, renameAircraftType, renameRegistration } from '../../db/flights';
 import { enrichAircraftFleet } from '../../services/aircraftLookup';
+import { similarGroups } from '../../services/registrationTwins';
+import { syncRegistrations, getKeptSimilar, keepSimilar } from '../../db/registrationTwins';
 import { isAiConsentError } from '../../services/aiConsent';
 import { useTourStore } from '../../store/tourStore';
 import { useTourDemoImageStore } from '../../store/tourDemoImageStore';
@@ -83,6 +85,22 @@ export function FleetCard({ ac, accent, onSaved }: {
   useEffect(() => {
     getRegistrationsForType(ac.aircraft_type).then(setRegs);
   }, [ac.aircraft_type]);
+  // Snarlika registreringar (KILO 24 / KIL024): fråga längst ner på kortet vilken som är rätt.
+  const [kept, setKept] = useState<Set<string>>(new Set());
+  const [syncNote, setSyncNote] = useState('');
+  useEffect(() => { getKeptSimilar().then(setKept).catch(() => {}); }, []);
+  const similar = similarGroups(regs.map((r) => r.registration), kept);
+  const chooseReg = async (group: string[], to: string) => {
+    const n = await syncRegistrations(group.filter((g) => g !== to), to).catch(() => -1);
+    if (n < 0) { setSyncNote("Couldn't sync the registrations. Try again."); return; }
+    setSyncNote(`${n} ${n === 1 ? 'flight' : 'flights'} now ${to}. Undo under Edit flights → Recent changes.`);
+    setRegs(await getRegistrationsForType(ac.aircraft_type));
+    onSaved();
+  };
+  const keepBoth = async (group: string[]) => {
+    await keepSimilar(group).catch(() => {});
+    setKept(await getKeptSimilar());
+  };
 
   useEffect(() => { if (!editing) setTypeName(ac.aircraft_type); }, [ac.aircraft_type, editing]);
 
@@ -391,6 +409,40 @@ export function FleetCard({ ac, accent, onSaved }: {
             </TouchableOpacity>
           ) : null}
         </View>
+
+        {/* Snarlika registreringar: välj den rätta, så flyttas alla flygningar dit (kan ångras). */}
+        {(similar.length > 0 || !!syncNote) && (
+          <View style={{ marginTop: 12, gap: 8 }}>
+            {similar.map((g) => (
+              <View key={g.join('|')} style={{ padding: 11, borderRadius: 12, borderWidth: 1, borderColor: Colors.warning + '66', backgroundColor: Colors.warning + '12', gap: 9 }}>
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
+                  <Ionicons name="git-compare-outline" size={15} color={Colors.warning} style={{ marginTop: 1 }} />
+                  <Text style={{ flex: 1, color: Colors.textPrimary, fontSize: 12.5, lineHeight: 17 }}>
+                    <Text style={{ fontFamily: FONT_MONO, fontWeight: '700' }}>{g.join(' & ')}</Text> look very similar. Which one is correct?
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
+                  {g.map((reg) => {
+                    const h = regs.find((r) => r.registration.toUpperCase() === reg)?.hours ?? 0;
+                    return (
+                      <TouchableOpacity key={reg} onPress={() => chooseReg(g, reg)} activeOpacity={0.75} accessibilityRole="button"
+                        accessibilityLabel={`${reg} is correct. Move all flights of ${g.filter((x) => x !== reg).join(' and ')} to ${reg}.`}
+                        style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 9, borderWidth: 1, borderColor: accent + '88', backgroundColor: accent + '14' }}>
+                        <Text style={{ fontFamily: FONT_MONO, fontSize: 12.5, fontWeight: '800', color: Colors.textPrimary }}>{reg}</Text>
+                        <Text style={{ fontFamily: FONT_MONO, fontSize: 9.5, color: Colors.textMuted }}>{fmtTotal(h)} h</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  <TouchableOpacity onPress={() => keepBoth(g)} activeOpacity={0.75} accessibilityRole="button"
+                    style={{ paddingHorizontal: 11, paddingVertical: 7, borderRadius: 9, borderWidth: 1, borderColor: Colors.border }}>
+                    <Text style={{ fontFamily: FONT_MONO, fontSize: 11, fontWeight: '700', color: Colors.textSecondary }}>{g.length > 2 ? 'All different' : 'Both are right'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+            {syncNote ? <Text style={{ fontFamily: FONT_MONO, fontSize: 9.5, color: Colors.textSecondary, letterSpacing: 0.2 }}>{syncNote}</Text> : null}
+          </View>
+        )}
 
         {/* footer: first flight + last flown (nere till vänster) + penna (nere till höger) */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 11 }}>

@@ -2,6 +2,14 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 136,
+      "date": "2026-11-14",
+      "notes": [
+        "New: Fleet asks which spelling is right when two registrations look almost the same, like KILO 24 and KIL024.",
+        "Improved: A more accurate time estimate while your logbook is read."
+      ]
+    },
+    {
       "id": 135,
       "date": "2026-11-14",
       "notes": [

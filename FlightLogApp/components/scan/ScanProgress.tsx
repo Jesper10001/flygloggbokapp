@@ -7,8 +7,8 @@ import { BladeProgress } from '../BladeProgress';
 
 export type ScanPhase = 'finding' | 'reading' | 'done' | 'error';
 
-// Ungefär så lång tid tar ett uppslag för Claude (uppmätt ca 15 s); uppslagen läses ett i taget.
-const SEC_PER_SPREAD = 15;
+// Ungefär så lång tid tar ett uppslag för Claude (uppmätt ca 20 s); uppslagen läses ett i taget.
+const SEC_PER_SPREAD = 20;
 const duration = (sec: number) => {
   if (sec < 50) return `${Math.max(10, Math.round(sec / 5) * 5)} seconds`;
   const min = Math.round(sec / 30) / 2;   // halva minuter

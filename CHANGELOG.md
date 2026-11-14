@@ -10,6 +10,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
+- New: Fleet asks which spelling is right when two registrations look almost the same, like KILO 24 and KIL024.
 - New: Redeem a promo code right on the Premium offer in onboarding.
 - Fixed: Simulator sessions from a scan now count toward recency.
 - Improved: Simulator sessions in a scan are saved as FFS without asking.
@@ -26,6 +27,8 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Fleet (pilot): snarlika registreringar på samma typ (O/nolla, mellanslag, bindestreck — t.ex. "KILO 24" och "KIL024") frågas längst ner på kortet: "KILO 24 & KIL024 look very similar. Which one is correct?". Valet flyttar alla flygningar och registret till den stavningen via applyBulkEdit (kan ångras under Edit flights → Recent changes); "Both are right" sparas (reg_similar_kept) och frågan kommer inte igen. services/registrationTwins similarGroups + db/registrationTwins syncRegistrations; test i test-registration-twins.cjs.
+- Skanningens laddskärm räknar 20 s per uppslag (var 15 s).
 - Blades introduction (drönare), Insights-stoppet: exemplet visas nu så fort man saknar egna drönarflygningar (förut bara när även drönare och böcker saknades → tom sida). Fylligare exempel (148 flygningar, 96 h, kategorier, siktlägen, Currency med en Stale-kategori och Hours bank med exempelsiffror; DEMO_DRONE_INSIGHTS) och raden "EXAMPLE · YOUR OWN NUMBERS APPEAR AS YOU LOG".
 - Latest flight: kamera- och delaknappen satt ihop efter förra ändringen (de låg i en egen grupp utan mellanrum) — samma mellanrum som förut igen.
 - Onboardingens betalvägg: "Promo" till vänster om Restore öppnar samma kodruta som i Settings (redeemAndApply). Premium/Max-kod → vidare som köpt; coins-kod → raden under knappen; fel kod → förklaringen i rutan.

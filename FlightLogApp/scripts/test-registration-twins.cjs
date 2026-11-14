@@ -44,5 +44,16 @@ eq(twinOf('KIL026', ['KILO21', 'KILO26']), 'KILO26', 'twinOf hittar tvillingen')
 eq(twinOf('KILO26', ['KILO26']), null, 'twinOf: samma registrering är ingen tvilling');
 eq(ozKey('kilo26'), 'KIL026', 'ozKey');
 
+// Snarlika registreringar (Fleet-kortets fråga): O/nolla, mellanslag och bindestreck.
+{
+  const { similarGroups, groupId } = mod.exports;
+  const g = similarGroups(['KILO 24', 'KILO 29', 'KIL034', 'KIL024', 'KILO 30', 'KIL030', 'KILO 34', 'SE-ABC', 'SEABC', 'KILO 23']);
+  const ids = g.map(groupId).sort();
+  const want = ['KIL024|KILO 24', 'KIL030|KILO 30', 'KIL034|KILO 34', 'SE-ABC|SEABC'];
+  if (JSON.stringify(ids) !== JSON.stringify(want)) { console.error('FEL snarlika grupper:', ids); process.exit(1); }
+  const kept = similarGroups(['KILO 24', 'KIL024'], new Set(['KIL024|KILO 24']));
+  if (kept.length !== 0) { console.error('FEL: "Both are right" ska dölja gruppen'); process.exit(1); }
+  if (similarGroups(['KILO24', 'KILO25']).length !== 0) { console.error('FEL: olika registreringar slogs ihop'); process.exit(1); }
+}
 console.log(fails ? `\n${fails} fel` : 'Tvillingregistreringar: alla kontroller gick igenom');
 process.exit(fails ? 1 : 0);

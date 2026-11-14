@@ -60,3 +60,29 @@ export function twinMerges(regs: RegCount[], prefer?: Set<string>): Map<string, 
   }
   return out;
 }
+
+
+// ── Snarlika registreringar (Fleet-kortets fråga) ─────────────────────────────────────────────────────────
+// Samma registrering skriven lite olika: O eller nolla, mellanslag eller bindestreck ("KILO 24", "KIL024",
+// "KILO-24"). Startens sammanslagning tar bara O/nolla utan mellanslag; resten frågas i Fleet där användaren
+// väljer den rätta stavningen.
+
+/** Lika för registreringar som bara skiljer på O/nolla, mellanslag och bindestreck. */
+export const similarKey = (reg: string) => up(reg).replace(/[^A-Z0-9]/g, '').replace(/O/g, '0');
+
+/** Grupper (minst två stavningar) bland `regs`, i listans ordning. `kept` = grupper användaren sagt är olika. */
+export function similarGroups(regs: string[], kept: Set<string> = new Set()): string[][] {
+  const by = new Map<string, string[]>();
+  for (const r of regs) {
+    const u = up(r);
+    if (!u) continue;
+    const k = similarKey(u);
+    const g = by.get(k) ?? [];
+    if (!g.includes(u)) g.push(u);
+    by.set(k, g);
+  }
+  return [...by.values()].filter((g) => g.length > 1 && !kept.has(groupId(g)));
+}
+
+/** Gruppens id (för "Keep both"): stavningarna sorterade. */
+export const groupId = (g: string[]) => [...g].map(up).sort().join('|');
