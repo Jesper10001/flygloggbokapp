@@ -76,6 +76,8 @@ export function ScanReportSimple(p: {
   clashChoice: (rowKey: string) => ClashChoice;
   onClash: (rowKey: string, c: ClashChoice) => void;
   newRegs: Set<string>;
+  newTypes: Set<string>;                 // modeller (versaler) som inte finns i flottan
+  onRenameType: (from: string, to: string) => void;   // byt modellens namn på alla dess flygningar
   saving: boolean;
   onInspect: (rowKey: string) => void;   // ögat: helskärm på flygningens första osäkra cell
   onEdit: (rowKey: string) => void;
@@ -250,7 +252,14 @@ export function ScanReportSimple(p: {
               <View style={s.dropBody}>
                 {models.map((m) => (
                   <View key={m.type} style={{ gap: 6 }}>
-                    <Text style={s.modelName}>{m.type}</Text>
+                    <View style={s.modelHead}>
+                      <TextInput key={m.type} defaultValue={m.type} style={[s.modelName, s.modelInput]} autoCapitalize="characters" autoCorrect={false} returnKeyType="done"
+                        onEndEditing={(e) => { const v = e.nativeEvent.text.trim().toUpperCase(); if (v && v !== m.type) p.onRenameType(m.type, v); }}
+                        accessibilityLabel={`Model ${m.type}. Tap to rename it on all its flights.`} />
+                      <Ionicons name="pencil" size={13} color={Colors.textSecondary} />
+                      <View style={{ flex: 1 }} />
+                      <Text style={[s.tag, { color: p.newTypes.has(m.type) ? Colors.warning : Colors.success }]}>{p.newTypes.has(m.type) ? 'NEW MODEL' : 'IN FLEET'}</Text>
+                    </View>
                     {m.regs.map(([reg, n]) => {
                       const isNew = p.newRegs.has(reg);
                       return (
@@ -425,6 +434,8 @@ const s = StyleSheet.create({
   crewName: { color: '#FFFFFF', fontSize: 15, fontWeight: '600', padding: 0 },
   rolePill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder },
   rolePillText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  modelHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  modelInput: { padding: 0, minWidth: 60 },
   modelName: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
   regRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder },
   reg: { fontFamily: FONT_MONO, color: '#FFFFFF', fontSize: 13, fontWeight: '700', minWidth: 74 },

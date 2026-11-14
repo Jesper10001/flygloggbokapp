@@ -268,6 +268,7 @@ function deriveIssues(
       if (seenFields.has(fi.field)) continue;
       seenFields.add(fi.field);
       if (fi.field === 'remarks' && d.remarks_suggestion) continue;
+      if (fi.field === 'sim_category') continue;   // simulatortyp frågas inte (FFS som standard)
       if ((fi.field === 'dep_utc' || fi.field === 'arr_utc') && d.time_mismatch) continue;
       // Lägre osäkerhetsgräns: Claude flaggar allt under 0.85; bara under 0.7 blir en fråga, om inte Claude läst
       // något annat (read_as) eller föreslår ett annat värde. Appens egna kontroller har låg confidence och följer med.
@@ -1778,8 +1779,9 @@ export default function ScanReviewScreen() {
       if (!sg) return r;
       return { ...r, data: {
         ...r.data, flight_type: 'sim', sim: sg.value, total_time: sg.value, ...(sg.toSim !== 'total_time' ? { [sg.toSim!]: '0' } : {}),
-        field_issues: [...(r.data.field_issues ?? []).filter((i) => i.field !== 'sim_category'),
-          { field: 'sim_category', reason: 'Which kind of simulator (FFS, FTD, FNPT…)?', confidence: 0.5 }],
+        // Simulatortyp: FFS om ingen är vald (ingen fråga om typen).
+        sim_category: r.data.sim_category || ('FFS' as const),
+        field_issues: (r.data.field_issues ?? []).filter((i) => i.field !== 'sim_category'),
       } };
     }));
   };
@@ -2359,6 +2361,12 @@ export default function ScanReviewScreen() {
           clashChoice={clashChoice}
           onClash={chooseClash}
           newRegs={new Set(regChecks.filter((c) => c.isNew).map((c) => c.reg.toUpperCase()))}
+          newTypes={new Set(rows.filter((r) => !r.skip && r.data.flight_type !== 'sim').map((r) => String(r.data.aircraft_type || '—').toUpperCase()).filter((t) => !known.has(t)))}
+          onRenameType={(from, to) => {
+            const keys = rows.filter((r) => !r.skip && String(r.data.aircraft_type || '—').toUpperCase() === from).map((r) => r.key);
+            retype(keys, to);
+            keys.forEach((k) => resolveFields(k, ['aircraft_type']));
+          }}
           saving={saving}
           onInspect={(rowKey) => { const r = rowByKey.get(rowKey); if (r) { setCrossRefRow(rowKey); setCrossRefPage(r.page); } }}
           onEdit={(rowKey) => setEditorKey(rowKey)}

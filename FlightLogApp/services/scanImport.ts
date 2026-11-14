@@ -16,6 +16,9 @@ import { matchFlightsToLogbook, type DupHit, type ClashHit } from './logbookMatc
 import { autoPilotFlying } from '../utils/pilotFlying';
 import { personCheck, isPerson } from './scanNames';
 
+/** Simulatorpass utan typ i skanningen sparas som FFS (databasens form). */
+export const DEFAULT_SIM = 'FFS' as const;
+
 export interface ScanRow {
   key: string;            // stabilt id: `${page}:${rowIndex}`
   page: number;           // vilket uppslag (0-baserat)
@@ -159,16 +162,15 @@ export function prepareFlight(f: OcrFlightResult): OcrFlightResult {
     data.other_times = others;
   }
 
-  // Simulator utan typ → välj typ. Sim-tid loggas inte som vanlig flygtid.
+  // Simulator utan typ → FFS (användarens val 2026-11-14: ingen fråga om simulatortyp i skanningen; typen kan
+  // ändras i Edit flight). Sim-tid loggas inte som vanlig flygtid.
   const stdVal = parseFloat(String((data as any).std ?? '0')) || 0;
   if ((data.flight_type === 'sim' || stdVal > 0) && !data.sim_category) {
     data.flight_type = 'sim';
     if (stdVal > 0 && (parseFloat(data.total_time) || 0) === 0) data.total_time = String(stdVal);
-    if (!issues.some((i) => i.field === 'sim_category')) {
-      issues.push({ field: 'sim_category', reason: 'Which kind of simulator (FFS, FTD, FNPT…)?', confidence: 0.5 });
-    }
-    flag('Simulator type missing');
+    data.sim_category = DEFAULT_SIM;
   }
+  for (let i = issues.length - 1; i >= 0; i--) if (issues[i].field === 'sim_category') issues.splice(i, 1);
 
   // Samma avgångs- och landningstid men tid i luften → en av dem är fel.
   const totalH = parseFloat(data.total_time) || 0;
@@ -771,8 +773,7 @@ export function reconcileSimColumn(rows: ScanRow[], page: number, printed: Recor
     const others = { ...(r.data.other_times ?? {}) };
     delete others[key];
     const issues = (r.data.field_issues ?? []).filter((i) => i.field !== key && i.field !== 'other_flight_time');
-    if (!issues.some((i) => i.field === 'sim_category')) issues.push({ field: 'sim_category', reason: 'Which kind of simulator (FFS, FTD, FNPT…)?', confidence: 0.5 });
-    r.data = { ...r.data, flight_type: 'sim', sim: String(value), total_time: String(value), other_times: others, field_issues: issues, needs_review: true };
+    r.data = { ...r.data, flight_type: 'sim', sim: String(value), total_time: String(value), other_times: others, field_issues: issues.filter((i) => i.field !== 'sim_category'), sim_category: r.data.sim_category || DEFAULT_SIM, needs_review: true };
   }
 }
 

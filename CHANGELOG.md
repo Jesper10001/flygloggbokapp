@@ -10,6 +10,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
+- Improved: Simulator sessions in a scan are saved as FFS without asking.
 - New: Tick or untick each flight in the scan report to choose what gets imported.
 - Improved: Scanning flags fewer cells, and trusts the times you wrote when your other columns agree.
 - Improved: In the scan report, the eye on a flight takes you straight to the unsure cell in your spread, and fixing one cell moves you on to the next.
@@ -23,6 +24,9 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Skanningen: simulatorpass utan typ blir FFS automatiskt (DEFAULT_SIM i scanImport, även "It is simulator time"); frågan "Which kind of simulator" är borta. Typen kan ändras i Edit flight.
+- Helskärmsuppslagen: första cellen väljs först när vyn ligger ned och rotationen lagt sig, så att tangentbordet kommer upp liggande; vibration när man väljer ett svarsalternativ; när inget är kvar att rätta visas "Nothing left to check" mitt på skärmen med "Go back".
+- Nya Scan report, Models & registrations: modellens namn går att ändra (byter typ på alla dess flygningar) och märks NEW MODEL eller IN FLEET.
 - Nya Scan report: bockruta på varje flight card (ibockad = importeras, standard). Urbockat kort dimmas (opacity 0.5); rutorna "Left out · not saved / Include" är borta. Dubbletter mot loggboken är urbockade från början ("Already in your logbook · tick it to save it again").
 - Skanningens laddskärm: bara "This takes about 30 seconds." (räknat på antalet uppslag, ca 15 s styck), sedan "About … left."; meningen om hur Claude läser är borta.
 - Nya Scan report: med fler än ett uppslag grupperas flight cards per månad och år, med rubrik (t.ex. "July 2023 · 12 flights · 31.4 h · 3 to check").

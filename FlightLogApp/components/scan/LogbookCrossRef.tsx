@@ -9,6 +9,7 @@ import { View, Text, TouchableOpacity, Modal, StyleSheet, FlatList, useWindowDim
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import * as Haptics from 'expo-haptics';
 import { Colors } from '../../constants/colors';
 import type { ScanRow } from '../../services/scanImport';
 import type { PageGrid } from '../../services/scanGeometry';
@@ -172,6 +173,7 @@ export function LogbookCrossRef(p: {
   // Ett svarsalternativ ovanför tangentbordet: spara det och gå vidare till nästa osäkra cell.
   const choose = (value: string) => {
     if (!sel?.field || !ed) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     const bi = books.findIndex((x) => x.sp.page === sel.page);
     ed.onChoose(sel.rowKey, sel.field, value);
     unpick();
@@ -203,20 +205,22 @@ export function LogbookCrossRef(p: {
   }, [advance, marksBy]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Vid öppning: välj den första osäkra cellen (i flygningen man tryckte på ögat för, annars i uppslaget).
+  // Väntar tills vyn ligger ned (och rotationen lagt sig): fältet får fokus direkt, och ett tangentbord som
+  // kommer upp under rotationen blir kvar i stående läge.
   const autoPicked = useRef(false);
   useEffect(() => {
-    if (!ready || !ed || autoPicked.current) return;
-    autoPicked.current = true;
+    if (!ready || !ed || autoPicked.current || !(width > height)) return;
     const t = setTimeout(() => {
+      autoPicked.current = true;
       if (p.initialRowKey) {
         const bi = books.findIndex((b) => b.slotKeys.includes(p.initialRowKey!));
         const first = bi >= 0 ? openCells(bi).find((c) => c.rowKey === p.initialRowKey) : null;
         if (first) { selectAt(bi, first.slot, first.colId); return; }
       }
       if (!selectNext(startIdx, null)) setAllDone(true);
-    }, 350);
+    }, 550);
     return () => clearTimeout(t);
-  }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ready, width, height]); // eslint-disable-line react-hooks/exhaustive-deps
   const openCount = cur && ed ? Object.values(marksBy[Math.min(idx, books.length - 1)] ?? {}).filter((m) => m === 'unsure').length : 0;
 
   const label = (b: (typeof books)[number]) => (b.sp.pageNumbers.left ? `p. ${b.spread.page_left}–${b.spread.page_right}` : `Spread ${b.sp.page + 1}`);
@@ -362,6 +366,19 @@ export function LogbookCrossRef(p: {
         </View>
       )}
 
+      {/* Inget kvar att rätta: en liten ruta mitt på skärmen. Boken går fortfarande att trycka på runt om. */}
+      {ed && allDone && !sel && !byColumn && (
+        <View style={s.doneWrap} pointerEvents="box-none">
+          <View style={s.doneCard} accessibilityLiveRegion="polite">
+            <View style={s.doneIcon}><Ionicons name="checkmark" size={22} color="#0A1628" /></View>
+            <Text style={s.doneTitle}>Nothing left to check</Text>
+            <TouchableOpacity onPress={close} style={s.doneBtn} accessibilityRole="button">
+              <Text style={s.doneBtnText}>Go back</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {byColumn && cur && (
         <TranscribeOverlay
           spread={cur.spread}
@@ -427,6 +444,12 @@ const s = StyleSheet.create({
   editCancelText: { color: '#FFFFFF', fontSize: 13 },
   editSave: { height: 36, paddingHorizontal: 16, borderRadius: 18, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
   editSaveText: { color: '#0A1628', fontSize: 13, fontWeight: '800' },
+  doneWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+  doneCard: { alignItems: 'center', gap: 10, paddingVertical: 18, paddingHorizontal: 28, borderRadius: 18, backgroundColor: '#0F1E3A', borderWidth: 1, borderColor: Colors.success + '66', shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 16, shadowOffset: { width: 0, height: 8 } },
+  doneIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.success, alignItems: 'center', justifyContent: 'center' },
+  doneTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '800' },
+  doneBtn: { height: 38, paddingHorizontal: 22, borderRadius: 19, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  doneBtnText: { color: '#0A1628', fontSize: 14, fontWeight: '800' },
   kbBar: { position: 'absolute', left: 0, right: 0, backgroundColor: '#0F1E3A', borderTopWidth: 1, borderTopColor: Colors.cardBorder },
   kbChips: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8 },
   kbLabel: { color: Colors.textSecondary, fontSize: 9.5, fontWeight: '800', letterSpacing: 1, marginRight: 2 },
