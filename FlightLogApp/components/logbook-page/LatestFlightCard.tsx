@@ -63,8 +63,8 @@ export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAdd
             : <Text style={{ fontFamily: FONT_MONO, fontSize: 10, color: Colors.textSecondary }}>{dateLabel}</Text>}
           <View style={{ flex: 1, height: 1, backgroundColor: accent + '33' }} />
           {showLabel && <Text style={{ fontFamily: FONT_MONO, fontSize: 10, color: Colors.textSecondary }}>{dateLabel}</Text>}
-          {/* Kamera + dela */}
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {/* Kamera + dela: samma mellanrum som headerns övriga delar (knapparnas tryckytor drar in kanterna). */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 4 }}>
           {/* Add media: rund ikon till vänster om delaknappen, samma storlek (visas bara utan befintligt media).
               Tryckytan är 44 pt och drar in headerns kant (negativa marginaler) så att kortets höjd inte ändras. */}
           {onAddPhoto && !f.photo_uri && (

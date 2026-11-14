@@ -26,6 +26,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Latest flight: kamera- och delaknappen satt ihop efter förra ändringen (de låg i en egen grupp utan mellanrum) — samma mellanrum som förut igen.
 - Onboardingens betalvägg: "Promo" till vänster om Restore öppnar samma kodruta som i Settings (redeemAndApply). Premium/Max-kod → vidare som köpt; coins-kod → raden under knappen; fel kod → förklaringen i rutan.
 - Blades introduction, "Share a flight": bara delaknappen lyses upp (inte kameran), Latest flight rullas upp till ungefär en tredjedel ned på skärmen, och texten handlar bara om delning.
 - Blades introduction (pilot): nytt stopp "Share a flight" på dashboarden (stopp 3, före loggboken) som lyser upp kamera- och delaknappen på Latest flight och förklarar dem (dela med second pilot, håll för fil, kameran lägger till foton).
