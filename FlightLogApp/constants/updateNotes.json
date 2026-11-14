@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 149,
+      "date": "2026-11-14",
+      "summary": true,
+      "notes": [
+        "Improved: Setting up a logbook asks for the first page, the latest page and rows per spread with a simple plus and minus.",
+        "Improved: The weather line on the dashboard shows the airport's name."
+      ]
+    },
+    {
       "id": 148,
       "date": "2026-11-14",
       "notes": [

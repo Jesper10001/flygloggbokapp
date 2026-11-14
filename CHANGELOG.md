@@ -29,6 +29,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Post 149 = sammanfattning (summary) av 145–148 inför den riktiga appen: loggboksguidens sidor/rader och väderradens flygplatsnamn.
 - Rättat: väderraden visade fortfarande ICAO-koden — dashboardens placeNames har bara egna platsers namn. Namnet slås nu upp i flygplatsdatabasen (getAirportByIcao).
 - Dashboardens väderrader ("Fetching weather for …", "No weather found near …") visar flygplatsens namn i stället för ICAO-koden (koden om namnet saknas).
 - Loggboksguiden, steget Latest flight: Book size-kortet ersatt av "Rows per spread" med samma +/− (4–30) som sidorna; första sidan står redan ovanför och sista sidan frågas inte här.
