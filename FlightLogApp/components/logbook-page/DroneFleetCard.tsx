@@ -9,7 +9,8 @@
 // till flygningarna) och registreringar UTAN flygningar kan raderas. Hela modellen kan tas
 // bort om den saknar loggade flygningar. Bocken sparar.
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, Alert, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, Alert, Dimensions, ActivityIndicator, Animated } from 'react-native';
+import { cardTouchProps, useFleetHoldOpacity } from './fleetHold';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -71,6 +72,7 @@ export function DroneFleetCard({ m, accent, onSaved }: {
   const [cw, setCw] = useState(Dimensions.get('window').width - 28);
   const [aspect, setAspect] = useState(1.5);
   const [cutout, setCutout] = useState<string | null>(m.cutout_url || null);
+  const holdOpacity = useFleetHoldOpacity(); // urklippet döljs medan man håller/drar (fleetHold)
   const [fetching, setFetching] = useState(false);
   const tourDemo = useTourStore((s) => s.demo);
   // Demo: bild + cutout (+ aspekt) hämtas av prefetch-storen (startar vid rundtursstart). Ingen DB-skrivning.
@@ -251,6 +253,7 @@ export function DroneFleetCard({ m, accent, onSaved }: {
   return (
     <View
       onLayout={(e) => setCw(e.nativeEvent.layout.width)}
+      {...cardTouchProps}
       style={{ backgroundColor: DR.surface, borderWidth: 1, borderColor: DR.border, borderRadius: 18, overflow: 'hidden' }}>
 
       {/* ── Banner: foto + urklipp som spiller över ── */}
@@ -266,9 +269,10 @@ export function DroneFleetCard({ m, accent, onSaved }: {
           ) : null}
         </View>
         {cutout ? (
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 3, overflow: 'visible' }} pointerEvents="none">
+          // Håll fingret på kortet / dra listan → urklippet tonas bort så statistiken under syns (fleetHold).
+          <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 3, overflow: 'visible', opacity: holdOpacity }} pointerEvents="none">
             <Image source={{ uri: cutout }} style={[imgStyle, { shadowColor: DR.background, shadowOpacity: 0.55, shadowRadius: 8, shadowOffset: { width: 0, height: 8 } }]} />
-          </View>
+          </Animated.View>
         ) : null}
 
         {/* fotokredit (Wikimedia-bild) uppe till vänster — egen bild har ingen kredit */}

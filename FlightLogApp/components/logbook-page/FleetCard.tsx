@@ -3,7 +3,7 @@
 // typ-rating i headern, registreringar med prickad ledarlinje. Penna nere till höger.
 // Bild: Wikipedia-hämtning (hämta-knapp) eller välj/byt från Foton.
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, ActivityIndicator, Alert, Dimensions } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, ActivityIndicator, Alert, Dimensions, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -19,6 +19,7 @@ import { useTourDemoImageStore } from '../../store/tourDemoImageStore';
 import { PhotoCreditLabel } from '../PhotoCreditLabel';
 import { ensureAircraftCutout } from '../../services/aircraftCutout';
 import { FONT_SERIF, FONT_MONO } from './tokens';
+import { cardTouchProps, useFleetHoldOpacity } from './fleetHold';
 import { PremiumModal } from '../PremiumModal';
 import { useFlightStore } from '../../store/flightStore';
 import { hasTokenQuota, showMonthlyTokenLimitAlert, isTokenQuotaError } from '../../utils/tokenGate';
@@ -73,6 +74,7 @@ export function FleetCard({ ac, accent, onSaved }: {
   const [cw, setCw] = useState(Dimensions.get('window').width - 28);
   const [aspect, setAspect] = useState(1.5);
   const [cutout, setCutout] = useState<string | null>(ac.cutout_url || null);
+  const holdOpacity = useFleetHoldOpacity(); // urklippet döljs medan man håller/drar (fleetHold)
   const [s, setS] = useState({
     vne: ac.vne ? String(ac.vne) : '', cruise: ac.cruise_speed_kts ? String(ac.cruise_speed_kts) : '',
     ceiling: ac.ceiling_ft ? String(ac.ceiling_ft) : '', mtow: ac.mtow ? String(ac.mtow) : '',
@@ -269,6 +271,7 @@ export function FleetCard({ ac, accent, onSaved }: {
   return (
     <View
       onLayout={(e) => setCw(e.nativeEvent.layout.width)}
+      {...cardTouchProps}
       style={{ backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 18, overflow: 'hidden' }}>
 
       {/* ── Banner: foto (Layer A) + urklipp som spiller över (Layer B) ── */}
@@ -285,9 +288,10 @@ export function FleetCard({ ac, accent, onSaved }: {
         </View>
         {/* cutout (iOS 17+) — samma skala/position, tillåts spilla nedåt */}
         {cutout ? (
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 3, overflow: 'visible' }} pointerEvents="none">
+          // Håll fingret på kortet / dra listan → urklippet tonas bort så statistiken under syns (fleetHold).
+          <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 3, overflow: 'visible', opacity: holdOpacity }} pointerEvents="none">
             <Image source={{ uri: cutout }} style={[imgStyle, { shadowColor: Colors.background, shadowOpacity: 0.55, shadowRadius: 8, shadowOffset: { width: 0, height: 8 } }]} />
-          </View>
+          </Animated.View>
         ) : null}
 
         {/* fotokredit (Wikimedia-bild) uppe till vänster — egen bild har ingen kredit */}

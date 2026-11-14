@@ -33,6 +33,7 @@ import { FleetEmptyPreview } from '../../components/logbook-page/FleetEmptyPrevi
 import { DroneModal } from '../../components/DroneModal';
 import { useTabBarSpace } from '../../components/GlassTabBar';
 import { AutoHeightPager } from '../../components/AutoHeightPager';
+import { fleetScrollProps } from '../../components/logbook-page/fleetHold';
 
 const SERIF = 'Fraunces';
 const MONO = 'JetBrainsMono';
@@ -578,7 +579,7 @@ function FleetTab({ accent, headerRight }: { accent: string; headerRight?: React
         {models.length} {models.length === 1 ? 'model' : 'models'} · {totalRegs} registrations
       </Text>
     </View>
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: tabSpace + 28 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: tabSpace + 28 }} {...fleetScrollProps}>
       {models.length === 0 ? (
         <FleetEmptyPreview kind="drone" accent={accent} />
       ) : models.length === 1 ? (
@@ -588,8 +589,8 @@ function FleetTab({ accent, headerRight }: { accent: string; headerRight?: React
         // Flera → swipebar karusell (en drönare i taget, senast flugen först).
         <>
           {/* Höjden följer kortet som visas → konstant avstånd till prickarna och Add drone (AutoHeightPager). */}
-          <AutoHeightPager ref={carouselRef} pageWidth={FLEET_PAGE_W} pagingEnabled decelerationRate="fast"
-            onMomentumScrollEnd={(e) => setPageIdx(Math.round(e.nativeEvent.contentOffset.x / FLEET_PAGE_W))}>
+          <AutoHeightPager ref={carouselRef} pageWidth={FLEET_PAGE_W} pagingEnabled decelerationRate="fast" {...fleetScrollProps}
+            onMomentumScrollEnd={(e) => { fleetScrollProps.onMomentumScrollEnd(e); setPageIdx(Math.round(e.nativeEvent.contentOffset.x / FLEET_PAGE_W)); }}>
             {models.map((m) => (
               <DroneFleetCard key={m.model || m.id} m={m} accent={accent} onSaved={load} />
             ))}

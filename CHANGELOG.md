@@ -10,6 +10,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
+- Improved: Hold a Fleet card or scroll it, and the aircraft photo steps back so you can read the numbers underneath.
 - Improved: Imported flights are saved exactly as written, without asking about endurance.
 - Improved: Weather on the dashboard uses the airport nearest you when your last flight has no airport.
 - New: Fleet asks which spelling is right when two registrations look almost the same, like KILO 24 and KIL024.
@@ -29,6 +30,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Fleet (pilot + drönare): urklippet som spiller över statistiken tonas bort medan man håller fingret på kortet eller drar listan/karusellen, och tonas tillbaka efter släpp (components/logbook-page/fleetHold.ts).
 - Post 149 = sammanfattning (summary) av 145–148 inför den riktiga appen: loggboksguidens sidor/rader och väderradens flygplatsnamn.
 - Rättat: väderraden visade fortfarande ICAO-koden — dashboardens placeNames har bara egna platsers namn. Namnet slås nu upp i flygplatsdatabasen (getAirportByIcao).
 - Dashboardens väderrader ("Fetching weather for …", "No weather found near …") visar flygplatsens namn i stället för ICAO-koden (koden om namnet saknas).
