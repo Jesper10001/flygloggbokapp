@@ -47,7 +47,12 @@ const run = (args, env = process.env) => {
 
 if (target === 'production') {
   // Samma uppdateringsgrupp som testades på preview publiceras om på production — inget byggs om.
-  run(['eas-cli', 'update:republish', '--branch', 'preview', '--destination-branch', 'production',
+  // eas-cli kräver --group utan frågor: den senaste gruppen på preview (den som testades).
+  const latest = spawnSync('npx', ['eas-cli', 'update:list', '--branch', 'preview', '--limit', '1', '--json', '--non-interactive'], { cwd: root, encoding: 'utf8' });
+  const group = (latest.stdout ?? '').match(/"group":\s*"([0-9a-f-]{36})"/)?.[1];
+  if (!group) { console.error('Hittade ingen uppdatering på preview att publicera om.'); process.exit(1); }
+  console.log(`Publicerar om preview-gruppen ${group} på production.`);
+  run(['eas-cli', 'update:republish', '--group', group, '--destination-branch', 'production',
     '--message', message || 'Testad på preview', '--non-interactive']);
   console.log('\nKlart: uppdateringen går nu till alla användare. De får den nästa gång de startar appen med nät.');
   process.exit(0);
