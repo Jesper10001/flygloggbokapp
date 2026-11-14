@@ -29,6 +29,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Glasknapparna: "clear" blev för ljust → samma glas med en navy/teal ton (rgba 16,44,70 · 0.55) så att ljusheten ligger nära flight cards, svagare kant. Lätt vibration när man trycker på Log flight och bokknappen (pilot), och på alla tre knapparna i drönarläget, som skanningsknappen. Flikraden oförändrad.
 - Glasknapparna (GlassFill) blev nästan svarta på den mörka dashboarden med Liquid Glass "regular": nu "clear" (genomskinligare) med en svag cyan ton och ljusare kant; reservvägen (blur) tunnare med samma ton. Flikraden oförändrad.
 - Test: Log flight-knappen på dashboarden utan plustecken (bara texten) i både pilot- och drönarläget.
 - Glas även i drönarläget: knappraden skanna · Log flight · böcker som pilotens (GlassFill, rundade ändar, vita ikoner, plustecknet i accentfärgen). Åtgärdsrutan i fotokarusellen (Flight album · Sync album · Share) i klart glas i båda lägena, med tunna ljusa skiljelinjer och rundning 18.

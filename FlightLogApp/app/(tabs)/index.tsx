@@ -52,6 +52,8 @@ import { ScanSpeedDial } from '../../components/ScanSpeedDial';
 import { GlassFill } from '../../components/GlassFill';
 // Dashboardens knapprad i klart glas: rundad som flikraden (knapparna är ca 54 pt höga).
 const GLASS_R = 27;
+// Samma lätta vibration som skanningsknappen när dess val öppnas.
+const tapHaptic = () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); };
 import { useLogbookScanStart } from '../../components/LogbookScanChooser';
 import { askAiConsent } from '../../services/aiConsent';
 import { batchPlaceNames, getAirportCoordinates, isOffAirportCode } from '../../db/icao';
@@ -1028,11 +1030,12 @@ export default function DashboardScreen() {
           ...(SCAN_OPEN ? [{ key: 'logbook', label: 'Logbook scan', icon: 'book-outline' as const, onPress: logbookScan.start }] : []),
           { key: 'acars', label: 'ACARS scan', icon: 'hardware-chip-outline' as const, onPress: acarsScan.start },
         ]} />
-        <LogFlightButton style={{ flex: 1, marginTop: 0, marginBottom: 0 }} onPress={() => router.push('/flight/add')} label={t('log_new_flight')} />
+        <LogFlightButton style={{ flex: 1, marginTop: 0, marginBottom: 0 }} onPress={() => { tapHaptic(); router.push('/flight/add'); }} label={t('log_new_flight')} />
         <TouchableOpacity
           style={s.sideBtn}
           onPress={async () => {
             if (spreadPrompt) { await setAckedSpread(spreadPrompt.bookId, spreadPrompt.spreadNumber); setSpreadPrompt(null); }
+            tapHaptic();
             router.push('/logbook?recent=1');
           }}
           activeOpacity={0.85}
