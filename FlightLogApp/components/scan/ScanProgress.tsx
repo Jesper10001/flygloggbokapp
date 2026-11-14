@@ -7,6 +7,14 @@ import { BladeProgress } from '../BladeProgress';
 
 export type ScanPhase = 'finding' | 'reading' | 'done' | 'error';
 
+// Ungefär så lång tid tar ett uppslag för Claude (uppmätt ca 15 s); uppslagen läses ett i taget.
+const SEC_PER_SPREAD = 15;
+const duration = (sec: number) => {
+  if (sec < 50) return `${Math.max(10, Math.round(sec / 5) * 5)} seconds`;
+  const min = Math.round(sec / 30) / 2;   // halva minuter
+  return min <= 1 ? 'a minute' : `${String(min).replace('.5', '½')} minutes`;
+};
+
 export function ScanProgress({ phase, spread, spreads, located = 0, summary, error, onClose, onRetry, startedAt, outOfCoins, coinsLabel, onGetCoins }: {
   phase: ScanPhase;
   spread: number;             // 1-baserat
@@ -31,7 +39,9 @@ export function ScanProgress({ phase, spread, spreads, located = 0, summary, err
     : phase === 'error' ? (error || 'Something went wrong while reading the page.')
     : phase === 'done' && summary ? (summary.open > 0 ? `${summary.open} ${summary.open === 1 ? 'thing needs' : 'things need'} a look. Opening the page…` : 'Everything looks right. Opening the page…')
       : phase === 'finding' ? (spreads > 1 ? 'Finding the logbook in each photo, then turning and straightening it.' : 'Finding the logbook in the photo, then turning and straightening it.')
-        : 'Claude reads every row and column. This usually takes about half a minute.';
+        : spreads > 1
+          ? `Claude reads every row and column, about 15 seconds per spread. ${spread > 1 ? `About ${duration((spreads - spread + 1) * SEC_PER_SPREAD)} left.` : `This takes about ${duration(spreads * SEC_PER_SPREAD)} for all ${spreads}.`}`
+          : 'Claude reads every row and column. This usually takes about 15 seconds.';
   const allFound = located >= spreads || phase === 'done';
   const findLabel = spreads > 1
     ? (allFound ? `Logbook found in all ${spreads} photos` : `Finding the logbook · photo ${Math.min(located + 1, spreads)} of ${spreads}`)
@@ -49,7 +59,7 @@ export function ScanProgress({ phase, spread, spreads, located = 0, summary, err
         { label: 'Mark what needs a check', state: phase === 'done' ? 'done' : 'todo' },
       ]}
       progress={phase === 'finding' ? 0.12 : 0.92}
-      progressMs={phase === 'finding' ? 2500 : 34000}
+      progressMs={phase === 'finding' ? 2500 : Math.max(1, spreads) * SEC_PER_SPREAD * 1000}
       startedAt={startedAt}
       footnote="Nothing is saved until you approve it."
       onClose={onClose}

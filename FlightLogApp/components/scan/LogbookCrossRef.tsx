@@ -137,6 +137,14 @@ export function LogbookCrossRef(p: {
       const k = here.findIndex((c) => pos(c) > pos(after));
       from = k < 0 ? here.length : k;
     }
+    // Klar med uppslaget → alltid vidare till nästa uppslag (även om det inte har något osäkert), och där till dess
+    // första osäkra cell.
+    if (after && !here.slice(from).length && bi < books.length - 1) {
+      const nb = bi + 1, first = order(nb)[0];
+      if (first) selectAt(nb, first.slot, first.colId);
+      else { setIdx(nb); setSel(null); try { listRef.current?.scrollToIndex({ index: nb, animated: true }); } catch { /* listan inte klar */ } }
+      return true;
+    }
     const tries: { bi: number; list: ReturnType<typeof openCells> }[] = [{ bi, list: here.slice(from) }];
     for (let j = 1; j < books.length; j++) tries.push({ bi: (bi + j) % books.length, list: order((bi + j) % books.length) });
     tries.push({ bi, list: here.slice(0, from) });

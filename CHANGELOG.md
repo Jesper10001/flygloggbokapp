@@ -22,6 +22,9 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Nya Scan report: med fler än ett uppslag grupperas flight cards per månad och år, med rubrik (t.ex. "July 2023 · 12 flights · 31.4 h · 3 to check").
+- Helskärmsuppslagen: när det sista osäkra på ett uppslag är klart byter vyn själv till nästa uppslag (även om det inte har något osäkert) och väljer dess första osäkra cell.
+- Skanningens laddskärm: tiden räknas på antalet uppslag, ca 15 s per uppslag ("about 2½ minutes for all 10", sedan "about … left"); förloppet följer samma tid. Ett uppslag: "about 15 seconds".
 - Helskärmsuppslagen: tangentbordet följer kolumnen — siffror för tider (decimal eller H:MM), klockslag (kolon sätts själv), landningar och datum; bokstäver för platser, typ, registrering, namn och anmärkningar. Fältet byggs om per cell så att rätt tangentbord kommer upp direkt när vyn hoppar till nästa cell.
 - Helskärmsuppslagen: svarsalternativen ligger nu i en egen rad som följer tangentbordet (Keyboard-händelser) i stället för InputAccessoryView, som inte syntes i helskärmen. Platser får alltid förslag: liknande ICAO-koder, flygningen före (avgång = förra landningen) eller efter, radens andra plats, skanningens vanligaste platser och ZZZZ sist — även när läsningen inte är en kod (t.ex. "NOHEDUNE"). Skriver man en plats visas sökträffar ur flygplatsdatabasen (AIRPORTS).
 - Nya Scan report: flight cards mindre glödande (svagare färgton, ljuskant och kant, svart skugga i stället för färgad).

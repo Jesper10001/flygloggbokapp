@@ -6,7 +6,7 @@
 // cell, pennan öppnar flygningen direkt i redigeringsläget (FlightEditor) med det osäkra i rött. Design: artifact
 // EEZZQZTdmsVaBrtpZAPqzB. Den gamla granskningen (frågepanelen) och rapporten (ScanReport) finns kvar i koden.
 
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -155,6 +155,7 @@ export function ScanReportSimple(p: {
     return pg?.left ? `p. ${pg.left}` : `spread ${r.page + 1}`;
   };
   const open = p.issues.length;
+  const byMonth = p.pageNumbers.length > 1;
 
   return (
     <View style={s.root}>
@@ -268,7 +269,7 @@ export function ScanReportSimple(p: {
         )}
 
         {/* Flight cards, äldst överst */}
-        {ordered.map((r) => {
+        {ordered.map((r, idx) => {
           const d = r.data;
           const its = issuesOf(r.key);
           const sev = its.some((i) => i.severity === 'wrong') ? 'wrong' : its.length ? 'check' : 'ok';
@@ -280,8 +281,23 @@ export function ScanReportSimple(p: {
           const dep = String(d.dep_place ?? '').toUpperCase(), arr = String(d.arr_place ?? '').toUpperCase();
           const hotColor = (fields: string[]) => (fields.some((f) => hot.has(f)) ? st : null);
           const timeHot = hot.has('total_time') || hot.has('night') || hot.has('sim');
+          // Flera uppslag: korten grupperade per månad och år, med rubrik före månadens första flygning.
+          const mk = monthKey(d.date);
+          const header = byMonth && (idx === 0 || monthKey(ordered[idx - 1].data.date) !== mk) ? (() => {
+            const inMonth = ordered.filter((x) => monthKey(x.data.date) === mk && !x.skip && !p.duplicates.has(x.key));
+            const hrs = inMonth.reduce((t, x) => t + num(x.data.total_time), 0);
+            const toCheck = ordered.filter((x) => monthKey(x.data.date) === mk && issuesOf(x.key).length > 0 && !x.skip).length;
+            return (
+              <View style={s.monthHead} accessibilityRole="header">
+                <Text style={s.monthTitle}>{monthTitle(mk)}</Text>
+                <Text style={s.monthMeta}>{inMonth.length} {inMonth.length === 1 ? 'flight' : 'flights'} · {fmt(hrs)} h{toCheck ? ` · ${toCheck} to check` : ''}</Text>
+              </View>
+            );
+          })() : null;
           return (
-            // Som dashboardens Latest flight: tonad gradient, ljus kant överst och skugga under (levande, lite 3D).
+            <Fragment key={r.key}>
+            {header}
+            {/* Som dashboardens Latest flight: tonad gradient, ljus kant överst och skugga under (levande, lite 3D). */}
             <View key={r.key} style={[s.cardShadow, { opacity: out ? 0.55 : 1 }]}>
             <View style={[s.card, { borderColor: out ? Colors.cardBorder : st.border }]}>
               <LinearGradient colors={[(out ? Colors.textMuted : sev === 'ok' ? Colors.primary : st.fg!) + '14', Colors.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
@@ -351,6 +367,7 @@ export function ScanReportSimple(p: {
 
             </View>
             </View>
+            </Fragment>
           );
         })}
 
@@ -367,6 +384,10 @@ export function ScanReportSimple(p: {
     </View>
   );
 }
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const monthKey = (iso?: string) => (/^\d{4}-\d{2}/.test(iso ?? '') ? iso!.slice(0, 7) : 'none');
+const monthTitle = (k: string) => (k === 'none' ? 'No date' : `${MONTH_NAMES[Number(k.slice(5, 7)) - 1] ?? k.slice(5, 7)} ${k.slice(0, 4)}`);
 
 function pagesText(pages: { left: number | null; right: number | null }[]): string {
   const nums = pages.flatMap((pg) => [pg.left, pg.right]).filter((n): n is number => typeof n === 'number' && n > 0);
@@ -410,6 +431,9 @@ const s = StyleSheet.create({
   regRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder },
   reg: { fontFamily: FONT_MONO, color: '#FFFFFF', fontSize: 13, fontWeight: '700', minWidth: 74 },
   tag: { fontFamily: FONT_MONO, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  monthHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, paddingTop: 10, paddingHorizontal: 4 },
+  monthTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '700', letterSpacing: -0.2 },
+  monthMeta: { fontFamily: FONT_MONO, fontSize: 11, color: Colors.textSecondary, letterSpacing: 0.4 },
   cardShadow: { borderRadius: 18, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
   card: { borderRadius: 18, backgroundColor: Colors.surface, borderWidth: 1, overflow: 'hidden' },
   sheen: { position: 'absolute', left: 0, right: 0, top: 0, height: 28 },
