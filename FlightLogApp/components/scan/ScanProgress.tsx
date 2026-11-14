@@ -39,9 +39,9 @@ export function ScanProgress({ phase, spread, spreads, located = 0, summary, err
     : phase === 'error' ? (error || 'Something went wrong while reading the page.')
     : phase === 'done' && summary ? (summary.open > 0 ? `${summary.open} ${summary.open === 1 ? 'thing needs' : 'things need'} a look. Opening the page…` : 'Everything looks right. Opening the page…')
       : phase === 'finding' ? (spreads > 1 ? 'Finding the logbook in each photo, then turning and straightening it.' : 'Finding the logbook in the photo, then turning and straightening it.')
-        : spreads > 1
-          ? `Claude reads every row and column, about 15 seconds per spread. ${spread > 1 ? `About ${duration((spreads - spread + 1) * SEC_PER_SPREAD)} left.` : `This takes about ${duration(spreads * SEC_PER_SPREAD)} for all ${spreads}.`}`
-          : 'Claude reads every row and column. This usually takes about 15 seconds.';
+        : spreads > 1 && spread > 1
+          ? `About ${duration((spreads - spread + 1) * SEC_PER_SPREAD)} left.`
+          : `This takes about ${duration(Math.max(1, spreads) * SEC_PER_SPREAD)}.`;
   const allFound = located >= spreads || phase === 'done';
   const findLabel = spreads > 1
     ? (allFound ? `Logbook found in all ${spreads} photos` : `Finding the logbook · photo ${Math.min(located + 1, spreads)} of ${spreads}`)
