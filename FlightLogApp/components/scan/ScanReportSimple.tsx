@@ -2,7 +2,8 @@
 // Hours bank) med ögat som öppnar uppslagen i helskärm, sedan två rullistor (Second pilots, Models &
 // registrations) och flygningarna som flight cards, äldst överst, med datum och var i boken de står. Kortets
 // kant visar hur säker Claude är: grön = säker, gul = ett värde att kolla, röd = troligen fel. Det osäkra står i
-// en ruta på kortet med snabbsvar; "Edit flight" öppnar hela flygningen (FlightEditor). Design: artifact
+// kortet bara som färg (kant + celler); ögat (gult/rött) öppnar uppslagen i helskärm på flygningens första osäkra
+// cell, pennan öppnar flygningen direkt i redigeringsläget (FlightEditor) med det osäkra i rött. Design: artifact
 // EEZZQZTdmsVaBrtpZAPqzB. Den gamla granskningen (frågepanelen) och rapporten (ScanReport) finns kvar i koden.
 
 import { useEffect, useMemo, useState } from 'react';
@@ -21,6 +22,7 @@ import type { ClashChoice } from '../import/ImportReport';
 export interface SimpleIssue {
   id: string;
   rowKey: string;            // kortet frågan står på
+  rowKeys?: string[];        // alla flygningar frågan gäller (samma fråga på flera kort)
   fields: string[];          // cellerna frågan gäller (markeras på kortet)
   text: string;              // vad Claude är osäker på
   severity: 'check' | 'wrong';
@@ -74,7 +76,7 @@ export function ScanReportSimple(p: {
   onClash: (rowKey: string, c: ClashChoice) => void;
   newRegs: Set<string>;
   saving: boolean;
-  onAnswer: (issueId: string, chip: number | null) => void;   // null = "Looks right"
+  onInspect: (rowKey: string) => void;   // ögat: helskärm på flygningens första osäkra cell
   onEdit: (rowKey: string) => void;
   onToggleSkip: (rowKey: string) => void;
   onPresentLogbook: () => void;
@@ -146,7 +148,7 @@ export function ScanReportSimple(p: {
   }, [p.rows]);
   const regCount = models.reduce((t, m) => t + m.regs.length, 0);
 
-  const issuesOf = (rowKey: string) => p.issues.filter((i) => i.rowKey === rowKey);
+  const issuesOf = (rowKey: string) => p.issues.filter((i) => i.rowKey === rowKey || !!i.rowKeys?.includes(rowKey));
   const pageOf = (r: ScanRow) => {
     const pg = p.pageNumbers[r.page];
     return pg?.left ? `p. ${pg.left}` : `spread ${r.page + 1}`;
@@ -283,6 +285,12 @@ export function ScanReportSimple(p: {
                 <Text style={s.cardDate}>{fmtDate(d.date)}</Text>
                 <Text style={s.cardWhere}>{pageOf(r)} · row {r.rowIndex}</Text>
                 <View style={{ flex: 1 }} />
+                {!out && its.length > 0 && (
+                  <TouchableOpacity onPress={() => p.onInspect(r.key)} style={[s.pencil, { borderColor: st.border, backgroundColor: st.box }]}
+                    accessibilityRole="button" accessibilityLabel={sev === 'wrong' ? 'Probably misread. Check it in your spread.' : 'Something to check. See it in your spread.'}>
+                    <Ionicons name="eye-outline" size={16} color={st.fg} />
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity onPress={() => p.onEdit(r.key)} style={s.pencil} accessibilityRole="button" accessibilityLabel="Edit flight">
                   <Ionicons name="pencil" size={15} color={Colors.primary} />
                 </TouchableOpacity>
@@ -336,33 +344,6 @@ export function ScanReportSimple(p: {
                 </View>
               )}
 
-              {!out && its.map((i) => {
-                const is = STATUS[i.severity];
-                return (
-                  <View key={i.id} style={[s.issue, { backgroundColor: is.box }]}>
-                    <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
-                      <Ionicons name={i.severity === 'wrong' ? 'alert-circle' : 'help-circle'} size={17} color={is.fg} style={{ marginTop: 1 }} />
-                      <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={[s.issueField, { color: is.fg }]}>{i.fields.map((f) => fieldLabel(f)).filter(Boolean).slice(0, 2).join(' · ').toUpperCase()}</Text>
-                        <Text style={s.issueText}>{i.text}{i.also > 0 ? ` The answer applies to ${i.also + 1} flights.` : ''}</Text>
-                      </View>
-                    </View>
-                    <View style={s.chips}>
-                      {i.chips.map((c, k) => (
-                        <TouchableOpacity key={`${c}-${k}`} onPress={() => p.onAnswer(i.id, k)} style={[s.chip, k === 0 && { borderColor: is.fg }]} accessibilityRole="button">
-                          <Text style={s.chipText}>{c}</Text>
-                        </TouchableOpacity>
-                      ))}
-                      <TouchableOpacity onPress={() => p.onAnswer(i.id, null)} style={s.chip} accessibilityRole="button">
-                        <Text style={s.chipText}>Looks right</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => p.onEdit(r.key)} style={s.chipLink} accessibilityRole="button">
-                        <Text style={s.link}>Edit flight</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                );
-              })}
             </View>
           );
         })}

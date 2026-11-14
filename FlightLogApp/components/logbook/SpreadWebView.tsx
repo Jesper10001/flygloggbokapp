@@ -11,7 +11,7 @@ import type { LogbookSpread } from '../../services/logbook/paginate';
 import type { SignatureData } from '../SignaturePad';
 
 export const SpreadWebView = memo(function SpreadWebView({
-  spread, template, pilotName, timeFormat, width, signature, interactive = true, centerVertical = false, margin, bare = false, bgColor = '#ECE3CC', side, onlyThisPageTotal, marks, onCell, clearSel = 0, onAssign, onAspect, onGeometry,
+  spread, template, pilotName, timeFormat, width, signature, interactive = true, centerVertical = false, margin, bare = false, bgColor = '#ECE3CC', side, onlyThisPageTotal, marks, onCell, clearSel = 0, selectCell, onAssign, onAspect, onGeometry,
 }: {
   spread: LogbookSpread;
   template: LogbookTemplate;
@@ -29,6 +29,7 @@ export const SpreadWebView = memo(function SpreadWebView({
   marks?: Record<string, 'unsure' | 'changed'>; // skanningens helskärm: röda/blå celler (renderSpread)
   onCell?: (row: number, colId: string) => void; // skanningens helskärm: tryck på en cell (gör cellerna tryckbara)
   clearSel?: number;     // ändras → markeringen i boken tas bort
+  selectCell?: { r: number; c: string; n: number } | null; // appen väljer en cell (n ändras → välj igen)
   onAssign?: (colId: string) => void;
   onAspect?: (ratio: number) => void;   // ratio = renderad höjd / bredd
   // Datarutornas geometri (CSS-px) för transkriberings-rektangeln: första dataradens
@@ -42,6 +43,9 @@ export const SpreadWebView = memo(function SpreadWebView({
   );
   const webRef = useRef<WebView>(null);
   useEffect(() => { if (clearSel) webRef.current?.injectJavaScript('window.__clearSel && window.__clearSel(); true;'); }, [clearSel]);
+  // Vald cell från appen. Sidan laddas om när markeringarna ändras, så samma val görs också när den laddat klart.
+  const selJs = selectCell ? `window.__selCell && window.__selCell(${Number(selectCell.r)}, ${JSON.stringify(String(selectCell.c))}); true;` : null;
+  useEffect(() => { if (selJs) webRef.current?.injectJavaScript(selJs); }, [selJs, selectCell?.n]); // eslint-disable-line react-hooks/exhaustive-deps
   // Vid behov: mät uppslagets naturliga höjd/bredd + datarutornas Y-gränser och rapportera tillbaka.
   const injected = (onAspect || onGeometry)
     ? `(function(){var p=function(){try{var W=window.ReactNativeWebView;`
@@ -63,6 +67,7 @@ export const SpreadWebView = memo(function SpreadWebView({
         scalesPageToFit={Platform.OS === 'android'}
         scrollEnabled
         injectedJavaScript={injected}
+        onLoadEnd={() => { if (selJs) webRef.current?.injectJavaScript(selJs); }}
         onMessage={(e) => {
           try {
             const m = JSON.parse(e.nativeEvent.data);

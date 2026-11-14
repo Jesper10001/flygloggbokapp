@@ -27,6 +27,9 @@ export interface ScannedSpread {
 
 // Ändra celler direkt i boken (nya Scan report): osäkra celler är röda, ändrade blå. Tryck på en cell → en
 // ruta överst med en bit av fotot (cellen inringad, grannarna bredvid), vad Claude är osäker på och ett fält.
+// Den första osäkra cellen väljs själv (kolumnvis vänster→höger, uppifrån och ned, med början längst upp till
+// vänster eller i flygningen man tryckte på ögat för); när en cell är klar hoppar vyn till nästa, även till
+// nästa uppslag.
 export interface CrossRefEditing {
   cellState: (rowKey: string, field: string) => 'open' | 'changed' | null;
   issueFor: (rowKey: string, field: string) => { id: string; reason: string } | null;
@@ -38,6 +41,7 @@ export interface CrossRefEditing {
 export function LogbookCrossRef(p: {
   spreads: ScannedSpread[];
   initialPage: number;                 // uppslaget man tryckte på
+  initialRowKey?: string;              // ögat på ett flight card: börja i den flygningens första osäkra cell
   rowsPerPage: number;
   timeFormat: 'decimal' | 'hhmm';
   onClose: () => void;
@@ -58,7 +62,10 @@ export function LogbookCrossRef(p: {
   const [idx, setIdx] = useState(startIdx);
   const cur = books[Math.min(idx, books.length - 1)];
   // Vald cell (redigeringsläget) och dess värde i fältet.
-  const [sel, setSel] = useState<{ page: number; rowKey: string; field: string | null; colLabel: string } | null>(null);
+  const [sel, setSel] = useState<{ page: number; rowKey: string; field: string | null; colLabel: string; slot: number; colId: string } | null>(null);
+  // Efter en rättad cell: hoppa till nästa när rapporten räknat om vilka celler som är osäkra.
+  const [advance, setAdvance] = useState<{ bi: number; slot: number; colId: string } | null>(null);
+  const [allDone, setAllDone] = useState(false);
   const [draft, setDraft] = useState('');
   const [bad, setBad] = useState(false);
   const [clearSel, setClearSel] = useState(0);
@@ -85,9 +92,53 @@ export function LogbookCrossRef(p: {
     const row = key ? rowOf(b.sp.page, key) : null;
     if (!row || !col) return;
     const field = fieldOfColumn(col);
-    setSel({ page: b.sp.page, rowKey: row.key, field, colLabel: col.label });
+    setSel({ page: b.sp.page, rowKey: row.key, field, colLabel: col.label, slot, colId });
     setDraft(field ? inputValue(row.data, field, p.timeFormat) : '');
     setBad(false);
+  };
+  // De osäkra cellerna i ett uppslag i den ordning de rättas: kolumnvis vänster→höger, uppifrån och ned.
+  const openCells = (bi: number) => {
+    const b = books[bi], m = marksBy[bi];
+    if (!b || !m) return [] as { slot: number; colId: string; rowKey: string; field: string }[];
+    const out: { slot: number; colId: string; rowKey: string; field: string }[] = [];
+    const seen = new Set<string>();
+    for (const c of [...b.template.left_columns, ...b.template.right_columns]) {
+      const f = fieldOfColumn(c);
+      if (!f) continue;
+      b.slotKeys.forEach((key, i) => {
+        if (!key || m[`${i}:${c.id}`] !== 'unsure' || seen.has(`${key}|${f}`)) return;
+        seen.add(`${key}|${f}`);
+        out.push({ slot: i, colId: c.id, rowKey: key, field: f });
+      });
+    }
+    return out;
+  };
+  // Välj en cell i ett uppslag (byter uppslag vid behov) och markera den i boken.
+  const [selTick, setSelTick] = useState(0);
+  const selectAt = (bi: number, slot: number, colId: string) => {
+    if (bi !== idx) {
+      setIdx(bi);
+      try { listRef.current?.scrollToIndex({ index: bi, animated: true }); } catch { /* listan inte klar */ }
+    }
+    pick(books[bi], slot, colId);
+    setSelTick((n) => n + 1);
+  };
+  // Nästa osäkra cell efter en position: först resten av uppslaget, sedan följande uppslag, sist från början.
+  const selectNext = (bi: number, after: { slot: number; colId: string } | null) => {
+    const order = (i: number) => openCells(i);
+    const here = order(bi);
+    let from = 0;
+    if (after) {
+      const cols = [...books[bi].template.left_columns, ...books[bi].template.right_columns].map((c) => c.id);
+      const pos = (c: { slot: number; colId: string }) => cols.indexOf(c.colId) * 10000 + c.slot;
+      const k = here.findIndex((c) => pos(c) > pos(after));
+      from = k < 0 ? here.length : k;
+    }
+    const tries: { bi: number; list: ReturnType<typeof openCells> }[] = [{ bi, list: here.slice(from) }];
+    for (let j = 1; j < books.length; j++) tries.push({ bi: (bi + j) % books.length, list: order((bi + j) % books.length) });
+    tries.push({ bi, list: here.slice(0, from) });
+    for (const t of tries) if (t.list.length) { selectAt(t.bi, t.list[0].slot, t.list[0].colId); return true; }
+    return false;
   };
   const unpick = () => { setSel(null); setBad(false); setClearSel((n) => n + 1); };
   const selRow = sel ? rowOf(sel.page, sel.rowKey) : null;
@@ -96,16 +147,38 @@ export function LogbookCrossRef(p: {
   const unchanged = !!(sel?.field && selRow && draft === inputValue(selRow.data, sel.field, p.timeFormat));
   const commit = () => {
     if (!sel?.field || !ed || !selRow) { unpick(); return; }
+    const bi = books.findIndex((x) => x.sp.page === sel.page);
     if (unchanged) {
       if (selOpen && selIssue) ed.onLooksRight(selIssue.id);
-      unpick();
-      return;
+    } else {
+      const v = parseInput(sel.field, draft, p.timeFormat);
+      if (v == null) { setBad(true); return; }
+      ed.onSave(sel.rowKey, sel.field, v);
     }
-    const v = parseInput(sel.field, draft, p.timeFormat);
-    if (v == null) { setBad(true); return; }
-    ed.onSave(sel.rowKey, sel.field, v);
     unpick();
+    if (bi >= 0) setAdvance({ bi, slot: sel.slot, colId: sel.colId });
   };
+  useEffect(() => {
+    if (!advance) return;
+    setAdvance(null);
+    if (!selectNext(advance.bi, advance)) setAllDone(true);
+  }, [advance, marksBy]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Vid öppning: välj den första osäkra cellen (i flygningen man tryckte på ögat för, annars i uppslaget).
+  const autoPicked = useRef(false);
+  useEffect(() => {
+    if (!ready || !ed || autoPicked.current) return;
+    autoPicked.current = true;
+    const t = setTimeout(() => {
+      if (p.initialRowKey) {
+        const bi = books.findIndex((b) => b.slotKeys.includes(p.initialRowKey!));
+        const first = bi >= 0 ? openCells(bi).find((c) => c.rowKey === p.initialRowKey) : null;
+        if (first) { selectAt(bi, first.slot, first.colId); return; }
+      }
+      if (!selectNext(startIdx, null)) setAllDone(true);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
   const openCount = cur && ed ? Object.values(marksBy[Math.min(idx, books.length - 1)] ?? {}).filter((m) => m === 'unsure').length : 0;
 
   const label = (b: (typeof books)[number]) => (b.sp.pageNumbers.left ? `p. ${b.spread.page_left}–${b.spread.page_right}` : `Spread ${b.sp.page + 1}`);
@@ -151,7 +224,7 @@ export function LogbookCrossRef(p: {
             </Text>
             <Text style={s.sub} numberOfLines={1}>
               {ed
-                ? `${openCount === 0 ? 'Nothing unsure on this spread' : openCount === 1 ? '1 unsure cell, in red' : `${openCount} unsure cells, in red`} · Tap any cell to change it.`
+                ? `${openCount === 0 ? (allDone ? 'All unsure cells checked' : 'Nothing unsure on this spread') : openCount === 1 ? '1 unsure cell, in red' : `${openCount} unsure cells, in red`} · Tap any cell to change it.`
                 : cur?.fromPhoto ? 'Same columns and rows as your photo. Compare it with your paper logbook.' : 'Compare it with your paper logbook.'}
               {many ? ' Swipe for the next spread.' : ''}
             </Text>
@@ -174,7 +247,8 @@ export function LogbookCrossRef(p: {
                 <View style={{ width, flex: 1 }}>
                   <SpreadWebView spread={item.spread} template={item.template} pilotName="" timeFormat={p.timeFormat}
                     width={width} interactive={false} centerVertical onlyThisPageTotal
-                    marks={marksBy[index]} onCell={ed ? (r, c) => pick(item, r, c) : undefined} clearSel={clearSel} />
+                    marks={marksBy[index]} onCell={ed ? (r, c) => { setAllDone(false); pick(item, r, c); } : undefined} clearSel={clearSel}
+                    selectCell={sel && sel.page === item.sp.page ? { r: sel.slot, c: sel.colId, n: selTick } : null} />
                 </View>
               )}
             />
@@ -202,7 +276,8 @@ export function LogbookCrossRef(p: {
       {/* Vald cell: fotobiten, vad Claude är osäker på och rätt värde. Överst, så att tangentbordet inte täcker. */}
       {sel && selRow && (
         <View style={[s.edit, { left: insets.left + 8, right: insets.right + 8, borderColor: selOpen ? Colors.danger + 'BB' : Colors.primary }]}>
-          <CellSnippet photo={ed?.photo(sel.page) ?? null} grid={p.spreads.find((x) => x.page === sel.page)?.grid ?? null}
+          {/* Nyckel per cell: fotobiten byggs om från början för varje vald cell, så att den aldrig visar förra cellens bild. */}
+          <CellSnippet key={`${sel.page}|${sel.rowKey}|${sel.field ?? sel.colLabel}`} photo={ed?.photo(sel.page) ?? null} grid={p.spreads.find((x) => x.page === sel.page)?.grid ?? null}
             rowIndex={selRow.rowIndex} field={sel.field} danger={selOpen} />
           <View style={{ flex: 1, gap: 6 }}>
             <Text style={s.editLabel} numberOfLines={1}>ROW {selRow.rowIndex} · {(sel.field ? fieldLabel(sel.field) : sel.colLabel).toUpperCase()}</Text>

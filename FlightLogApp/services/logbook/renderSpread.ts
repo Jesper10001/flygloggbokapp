@@ -435,6 +435,14 @@ const TAP_SCRIPT = `<style>
 </style>
 <script>
   window.__clearSel = function () { document.querySelectorAll('td.m-sel').forEach(function (x) { x.classList.remove('m-sel'); }); };
+  // Appen väljer en cell själv (nästa osäkra cell): markera den och rulla fram den.
+  window.__selCell = function (r, c) {
+    window.__clearSel();
+    var t = document.querySelector('td[data-r="' + r + '"][data-c="' + c + '"]');
+    if (!t) return;
+    t.classList.add('m-sel');
+    try { t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
+  };
   document.addEventListener('click', function (e) {
     var t = e.target && e.target.closest ? e.target.closest('td[data-c]') : null;
     if (!t) return;

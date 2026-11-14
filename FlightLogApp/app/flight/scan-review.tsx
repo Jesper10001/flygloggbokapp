@@ -165,6 +165,9 @@ type PageRead = Awaited<ReturnType<typeof ocrScanPage>>;
 // (frågepanelen) först. Det osäkra visas på flygningarnas kort och i uppslagen i helskärm. false = det gamla
 // flödet med granskningen och den gamla rapporten, som finns kvar orört.
 const SKIP_REVIEW = true;
+// Fälten i Edit flight (FlightEditor) som kan vara osäkra → röda där (nya flödet läser samma läge som boken).
+const EDITOR_FIELDS = ['date', 'aircraft_type', 'registration', 'multi_pilot', 'single_pilot', 'second_pilot', 'dep_place', 'dep_utc', 'arr_place', 'arr_utc',
+  'sim', 'sim_category', 'total_time', 'pic', 'co_pilot', 'dual', 'instructor', 'ifr', 'night', 'nvg', 'landings_day', 'landings_night', 'remarks'];
 
 const SIM_MARK = 'SIM';
 function bookCell(d: OcrFlightResult, field: string, fmt: TimeFormat): string {
@@ -720,6 +723,7 @@ export default function ScanReviewScreen() {
   const [placeAlts, setPlaceAlts] = useState<Record<string, string[]>>({});
   const placeCounts = useRef(new Map<string, number>());   // vald roll per anmärkningsfråga
   const [crossRefPage, setCrossRefPage] = useState<number | null>(null);   // uppslaget som loggbok (rapporten)
+  const [crossRefRow, setCrossRefRow] = useState<string | null>(null);     // ögat på ett flight card: börja i den flygningen
   const [timeBasis, setTimeBasisState] = useState<TimeBasis>(getScanTimeBasis());
   useEffect(() => {
     getSetting('scan_time_basis').then((v) => { if (v === 'utc' || v === 'local') { setTimeBasisState(v); setScanTimeBasis(v); } }).catch(() => {});
@@ -2167,6 +2171,7 @@ export default function ScanReviewScreen() {
     const groupRows = i.group ? new Set(i.group.members.map((m) => m.split(':f:')[0])).size : 1;
     return {
       id: i.id, rowKey: i.rowKey,
+      rowKeys: [...new Set([i.rowKey, ...(i.alsoRows ?? []), ...(i.group ? i.group.members.filter((m) => !resolved[m]).map((m) => m.split(':f:')[0]) : [])])],
       fields: i.kind === 'mismatch' ? ['dep_utc', 'arr_utc', 'total_time'] : [i.field],
       // Rubriken är oftast bara kolumnens namn (står redan på kortet); annars först, före skälet.
       text: i.reason && i.title !== label(i.field) ? `${i.title.replace(/\.$/, '')}. ${i.reason}` : (i.reason || i.title),
@@ -2300,10 +2305,10 @@ export default function ScanReviewScreen() {
           onClash={chooseClash}
           newRegs={new Set(regChecks.filter((c) => c.isNew).map((c) => c.reg.toUpperCase()))}
           saving={saving}
-          onAnswer={answerIssue}
+          onInspect={(rowKey) => { const r = rowByKey.get(rowKey); if (r) { setCrossRefRow(rowKey); setCrossRefPage(r.page); } }}
           onEdit={(rowKey) => setEditorKey(rowKey)}
           onToggleSkip={reportToggle}
-          onPresentLogbook={() => setCrossRefPage(Math.max(0, pages.findIndex((_, idx) => rows.some((r) => r.page === idx))))}
+          onPresentLogbook={() => { setCrossRefRow(null); setCrossRefPage(Math.max(0, pages.findIndex((_, idx) => rows.some((r) => r.page === idx)))); }}
           onCrewRole={(keys, role) => keys.forEach((k) => editField(k, 'second_pilot_role', role))}
           onCrewName={(keys, name) => keys.forEach((k) => editField(k, 'second_pilot', name))}
           onRemoveCrew={removeCrew}
@@ -2315,11 +2320,12 @@ export default function ScanReviewScreen() {
           <FlightEditor
             row={rowByKey.get(editorKey) ?? null}
             timeFormat={timeFormat}
-            openFields={openFieldsFor(editorKey)}
+            openFields={new Set(EDITOR_FIELDS.filter((f) => cellState(editorKey, f) === 'open'))}
             onChange={(field, value) => editField(editorKey, field, value)}
             onPatch={(patch) => patchRow(editorKey, patch)}
             onToggleSkip={() => reportToggle(editorKey)}
             onClose={() => setEditorKey(null)}
+            startEditing
           />
         )}
         {crossRefPage != null && pages[crossRefPage] && (
@@ -2329,7 +2335,8 @@ export default function ScanReviewScreen() {
             initialPage={crossRefPage}
             rowsPerPage={rowsPerPageOf(crossRefPage)}
             timeFormat={timeFormat}
-            onClose={() => setCrossRefPage(null)}
+            initialRowKey={crossRefRow ?? undefined}
+            onClose={() => { setCrossRefPage(null); setCrossRefRow(null); }}
             editing={{
               cellState,
               issueFor: issueForCell,

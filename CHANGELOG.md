@@ -10,6 +10,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
+- Improved: In the scan report, the eye on a flight takes you straight to the unsure cell in your spread, and fixing one cell moves you on to the next.
 - Improved: A simpler Logbook row in Settings for switching logbook or layout.
 - Improved: Scan your logbook goes straight to checking every flight, without asking what matters most.
 - New: Scan your logbook goes straight to the scan report, with anything unsure marked on each flight.
@@ -20,6 +21,10 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Nya Scan report: flight cards visar det osäkra bara som färg (kant + celler); frågerutorna med snabbsvar är borta. Ett öga (gult = kolla, rött = troligen fel) till vänster om pennan öppnar uppslagen i helskärm med flygningens första osäkra cell vald (fråga + fotobit). Pennan öppnar Edit flight med de osäkra fälten i rött (samma läge som boken, även frågor som gäller flera flygningar). Kortets färg gäller nu alla flygningar en fråga gäller (SimpleIssue.rowKeys).
+- Helskärmsuppslagen: den första osäkra cellen väljs själv (kolumnvis vänster→höger, uppifrån och ned, med början längst upp till vänster); efter Save/Looks right hoppar vyn till nästa osäkra cell, även till nästa uppslag, och säger "All unsure cells checked" när inget är kvar (LogbookCrossRef openCells/selectNext, SpreadWebView selectCell, renderSpread __selCell).
+- Nya Scan report: pennan på en flygning (och "Edit flight" i frågerutan) öppnar flygningen direkt i redigeringsläget i stället för flygsidan först; knappen längst ner heter då "Done" och går tillbaka till rapporten (FlightEditor startEditing, bara i nya flödet).
+- Skanningens helskärmsuppslag: fotobiten i redigeringsrutan kunde visa förra cellens bild när man valde en ny cell (frågan var rätt, bilden fel). CellSnippet har nu en nyckel per sida+rad+fält så den byggs om från början för varje vald cell (components/scan/LogbookCrossRef.tsx).
 - Rättat (troligen): appen tog inga tryck efter en skanning (globen rörde sig, ingen frysningsnotis = osynligt lager). GlassDialog (t.ex. "Fleet updated" när Fleet-hämtningen blir klar) kunde öppnas medan systemrutan "Saved" syntes, och en Modal ovanpå en Alert kan på iOS bli osynlig men ta alla tryck. services/alertGuard.ts håller nu reda på öppna systemrutor (useSystemAlertStore: knapparna säger till, +550 ms, skyddsnät 45 s) och GlassDialog väntar tills de är stängda.
 - Vakt för JavaScript-tråden (services/jsWatchdog.ts, startas i app/_layout.tsx): stopp över 2 s medan appen är framme rapporteras till Sentry som varning (kind js_stall, skärmens väg utan id:n); ett hjärtslag i js-watchdog.json var 5:e s gör att en session som slutade med appen framme (JavaScript fryst eller iOS stängde appen, inte en krasch) rapporteras vid nästa start (js_unclean_exit). Skärmbyten blir brödsmulor. Max 5 rapporter per session. Bara med Sentry (release-bygge med DSN).
 - Settings: kortet "Pilot logbook · Fixed & Rotary wing" + FULL + "Switch logbook or layout" ersatt av en minimalistisk rad i sektionsrubrikernas stil ("LOGBOOK" · "Pilot · Full" · pil) som öppnar samma ark; pilot- och drönarläget (components/settings/ModeToggleRow.tsx).

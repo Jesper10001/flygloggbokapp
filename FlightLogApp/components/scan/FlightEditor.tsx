@@ -27,7 +27,7 @@ const ROLES: { key: string; label: string }[] = [
 
 type Row = { label: string; field: string; text?: string };
 
-export function FlightEditor({ row, timeFormat, openFields, onChange, onPatch, onToggleSkip, onClose }: {
+export function FlightEditor({ row, timeFormat, openFields, onChange, onPatch, onToggleSkip, onClose, startEditing = false }: {
   row: ScanRow | null;
   timeFormat: TimeFormat;
   openFields: Set<string>;
@@ -35,8 +35,13 @@ export function FlightEditor({ row, timeFormat, openFields, onChange, onPatch, o
   onPatch: (patch: Partial<OcrFlightResult>) => void;
   onToggleSkip: () => void;
   onClose: () => void;
+  /** Öppna direkt i redigeringsläget (pennan i nya Scan report); "Done" går då tillbaka till rapporten. */
+  startEditing?: boolean;
 }) {
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startEditing);
+  // Nya Scan report: det osäkra är rött (som i boken i helskärm); gamla flödet: gult.
+  const red = startEditing;
+  const openSt = red ? s.openRed : s.open;
   const [names, setNames] = useState<{ dep: string; arr: string }>({ dep: '', arr: '' });
   const dep = (row?.data.dep_place ?? '').toUpperCase(), arr = (row?.data.arr_place ?? '').toUpperCase();
   useEffect(() => {
@@ -119,7 +124,7 @@ export function FlightEditor({ row, timeFormat, openFields, onChange, onPatch, o
             <Text style={s.date}>{dateLong} · row {row.rowIndex}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={[s.total, openFields.has(isSim ? 'sim' : 'total_time') && s.open]}>{show(isSim ? 'sim' : 'total_time') || '0'}</Text>
+            <Text style={[s.total, openFields.has(isSim ? 'sim' : 'total_time') && openSt]}>{show(isSim ? 'sim' : 'total_time') || '0'}</Text>
             <Text style={s.totalLabel}>{isSim ? 'SIM' : 'TOTAL'}</Text>
           </View>
         </View>
@@ -169,9 +174,9 @@ export function FlightEditor({ row, timeFormat, openFields, onChange, onPatch, o
                 <View key={r.field} style={s.row}>
                   <Text style={s.key}>{r.label}</Text>
                   {editing ? (
-                    <InlineField field={r.field} data={d} timeFormat={timeFormat} open={openFields.has(r.field)} onCommit={(v) => onChange(r.field, v)} />
+                    <InlineField field={r.field} data={d} timeFormat={timeFormat} open={openFields.has(r.field)} red={red} onCommit={(v) => onChange(r.field, v)} />
                   ) : (
-                    <Text style={[s.value, openFields.has(r.field) && s.open]}>{r.text ?? show(r.field)}</Text>
+                    <Text style={[s.value, openFields.has(r.field) && openSt]}>{r.text ?? show(r.field)}</Text>
                   )}
                 </View>
               ))}
@@ -196,9 +201,9 @@ export function FlightEditor({ row, timeFormat, openFields, onChange, onPatch, o
             <Text style={s.eyebrow}>Remarks</Text>
             <View style={[s.row, { alignItems: 'flex-start' }]}>
               {editing ? (
-                <InlineField field="remarks" data={d} timeFormat={timeFormat} open={openFields.has('remarks')} wide onCommit={(v) => onChange('remarks', v)} />
+                <InlineField field="remarks" data={d} timeFormat={timeFormat} open={openFields.has('remarks')} red={red} wide onCommit={(v) => onChange('remarks', v)} />
               ) : (
-                <Text style={[s.remarks, !d.remarks && { color: Colors.textMuted }, openFields.has('remarks') && s.open]}>{d.remarks || DASH}</Text>
+                <Text style={[s.remarks, !d.remarks && { color: Colors.textMuted }, openFields.has('remarks') && openSt]}>{d.remarks || DASH}</Text>
               )}
             </View>
           </View>
@@ -210,9 +215,9 @@ export function FlightEditor({ row, timeFormat, openFields, onChange, onPatch, o
             </View>
           )}
 
-          <TouchableOpacity onPress={() => setEditing((e) => !e)} activeOpacity={0.8} style={s.editBtn}>
+          <TouchableOpacity onPress={() => (startEditing ? onClose() : setEditing((e) => !e))} activeOpacity={0.8} style={s.editBtn}>
             <Ionicons name={editing ? 'checkmark' : 'create-outline'} size={16} color={Colors.primary} />
-            <Text style={s.editText}>{editing ? 'Done editing' : 'Edit'}</Text>
+            <Text style={s.editText}>{startEditing ? 'Done' : editing ? 'Done editing' : 'Edit'}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => { onToggleSkip(); onClose(); }} activeOpacity={0.8} style={s.skipBtn}>
             <Ionicons name={row.skip ? 'add-circle-outline' : 'remove-circle-outline'} size={16} color={row.skip ? Colors.primary : Colors.dangerLight} />
@@ -225,8 +230,8 @@ export function FlightEditor({ row, timeFormat, openFields, onChange, onPatch, o
 }
 
 // Ett värde som redigeras direkt i raden: tolkas när fältet lämnas (fel värde → röd ram, inget sparas).
-function InlineField({ field, data, timeFormat, open, wide, onCommit }: {
-  field: string; data: OcrFlightResult; timeFormat: TimeFormat; open: boolean; wide?: boolean; onCommit: (v: string) => void;
+function InlineField({ field, data, timeFormat, open, red, wide, onCommit }: {
+  field: string; data: OcrFlightResult; timeFormat: TimeFormat; open: boolean; red?: boolean; wide?: boolean; onCommit: (v: string) => void;
 }) {
   const initial = inputValue(data, field, timeFormat);
   const [text, setText] = useState(initial);
@@ -241,7 +246,7 @@ function InlineField({ field, data, timeFormat, open, wide, onCommit }: {
   };
   return (
     <TextInput
-      style={[s.input, wide && s.inputWide, open && s.inputOpen, bad && s.inputBad]}
+      style={[s.input, wide && s.inputWide, open && (red ? s.inputOpenRed : s.inputOpen), bad && s.inputBad]}
       value={text}
       onChangeText={(t) => setText(shapeInput(field, t))}
       onEndEditing={commit}
@@ -285,12 +290,14 @@ const s = StyleSheet.create({
   value: { flexShrink: 1, textAlign: 'right', fontFamily: FONT_MONO, fontSize: 13, fontWeight: '700', color: Colors.textPrimary, borderRadius: 4, overflow: 'hidden', paddingHorizontal: 2 },
   remarks: { flex: 1, fontFamily: FONT_MONO, fontSize: 13, lineHeight: 19, color: Colors.textPrimary, borderRadius: 4, overflow: 'hidden' },
   open: { backgroundColor: 'rgba(255,184,48,0.28)' },
+  openRed: { backgroundColor: 'rgba(255,77,106,0.28)', color: '#FFB3BF' },
   input: {
     minWidth: 120, maxWidth: '62%', textAlign: 'right', fontFamily: FONT_MONO, fontSize: 13.5, fontWeight: '700', color: Colors.textPrimary,
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border,
   },
   inputWide: { flex: 1, maxWidth: '100%', minHeight: 70, textAlign: 'left', textAlignVertical: 'top', fontWeight: '500' },
   inputOpen: { borderColor: Colors.warning, backgroundColor: Colors.warning + '14' },
+  inputOpenRed: { borderColor: Colors.danger, backgroundColor: Colors.danger + '1F', color: '#FFB3BF' },
   inputBad: { borderColor: Colors.danger },
   segment: { flexDirection: 'row', gap: 8 },
   segBtn: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 9, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
