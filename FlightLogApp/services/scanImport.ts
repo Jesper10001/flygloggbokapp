@@ -863,6 +863,8 @@ export async function saveScanRows(
       continue;
     }
     const d: OcrFlightResult = { ...row.data };
+    // Simulatortyp i databasens form: valknapparna ger chipKey i gemener ("ffs", "fnpt_ii") → "FFS", "FNPT_II".
+    if (d.sim_category) d.sim_category = String(d.sim_category).toUpperCase() as OcrFlightResult['sim_category'];
     if (opts.timeBasis === 'local') await localTimesToUtc(d);
     mapOtherTimes(d);
     deriveMultiPilot(d);

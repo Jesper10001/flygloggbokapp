@@ -10,6 +10,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
+- Fixed: Simulator sessions from a scan now count toward recency.
 - Improved: Simulator sessions in a scan are saved as FFS without asking.
 - New: Tick or untick each flight in the scan report to choose what gets imported.
 - Improved: Scanning flags fewer cells, and trusts the times you wrote when your other columns agree.
@@ -24,6 +25,10 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Blades introduction (pilot): nytt stopp "Share a flight" på dashboarden (stopp 3, före loggboken) som lyser upp kamera- och delaknappen på Latest flight och förklarar dem (dela med second pilot, håll för fil, kameran lägger till foton).
+- Blades introduction, Insights-stoppet med tom loggbok: de fyra riktiga förhandsvisningarna med exempelsiffror (InsightsPreviewsDemo: samma skal, kurvor, LED-siffror och Apple-kartor) i stället för de förenklade rutorna. Med flygningar visas användarens egna rutor som förut.
+- Rättat: simulatortyp vald med knapparna i skanningen sparades i gemener ("ffs", "fnpt_ii"), så recency (som jämför med "FFS") missade de passen och Log flight visade ingen vald typ. Sparas nu i versaler (saveScanRows), och befintliga rader med knapparnas exakta värden rättas en gång vid start (db/database.ts).
+- Drönarnas Log flight: de inre rutorna (drönare, registrering, kategori, roller, platser m.m.) har pilotens färg (Colors.elevated) i stället för den ljusare DR.elevated.
 - Skanningen: simulatorpass utan typ blir FFS automatiskt (DEFAULT_SIM i scanImport, även "It is simulator time"); frågan "Which kind of simulator" är borta. Typen kan ändras i Edit flight.
 - Helskärmsuppslagen: första cellen väljs först när vyn ligger ned och rotationen lagt sig, så att tangentbordet kommer upp liggande; vibration när man väljer ett svarsalternativ; när inget är kvar att rätta visas "Nothing left to check" mitt på skärmen med "Go back".
 - Nya Scan report, Models & registrations: modellens namn går att ändra (byter typ på alla dess flygningar) och märks NEW MODEL eller IN FLEET.

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { TourSpot } from '../TourSpot';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../constants/colors';
 import type { Flight } from '../../types/flight';
@@ -62,6 +63,8 @@ export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAdd
             : <Text style={{ fontFamily: FONT_MONO, fontSize: 10, color: Colors.textSecondary }}>{dateLabel}</Text>}
           <View style={{ flex: 1, height: 1, backgroundColor: accent + '33' }} />
           {showLabel && <Text style={{ fontFamily: FONT_MONO, fontSize: 10, color: Colors.textSecondary }}>{dateLabel}</Text>}
+          {/* Kamera + dela: en grupp, så att Blades introduction kan lysa upp båda (stoppet "Share a flight"). */}
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           {/* Add media: rund ikon till vänster om delaknappen, samma storlek (visas bara utan befintligt media).
               Tryckytan är 44 pt och drar in headerns kant (negativa marginaler) så att kortets höjd inte ändras. */}
           {onAddPhoto && !f.photo_uri && (
@@ -95,6 +98,8 @@ export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAdd
               </View>
             </TouchableOpacity>
           )}
+          {showLabel && (onShare || onAddPhoto) ? <TourSpot id="dash-share" radius={22} inset={3} /> : null}
+          </View>
         </View>
         {/* route + block */}
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingBottom: 6 }}>

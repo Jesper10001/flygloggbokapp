@@ -115,8 +115,8 @@ const mergeCrewRemarks = (remarks: string, crewLine: string): string => {
 };
 // Väljarna (PersonPicker/AddPilotModal) i drönarens palett — samma utseende som pilotläget.
 const crewPalette = (accent: string) => ({
-  picker: { accent, box: DR.surface, flyout: DR.elevated, chip: DR.surface, border: DR.border, text: DR.text, text2: DR.text2, muted: DR.muted },
-  modal: { accent, onAccent: DR.inkOnAccent, card: DR.surface, cardBorder: DR.border, field: DR.elevated, border: DR.border, text: DR.text, text2: DR.text2, muted: DR.muted },
+  picker: { accent, box: DR.surface, flyout: Colors.elevated, chip: DR.surface, border: DR.border, text: DR.text, text2: DR.text2, muted: DR.muted },
+  modal: { accent, onAccent: DR.inkOnAccent, card: DR.surface, cardBorder: DR.border, field: Colors.elevated, border: DR.border, text: DR.text, text2: DR.text2, muted: DR.muted },
 });
 
 // Ordningstal (2nd, 3rd, 4th …) för "+ Add Nth flight".
@@ -2103,12 +2103,12 @@ export default function AddDroneFlightScreen() {
         ) : (
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <TouchableOpacity onPress={() => pickMedia('image')} activeOpacity={0.75}
-              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 10, backgroundColor: DR.elevated, borderWidth: 1, borderColor: DR.border }}>
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 10, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: DR.border }}>
               <Ionicons name="image-outline" size={16} color={DR.muted} />
               <Text style={{ color: DR.muted, fontSize: 13, fontWeight: '600' }}>Image</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => pickMedia('video')} activeOpacity={0.75}
-              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 10, backgroundColor: DR.elevated, borderWidth: 1, borderColor: DR.border }}>
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 10, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: DR.border }}>
               <Ionicons name="videocam-outline" size={16} color={DR.muted} />
               <Text style={{ color: DR.muted, fontSize: 13, fontWeight: '600' }}>Video</Text>
             </TouchableOpacity>
@@ -2352,7 +2352,7 @@ export default function AddDroneFlightScreen() {
       <InputAccessoryView nativeID="drone-add-done">
         <View style={{
           flexDirection: 'row', justifyContent: 'flex-end',
-          backgroundColor: DR.elevated,
+          backgroundColor: Colors.elevated,
           borderTopWidth: 0.5, borderTopColor: DR.border,
           paddingHorizontal: 14, paddingVertical: 8,
         }}>
@@ -2384,7 +2384,7 @@ function makeStyles(accent: string) {
     placeBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: DR.surface, borderRadius: 10, borderWidth: 1, borderColor: DR.border, paddingHorizontal: 12 },
     placeInput: { flex: 1, minWidth: 0, height: '100%', color: DR.text, fontFamily: FONT_LED14, fontWeight: '700', letterSpacing: 2, paddingVertical: 0 },
     pickRow: { flexDirection: 'row', gap: 4, marginTop: 6 },
-    pickChip: { flex: 1, minWidth: 0, alignItems: 'center', backgroundColor: DR.elevated, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 4, borderWidth: 1, borderColor: DR.border },
+    pickChip: { flex: 1, minWidth: 0, alignItems: 'center', backgroundColor: Colors.elevated, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 4, borderWidth: 1, borderColor: DR.border },
     pickChipFirst: { backgroundColor: Colors.gold + '22', borderColor: Colors.gold + '88' },
     pickChipText: { color: DR.text2, fontSize: 10.5, fontWeight: '700', letterSpacing: 0.5 },
     timeBelowCenter: { textAlign: 'center', color: DR.text3, fontSize: 10, marginTop: 4 },
@@ -2427,14 +2427,14 @@ function makeStyles(accent: string) {
     catChip: { flexGrow: 1, minWidth: 56, alignItems: 'center', justifyContent: 'center', backgroundColor: DR.surface, borderWidth: 1, borderColor: DR.border, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 6 },
     catChipNote: { fontFamily: 'JetBrainsMono', fontSize: 8.5, color: DR.text3, marginTop: 1 },
     missionInput: { flex: 1, color: DR.text, fontSize: 15, fontWeight: '700', padding: 0, height: '100%' },
-    opSeg: { flexDirection: 'row', height: 44, padding: 2, borderRadius: 8, borderWidth: 1, borderColor: DR.border, backgroundColor: DR.elevated },
+    opSeg: { flexDirection: 'row', height: 44, padding: 2, borderRadius: 8, borderWidth: 1, borderColor: DR.border, backgroundColor: Colors.elevated },
     opBtn: { justifyContent: 'center', paddingHorizontal: 9, borderRadius: 6 },
     opBtnOn: { backgroundColor: Colors.gold, shadowColor: Colors.gold, shadowOpacity: 0.5, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
     opBtnText: { color: DR.faint, fontSize: 12, fontWeight: '800', letterSpacing: 0.3 },
     ldgHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
     autoPill: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999, backgroundColor: Colors.success + '24', borderWidth: 1, borderColor: Colors.success + '66' },
     autoPillText: { fontFamily: 'JetBrainsMono', fontSize: 8, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', color: Colors.success },
-    ldgChip: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: DR.elevated, borderWidth: 1, borderColor: DR.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 11 },
+    ldgChip: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: DR.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 11 },
     ldgCount: { fontFamily: 'JetBrainsMono', fontSize: 18, fontWeight: '800', color: DR.text },
     ldgLbl: { flex: 1, fontFamily: 'JetBrainsMono', fontSize: 9.5, fontWeight: '700', letterSpacing: 0.5 },
     ldgStep: { width: 22, height: 22, borderRadius: 11, borderWidth: 1, borderColor: DR.border, alignItems: 'center', justifyContent: 'center' },
@@ -2464,7 +2464,7 @@ function makeStyles(accent: string) {
     scanCard: { width: '100%', maxWidth: 380, backgroundColor: DR.surface, borderRadius: 20, borderWidth: 1, borderColor: DR.border, paddingTop: 22, paddingBottom: 12, paddingHorizontal: 18 },
     scanTitle: { color: DR.text, fontSize: 18, fontWeight: '800', marginBottom: 6 },
     scanBody: { color: DR.text2, fontSize: 13.5, lineHeight: 19, marginBottom: 12 },
-    scanRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: DR.border, backgroundColor: DR.elevated },
+    scanRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: DR.border, backgroundColor: Colors.elevated },
     scanRowActive: { borderColor: accent, backgroundColor: accent + '1A' },
     scanRowDate: { color: DR.text, fontSize: 14.5, fontWeight: '700' },
     scanRowMeta: { color: DR.text2, fontSize: 12, marginTop: 2 },
@@ -2590,13 +2590,13 @@ function makeStyles(accent: string) {
 
     // ── Drönar-box (typ + registrering) + pilot function — speglar pilot log flight ──
     cardFieldLabel: { color: DR.text2, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginTop: 2, marginBottom: 4 },
-    pickBox: { flexDirection: 'row', alignItems: 'center', height: 44, paddingHorizontal: 11, backgroundColor: DR.elevated, borderWidth: 1, borderColor: DR.border, borderRadius: 10 },
+    pickBox: { flexDirection: 'row', alignItems: 'center', height: 44, paddingHorizontal: 11, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: DR.border, borderRadius: 10 },
     pickBoxTap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, height: '100%' },
     pickBoxValue: { flex: 1, fontFamily: 'JetBrainsMono', fontSize: 16, fontWeight: '800', letterSpacing: 1, color: DR.text },
     pickBoxDivider: { width: 1, height: 20, backgroundColor: DR.border, marginHorizontal: 6 },
     ddFlyout: {
       position: 'absolute', top: '100%', marginTop: 4, zIndex: 50, elevation: 8,
-      backgroundColor: DR.elevated, borderWidth: 1, borderColor: DR.border, borderRadius: 10, padding: 8,
+      backgroundColor: Colors.elevated, borderWidth: 1, borderColor: DR.border, borderRadius: 10, padding: 8,
       shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 6 },
     },
     ddEmpty: { fontFamily: 'JetBrainsMono', fontSize: 10, color: DR.muted, paddingVertical: 4 },
@@ -2622,20 +2622,20 @@ function makeStyles(accent: string) {
     infoPageTitle: { flex: 1, color: DR.text, fontSize: 20, fontWeight: '700' },
     infoPageClose: {
       width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
-      backgroundColor: DR.elevated, borderWidth: 1, borderColor: DR.border,
+      backgroundColor: Colors.elevated, borderWidth: 1, borderColor: DR.border,
     },
     infoPageIntro: { color: DR.muted, fontSize: 14, lineHeight: 20, marginBottom: 18 },
     infoLogbook: { marginTop: 8, paddingLeft: 2, fontFamily: 'JetBrainsMono', fontSize: 10.5, fontWeight: '700', letterSpacing: 0.8, color: accent },
     roleGrid: { gap: 4 },
     roleRow: { flexDirection: 'row', gap: 4 },
-    roleBtn: { flex: 1, minWidth: 0, alignItems: 'center', paddingVertical: 10, borderRadius: 10, backgroundColor: DR.elevated, borderWidth: 1, borderColor: DR.border },
+    roleBtn: { flex: 1, minWidth: 0, alignItems: 'center', paddingVertical: 10, borderRadius: 10, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: DR.border },
     roleBtnActive: { backgroundColor: accent + '24', borderColor: accent },
     roleBtnText: { color: DR.text2, fontSize: 10.5, fontWeight: '700', fontFamily: 'JetBrainsMono', letterSpacing: 0.3 },
     roleBtnTextActive: { color: accent },
     // Pilot function (vänster) + vertikal flygläge-toggle (höger)
     pfRow: { flexDirection: 'row', gap: 6, alignItems: 'stretch' },
     modeVToggle: { flex: 1, gap: 4 },
-    modeVBtn: { flex: 1, minHeight: 30, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderRadius: 10, backgroundColor: DR.elevated, borderWidth: 1, borderColor: DR.border },
+    modeVBtn: { flex: 1, minHeight: 30, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderRadius: 10, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: DR.border },
     modeVBtnActive: { backgroundColor: accent + '24', borderColor: accent },
     modeVBtnText: { color: DR.text2, fontSize: 10.5, fontWeight: '700', fontFamily: 'JetBrainsMono', letterSpacing: 0.5 },
     modeVBtnTextActive: { color: accent },
@@ -2644,7 +2644,7 @@ function makeStyles(accent: string) {
     missionLabel: { color: DR.text2, fontSize: 13, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
     missionInputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: DR.surface, borderRadius: 10, borderWidth: 1, borderColor: DR.border, paddingLeft: 12, paddingRight: 4 },
     missionDropBtn: { padding: 6 },
-    missionDropdown: { position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: DR.elevated, borderRadius: 10, borderWidth: 1, borderColor: DR.border, zIndex: 200, elevation: 8, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+    missionDropdown: { position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: Colors.elevated, borderRadius: 10, borderWidth: 1, borderColor: DR.border, zIndex: 200, elevation: 8, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
     missionDropItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 11, borderBottomWidth: 0.5, borderBottomColor: DR.separator },
     missionDropItemText: { color: DR.text, fontSize: 14, fontWeight: '600' },
     // Arrival-förslag (autofyllt dep): ✓/x inuti rutan
@@ -2661,8 +2661,8 @@ function makeStyles(accent: string) {
     regSheet: { width: '100%', maxWidth: 360, backgroundColor: DR.surface, borderRadius: 16, borderWidth: 1, borderColor: DR.border, padding: 18 },
     regTitle: { color: DR.text, fontSize: 16, fontWeight: '800' },
     regSub: { color: DR.text2, fontSize: 12, marginTop: 2, marginBottom: 12 },
-    regInput: { backgroundColor: DR.elevated, borderRadius: 10, borderWidth: 1, borderColor: DR.border, color: DR.text, fontSize: 15, fontWeight: '700', letterSpacing: 1, paddingHorizontal: 12, paddingVertical: 11 },
-    regCancel: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: DR.border, backgroundColor: DR.elevated },
+    regInput: { backgroundColor: Colors.elevated, borderRadius: 10, borderWidth: 1, borderColor: DR.border, color: DR.text, fontSize: 15, fontWeight: '700', letterSpacing: 1, paddingHorizontal: 12, paddingVertical: 11 },
+    regCancel: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: DR.border, backgroundColor: Colors.elevated },
     regCancelText: { color: DR.text2, fontSize: 14, fontWeight: '700' },
     regAdd: { flex: 2, alignItems: 'center', paddingVertical: 12, borderRadius: 10, backgroundColor: accent },
     regAddText: { color: DR.inkOnAccent, fontSize: 14, fontWeight: '800' },
@@ -2670,7 +2670,7 @@ function makeStyles(accent: string) {
     segRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     chip: {
       paddingHorizontal: 10, paddingVertical: 7, borderRadius: 7,
-      backgroundColor: DR.elevated, borderWidth: 1, borderColor: DR.border,
+      backgroundColor: Colors.elevated, borderWidth: 1, borderColor: DR.border,
     },
     chipActive: { backgroundColor: accent, borderColor: accent },
     chipText: { color: DR.muted, fontSize: 11, fontWeight: '700' },
@@ -2678,7 +2678,7 @@ function makeStyles(accent: string) {
     toggle: {
       flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
       paddingVertical: 10, borderRadius: 8,
-      backgroundColor: DR.elevated, borderWidth: 1, borderColor: DR.border,
+      backgroundColor: Colors.elevated, borderWidth: 1, borderColor: DR.border,
     },
     toggleActive: { backgroundColor: accent, borderColor: accent },
     toggleText: { color: DR.text2, fontSize: 12, fontWeight: '600' },
@@ -2692,7 +2692,7 @@ function makeStyles(accent: string) {
     draftBtn: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
       paddingVertical: 13, marginTop: 10, borderRadius: 12,
-      borderWidth: 1, borderColor: DR.border, backgroundColor: DR.elevated,
+      borderWidth: 1, borderColor: DR.border, backgroundColor: Colors.elevated,
     },
     draftBtnText: { color: DR.text2, fontSize: 14.5, fontWeight: '700' },
     saveAgainBtn: {
@@ -2702,7 +2702,7 @@ function makeStyles(accent: string) {
     },
     saveAgainText: { color: accent, fontSize: 13.5, fontWeight: '700' },
     modeToggle: {
-      flexDirection: 'row', backgroundColor: DR.elevated, borderRadius: 10, padding: 3, gap: 3,
+      flexDirection: 'row', backgroundColor: Colors.elevated, borderRadius: 10, padding: 3, gap: 3,
       borderWidth: 0.5, borderColor: DR.border, marginBottom: 4,
     },
     modeBtn: { flex: 1, paddingVertical: 8, borderRadius: 7, alignItems: 'center' },

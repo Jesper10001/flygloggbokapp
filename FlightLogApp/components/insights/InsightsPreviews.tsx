@@ -55,6 +55,114 @@ export function InsightsPreviews() {
   );
 }
 
+// ── Exempel för Blades introduction (tom loggbok) ─────────────────────────────────────────
+// Samma fyra rutor, samma skal och samma ritsätt som de riktiga, men med fasta exempelsiffror: en pilot på väg
+// mot ATPL. Inga tryck (rundturen spelas upp av sig själv). Siffrorna finns bara här, aldrig i loggboken.
+
+const DEMO_XC = [{ lat: 59.65, lon: 17.92 }, { lat: 51.47, lon: -0.45 }];     // ESSA → EGLL
+const DEMO_WEEK = [{ lat: 59.65, lon: 17.92 }, { lat: 57.66, lon: 12.28 }, { lat: 55.62, lon: 12.65 }, { lat: 60.19, lon: 11.1 }, { lat: 63.79, lon: 20.28 }];
+
+export function InsightsPreviewsDemo() {
+  const { width } = useWindowDimensions();
+  const C = useInsightsTheme();
+  const w = (width - 24 - 12) / 2;
+  const sx = w / 177, nowX = 100 * sx, endX = 170 * sx;
+  // Projections: timmar de senaste tre åren (jämn takt med lite variation), mot 1 500 h.
+  const top = 56, bottom = 196, tgt = 1500, have = 1240;
+  const cum = Array.from({ length: 37 }, (_, i) => 760 + i * 13.3 + Math.sin(i * 0.9) * 9);
+  cum[36] = have;
+  const yP = (h: number) => r1(bottom - (Math.min(h, tgt) / tgt) * (bottom - top));
+  const pts = cum.map((h, i) => `${r1((i / 36) * nowX)} ${yP(h)}`);
+  const pLine = `M${pts.join(' L')}`, pNowY = yP(have);
+  // Next licence: hur redo för ATPL över tid, 86 % nu.
+  const lTop = 66;
+  const yL = (q: number) => r1(bottom - q * (bottom - lTop));
+  const ready = Array.from({ length: 37 }, (_, i) => Math.min(0.86, 0.38 + i * 0.0135 + Math.sin(i * 0.7) * 0.01));
+  ready[36] = 0.86;
+  const lLine = `M${ready.map((q, i) => `${r1((i / 36) * nowX)} ${yL(q)}`).join(' L')}`, lNowY = yL(0.86);
+  const ladder = (
+    <View style={st.ladder} pointerEvents="none">
+      {[['PPL ’19', 100, C.text2], ['CPL ’22', 100, C.text2], ['ATPL', 86, C.primary]].map(([code, pct, color]) => (
+        <View key={String(code)} style={{ flex: 1, gap: 3 }}>
+          <View style={{ height: 3, borderRadius: 2, backgroundColor: '#22344F', overflow: 'hidden' }}>
+            <View style={{ width: `${pct}%` as any, height: '100%', backgroundColor: color as string }} />
+          </View>
+          <Text numberOfLines={1} style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: '700', color: code === 'ATPL' ? C.text : C.text2 }}>{code}</Text>
+        </View>
+      ))}
+    </View>
+  );
+  return (
+    <View style={{ gap: 12 }}>
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Tile title="PROJECTIONS" right="18.4 h/mo" bg={CARD} scrim={CARD} value={String(have)} unit={`/ ${fmtIntH(tgt)} h`} sub="ETA Jun 2027"
+            a11y="Example. Projections: 1240 of 1500 hours, ETA June 2027"
+            background={
+              <Svg width={w} height={H} style={StyleSheet.absoluteFill}>
+                <Defs>
+                  <LinearGradient id="pvFillDemo" x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0" stopColor={C.primary} stopOpacity={0.3} />
+                    <Stop offset="1" stopColor={C.primary} stopOpacity={0} />
+                  </LinearGradient>
+                </Defs>
+                <Path d={`M0 91 H${w} M0 126 H${w} M0 161 H${w}`} stroke="#1C2E47" strokeWidth={1} />
+                <SvgText x={w - 6} y={122} textAnchor="end" fontFamily={MONO} fontSize={8.5} fill="#56708E">{fmtIntH(tgt / 2)}</SvgText>
+                <Line x1={nowX} y1={top} x2={nowX} y2={H} stroke={C.quiet} strokeWidth={1} strokeDasharray="1 3" />
+                <Path d={`M${nowX} ${pNowY} L${w} ${top - 14} L${w} ${top + 40} Z`} fill={C.soft} fillOpacity={0.08} />
+                <Line x1={0} y1={top} x2={w} y2={top} stroke={C.quiet} strokeWidth={1} strokeDasharray="3 4" />
+                <Path d={`${pLine} L${nowX} ${H} L0 ${H} Z`} fill="url(#pvFillDemo)" />
+                <Path d={pLine} fill="none" stroke={C.primary} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+                <Path d={`M${nowX} ${pNowY} L${endX} ${top}`} stroke={C.soft} strokeOpacity={0.75} strokeWidth={1.6} strokeDasharray="4 4" />
+                <Circle cx={nowX} cy={pNowY} r={7} fill={C.primary} fillOpacity={0.22} />
+                <Circle cx={nowX} cy={pNowY} r={3.5} fill={C.primary} />
+                <Rect x={w - 46} y={top - 8} width={40} height={16} rx={8} fill={C.soft} />
+                <SvgText x={w - 26} y={top + 3.5} textAnchor="middle" fontFamily={MONO} fontSize={9} fontWeight="700" fill={C.deep}>{fmtIntH(tgt)}</SvgText>
+              </Svg>
+            } />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Tile title="NEXT LICENCE" right="5/7 met" bg={CARD} scrim={CARD} value="86" unit="% ready" sub="ATPL(A) · Nov 2027" extra={ladder}
+            a11y="Example. Next licence: ATPL, 86 percent ready"
+            background={
+              <Svg width={w} height={H} style={StyleSheet.absoluteFill}>
+                <Defs>
+                  <LinearGradient id="lvFillDemo" x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0" stopColor={C.primary} stopOpacity={0.3} />
+                    <Stop offset="1" stopColor={C.primary} stopOpacity={0} />
+                  </LinearGradient>
+                </Defs>
+                <Path d={`M0 ${yL(0.75)} H${w} M0 ${yL(0.5)} H${w} M0 ${yL(0.25)} H${w}`} stroke="#1C2E47" strokeWidth={1} />
+                <SvgText x={w - 6} y={yL(0.75) - 4} textAnchor="end" fontFamily={MONO} fontSize={8.5} fill="#56708E">75%</SvgText>
+                <SvgText x={w - 6} y={yL(0.5) - 4} textAnchor="end" fontFamily={MONO} fontSize={8.5} fill="#56708E">50%</SvgText>
+                <Line x1={nowX} y1={lTop} x2={nowX} y2={H} stroke={C.quiet} strokeWidth={1} strokeDasharray="1 3" />
+                <Line x1={0} y1={lTop} x2={w} y2={lTop} stroke={C.quiet} strokeWidth={1} strokeDasharray="3 4" />
+                <Path d={`${lLine} L${nowX} ${H} L0 ${H} Z`} fill="url(#lvFillDemo)" />
+                <Path d={lLine} fill="none" stroke={C.primary} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+                <Path d={`M${nowX} ${lNowY} L${endX} ${lTop}`} stroke={C.soft} strokeOpacity={0.75} strokeWidth={1.6} strokeDasharray="4 4" />
+                {[8, 19, 30].map((i) => <Circle key={i} cx={r1((i / 36) * nowX)} cy={yL(ready[i])} r={3} fill={CARD} stroke={C.text2} strokeWidth={1.5} />)}
+                <Circle cx={nowX} cy={lNowY} r={7} fill={C.primary} fillOpacity={0.22} />
+                <Circle cx={nowX} cy={lNowY} r={3.5} fill={C.primary} />
+              </Svg>
+            } />
+        </View>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Tile title="LONGEST XC" bg="#0A1524" scrim={MAP_SCRIM} value="412" unit="NM" sub="ESSA → EGLL · 14 Jun"
+            a11y="Example. Longest cross-country: 412 nautical miles, ESSA to EGLL"
+            background={<StaticMap region={regionFor(DEMO_XC)} style={StyleSheet.absoluteFill} />} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Tile title="BEST WEEK" bg="#0A1524" scrim={MAP_SCRIM} value="18:40" unit="h" sub="Week 24 · 12 sectors"
+            a11y="Example. Best week: 18 hours 40 minutes, 12 sectors"
+            background={<StaticMap region={regionFor(DEMO_WEEK)} style={StyleSheet.absoluteFill} />} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
 // ── Gemensamt skal ────────────────────────────────────────────────────────────────────────
 
 function Tile({ title, right, rightColor, value, valueColor, unit, unitColor, sub, onPress, a11y, background, scrim, extra, bg }: {

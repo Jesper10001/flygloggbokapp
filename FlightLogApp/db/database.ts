@@ -507,6 +507,9 @@ async function runMigrations(db: SqliteDb): Promise<void> {
   await addColumnIfMissing(db, 'relief_crew',   `REAL NOT NULL DEFAULT 0`);
   // Sim-kategori: FFS | FTD | FNPT_II | FNPT_I | BITD (endast när flight_type='sim')
   await addColumnIfMissing(db, 'sim_category',  `TEXT NOT NULL DEFAULT ''`);
+  // Skanningens val av simulatortyp sparades i gemener ("ffs", "fnpt_ii") — recency och Log flight jämför med
+  // versaler ("FFS"). Bara knapparnas exakta värden rättas, inget annat (ofarligt att köra igen).
+  await db.runAsync(`UPDATE flights SET sim_category = UPPER(sim_category) WHERE sim_category IN ('ffs','ftd','fnpt_ii','fnpt_i','bitd','cpt_ppt','cbt')`);
   // VFR-tid (kompletterar IFR-tid, summerar till total_time)
   await addColumnIfMissing(db, 'vfr',           `REAL NOT NULL DEFAULT 0`);
   // Motortyp per pass: 0 om okänd/ej tillämplig
