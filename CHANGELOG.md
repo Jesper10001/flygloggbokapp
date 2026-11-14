@@ -29,6 +29,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Glasknapparna (GlassFill) blev nästan svarta på den mörka dashboarden med Liquid Glass "regular": nu "clear" (genomskinligare) med en svag cyan ton och ljusare kant; reservvägen (blur) tunnare med samma ton. Flikraden oförändrad.
 - Test: Log flight-knappen på dashboarden utan plustecken (bara texten) i både pilot- och drönarläget.
 - Glas även i drönarläget: knappraden skanna · Log flight · böcker som pilotens (GlassFill, rundade ändar, vita ikoner, plustecknet i accentfärgen). Åtgärdsrutan i fotokarusellen (Flight album · Sync album · Share) i klart glas i båda lägena, med tunna ljusa skiljelinjer och rundning 18.
 - Dashboarden (pilot): knappraden skanna · Log flight · böcker i klart glas som flikraden (design A, artifact 4GJVRQrxgRuYKsS8t9jh5n). Ny components/GlassFill.tsx: iOS 26 → Liquid Glass (expo-glass-effect), annars blur + ljus kant och spegling. Knapparna rundade i ändarna (27 pt), mjuk skugga, vita ikoner och text, plustecknet kvar i cyan; bokknappen guld vid ett nytt uppslag som förut. ScanSpeedDial tar background/iconColor. Drönarens dashboard oförändrad.
