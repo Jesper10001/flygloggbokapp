@@ -10,6 +10,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
+- Improved: Scanning flags fewer cells, and trusts the times you wrote when your other columns agree.
 - Improved: In the scan report, the eye on a flight takes you straight to the unsure cell in your spread, and fixing one cell moves you on to the next.
 - Improved: A simpler Logbook row in Settings for switching logbook or layout.
 - Improved: Scan your logbook goes straight to checking every flight, without asking what matters most.
@@ -21,6 +22,10 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Skanningen: färre osäkra celler. Claudes field_issues med confidence ≥ 0.7 blir ingen fråga om Claude inte läst något annat (read_as) eller föreslår ett annat värde (Claude flaggar allt under 0.85). Appens egna kontroller (okänd ICAO, ogiltigt klockslag m.m.) har låg confidence och frågas som förut.
+- Skanningen: skriven totaltid som bekräftas av en annan tidskolumn på raden (PIC/Co-pilot/Dual/Instructor/Night/IFR/Multi/Single = total) väger över avgång/ankomst: ingen tidskonflikt (time_mismatch) och inga frågor om totaltiden, lika stora tider eller klockslagen bara för att klockslagen ger en annan tid (blocktid).
+- Helskärmsuppslagen: svarsalternativ ovanför tangentbordets bokstäver (InputAccessoryView) — frågans förslag, Claudes alternativ och liknande ICAO-koder (ETNB → ETHB). Ett val på en fråga som gäller flera rader sätter samma värde på alla rader med samma läsning och hoppar till nästa osäkra cell.
+- Nya Scan report: flight cards som dashboardens Latest flight — tonad gradient (cyan, gul eller röd efter status), ljus kant överst och skugga.
 - Nya Scan report: flight cards visar det osäkra bara som färg (kant + celler); frågerutorna med snabbsvar är borta. Ett öga (gult = kolla, rött = troligen fel) till vänster om pennan öppnar uppslagen i helskärm med flygningens första osäkra cell vald (fråga + fotobit). Pennan öppnar Edit flight med de osäkra fälten i rött (samma läge som boken, även frågor som gäller flera flygningar). Kortets färg gäller nu alla flygningar en fråga gäller (SimpleIssue.rowKeys).
 - Helskärmsuppslagen: den första osäkra cellen väljs själv (kolumnvis vänster→höger, uppifrån och ned, med början längst upp till vänster); efter Save/Looks right hoppar vyn till nästa osäkra cell, även till nästa uppslag, och säger "All unsure cells checked" när inget är kvar (LogbookCrossRef openCells/selectNext, SpreadWebView selectCell, renderSpread __selCell).
 - Nya Scan report: pennan på en flygning (och "Edit flight" i frågerutan) öppnar flygningen direkt i redigeringsläget i stället för flygsidan först; knappen längst ner heter då "Done" och går tillbaka till rapporten (FlightEditor startEditing, bara i nya flödet).

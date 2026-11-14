@@ -5,7 +5,7 @@
 // (TranscribeOverlay), utan de tomma.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, FlatList, useWindowDimensions, Image, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, FlatList, useWindowDimensions, Image, TextInput, InputAccessoryView, ScrollView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -32,10 +32,11 @@ export interface ScannedSpread {
 // nästa uppslag.
 export interface CrossRefEditing {
   cellState: (rowKey: string, field: string) => 'open' | 'changed' | null;
-  issueFor: (rowKey: string, field: string) => { id: string; reason: string } | null;
+  issueFor: (rowKey: string, field: string) => { id: string; reason: string; options?: string[] } | null;
   photo: (page: number) => { uri: string; width: number; height: number } | null;
   onSave: (rowKey: string, field: string, value: string) => void;   // värdet i lagrat format (parseInput)
   onLooksRight: (issueId: string) => void;
+  onChoose: (rowKey: string, field: string, value: string) => void;   // svarsalternativ (lagrat format)
 }
 
 export function LogbookCrossRef(p: {
@@ -158,6 +159,15 @@ export function LogbookCrossRef(p: {
     unpick();
     if (bi >= 0) setAdvance({ bi, slot: sel.slot, colId: sel.colId });
   };
+  // Ett svarsalternativ ovanför tangentbordet: spara det och gå vidare till nästa osäkra cell.
+  const choose = (value: string) => {
+    if (!sel?.field || !ed) return;
+    const bi = books.findIndex((x) => x.sp.page === sel.page);
+    ed.onChoose(sel.rowKey, sel.field, value);
+    unpick();
+    if (bi >= 0) setAdvance({ bi, slot: sel.slot, colId: sel.colId });
+  };
+  const chipOpts = selOpen && selIssue?.options?.length ? selIssue.options : [];
   useEffect(() => {
     if (!advance) return;
     setAdvance(null);
@@ -292,6 +302,7 @@ export function LogbookCrossRef(p: {
             {sel.field && (
               <View style={s.editRow}>
                 <TextInput value={draft} onChangeText={(t) => { setDraft(t); setBad(false); }} style={s.editInput} autoFocus
+                  inputAccessoryViewID={Platform.OS === 'ios' && chipOpts.length ? CHIPS_ID : undefined}
                   autoCapitalize="characters" autoCorrect={false} returnKeyType="done" onSubmitEditing={commit}
                   accessibilityLabel={fieldLabel(sel.field)} placeholder="Empty" placeholderTextColor={Colors.textMuted} />
                 <TouchableOpacity onPress={unpick} style={s.editCancel} accessibilityRole="button"><Text style={s.editCancelText}>Cancel</Text></TouchableOpacity>
@@ -305,6 +316,23 @@ export function LogbookCrossRef(p: {
             )}
           </View>
         </View>
+      )}
+
+      {/* Svarsalternativen på tangentbordet, ovanför bokstäverna (t.ex. liknande ICAO-koder). */}
+      {Platform.OS === 'ios' && (
+        <InputAccessoryView nativeID={CHIPS_ID} backgroundColor="#0F1E3A">
+          {chipOpts.length > 0 ? (
+            <ScrollView horizontal keyboardShouldPersistTaps="always" showsHorizontalScrollIndicator={false}
+              contentContainerStyle={s.kbChips}>
+              <Text style={s.kbLabel}>CLAUDE SUGGESTS</Text>
+              {chipOpts.map((o) => (
+                <TouchableOpacity key={o} onPress={() => choose(o)} style={s.kbChip} accessibilityRole="button" accessibilityLabel={`Use ${o}`}>
+                  <Text style={s.kbChipText}>{o}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : <View />}
+        </InputAccessoryView>
       )}
 
       {byColumn && cur && (
@@ -324,6 +352,7 @@ export function LogbookCrossRef(p: {
 
 // En bit av fotot: cellen (inringad) med lite av grannarna runt om, i fotots egna proportioner.
 const SNIP_H = 66, SNIP_W = 230;
+const CHIPS_ID = 'scanCellChips';
 function CellSnippet({ photo, grid, rowIndex, field, danger }: {
   photo: { uri: string; width: number; height: number } | null; grid: ScannedSpread['grid']; rowIndex: number; field: string | null; danger: boolean;
 }) {
@@ -363,6 +392,10 @@ const s = StyleSheet.create({
   editCancelText: { color: '#FFFFFF', fontSize: 13 },
   editSave: { height: 36, paddingHorizontal: 16, borderRadius: 18, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
   editSaveText: { color: '#0A1628', fontSize: 13, fontWeight: '800' },
+  kbChips: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  kbLabel: { color: Colors.textSecondary, fontSize: 9.5, fontWeight: '800', letterSpacing: 1, marginRight: 2 },
+  kbChip: { height: 34, paddingHorizontal: 16, borderRadius: 17, borderWidth: 1, borderColor: Colors.primary, backgroundColor: Colors.primary + '1F', alignItems: 'center', justifyContent: 'center' },
+  kbChipText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800', letterSpacing: 0.5 },
   snip: { width: SNIP_W, height: SNIP_H, borderRadius: 8, overflow: 'hidden', backgroundColor: '#E2DAC6' },
   snipNone: { color: Colors.textMuted, fontSize: 11, marginTop: 3 },
   root: { flex: 1, backgroundColor: Colors.background },

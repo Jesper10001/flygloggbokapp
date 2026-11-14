@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../constants/colors';
 import type { TimeFormat } from '../../store/timeFormatStore';
 import type { ScanRow } from '../../services/scanImport';
@@ -280,7 +281,11 @@ export function ScanReportSimple(p: {
           const hotColor = (fields: string[]) => (fields.some((f) => hot.has(f)) ? st : null);
           const timeHot = hot.has('total_time') || hot.has('night') || hot.has('sim');
           return (
-            <View key={r.key} style={[s.card, { borderColor: out ? Colors.cardBorder : st.border, opacity: out ? 0.55 : 1 }]}>
+            // Som dashboardens Latest flight: tonad gradient, ljus kant överst och skugga under (levande, lite 3D).
+            <View key={r.key} style={[s.cardShadow, { opacity: out ? 0.55 : 1, shadowColor: sev === 'ok' || out ? '#000' : st.fg }]}>
+            <View style={[s.card, { borderColor: out ? Colors.cardBorder : st.border }]}>
+              <LinearGradient colors={[(out ? Colors.textMuted : sev === 'ok' ? Colors.primary : st.fg!) + '26', Colors.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+              <LinearGradient colors={['rgba(255,255,255,0.10)', 'rgba(255,255,255,0)']} style={s.sheen} pointerEvents="none" />
               <View style={s.cardTop}>
                 <Text style={s.cardDate}>{fmtDate(d.date)}</Text>
                 <Text style={s.cardWhere}>{pageOf(r)} · row {r.rowIndex}</Text>
@@ -345,6 +350,7 @@ export function ScanReportSimple(p: {
               )}
 
             </View>
+            </View>
           );
         })}
 
@@ -404,7 +410,9 @@ const s = StyleSheet.create({
   regRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder },
   reg: { fontFamily: FONT_MONO, color: '#FFFFFF', fontSize: 13, fontWeight: '700', minWidth: 74 },
   tag: { fontFamily: FONT_MONO, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
-  card: { borderRadius: 18, backgroundColor: Colors.card, borderWidth: 1, overflow: 'hidden' },
+  cardShadow: { borderRadius: 18, shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 },
+  card: { borderRadius: 18, backgroundColor: Colors.surface, borderWidth: 1, overflow: 'hidden' },
+  sheen: { position: 'absolute', left: 0, right: 0, top: 0, height: 28 },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 10, paddingLeft: 14, paddingRight: 10 },
   cardDate: { fontFamily: FONT_MONO, fontSize: 11.5, fontWeight: '600', letterSpacing: 0.6, color: '#FFFFFF' },
   cardWhere: { fontFamily: FONT_MONO, fontSize: 11.5, color: Colors.textSecondary },

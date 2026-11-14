@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 126,
+      "date": "2026-11-14",
+      "notes": [
+        "Improved: Scanning flags fewer cells, and trusts the flight time you wrote when your other time columns agree.",
+        "New: Suggestions above the keyboard when you fix a cell, like similar airport codes.",
+        "Improved: Flight cards in the scan report have more depth."
+      ]
+    },
+    {
       "id": 125,
       "date": "2026-11-14",
       "notes": [

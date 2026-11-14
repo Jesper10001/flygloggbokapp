@@ -252,6 +252,13 @@ function deriveIssues(
     const cell = (f: string) => (grid ? cellRect(grid, row.rowIndex, f) : null);
     const whole = grid ? rowRect(grid, row.rowIndex) : null;
 
+    // Den skrivna totaltiden bekräftas av en annan tidskolumn på raden (t.ex. Dual eller Night = total): då har
+    // Claude läst handstilen rätt, och att avgång/ankomst ger en annan tid (blocktid, rotorn igång) är ingen fråga.
+    const nOf = (f: string) => parseFloat(String((d as any)[f] ?? '').replace(',', '.')) || 0;
+    const totalW = nOf('total_time');
+    const corroborated = d.flight_type !== 'sim' && totalW > 0
+      && ['pic', 'co_pilot', 'dual', 'instructor', 'night', 'ifr', 'multi_pilot', 'single_pilot'].some((f) => Math.abs(nOf(f) - totalW) < 0.05);
+    const TIMES_REASON = /time|dep|arr|block|clock|duration|suggest|add up|match/i;
     const seenFields = new Set<string>();
     for (const raw of d.field_issues ?? []) {
       // Simulatorpass: tiden står i simulatorkolumnen (total_time är tom i boken), men appen sparar den även som
@@ -262,6 +269,14 @@ function deriveIssues(
       seenFields.add(fi.field);
       if (fi.field === 'remarks' && d.remarks_suggestion) continue;
       if ((fi.field === 'dep_utc' || fi.field === 'arr_utc') && d.time_mismatch) continue;
+      // Lägre osäkerhetsgräns: Claude flaggar allt under 0.85; bara under 0.7 blir en fråga, om inte Claude läst
+      // något annat (read_as) eller föreslår ett annat värde. Appens egna kontroller har låg confidence och följer med.
+      const curVal = String((d as any)[fi.field] ?? '').trim().toUpperCase();
+      const otherSuggestion = !!fi.suggested_value && String(fi.suggested_value).trim().toUpperCase() !== curVal;
+      if ((fi.confidence ?? 0) >= 0.7 && !fi.read_as && !otherSuggestion) continue;
+      // Bekräftad totaltid: inga frågor om tiden eller klockslagen bara för att avgång/ankomst ger en annan tid.
+      if (corroborated && !fi.read_as && TIMES_REASON.test(fi.reason || '')
+        && (CLOCK.has(fi.field) || (DURATION.has(fi.field) && Math.abs(nOf(fi.field) - totalW) < 0.05))) continue;
       const choice = !!CHOICES[fi.field];
       const suggestions: Suggestion[] = [];
       if (fi.field === 'sim' && fi.from && fi.suggested_value) suggestions.push({ label: 'Yes, simulator session', field: 'sim', value: fi.suggested_value, toSim: fi.from });
@@ -291,7 +306,7 @@ function deriveIssues(
 
     // Med bokens bekräftade tillägg (t.ex. +0.2 h) stämmer raden → ingen fråga.
     const addFits = add != null && !!d.time_mismatch && fitsTimeAddition(d, add);
-    if (d.time_mismatch && !addFits) {
+    if (d.time_mismatch && !addFits && !corroborated) {
       const tm = d.time_mismatch;
       // Med tillägget ska avgång → ankomst vara total minus tillägget.
       const air = add != null ? Math.round(Math.max(0, tm.anchor_total_h - add) * 10) / 10 : tm.anchor_total_h;
@@ -2183,7 +2198,29 @@ export default function ScanReviewScreen() {
   const issueForCell = (rowKey: string, field: string) => {
     const i = openIssues.find((x) => (x.rowKey === rowKey || !!x.alsoRows?.includes(rowKey) || !!x.group?.members.includes(`${rowKey}:f:${field}`))
       && (x.field === field || (x.kind === 'mismatch' && CLOCK.has(field))));
-    return i ? { id: i.id, reason: i.reason || i.title } : null;
+    if (!i) return null;
+    // Svarsalternativ ovanför tangentbordet: frågans förslag för just den här cellen, Claudes egna alternativ och
+    // för flygplatser liknande ICAO-koder (ETNB → ETHB), som i den gamla granskningen.
+    const r = rowByKey.get(rowKey);
+    const cur = String((r?.data as any)?.[field] ?? '').trim().toUpperCase();
+    const fi = (r?.data.field_issues ?? []).find((x) => x.field === field);
+    const opts = [
+      ...i.suggestions.filter((sg) => sg.field === field && !sg.toSim).map((sg) => sg.value),
+      ...(fi ? [fi.suggested_value, ...(fi.options ?? [])] : []),
+      ...(PLACE.has(field) ? placeAlts[cur] ?? [] : []),
+    ].filter((v): v is string => !!v && v.trim().toUpperCase() !== cur && v !== 'ZZZZ');
+    return { id: i.id, reason: i.reason || i.title, options: [...new Set(opts)].slice(0, 5) };
+  };
+  // Ett svarsalternativ i helskärmen. Samma fråga på flera rader (t.ex. ETNB på tio rader) → samma värde på
+  // alla de raderna som har samma läsning.
+  const chooseCell = (rowKey: string, field: string, value: string) => {
+    const cur = String((rowByKey.get(rowKey)?.data as any)?.[field] ?? '');
+    const grp = openIssues.find((x) => x.group?.members.includes(`${rowKey}:f:${field}`));
+    const keys = grp
+      ? grp.group!.members.filter((m) => !resolved[m] && m.endsWith(`:f:${field}`)).map((m) => m.split(':f:')[0])
+        .filter((k) => String((rowByKey.get(k)?.data as any)?.[field] ?? '') === cur)
+      : [];
+    for (const k of new Set([rowKey, ...keys])) editField(k, field, value);
   };
 
   // Stänga: läsningen slutar. I en hel bok är de lästa uppslagen sparade (öppnas delen igen kostar de inga
@@ -2343,6 +2380,7 @@ export default function ScanReviewScreen() {
               photo: (pg) => (pages[pg] ? { uri: pages[pg].uri, width: pages[pg].width, height: pages[pg].height } : null),
               onSave: (rowKey, field, value) => editField(rowKey, field, value),
               onLooksRight: (id) => answerIssue(id, null),
+              onChoose: chooseCell,
             }}
           />
         )}
