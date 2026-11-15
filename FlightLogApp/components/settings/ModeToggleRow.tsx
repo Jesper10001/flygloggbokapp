@@ -8,28 +8,27 @@
 import { useState } from 'react';
 import { View, Text, Pressable, TouchableOpacity, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../constants/colors';
-import { DR } from '../../constants/droneTheme';
+import { DR, withAlpha } from '../../constants/droneTheme';
+import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useAppVariantStore } from '../../store/appVariantStore';
-
-const SAFE_GREEN = DR.success; // "datan finns kvar" — tydligt grön (cyan-accenten skulle smälta ihop)
 
 type Mode = 'manned' | 'drone';
 type Layout = 'full' | 'essential';
 
 const LOGBOOKS: Record<Mode, { title: string; line1: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  manned: { title: 'Pilot', line1: 'Fixed & Rotary wing', icon: 'airplane-outline' },
+  manned: { title: 'Pilot', line1: 'Fixed & rotary wing', icon: 'airplane-outline' },
   drone: { title: 'Drone', line1: 'Commercial, military or hobby', icon: 'hardware-chip-outline' },
 };
 
-function Radio({ on }: { on: boolean }) {
+// Bock i accentfärgen för valt alternativ, tom ring annars.
+function Tick({ on, accent }: { on: boolean; accent: string }) {
   return (
-    <View style={[st.radio, on && { borderColor: Colors.primary }]}>
-      {on ? <View style={st.radioDot} /> : null}
+    <View style={[st.tick, on ? { backgroundColor: accent, borderWidth: 0 } : null]}>
+      {on ? <Ionicons name="checkmark" size={14} color={DR.inkOnAccent} /> : null}
     </View>
   );
 }
@@ -56,12 +55,15 @@ export function ModeToggleRow({ mode, onConfirmSwitch }: {
   const openSheet = () => { setPickMode(mode); setPickLayout('full'); setOpen(true); };
   const close = () => setOpen(false);
 
+  const droneAccent = useDroneAccentStore((s) => s.color);
+  const accent = pickMode === 'drone' ? droneAccent : Colors.primary;
   const modeChanged = pickMode !== mode;
   const toEssential = pickLayout === 'essential';
   const cta = modeChanged && toEssential ? `Switch to ${LOGBOOKS[pickMode].title} · Essential`
     : modeChanged ? `Switch to ${LOGBOOKS[pickMode].title} logbook`
-    : toEssential ? 'Use the Essential layout'
+    : toEssential ? 'Switch to Essential'
     : 'Done';
+  const changed = modeChanged || toEssential;
 
   const apply = () => {
     close();
@@ -92,16 +94,16 @@ export function ModeToggleRow({ mode, onConfirmSwitch }: {
         <Ionicons name="chevron-forward" size={16} color={tone.chevron} style={{ marginLeft: 8 }} />
       </TouchableOpacity>
 
+      {/* Arket (design: Claude design "Logbook and layout"): navy som resten av Blades, rubrik i Georgia, mono-etiketter,
+          accenten följer loggboken man pekar på (Pilot = Blades cyan, Drone = drönarlägets valda accent). */}
       <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
         <Pressable style={st.backdrop} onPress={close}>
           <Pressable style={[st.sheet, { paddingBottom: insets.bottom + 16 }]} onPress={() => {}}>
-            <BlurView pointerEvents="none" tint="systemThickMaterialDark" intensity={80} style={StyleSheet.absoluteFill} />
-            <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(12,26,48,0.55)' }]} />
             <View style={st.grabber} />
             <View style={st.head}>
               <Text style={st.title}>Logbook and layout</Text>
               <TouchableOpacity onPress={close} hitSlop={10} accessibilityLabel="Close" style={st.closeBtn}>
-                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+                <Ionicons name="close" size={16} color={DR.text2} />
               </TouchableOpacity>
             </View>
 
@@ -111,52 +113,73 @@ export function ModeToggleRow({ mode, onConfirmSwitch }: {
               const lb = LOGBOOKS[m];
               return (
                 <TouchableOpacity key={m} onPress={() => setPickMode(m)} activeOpacity={0.8}
-                  style={[st.option, on && st.optionOn]}
+                  style={[st.option, on && { borderColor: accent, borderWidth: 1.5, backgroundColor: withAlpha(accent, 0.1) }]}
                   accessibilityRole="radio" accessibilityState={{ selected: on }}
                   accessibilityLabel={`${lb.title} logbook. ${lb.line1}`}>
-                  <View style={[st.optIcon, { backgroundColor: on ? Colors.primary + '24' : 'rgba(255,255,255,0.06)' }]}>
-                    <Ionicons name={lb.icon} size={19} color={on ? Colors.primary : Colors.textSecondary} />
+                  <View style={[st.optIcon, { backgroundColor: on ? withAlpha(accent, 0.18) : DR.elevated }]}>
+                    <Ionicons name={lb.icon} size={20} color={on ? accent : DR.text3} />
                   </View>
-                  <View style={{ flex: 1, gap: 2 }}>
+                  <View style={{ flex: 1, gap: 3 }}>
                     <Text style={st.optTitle}>{lb.title}</Text>
                     <Text style={st.optSub}>{lb.line1}</Text>
                   </View>
-                  <Radio on={on} />
+                  <Tick on={on} accent={accent} />
                 </TouchableOpacity>
               );
             })}
 
-            <Text style={[st.label, { marginTop: 4 }]}>LAYOUT</Text>
+            <Text style={[st.label, { marginTop: 6 }]}>LAYOUT</Text>
             <View style={{ flexDirection: 'row', gap: 10 }}>
               {([
                 ['full', 'Full', 'Dashboard, Logbook, Insights and every tool'],
-                ['essential', 'Essential', 'One screen: totals, log a flight, import and export'],
+                ['essential', 'Essential', 'One screen: totals, log, import and export'],
               ] as [Layout, string, string][]).map(([k, t, d]) => {
                 const on = pickLayout === k;
+                const c = on ? accent : DR.text3;
                 return (
                   <TouchableOpacity key={k} onPress={() => setPickLayout(k)} activeOpacity={0.8}
-                    style={[st.option, st.layoutOpt, on && st.optionOn]}
+                    style={[st.option, st.layoutOpt, on && { borderColor: accent, borderWidth: 1.5, backgroundColor: withAlpha(accent, 0.1) }]}
                     accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={`${t} layout. ${d}`}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Text style={st.optTitle}>{t}</Text>
-                      <Radio on={on} />
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                      {/* Liten skiss: flikar (Full) eller en enda skärm (Essential). */}
+                      <View style={[st.sketch, { borderColor: c }]}>
+                        {k === 'full' ? (
+                          <>
+                            <View style={{ gap: 3 }}>
+                              <View style={{ height: 3, borderRadius: 2, backgroundColor: c }} />
+                              <View style={{ height: 3, width: '60%', borderRadius: 2, backgroundColor: c, opacity: 0.6 }} />
+                            </View>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                              {[0, 1, 2, 3].map((i) => <View key={i} style={{ width: 3, height: 3, borderRadius: 2, backgroundColor: c }} />)}
+                            </View>
+                          </>
+                        ) : (
+                          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                            <View style={{ width: 14, height: 3, borderRadius: 2, backgroundColor: c }} />
+                            <View style={{ width: 10, height: 3, borderRadius: 2, backgroundColor: c, opacity: 0.6 }} />
+                          </View>
+                        )}
+                      </View>
+                      <Tick on={on} accent={accent} />
                     </View>
-                    <Text style={st.optSub}>{d}</Text>
+                    <View style={{ gap: 3 }}>
+                      <Text style={st.optTitle}>{t}</Text>
+                      <Text style={st.optSub}>{d}</Text>
+                    </View>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
             <View style={st.safe}>
-              <View style={st.safeIcon}><Ionicons name="shield-checkmark-outline" size={24} color={SAFE_GREEN} /></View>
-              <View style={{ flex: 1, gap: 3 }}>
-                <Text style={st.safeTitle}>All your data is kept</Text>
-                <Text style={st.safeText}>Switching only changes which logbook you see. Nothing is deleted.</Text>
-              </View>
+              <Ionicons name="shield-checkmark-outline" size={18} color={DR.good} />
+              <Text style={st.safeText}><Text style={{ color: DR.text, fontWeight: '600' }}>All your data is kept.</Text> Switching only changes which logbook you see.</Text>
             </View>
 
-            <TouchableOpacity onPress={apply} activeOpacity={0.85} style={st.cta} accessibilityRole="button">
-              <Text style={st.ctaText}>{cta}</Text>
+            {/* "Done" i glas när inget ändrats; en ändring gör knappen accentfylld och säger vad som händer. */}
+            <TouchableOpacity onPress={apply} activeOpacity={0.85} accessibilityRole="button"
+              style={[st.cta, changed ? { backgroundColor: accent } : st.ctaGlass]}>
+              <Text style={[st.ctaText, { color: changed ? DR.inkOnAccent : DR.text }]}>{cta}</Text>
             </TouchableOpacity>
           </Pressable>
         </Pressable>
@@ -188,37 +211,32 @@ const st = StyleSheet.create({
   rowLabel: { flex: 1, fontSize: 12, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },
   rowValue: { fontSize: 13, marginLeft: 8 },
 
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(4,10,20,0.62)', justifyContent: 'flex-end' },
   sheet: {
-    borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: 18, paddingTop: 8, gap: 10, overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.16)',
+    borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 18, paddingTop: 8, gap: 10,
+    backgroundColor: DR.surface, borderTopWidth: 1, borderColor: DR.border,
+    shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 20, shadowOffset: { width: 0, height: -10 },
   },
-  grabber: { alignSelf: 'center', width: 38, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.18)', marginBottom: 2 },
-  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontSize: 21, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.3 },
-  closeBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginRight: -10 },
-  label: { fontSize: 11, fontWeight: '700', letterSpacing: 2, color: Colors.textSecondary },
+  grabber: { alignSelf: 'center', width: 38, height: 5, borderRadius: 3, backgroundColor: '#2A4664', marginBottom: 2 },
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 },
+  title: { fontFamily: 'Georgia', fontSize: 24, fontWeight: '700', color: DR.text },
+  closeBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: DR.elevated, alignItems: 'center', justifyContent: 'center' },
+  label: { fontFamily: 'JetBrainsMono', fontSize: 9.5, fontWeight: '700', letterSpacing: 1.4, color: DR.text3, marginTop: 4 },
   option: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 18,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)', backgroundColor: 'rgba(255,255,255,0.04)',
+    flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 16,
+    borderWidth: 1, borderColor: DR.border, backgroundColor: DR.surface2,
   },
-  optionOn: { borderColor: Colors.primary + 'B3', backgroundColor: Colors.primary + '12' },
-  layoutOpt: { flex: 1, flexDirection: 'column', alignItems: 'stretch', gap: 6 },
-  optIcon: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  optTitle: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
-  optSub: { fontSize: 12.5, lineHeight: 16, color: '#9DB6CC' },
-  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#4D6884', alignItems: 'center', justifyContent: 'center' },
-  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary },
-  safe: {
-    flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 18, marginTop: 6,
-    backgroundColor: 'rgba(111,214,143,0.08)', borderWidth: 1, borderColor: 'rgba(111,214,143,0.28)',
-  },
-  safeIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(111,214,143,0.14)', alignItems: 'center', justifyContent: 'center' },
-  safeTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
-  safeText: { fontSize: 14, lineHeight: 19, color: '#B4C9DD' },
-  cta: { height: 54, borderRadius: 16, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
-  ctaText: { fontSize: 16.5, fontWeight: '700', color: Colors.textInverse },
-
+  layoutOpt: { flex: 1, flexDirection: 'column', alignItems: 'stretch', gap: 10, paddingHorizontal: 14 },
+  optIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  optTitle: { fontSize: 16.5, fontWeight: '700', color: DR.text },
+  optSub: { fontSize: 13, lineHeight: 17, color: DR.text2 },
+  tick: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: DR.faint, alignItems: 'center', justifyContent: 'center' },
+  sketch: { width: 30, height: 40, borderRadius: 7, borderWidth: 1.5, paddingTop: 5, paddingHorizontal: 4, paddingBottom: 4, justifyContent: 'space-between' },
+  safe: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 10, paddingHorizontal: 2 },
+  safeText: { flex: 1, fontSize: 13, lineHeight: 18, color: DR.text2 },
+  cta: { height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  ctaGlass: { backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' },
+  ctaText: { fontSize: 16.5, fontWeight: '700' },
   pill: {
     height: 50, borderRadius: 25, flexDirection: 'row', alignItems: 'center', gap: 11, paddingLeft: 7, paddingRight: 20,
     borderWidth: 1, borderColor: Colors.primary + '66', backgroundColor: Colors.primary + '14',
