@@ -1706,16 +1706,12 @@ export default function AddDroneFlightScreen() {
               activeColor={MODE_TINT[curMode]}
             />
           </View>
+          {/* Full: barerna ligger alltid utfällda direkt under toggeln, utan ruta (som VFR/Y/Z/IFR i pilotens Full).
+              VFR/IFR-barerna fälls ut först när Y/Z väljs. */}
           {logFull && (
-            <View style={styles.condBox}>
-              <TouchableOpacity onPress={() => setCondOpen((o) => !o)} activeOpacity={0.75} style={styles.condHead}
-                accessibilityRole="button" accessibilityState={{ expanded: condOpen }}>
-                <Ionicons name={condOpen ? 'chevron-up' : 'chevron-down'} size={14} color={DR.text3} />
-                <Text style={styles.condHeadText}>Time per mode · night · VFR/IFR</Text>
-                <Text style={styles.condSummary}>{`NIGHT ${decimalToHHMM(nightH) || '0:00'}${nightManual ? '' : ' AUTO'}`}</Text>
-              </TouchableOpacity>
-              {condOpen && (
-                <View style={{ paddingHorizontal: 14, paddingBottom: 12 }}>
+            <View>
+              {(
+                <View style={{ paddingHorizontal: 4, paddingTop: 6, paddingBottom: 4 }}>
                   {FLIGHT_MODES.map((m) => (
                     <CondBar key={m} label={m} pct={pct(form[MODE_KEY[m]])} onPct={(p) => setModeTime(m, condTotal * p / 100)} tint={MODE_TINT[m]} totalMin={condTotalMin} onGrab={lock} onRelease={unlock}
                       editable timeValue={valFor(MODE_KEY[m], form[MODE_KEY[m]])} onTimeChange={(raw) => onTime(MODE_KEY[m], raw)} onTimeBlur={() => onBlur(MODE_KEY[m])} />
