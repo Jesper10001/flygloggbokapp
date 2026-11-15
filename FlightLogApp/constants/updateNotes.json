@@ -2,6 +2,16 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 163,
+      "date": "2026-11-15",
+      "summary": true,
+      "notes": [
+        "Improved: Blades checks for updates every hour while it's open and tells you when one is ready to restart.",
+        "Improved: The Log flight button, the buttons beside it and the album shortcuts have a new look.",
+        "Improved: The Logbook and layout sheet in Settings follows your accent colour."
+      ]
+    },
+    {
       "id": 162,
       "date": "2026-11-15",
       "notes": [

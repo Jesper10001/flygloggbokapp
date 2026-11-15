@@ -11,7 +11,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 ### What's New
 
 - Improved: Updates arrive sooner. Blades checks every hour while it's open and tells you when an update is ready, so you can restart right away or let it install next time.
-- Improved: The Log flight button and the buttons beside it have a new look.
+- Improved: The Log flight button, the buttons beside it and the album shortcuts below have a new look.
 - Improved: The Logbook and layout sheet in Settings matches the rest of Blades, follows your accent colour and says exactly what will change.
 - Improved: The weather forecast band groups periods with the same flight category into one block, and tapping it lists each period.
 - Improved: The weather page has a Decoded and Raw switch right under the search. The airport map fills half the wind card, with runways drawn like real runways, numbers at each end and a clear wind arrow.
@@ -44,6 +44,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Karusellens åtgärdssida (Flight album, Sync album, Share) i samma variant B-stil som Log flight-raden: tunn ram + svag ton i accentfärgen, skiljelinjer i samma ton (GlassFill borttagen), pilot och drönare.
 - Log flight-raden (pilot + drönare) i variant B från Claude design "Log flight-knappar": tunn ram + svag ton i accentfärgen (Create logbook-stilen), rundad som glaset (27), vita ikoner; GlassFill och skuggan borttagna i raden. Drönarläget använder den valda accenten.
 - EAS Update, steg 1 (utan nytt bygge):
   - `SilentUpdates` kollar och hämtar en gång i timmen medan appen är öppen och direkt när den kommer tillbaka från bakgrunden (högst var femte minut; tidigare var halvtimme).

@@ -27,7 +27,6 @@ import { useDroneAccentStore } from '../../store/droneAccentStore';
 import { useDroneFlightStore } from '../../store/droneFlightStore';
 import { maybeStartIntroTour, useTourStore } from '../../store/tourStore';
 import { TourSpot, useTourScrollTo } from '../../components/TourSpot';
-import { GlassFill } from '../../components/GlassFill';
 // Knappraden i klart glas: rundad som flikraden (knapparna är ca 54 pt höga).
 const GLASS_R = 27;
 // Samma lätta vibration som pilotlägets skanningsknapp, på alla tre knapparna.
@@ -498,11 +497,11 @@ function DronePhotoCarousel({ accent }: { accent: string }) {
         <View style={{ width: GAP }} />
         {/* Sida 2: åtgärder (140px, tre brickor = manned) */}
         <View style={{ width: CARD_W }}>
-          <View style={{ width: CARD_W, height: 140, borderRadius: 18, flexDirection: 'row' }}>
-            <GlassFill radius={18} />
+          {/* Samma stil som Log flight-raden (variant B): tunn ram + svag ton i accentfärgen. */}
+          <View style={{ width: CARD_W, height: 140, borderRadius: 18, flexDirection: 'row', overflow: 'hidden', borderWidth: 1, borderColor: accent + '55', backgroundColor: accent + '14' }}>
             {tiles.map((tile, i) => (
               <TouchableOpacity key={tile.key} disabled={tile.disabled} activeOpacity={0.85} onPress={tile.onPress}
-                style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 4, borderLeftWidth: i ? StyleSheet.hairlineWidth : 0, borderLeftColor: 'rgba(255,255,255,0.16)', opacity: tile.disabled ? 0.38 : 1 }}>
+                style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 4, borderLeftWidth: i ? 1 : 0, borderLeftColor: accent + '2E', opacity: tile.disabled ? 0.38 : 1 }}>
                 <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: tile.color + '1A', alignItems: 'center', justifyContent: 'center' }}>
                   <Ionicons name={tile.icon} size={21} color={tile.color} />
                 </View>

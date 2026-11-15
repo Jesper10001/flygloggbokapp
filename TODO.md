@@ -336,6 +336,7 @@ Det mesta bör redan finnas i bygge 14 och kan testas nu. Rättningen av AMC1-lo
 
 ## Senare
 
+- [ ] **Bygge 1.0.2, uppdateringar steg 2:** låt iOS väcka appen i bakgrunden ibland för att hämta EAS-uppdateringar (expo-background-task, nytt bygge), och sök inte efter uppdateringar vid första installationen förrän onboarding och Blades introduction är klara (`checkAutomatically` i app.json). Steg 1 (timkoll när appen är öppen + "Update ready"-rutan) är ute sedan 2026-11-15.
 - [ ] **Ta bort den gamla Esri-nyckeln** (den som går ut 2027-01-24). Skriv "klart" till Claude in Chrome. Ops påminner 30 dagar innan.
 - [ ] **Förnya Esri-nyckeln** före cirka 2027-10-26 (exakt datum i ArcGIS): skapa en ny och kör `cd proxy && npx wrangler secret put ARCGIS_API_KEY`, annars försvinner Route-lagret och satellitbilden på sajten. Ops påminner.
 - [ ] **xlsx (Excel-import):** npm-versionen har kända brister och underhålls inte längre på npm. Byt till SheetJS egen version, `npm install https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`, och testa sedan Excel-importen.
