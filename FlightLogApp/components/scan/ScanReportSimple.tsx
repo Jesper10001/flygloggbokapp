@@ -7,7 +7,8 @@
 // EEZZQZTdmsVaBrtpZAPqzB. Den gamla granskningen (frågepanelen) och rapporten (ScanReport) finns kvar i koden.
 
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput, useWindowDimensions } from 'react-native';
+import { GlassFill } from '../GlassFill';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../constants/colors';
@@ -161,10 +162,24 @@ export function ScanReportSimple(p: {
   };
   const open = p.issues.length;
   const byMonth = p.pageNumbers.length > 1;
+  // Från tre uppslag: två kort i bredd (mindre), så att en stor skanning går att överblicka.
+  const { width: winW } = useWindowDimensions();
+  const compact = new Set(p.rows.map((r) => r.page)).size >= 3;
+  const cardW = Math.floor((winW - 32 - GRID_GAP) / 2);
+  const S = compact ? CS : s;
+  const groups = useMemo(() => {
+    const out: { mk: string | null; rows: ScanRow[] }[] = [];
+    for (const r of ordered) {
+      const mk = byMonth ? monthKey(r.data.date) : null;
+      const last = out[out.length - 1];
+      if (last && last.mk === mk) last.rows.push(r); else out.push({ mk, rows: [r] });
+    }
+    return out;
+  }, [ordered, byMonth]);
 
   return (
     <View style={s.root}>
-      <ScrollView contentContainerStyle={{ paddingTop: p.insets.top + 8, paddingBottom: p.insets.bottom + 30, paddingHorizontal: 16, gap: 14 }}>
+      <ScrollView contentContainerStyle={{ paddingTop: p.insets.top + 8, paddingBottom: p.insets.bottom + 96, paddingHorizontal: 16, gap: 14 }}>
         {/* Rubrik */}
         <View style={s.header}>
           <TouchableOpacity onPress={p.onBack} style={s.back} accessibilityRole="button" accessibilityLabel="Close the scan">
@@ -304,8 +319,22 @@ export function ScanReportSimple(p: {
           </View>
         )}
 
-        {/* Flight cards, äldst överst */}
-        {ordered.map((r, idx) => {
+        {/* Flight cards, äldst överst. Från tre uppslag: två kort i bredd, samma kort i mindre storlek. */}
+        {groups.map((g) => (
+          <Fragment key={g.mk ?? 'all'}>
+            {g.mk != null && (() => {
+              const inMonth = g.rows.filter((x) => !x.skip && !p.duplicates.has(x.key));
+              const hrs = inMonth.reduce((t, x) => t + num(x.data.total_time), 0);
+              const toCheck = g.rows.filter((x) => issuesOf(x.key).length > 0 && !x.skip).length;
+              return (
+                <View style={s.monthHead} accessibilityRole="header">
+                  <Text style={s.monthTitle}>{monthTitle(g.mk)}</Text>
+                  <Text style={s.monthMeta}>{inMonth.length} {inMonth.length === 1 ? 'flight' : 'flights'} · {fmt(hrs)} h{toCheck ? ` · ${toCheck} to check` : ''}</Text>
+                </View>
+              );
+            })()}
+            <View style={compact ? s.grid : s.list}>
+        {g.rows.map((r) => {
           const d = r.data;
           const its = issuesOf(r.key);
           const sev = its.some((i) => i.severity === 'wrong') ? 'wrong' : its.length ? 'check' : 'ok';
@@ -317,82 +346,67 @@ export function ScanReportSimple(p: {
           const dep = String(d.dep_place ?? '').toUpperCase(), arr = String(d.arr_place ?? '').toUpperCase();
           const hotColor = (fields: string[]) => (fields.some((f) => hot.has(f)) ? st : null);
           const timeHot = hot.has('total_time') || hot.has('night') || hot.has('sim');
-          // Flera uppslag: korten grupperade per månad och år, med rubrik före månadens första flygning.
-          const mk = monthKey(d.date);
-          const header = byMonth && (idx === 0 || monthKey(ordered[idx - 1].data.date) !== mk) ? (() => {
-            const inMonth = ordered.filter((x) => monthKey(x.data.date) === mk && !x.skip && !p.duplicates.has(x.key));
-            const hrs = inMonth.reduce((t, x) => t + num(x.data.total_time), 0);
-            const toCheck = ordered.filter((x) => monthKey(x.data.date) === mk && issuesOf(x.key).length > 0 && !x.skip).length;
-            return (
-              <View style={s.monthHead} accessibilityRole="header">
-                <Text style={s.monthTitle}>{monthTitle(mk)}</Text>
-                <Text style={s.monthMeta}>{inMonth.length} {inMonth.length === 1 ? 'flight' : 'flights'} · {fmt(hrs)} h{toCheck ? ` · ${toCheck} to check` : ''}</Text>
-              </View>
-            );
-          })() : null;
+          // Som dashboardens Latest flight: tonad gradient, ljus kant överst och skugga under (levande, lite 3D).
           return (
-            <Fragment key={r.key}>
-            {header}
-            {/* Som dashboardens Latest flight: tonad gradient, ljus kant överst och skugga under (levande, lite 3D). */}
-            <View key={r.key} style={[s.cardShadow, { opacity: out ? 0.5 : 1 }]}>
-            <View style={[s.card, { borderColor: out ? Colors.cardBorder : st.border }]}>
+            <View key={r.key} style={[S.cardShadow, { opacity: out ? 0.5 : 1 }, compact && { width: cardW }]}>
+            <View style={[S.card, { borderColor: out ? Colors.cardBorder : st.border }]}>
               <LinearGradient colors={[(out ? Colors.textMuted : sev === 'ok' ? Colors.primary : st.fg!) + '14', Colors.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-              <LinearGradient colors={['rgba(255,255,255,0.05)', 'rgba(255,255,255,0)']} style={s.sheen} pointerEvents="none" />
-              <View style={s.cardTop}>
+              <LinearGradient colors={['rgba(255,255,255,0.05)', 'rgba(255,255,255,0)']} style={S.sheen} pointerEvents="none" />
+              <View style={S.cardTop}>
                 {/* Bocka i/ur: ibockad = sparas. Urbockat kort dimmas. */}
-                <TouchableOpacity onPress={() => p.onToggleSkip(r.key)} hitSlop={10} style={[s.check, !out && s.checkOn]}
+                <TouchableOpacity onPress={() => p.onToggleSkip(r.key)} hitSlop={10} style={[S.check, !out && S.checkOn]}
                   accessibilityRole="checkbox" accessibilityState={{ checked: !out }} accessibilityLabel={out ? 'Not imported. Tap to import this flight.' : 'Imported. Tap to leave this flight out.'}>
-                  {!out && <Ionicons name="checkmark" size={15} color="#0A1628" />}
+                  {!out && <Ionicons name="checkmark" size={compact ? 11 : 15} color="#0A1628" />}
                 </TouchableOpacity>
-                <Text style={s.cardDate}>{fmtDate(d.date)}</Text>
-                <Text style={s.cardWhere}>{pageOf(r)} · row {r.rowIndex}</Text>
+                <Text style={S.cardDate}>{fmtDate(d.date)}</Text>
+                {!compact && <Text style={S.cardWhere}>{pageOf(r)} · row {r.rowIndex}</Text>}
                 <View style={{ flex: 1 }} />
                 {!out && its.length > 0 && (
-                  <TouchableOpacity onPress={() => p.onInspect(r.key)} style={[s.pencil, { borderColor: st.border, backgroundColor: st.box }]}
+                  <TouchableOpacity onPress={() => p.onInspect(r.key)} style={[S.pencil, { borderColor: st.border, backgroundColor: st.box }]}
                     accessibilityRole="button" accessibilityLabel={sev === 'wrong' ? 'Probably misread. Check it in your spread.' : 'Something to check. See it in your spread.'}>
-                    <Ionicons name="eye-outline" size={16} color={st.fg} />
+                    <Ionicons name="eye-outline" size={compact ? 12 : 16} color={st.fg} />
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity onPress={() => p.onEdit(r.key)} style={s.pencil} accessibilityRole="button" accessibilityLabel="Edit flight">
-                  <Ionicons name="pencil" size={15} color={Colors.primary} />
+                <TouchableOpacity onPress={() => p.onEdit(r.key)} style={S.pencil} accessibilityRole="button" accessibilityLabel="Edit flight">
+                  <Ionicons name="pencil" size={compact ? 11 : 15} color={Colors.primary} />
                 </TouchableOpacity>
               </View>
-              <View style={s.cardMid}>
+              <View style={S.cardMid}>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={s.route} numberOfLines={1}>{dep || '—'} <Text style={s.arrow}>→</Text> {arr || '—'}</Text>
-                  <Text style={s.small} numberOfLines={1}>{[names[dep] || dep, names[arr] || arr].filter(Boolean).join(' → ')}</Text>
+                  <Text style={S.route} numberOfLines={1}>{dep || '—'} <Text style={S.arrow}>→</Text> {arr || '—'}</Text>
+                  <Text style={S.small} numberOfLines={1}>{compact ? `${pageOf(r)} · row ${r.rowIndex}` : [names[dep] || dep, names[arr] || arr].filter(Boolean).join(' → ')}</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={[s.time, timeHot && !!st.fg && { color: st.fg }]}>{d.flight_type === 'sim' ? fmt(num(d.sim) || num(d.total_time)) : fmt(num(d.total_time))}</Text>
-                  <Text style={s.monoSmall}>{d.flight_type === 'sim' ? 'SIMULATOR' : 'FLIGHT TIME'}</Text>
+                  <Text style={[S.time, timeHot && !!st.fg && { color: st.fg }]}>{d.flight_type === 'sim' ? fmt(num(d.sim) || num(d.total_time)) : fmt(num(d.total_time))}</Text>
+                  <Text style={S.monoSmall}>{d.flight_type === 'sim' ? 'SIMULATOR' : 'FLIGHT TIME'}</Text>
                 </View>
               </View>
-              <View style={[s.cells, { borderTopColor: sev === 'ok' ? Colors.cardBorder : st.border.replace(/[\d.]+\)$/, '0.3)') }]}>
+              <View style={[S.cells, { borderTopColor: sev === 'ok' ? Colors.cardBorder : st.border.replace(/[\d.]+\)$/, '0.3)') }]}>
                 {CARD_CELLS.map((c, i) => {
                   const h = hotColor(c.fields);
                   const v = c.label === 'ROLE' ? roleOf(d) : c.label === 'AIRCRAFT' ? (d.registration || d.aircraft_type || '—')
                     : c.label === 'RULES' ? rulesOf(d) : c.label === 'DEP' ? (d.dep_utc ? `${d.dep_utc}z` : '—') : (d.arr_utc ? `${d.arr_utc}z` : '—');
                   return (
-                    <View key={c.label} style={[s.cell, i > 0 && { borderLeftWidth: 1, borderLeftColor: Colors.cardBorder }, h && { backgroundColor: h.tint }]}>
-                      <Text style={s.monoSmall}>{c.label}</Text>
-                      <Text style={[s.cellValue, !!h?.fg && { color: h.fg }]} numberOfLines={1}>{String(v)}</Text>
+                    <View key={c.label} style={[S.cell, i > 0 && { borderLeftWidth: 1, borderLeftColor: Colors.cardBorder }, h && { backgroundColor: h.tint }]}>
+                      <Text style={S.monoSmall} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{c.label}</Text>
+                      <Text style={[S.cellValue, !!h?.fg && { color: h.fg }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{String(v)}</Text>
                     </View>
                   );
                 })}
               </View>
 
               {dup && (
-                <View style={s.outBox}>
-                  <Text style={[s.small, { flex: 1 }]}>Already in your logbook · tick it to save it again</Text>
+                <View style={S.outBox}>
+                  <Text style={[S.small, { flex: 1 }]}>{compact ? 'Already in your logbook' : 'Already in your logbook · tick it to save it again'}</Text>
                 </View>
               )}
               {!dup && clash && (
-                <View style={[s.issue, { backgroundColor: STATUS.check.box }]}>
-                  <Text style={s.issueText}>Overlaps a flight already in your logbook. Which do you keep?</Text>
-                  <View style={s.chips}>
+                <View style={[S.issue, { backgroundColor: STATUS.check.box }]}>
+                  <Text style={S.issueText}>Overlaps a flight already in your logbook. Which do you keep?</Text>
+                  <View style={S.chips}>
                     {(['both', 'new', 'logbook'] as ClashChoice[]).map((c) => (
-                      <TouchableOpacity key={c} onPress={() => p.onClash(r.key, c)} style={[s.chip, p.clashChoice(r.key) === c && s.chipOn]}>
-                        <Text style={s.chipText}>{c === 'both' ? 'Keep both' : c === 'new' ? 'Keep scanned' : 'Keep logbook'}</Text>
+                      <TouchableOpacity key={c} onPress={() => p.onClash(r.key, c)} style={[S.chip, p.clashChoice(r.key) === c && S.chipOn]}>
+                        <Text style={S.chipText}>{c === 'both' ? 'Keep both' : c === 'new' ? 'Keep scanned' : 'Keep logbook'}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -401,20 +415,24 @@ export function ScanReportSimple(p: {
 
             </View>
             </View>
-            </Fragment>
           );
         })}
+            </View>
+          </Fragment>
+        ))}
 
-        {/* Spara */}
-        <View style={{ gap: 8, paddingTop: 6 }}>
-          <TouchableOpacity style={[s.save, (p.saving || saved.length === 0) && { opacity: 0.6 }]} onPress={p.onSave} disabled={p.saving || saved.length === 0} accessibilityRole="button">
-            {p.saving ? <ActivityIndicator color="#0A1628" /> : <Text style={s.saveText}>Save {saved.length} {saved.length === 1 ? 'flight' : 'flights'}</Text>}
-          </TouchableOpacity>
-          <Text style={s.saveNote}>
-            {open > 0 ? 'Nothing is saved until you tap Save. Values you haven’t checked are saved as Claude read them.' : 'Nothing is saved until you tap Save.'}
-          </Text>
-        </View>
+        {/* Spara: knappen flyter längst ner (glas, som Log flight på dashboarden). */}
+        <Text style={s.saveNote}>
+          {open > 0 ? 'Nothing is saved until you tap Save. Values you haven’t checked are saved as Claude read them.' : 'Nothing is saved until you tap Save.'}
+        </Text>
       </ScrollView>
+      <View pointerEvents="box-none" style={[s.saveDock, { bottom: p.insets.bottom + 10 }]}>
+        <TouchableOpacity style={[s.save, (p.saving || saved.length === 0) && { opacity: 0.6 }]} onPress={p.onSave} disabled={p.saving || saved.length === 0}
+          activeOpacity={0.9} accessibilityRole="button">
+          <GlassFill radius={27} />
+          {p.saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.saveText}>Save {saved.length} {saved.length === 1 ? 'flight' : 'flights'}</Text>}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -434,6 +452,8 @@ const initialsOf = (name: string) => {
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
+
+const GRID_GAP = 8;
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
@@ -495,7 +515,43 @@ const s = StyleSheet.create({
   chipText: { color: '#FFFFFF', fontSize: 13.5, fontWeight: '600' },
   chipLink: { minHeight: 36, paddingHorizontal: 6, justifyContent: 'center' },
   outBox: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 10, marginBottom: 10, padding: 10, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.04)' },
-  save: { minHeight: 54, borderRadius: 27, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
-  saveText: { color: '#0A1628', fontSize: 16, fontWeight: '700' },
-  saveNote: { textAlign: 'center', color: Colors.textSecondary, fontSize: 12.5 },
+  list: { gap: 14 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP },
+  // Flytande glasknapp som Log flight på dashboarden (GlassFill, ingen egen bakgrund).
+  saveDock: { position: 'absolute', left: 16, right: 16 },
+  save: {
+    minHeight: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 14, shadowOffset: { width: 0, height: 6 },
+  },
+  saveText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
+  saveNote: { textAlign: 'center', color: Colors.textSecondary, fontSize: 12.5, paddingTop: 6 },
 });
+
+// Samma kort i mindre storlek (två i bredd): bara mått och textstorlekar ändras.
+const CS = {
+  ...s,
+  ...StyleSheet.create({
+    cardShadow: { borderRadius: 14, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 3 },
+    card: { borderRadius: 14, backgroundColor: Colors.surface, borderWidth: 1, overflow: 'hidden' },
+    sheen: { position: 'absolute', left: 0, right: 0, top: 0, height: 18 },
+    cardTop: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingTop: 7, paddingLeft: 8, paddingRight: 6 },
+    check: { width: 18, height: 18, borderRadius: 5, borderWidth: 1.5, borderColor: Colors.textSecondary, alignItems: 'center', justifyContent: 'center' },
+    cardDate: { fontFamily: FONT_MONO, fontSize: 9, fontWeight: '600', letterSpacing: 0.3, color: '#FFFFFF' },
+    cardWhere: { fontFamily: FONT_MONO, fontSize: 9, color: Colors.textSecondary },
+    pencil: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: 'rgba(255,255,255,0.04)', alignItems: 'center', justifyContent: 'center' },
+    cardMid: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingHorizontal: 9, paddingTop: 2, paddingBottom: 7 },
+    route: { fontFamily: FONT_SERIF, fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
+    arrow: { color: Colors.primary, fontSize: 11.5 },
+    time: { fontFamily: FONT_MONO, fontSize: 12.5, fontWeight: '600', color: '#FFFFFF' },
+    small: { color: Colors.textSecondary, fontSize: 9.5 },
+    monoSmall: { fontFamily: FONT_MONO, fontSize: 6.5, fontWeight: '700', letterSpacing: 0.4, color: Colors.textSecondary },
+    cell: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: 5, paddingHorizontal: 1 },
+    cellValue: { fontFamily: FONT_MONO, fontSize: 8.5, fontWeight: '600', color: '#FFFFFF' },
+    outBox: { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: 6, marginBottom: 6, padding: 7, borderRadius: 9, backgroundColor: 'rgba(255,255,255,0.04)' },
+    issue: { marginHorizontal: 6, marginBottom: 6, padding: 8, borderRadius: 10, gap: 6 },
+    issueText: { color: '#FFFFFF', fontSize: 10.5, lineHeight: 14 },
+    chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, alignItems: 'center' },
+    chip: { minHeight: 28, paddingHorizontal: 8, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center' },
+    chipText: { color: '#FFFFFF', fontSize: 10.5, fontWeight: '600' },
+  }),
+};

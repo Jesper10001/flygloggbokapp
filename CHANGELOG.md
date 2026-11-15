@@ -10,6 +10,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
+- Improved: Scan reports with three or more spreads show two flights side by side, and Save stays in view at the bottom of the screen.
 - Improved: Checking a scan shows which spread you're on, and a Stay button lets you double-check your corrections before going back.
 - New: Scanning learns how you write your numbers. When you keep correcting the same digit, like 5s read as 6s, Blades fixes it where your totals confirm, marks the rest for you to check, and lets you undo it.
 - Improved: Scanning settles day and night landings itself when the readings disagree, and only asks when it can't tell.
@@ -33,6 +34,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Scan report (ScanReportSimple): från tre uppslag två flight cards i bredd (samma kort, mindre mått via CS-stilarna; "p. 42 · row 3" flyttad till raden under rutten); "Save xx flights" flyter längst ner som glasknapp (GlassFill, som Log flight).
 - Skanningens helskärm (LogbookCrossRef): "By column"-knappen (TranscribeOverlay) borttagen, ersatt med texten "Spread 6 of 10 · p. 42–43"; rutan "Nothing left to check" har "Stay" bredvid "Go back".
 - Skanningen: handstilsprofil per loggbok (services/scanHandwriting.ts, setting scan_handwriting[:formatId]). Rättningar av Claudes egen läsning (en per cell, högst två siffror bytta) räknas per förväxling; gäller efter 3 rättningar och om motsatt håll är högst hälften så vanligt. Rättar bara där blocktiden eller sidans summa bekräftar och just den varianten ensam får det att gå ihop; annars gul cell med förslag (bara där raden/kolumnen inte går ihop, högst 3 per kolumn). Celler användaren rört och celler med frågor rörs aldrig. Undo i rapporten och i notisen nollar förväxlingen. Claude får förväxlingen som en uppmaning att flagga, aldrig att läsa om. Test: scripts/test-scan-handwriting.cjs.
 - Skanningen: när Claude och Apple Vision läser landningar olika avgör appen själv (services/scanLandings.ts): sidans summor, nattid (nattlandning kräver nattid, helt mörker = natt), Visions läge när rutnätet bevisat stämmer, och till sist en andra titt där Claude läser cellutsnitten (services/scanSecondLook.ts, några coins). Bara oavgjorda blir frågor, med båda läsningarna som val; dag/natt-svaret tömmer grannkolumnen. Test: scripts/test-scan-landings.cjs.

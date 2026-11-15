@@ -2,6 +2,14 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 152,
+      "date": "2026-11-15",
+      "notes": [
+        "Improved: Scan reports with three or more spreads show two flights side by side, so a big scan is quicker to look through.",
+        "Improved: Save stays in view at the bottom of the scan report."
+      ]
+    },
+    {
       "id": 151,
       "date": "2026-11-15",
       "notes": [
