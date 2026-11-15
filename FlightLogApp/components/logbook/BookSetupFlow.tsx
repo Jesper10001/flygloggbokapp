@@ -55,7 +55,8 @@ import { SpreadWebView } from './SpreadWebView';
 import type { Flight } from '../../types/flight';
 
 type Variant = 'first' | 'another' | 'edit';
-type Step = 'intro' | 'same' | 'layout' | 'started' | 'latest' | 'earlier' | 'totals' | 'ready';
+// 'intro' ("Before you start") borttagen 2026-11-15: guiden börjar direkt på första steget.
+type Step = 'same' | 'layout' | 'started' | 'latest' | 'earlier' | 'totals' | 'ready';
 type Sheet = 'preview' | 'flights' | 'backfill' | null;
 
 // Läget när man lämnar flödet (Imported data, egen loggbok); återställs när det öppnas igen.
@@ -178,7 +179,7 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, books: booksProp
   }, [variant, edit, existing, realSlices, bookFlights]);
   const anchored0 = variant === 'edit' && origin.ari !== null;   // boken har redan en flygning med sida + rad
 
-  const [step, setStep] = useState<Step>(init?.step ?? (variant === 'first' ? 'intro' : variant === 'another' ? (pickLayout ? 'same' : 'started') : 'ready'));
+  const [step, setStep] = useState<Step>(init?.step ?? (variant === 'first' ? (pickLayout ? 'layout' : 'latest') : variant === 'another' ? (pickLayout ? 'same' : 'started') : 'ready'));
   const [name, setName] = useState(init?.name ?? edit?.name ?? '');
   const [same, setSame] = useState<boolean | null>(init?.same ?? (autoSame ? true : null));   // en bok till: ser ut som den förra
   const [started, setStarted] = useState<boolean | null>(init ? init.started : variant === 'another' && origin.waiting > 0 ? true : null);  // en bok till: det står flygningar i den
@@ -295,15 +296,13 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, books: booksProp
   const go = (s: Step) => { setSheet(null); setStep(s); };
   const next = () => {
     if (variant === 'edit') return go('ready');
-    if (step === 'intro') return go(steps[0]);
     if (stepIdx >= 0 && stepIdx < steps.length - 1) go(steps[stepIdx + 1]);
   };
   const prev = () => {
     if (variant === 'edit') return go('ready');
     if (stepIdx > 0) return go(steps[stepIdx - 1]);
-    if (variant === 'first' && stepIdx === 0) go('intro');
   };
-  const canBack = variant === 'edit' ? step !== 'ready' : variant === 'first' ? step !== 'intro' : stepIdx > 0;
+  const canBack = variant === 'edit' ? step !== 'ready' : stepIdx > 0;
 
   // ── Böckerna som de blir (förhandsvisningen, fördelningen och den ingående balansen räknas på dem) ──
   // Ankaret som sparas. Ändra: en bok utan sida + rad behåller sitt ankare tills man själv ändrar läget.
@@ -624,7 +623,6 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, books: booksProp
   let cta = { label: 'Continue', onPress: next, disabled: false };
   let cta2: { label: string; onPress: () => void } | null = null;
   let footNote = '';
-  if (step === 'intro') cta = { ...cta, label: 'Start' };
   if (variant === 'edit') cta = { ...cta, label: 'Done' };
   if (step === 'same' && same === null) cta = { ...cta, label: 'Choose one', disabled: true };
   if (step === 'started' && started === null) cta = { ...cta, label: 'Choose one', disabled: true };
@@ -642,7 +640,7 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, books: booksProp
   }
 
   const TITLES: Record<Step, string> = {
-    intro: '', same: 'Same or different', layout: 'Which logbook', started: 'Flights in it',
+    same: 'Same or different', layout: 'Which logbook', started: 'Flights in it',
     latest: variant === 'edit' ? 'Page and row' : 'Latest flight', earlier: 'Older flights', totals: 'Totals', ready: 'Check and create',
   };
   // Raderna i sammanfattningen (ny bok) och översikten (ändra): en per inställning, med Change.
@@ -720,37 +718,6 @@ export function BookSetupFlow({ flights, timeFormat, pilotName, books: booksProp
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={s.body} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets showsVerticalScrollIndicator={false}>
-        {/* ═══ Före start ═══ */}
-        {step === 'intro' && (
-          <View style={{ gap: 22 }}>
-            <View style={s.introIcon}><Ionicons name="book-outline" size={30} color={Colors.primary} /></View>
-            <View style={{ gap: 10 }}>
-              <Text style={s.h1Big}>Let’s set up your digital logbook</Text>
-              <Text style={s.lead}>Blades lays out your flights page by page, exactly like your paper logbook, and works out every total for you.</Text>
-            </View>
-            <View style={s.noteCard}>
-              <View style={s.noteIcon}><Ionicons name="book" size={17} color={Colors.warning} /></View>
-              <Text style={s.noteText}>Have your paper logbook ready, open at your latest flight. It takes about a minute.</Text>
-            </View>
-            <View>
-              <Text style={s.eyebrow}>WHAT YOU’LL DO</Text>
-              {[
-                ...(pickLayout ? [['Pick the logbook you have', 'So every page has the same columns as your paper book.']] : []),
-                ['Show where your latest flight is', 'Page and row, so the pages line up.'],
-                ['Check that the totals match', 'Blades helps you fix anything that’s off.'],
-              ].map(([t, b], i) => (
-                <View key={t} style={s.introStep}>
-                  <View style={s.introNum}><Text style={s.introNumText}>{i + 1}</Text></View>
-                  <View style={{ flex: 1, gap: 2, paddingTop: 2 }}>
-                    <Text style={s.introStepTitle}>{t}</Text>
-                    <Text style={s.introStepBody}>{b}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
         {/* ═══ En bok till · Ser den ut som den förra ═══ */}
         {step === 'same' && prevBook && prevTpl && (
           <View style={{ gap: 18 }}>
@@ -1495,15 +1462,9 @@ const s = StyleSheet.create({
   deleteBtnOn: { borderColor: Colors.danger + '80', backgroundColor: Colors.danger + '1A' },
   deleteText: { fontSize: 14.5, fontWeight: '700', color: Colors.danger },
 
-  introIcon: { width: 64, height: 64, borderRadius: 18, backgroundColor: Colors.primary + '1A', borderWidth: 1, borderColor: Colors.primary + '4D', alignItems: 'center', justifyContent: 'center' },
   noteCard: { flexDirection: 'row', gap: 12, alignItems: 'center', padding: 14, borderRadius: 14, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.cardBorder },
   noteIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.warning + '1F', borderWidth: 1, borderColor: Colors.warning + '59', alignItems: 'center', justifyContent: 'center' },
   noteText: { flex: 1, fontSize: 14, lineHeight: 20, color: '#C9DBEC' },
-  introStep: { flexDirection: 'row', gap: 14, alignItems: 'flex-start', paddingVertical: 10, paddingHorizontal: 2 },
-  introNum: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: '#1F4468', alignItems: 'center', justifyContent: 'center' },
-  introNumText: { fontFamily: MONO, fontSize: 12, fontWeight: '700', color: Colors.primary },
-  introStepTitle: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
-  introStepBody: { fontSize: 13, lineHeight: 18, color: '#8FB0CC' },
 
   choice: { flexDirection: 'row', alignItems: 'stretch', borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card },
   choiceOn: { borderColor: Colors.primary, backgroundColor: Colors.primary + '14' },
