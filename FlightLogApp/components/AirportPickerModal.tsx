@@ -9,6 +9,10 @@ import { Colors } from '../constants/colors';
 import { searchAirports, getAirportByIcao } from '../db/icao';
 import { fetchDecodedWx, type DecodedWx } from '../services/weather';
 import { WeatherPage } from './weather/WeatherPage';
+import type { WxTz } from '../services/wxPage';
+import { getSetting, setSetting } from '../db/flights';
+
+const TZ_KEY = 'wx_time_zone';
 import type { IcaoAirport } from '../types/flight';
 
 const isIcao = (s?: string) => /^[A-Z]{4}$/.test((s ?? '').toUpperCase());
@@ -28,6 +32,10 @@ export function AirportPickerModal({ visible, onClose, initialIcao }: {
   const [wx, setWx] = useState<DecodedWx | null>(null);
   const [wxLoading, setWxLoading] = useState(false);
   const [view, setView] = useState<'decoded' | 'raw'>('decoded');
+  // UTC/LOCAL för alla tider på vädersidan, sparas i settings.
+  const [tz, setTz] = useState<WxTz>('utc');
+  useEffect(() => { getSetting(TZ_KEY).then((v) => { if (v === 'local' || v === 'utc') setTz(v); }).catch(() => {}); }, []);
+  const pickTz = (v: WxTz) => { setTz(v); setSetting(TZ_KEY, v).catch(() => {}); };
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectAirport = async (icao: string, name?: string) => {
@@ -95,14 +103,25 @@ export function AirportPickerModal({ visible, onClose, initialIcao }: {
 
         <View style={{ flex: 1 }}>
         {/* Tolkad vädersida ↔ rå METAR/TAF. */}
+        {/* DECODED/RAW till vänster, UTC/LOCAL till höger, i samma storlek. */}
         {selected && wx && !wxLoading ? (
-          <View style={styles.viewSeg}>
-            {(['decoded', 'raw'] as const).map((m) => (
-              <TouchableOpacity key={m} activeOpacity={0.8} onPress={() => setView(m)} accessibilityRole="button" accessibilityState={{ selected: view === m }}
-                style={[styles.viewBtn, view === m && { backgroundColor: Colors.primary }]}>
-                <Text style={[styles.viewTxt, { color: view === m ? Colors.card : Colors.textSecondary }]}>{m === 'decoded' ? 'DECODED' : 'RAW'}</Text>
-              </TouchableOpacity>
-            ))}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={styles.viewSeg}>
+              {(['decoded', 'raw'] as const).map((m) => (
+                <TouchableOpacity key={m} activeOpacity={0.8} onPress={() => setView(m)} accessibilityRole="button" accessibilityState={{ selected: view === m }}
+                  style={[styles.viewBtn, view === m && { backgroundColor: Colors.primary }]}>
+                  <Text style={[styles.viewTxt, { color: view === m ? Colors.card : Colors.textSecondary }]}>{m === 'decoded' ? 'DECODED' : 'RAW'}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.viewSeg}>
+              {(['utc', 'local'] as const).map((v) => (
+                <TouchableOpacity key={v} activeOpacity={0.8} onPress={() => pickTz(v)} accessibilityRole="button" accessibilityState={{ selected: tz === v }}
+                  style={[styles.viewBtn, tz === v && { backgroundColor: Colors.primary }]}>
+                  <Text style={[styles.viewTxt, { color: tz === v ? Colors.card : Colors.textSecondary }]}>{v === 'utc' ? 'UTC' : 'LOCAL'}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         ) : null}
 
@@ -111,7 +130,7 @@ export function AirportPickerModal({ visible, onClose, initialIcao }: {
             {wxLoading ? (
               <View style={styles.empty}><ActivityIndicator color={Colors.primary} /></View>
             ) : wx ? (
-              <WeatherPage wx={wx} fallbackName={selectedName} view={view} />
+              <WeatherPage wx={wx} fallbackName={selectedName} view={view} tz={tz} />
             ) : (
               <>
                 <Text style={styles.airport}>{selected}{selectedName ? ` · ${selectedName}` : ''}</Text>

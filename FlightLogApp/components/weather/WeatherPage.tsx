@@ -9,22 +9,18 @@ import { Colors } from '../../constants/colors';
 import { categoryColor, type DecodedWx, type FlightCat } from '../../services/weather';
 import { buildWxPage, fmtTime, runwayWinds, type WxSeg, type WxTz } from '../../services/wxPage';
 import { getRunwayGeo, runwayBearing } from '../../constants/runwayGeo';
-import { getSetting, setSetting } from '../../db/flights';
 import { WxRunwayMap } from './WxRunwayMap';
 
 const MONO = 'JetBrainsMono';
-const TZ_KEY = 'wx_time_zone';
 const catColor = (c: FlightCat | null) => (c ? categoryColor(c) : Colors.textSecondary);
 
-export function WeatherPage({ wx, fallbackName, view = 'decoded' }: { wx: DecodedWx; fallbackName?: string; view?: 'decoded' | 'raw' }) {
-  const [tz, setTz] = useState<WxTz>('utc');
+// tz (UTC/LOCAL) väljs med växeln uppe till höger i AirportPickerModal.
+export function WeatherPage({ wx, fallbackName, view = 'decoded', tz = 'utc' }: { wx: DecodedWx; fallbackName?: string; view?: 'decoded' | 'raw'; tz?: WxTz }) {
   const [sel, setSel] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(Date.now());
 
 
-  useEffect(() => { getSetting(TZ_KEY).then((v) => { if (v === 'local' || v === 'utc') setTz(v); }).catch(() => {}); }, []);
   useEffect(() => { const t = setInterval(() => setNowMs(Date.now()), 60000); return () => clearInterval(t); }, []);
-  const pickTz = (v: WxTz) => { setTz(v); setSetting(TZ_KEY, v).catch(() => {}); };
 
   const page = useMemo(() => buildWxPage(wx.metarObj, wx.tafObj, tz, nowMs), [wx, tz, nowMs]);
   const station = wx.metarStation ?? wx.tafStation ?? wx.destIcao;
@@ -167,15 +163,6 @@ export function WeatherPage({ wx, fallbackName, view = 'decoded' }: { wx: Decode
         <View style={st.secHead}>
           <Text style={st.sec}>{tl ? `NEXT ${Math.round((tl.end - tl.start) / 3600)} HOURS` : 'FORECAST'}</Text>
           {page.tafIssued ? <Text style={st.secSub}>TAF {page.tafIssued}</Text> : null}
-          <View style={{ flex: 1 }} />
-          <View style={st.seg}>
-            {(['utc', 'local'] as const).map((v) => (
-              <TouchableOpacity key={v} onPress={() => pickTz(v)} activeOpacity={0.8} accessibilityRole="button"
-                accessibilityState={{ selected: tz === v }} style={[st.segBtn, tz === v && { backgroundColor: Colors.primary }]}>
-                <Text style={[st.segTxt, { color: tz === v ? Colors.card : Colors.textSecondary }]}>{v === 'utc' ? 'UTC' : 'LOCAL'}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
         </View>
         {tl ? (
           <View style={[st.card, { padding: 14, paddingBottom: 12, gap: 8 }]}>
@@ -295,9 +282,6 @@ const st = StyleSheet.create({
   tileVal: { fontFamily: MONO, fontSize: 17, fontWeight: '800', color: Colors.textPrimary },
   tileUnit: { fontSize: 9.5, fontWeight: '700', color: Colors.textSecondary },
   tileNote: { fontSize: 10.5, lineHeight: 13, color: Colors.textSecondary, textAlign: 'center' },
-  seg: { flexDirection: 'row', borderWidth: 1, borderColor: Colors.border, borderRadius: 8, overflow: 'hidden' },
-  segBtn: { paddingHorizontal: 10, paddingVertical: 5 },
-  segTxt: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 0.4 },
   bar: { flex: 1, justifyContent: 'center', paddingLeft: 7, borderRadius: 8, borderColor: Colors.textPrimary, overflow: 'hidden' },
   barTxt: { fontFamily: MONO, fontSize: 10, fontWeight: '800', color: Colors.background },
   tempBar: { flex: 1, justifyContent: 'center', paddingLeft: 7, borderRadius: 6, overflow: 'hidden' },

@@ -41,6 +41,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Vädersidan, omgång 7: UTC/LOCAL-växeln flyttad upp till höger på samma rad och i samma storlek som DECODED/RAW (tillståndet ligger nu i `AirportPickerModal`, skickas som `tz` till `WeatherPage`). Post 160 i uppdateringsnotisen sammanfattar 154–159 inför den riktiga appen.
 - Vädersidan, omgång 6: sökträffarna visas som en rullista ovanpå vädersidan (absolut placerad under sökfältet, mörk slöja bakom; tryck utanför stänger) i stället för att ersätta sidan. DECODED/RAW-växeln syns även under sökningen. Helikopterbanor (ident som slutar på H, t.ex. LFPG 08H/26H) ritas inte och räknas inte i banvinden.
 - Vädersidan, omgång 5: kategorin just nu som etikett till höger om ICAO-koden (rutan "Now" borttagen); kommande förändringar som halvbreda rutor under stationen, aldrig en ruta över hela raden.
 - Vädersidan, omgång 4 (efter test på telefon):
