@@ -29,6 +29,9 @@ export type DecodedWx = {
   metarObsMs: number | null;
   cells: WxCells | null;        // null utan METAR
   tafNext: TafNext | null;      // null utan TAF
+  // Råa API-objekten (aviationweather.gov JSON) för vädersidan, som bygger tidslinjen själv (services/wxPage.ts).
+  metarObj?: any;
+  tafObj?: any;
 };
 
 // Ett värde på väderkortet: stora siffran och enheten under.
@@ -41,13 +44,13 @@ const METAR_URL = 'https://aviationweather.gov/api/data/metar';
 const TAF_URL = 'https://aviationweather.gov/api/data/taf';
 
 // ── Små hjälpare ────────────────────────────────────────────────────────────
-function num(v: any): number { const n = typeof v === 'number' ? v : parseFloat(String(v)); return Number.isFinite(n) ? n : NaN; }
-function pad2(n: number): string { return String(n).padStart(2, '0'); }
+export function num(v: any): number { const n = typeof v === 'number' ? v : parseFloat(String(v)); return Number.isFinite(n) ? n : NaN; }
+export function pad2(n: number): string { return String(n).padStart(2, '0'); }
 function zulu(epochSec: number): string { const d = new Date(epochSec * 1000); return `${pad2(d.getUTCHours())}${pad2(d.getUTCMinutes())}Z`; }
 // Som zulu men med UTC-dag i parentes → "1800Z (18)", så TAF-perioder visar vilket dygn de gäller.
 function zuluDay(epochSec: number): string { const d = new Date(epochSec * 1000); return `${pad2(d.getUTCHours())}${pad2(d.getUTCMinutes())}Z (${pad2(d.getUTCDate())})`; }
 
-function parseVis(v: any): number | null {
+export function parseVis(v: any): number | null {
   if (typeof v === 'number') return v;
   if (typeof v === 'string') {
     const s = v.replace('+', '').trim();
@@ -59,7 +62,7 @@ function parseVis(v: any): number | null {
 }
 
 // ── Avkodare (METAR/TAF-fält → prosa) ────────────────────────────────────────
-function windProse(wdir: any, wspd: any, wgst: any): string {
+export function windProse(wdir: any, wspd: any, wgst: any): string {
   const spd = num(wspd);
   if (!spd || spd <= 0) return 'wind calm';
   const dir = wdir === 'VRB' || wdir == null || wdir === '' ? 'variable' : `from ${String(wdir).padStart(3, '0')}°`;
@@ -68,7 +71,7 @@ function windProse(wdir: any, wspd: any, wgst: any): string {
   return `wind ${dir} at ${spd} kt${gust}`;
 }
 
-function visProse(v: any): string {
+export function visProse(v: any): string {
   const sm = parseVis(v); // API:t rapporterar sikt i statute miles
   if (sm == null) return '';
   const km = sm * 1.609344;
@@ -113,7 +116,7 @@ function decodeWxToken(tok: string): string {
   return vicinity ? `${core} in the vicinity` : core;
 }
 
-function wxProse(wxString: any): string {
+export function wxProse(wxString: any): string {
   if (!wxString || typeof wxString !== 'string') return '';
   return wxString.trim().split(/\s+/).map(decodeWxToken).filter(Boolean).join(', ');
 }
@@ -122,7 +125,7 @@ const CLOUD_COVER: Record<string, string> = {
   FEW: 'few clouds', SCT: 'scattered clouds', BKN: 'broken clouds', OVC: 'overcast',
   CLR: 'sky clear', SKC: 'sky clear', NSC: 'no significant cloud', NCD: 'no cloud detected',
 };
-function cloudsProse(clouds: any): string {
+export function cloudsProse(clouds: any): string {
   if (!Array.isArray(clouds) || !clouds.length) return 'sky clear';
   return clouds.map((c) => {
     const label = CLOUD_COVER[c?.cover] ?? c?.cover ?? '';
@@ -145,7 +148,7 @@ function altProse(altim: any): string {
 }
 
 // Flygväderkategori ur takhöjd (lägsta BKN/OVC-bas) + sikt.
-function categoryOf(clouds: any, visib: any): FlightCat | null {
+export function categoryOf(clouds: any, visib: any): FlightCat | null {
   const vis = parseVis(visib);
   let ceil = Infinity;
   if (Array.isArray(clouds)) for (const c of clouds) {
@@ -205,7 +208,7 @@ function tafPeriodPrefix(f: any, isFirst: boolean): string {
     default: return isFirst ? `${from}–${to}: ` : `from ${from}: `;
   }
 }
-function tafPeriodProse(f: any): string {
+export function tafPeriodProse(f: any): string {
   return [
     f.wdir != null || f.wspd != null ? windProse(f.wdir, f.wspd, f.wgst) : '',
     f.visib != null ? visProse(f.visib) : '',
@@ -225,11 +228,11 @@ function tafProse(t: any): string {
 // ── Väderkortet på dashboarden: fyra korta värden + nästa förändring i TAF ────
 const NO_CELL: WxCell = { value: '—', unit: '' };
 // 3500 → "3 500" (hårt mellanslag, så talet aldrig bryts).
-const grouped = (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0');
-const isCavok = (m: any) => typeof m?.rawOb === 'string' && /\bCAVOK\b/.test(m.rawOb);
+export const grouped = (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0');
+export const isCavok = (m: any) => typeof m?.rawOb === 'string' && /\bCAVOK\b/.test(m.rawOb);
 const COVER_WORD: Record<string, string> = { FEW: 'few', SCT: 'scattered', BKN: 'broken', OVC: 'overcast' };
 
-function windCell(m: any): WxCell {
+export function windCell(m: any): WxCell {
   const spd = num(m?.wspd);
   if (m?.wspd == null || !Number.isFinite(spd)) return NO_CELL;
   if (spd <= 0) return { value: 'Calm', unit: '' };
@@ -239,7 +242,7 @@ function windCell(m: any): WxCell {
   return { value: `${dir}/${spd}`, unit: Number.isFinite(g) && g > 0 ? `kt, gusts ${g}` : 'kt' };
 }
 
-function visCell(v: any): WxCell {
+export function visCell(v: any): WxCell {
   const sm = parseVis(v); // API:t rapporterar sikt i statute miles
   if (sm == null) return NO_CELL;
   const km = sm * 1.609344;
@@ -249,7 +252,7 @@ function visCell(v: any): WxCell {
 }
 
 // Lägsta taket (BKN/OVC). Utan tak: null.
-function ceilingOf(clouds: any): { base: number; cover: string } | null {
+export function ceilingOf(clouds: any): { base: number; cover: string } | null {
   let best: { base: number; cover: string } | null = null;
   if (Array.isArray(clouds)) for (const c of clouds) {
     if ((c?.cover === 'BKN' || c?.cover === 'OVC') && typeof c.base === 'number' && (!best || c.base < best.base)) best = { base: c.base, cover: c.cover };
@@ -258,7 +261,7 @@ function ceilingOf(clouds: any): { base: number; cover: string } | null {
 }
 
 // Molnrutan: taket om det finns ett, annars det lägsta lagret.
-function cloudCell(m: any): WxCell {
+export function cloudCell(m: any): WxCell {
   const clouds: any[] = Array.isArray(m?.clouds) ? m.clouds : [];
   const ceil = ceilingOf(clouds);
   if (ceil) return { value: grouped(ceil.base), unit: `ft, ${COVER_WORD[ceil.cover]}` };
@@ -271,7 +274,7 @@ function cloudCell(m: any): WxCell {
   return { value: 'Clear', unit: '' };
 }
 
-function qnhCell(altim: any): WxCell {
+export function qnhCell(altim: any): WxCell {
   const a = num(altim);
   if (!a) return NO_CELL;
   return a > 100 ? { value: String(Math.round(a)), unit: 'hPa' } : { value: a.toFixed(2), unit: 'inHg' };
@@ -457,6 +460,8 @@ async function decodeFromCandidates(candidates: string[], names: Map<string, str
     tafText, tafStatus,
     rawMetar, rawTaf,
     metarObsMs, cells, tafNext,
+    metarObj: metarStation ? metars.get(metarStation) : undefined,
+    tafObj: tafStation ? tafs.get(tafStation) : undefined,
   };
 }
 

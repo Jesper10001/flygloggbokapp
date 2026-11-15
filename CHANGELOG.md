@@ -10,6 +10,9 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
+- New: A redesigned weather page. See the weather at a glance, the wind on each runway on a small airport map, and the forecast as a colour band over the next hours, in UTC or local time.
+- Improved: Projections and Next licence open in full screen smoothly, without the screen jumping as it turns.
+- Fixed: Tapping the weather card shows the station the card is showing, also when your last flight went to an airport without a weather report.
 - Improved: Scanning your logbook leaves out the remarks column, so nothing written there ends up in your flights. Second pilots come only from a name column of their own.
 - New: Set cruise speed and endurance for each model right in the scan report.
 - Improved: Scan reports with three or more spreads show two flights side by side, and Save stays in view at the bottom of the screen.
@@ -36,6 +39,16 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Ny vädersida (design: Claude design "Vädersidan METAR + TAF"), ersätter Decoded/Raw-texten i `AirportPickerModal`:
+  - `services/wxPage.ts` bygger allt ur API-objekten (`metarObj`/`tafObj` sparas nu i `DecodedWx`): en mening om vädret, Now + de två närmaste förändringarna, METAR-rutor, tidslinje (grundprognos med BECMG-övergångar, TEMPO/PROB på egna rader), vind var tredje timme, en rad per TAF-grupp och rå TAF per grupp. Testas av `scripts/test-wx-page.cjs`.
+  - `components/weather/WxRunwayMap.tsx`: mörk kartbild (mutedStandard) i en cirkel, inramad så att alla banor ur `runway-geo.json` precis får plats, banorna tjocka utan nummer, de vinden gynnar i cyan, vindpilen ovanpå.
+  - Mot- och sidvind per bana (`runwayWinds`, parallella banor ihopslagna som "19L/R").
+  - UTC/LOCAL-växel ovanför tidslinjen, sparas i settings (`wx_time_zone`); lokal tid = telefonens.
+- Helskärmen för Projections och Next licence öppnas i tre steg i stället för att tona in och vrida samtidigt (då snurrade Insights synligt bakom):
+  - Routerna börjar `portrait_up` (fade, 220 ms). När toningen är klar (`transitionEnd`, senast 320 ms) byter `FullscreenShell` till liggande med `setOptions({ orientation: 'landscape' })` plus `lockAsync`, så bara den tomma navy-ytan vrids.
+  - Innehållet monteras när rotationen lagt sig (340 ms) och tonas in på 200 ms. Stängning baklänges: tona ut, vrid tillbaka till stående, sedan `router.back()` (senast efter 700 ms), så Insights aldrig syns liggande.
+  - Reservvridningen 90° när telefonen vägrar rotera finns kvar.
+- Vädersidan från väderkortet öppnar samma station som kortet visar (`metarStation`/`tafStation`). Tidigare skickades senaste destinationen med även när den var ZZZZ eller saknade väder, och sidan blev tom.
 - Skanningen tar inte med något ur remarks (scanImport.withoutRemarks + prompten): remarks tom, inga remarks_suggestion/frågor, namn ur remarks (applyPilotNamesFromRemarks) avstängt; second pilot bara om grid/mall har en egen second_pilot-kolumn. Namnkontrollen och "remove" lägger inte längre namnet i remarks. Scan report: Models & registrations visar CRUISE (kt) och ENDURANCE (h) per modell, redigerbara; flottans typer sparas vid Save (updateAircraftCruiseSpeed/Endurance), nya typer som förut.
 - Scan report (ScanReportSimple): från tre uppslag två flight cards i bredd (samma kort, mindre mått via CS-stilarna; "p. 42 · row 3" flyttad till raden under rutten); "Save xx flights" flyter längst ner som glasknapp (GlassFill, som Log flight).
 - Skanningens helskärm (LogbookCrossRef): "By column"-knappen (TranscribeOverlay) borttagen, ersatt med texten "Spread 6 of 10 · p. 42–43"; rutan "Nothing left to check" har "Stay" bredvid "Go back".

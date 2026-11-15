@@ -1118,7 +1118,8 @@ export default function DashboardScreen() {
           <AirportPickerModal
             visible={wxPickerOpen}
             onClose={() => setWxPickerOpen(false)}
-            initialIcao={lastDest || wx?.metarStation || wx?.tafStation || null}
+            // Samma station som väderkortet visar: ZZZZ eller en plats utan väder ger annars en tom vädersida.
+            initialIcao={wx?.metarStation || wx?.tafStation || wxPlace || null}
           />
         </>
       )}

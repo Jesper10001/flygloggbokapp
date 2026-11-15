@@ -1,5 +1,5 @@
-// Väder-visare: sök flygplats (ICAO/IATA/namn) och se dess METAR + TAF direkt under namnet.
-// Växla mellan tolkad prosa och original-rapporten. Öppnas förvald på destinationen. Ändrar INTE
+// Väder-visare: sök flygplats (ICAO/IATA/namn) och se dess METAR + TAF som vädersidan (components/weather/WeatherPage:
+// överblick, banvind, tidslinje, ändringar och rå text). Öppnas förvald på stationen väderkortet visar. Ändrar INTE
 // den rullande tickern på dashboarden (den visar alltid destinationen) — detta är bara en uppslagsvy.
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, ScrollView, StyleSheet, Keyboard, ActivityIndicator } from 'react-native';
@@ -7,11 +7,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
 import { searchAirports, getAirportByIcao } from '../db/icao';
-import { fetchDecodedWx, type DecodedWx, type WxStatus } from '../services/weather';
+import { fetchDecodedWx, type DecodedWx } from '../services/weather';
+import { WeatherPage } from './weather/WeatherPage';
 import type { IcaoAirport } from '../types/flight';
 
 const isIcao = (s?: string) => /^[A-Z]{4}$/.test((s ?? '').toUpperCase());
-const STATUS_COLOR: Record<WxStatus, string> = { fresh: Colors.success, aging: Colors.warning, stale: Colors.danger };
 
 export function AirportPickerModal({ visible, onClose, initialIcao }: {
   visible: boolean;
@@ -26,7 +26,6 @@ export function AirportPickerModal({ visible, onClose, initialIcao }: {
   const [selectedName, setSelectedName] = useState('');
   const [wx, setWx] = useState<DecodedWx | null>(null);
   const [wxLoading, setWxLoading] = useState(false);
-  const [view, setView] = useState<'decoded' | 'raw'>('decoded');
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectAirport = async (icao: string, name?: string) => {
@@ -44,7 +43,7 @@ export function AirportPickerModal({ visible, onClose, initialIcao }: {
   // Vid öppning: nollställ sök och förvälj destinationen (om given).
   useEffect(() => {
     if (!visible) return;
-    setQuery(''); setResults([]); setView('decoded');
+    setQuery(''); setResults([]);
     if (initialIcao && isIcao(initialIcao)) { selectAirport(initialIcao); }
     else { setSelected(null); setSelectedName(''); setWx(null); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -118,41 +117,16 @@ export function AirportPickerModal({ visible, onClose, initialIcao }: {
             }
           />
         ) : selected ? (
-          <ScrollView style={styles.detail} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
-            <Text style={styles.airport}>{selected}{selectedName ? ` · ${selectedName}` : ''}</Text>
-
-            {/* Tolkad ↔ original */}
-            <View style={styles.toggle}>
-              {(['decoded', 'raw'] as const).map((m) => (
-                <TouchableOpacity key={m} activeOpacity={0.8} onPress={() => setView(m)}
-                  style={[styles.toggleBtn, view === m && styles.toggleBtnActive]}>
-                  <Text style={[styles.toggleTxt, view === m && styles.toggleTxtActive]}>{m === 'decoded' ? 'Decoded' : 'Raw'}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
+          <ScrollView style={styles.detail} contentContainerStyle={{ paddingBottom: insets.bottom + 32 }} showsVerticalScrollIndicator={false}>
             {wxLoading ? (
               <View style={styles.empty}><ActivityIndicator color={Colors.primary} /></View>
             ) : wx ? (
-              <>
-                <Text style={[styles.wxLabel, { color: wx.metarStatus ? STATUS_COLOR[wx.metarStatus] : Colors.textMuted }]}>
-                  METAR {wx.metarStation ?? selected}{wx.metarIsAlternate ? `  ·  nearest to ${wx.destIcao}` : ''}
-                </Text>
-                <Text style={[styles.wxBody, view === 'raw' && styles.wxRaw]}>
-                  {view === 'decoded'
-                    ? [wx.metarTimeZ, wx.metarText].filter(Boolean).join(' — ') || 'No data'
-                    : (wx.rawMetar || 'No data')}
-                </Text>
-
-                <Text style={[styles.wxLabel, { marginTop: 16, color: wx.tafStatus ? STATUS_COLOR[wx.tafStatus] : Colors.textMuted }]}>
-                  TAF {wx.tafStation ?? selected}{wx.tafIsAlternate ? `  ·  nearest to ${wx.destIcao}` : ''}
-                </Text>
-                <Text style={[styles.wxBody, view === 'raw' && styles.wxRaw]}>
-                  {view === 'decoded' ? (wx.tafText || 'Not available') : (wx.rawTaf || 'Not available')}
-                </Text>
-              </>
+              <WeatherPage wx={wx} fallbackName={selectedName} />
             ) : (
-              <Text style={styles.emptyTxt}>Weather unavailable</Text>
+              <>
+                <Text style={styles.airport}>{selected}{selectedName ? ` · ${selectedName}` : ''}</Text>
+                <Text style={styles.emptyTxt}>Weather unavailable</Text>
+              </>
             )}
           </ScrollView>
         ) : (
@@ -181,16 +155,6 @@ const styles = StyleSheet.create({
 
   detail: { flex: 1, marginTop: 12 },
   airport: { color: Colors.textPrimary, fontSize: 16, fontWeight: '800', marginBottom: 12 },
-  toggle: { flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: Colors.surface, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, padding: 3, gap: 3, marginBottom: 14 },
-  toggleBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 7 },
-  toggleBtnActive: { backgroundColor: Colors.primary },
-  toggleTxt: { fontSize: 12.5, fontWeight: '700', color: Colors.textSecondary },
-  toggleTxtActive: { color: Colors.textInverse },
-
-  wxLabel: { fontSize: 13, fontWeight: '800', fontFamily: 'ChakraPetch-SemiBold', letterSpacing: 0.3, marginBottom: 5 },
-  wxBody: { fontSize: 14, color: Colors.textPrimary, lineHeight: 21 },
-  wxRaw: { fontFamily: 'JetBrainsMono', fontSize: 12.5, color: Colors.textSecondary, lineHeight: 19 },
-
   empty: { paddingVertical: 28, alignItems: 'center' },
   emptyTxt: { color: Colors.textMuted, fontSize: 13, textAlign: 'center', paddingVertical: 28 },
 });

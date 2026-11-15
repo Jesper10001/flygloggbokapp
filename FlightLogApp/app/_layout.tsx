@@ -347,8 +347,10 @@ export default function RootLayout() {
         <Stack.Screen name="bulk-edit" options={{ headerShown: false }} />
         {/* Genomskinlig: i pilotläget visas inget här, Log flight öppnas direkt över skärmen man var på. */}
         <Stack.Screen name="shared-flight" options={{ headerShown: false, presentation: 'transparentModal', animation: 'fade' }} />
-        <Stack.Screen name="projections-full" options={{ headerShown: false, animation: 'fade', gestureEnabled: false, orientation: 'landscape' }} />
-        <Stack.Screen name="licence-full" options={{ headerShown: false, animation: 'fade', gestureEnabled: false, orientation: 'landscape' }} />
+        {/* Helskärmarna börjar stående och vrids av FullscreenShell när in-toningen är klar (setOptions), så att
+            Insights bakom aldrig roterar under toningen. */}
+        <Stack.Screen name="projections-full" options={{ headerShown: false, animation: 'fade', animationDuration: 220, gestureEnabled: false, orientation: 'portrait_up' }} />
+        <Stack.Screen name="licence-full" options={{ headerShown: false, animation: 'fade', animationDuration: 220, gestureEnabled: false, orientation: 'portrait_up' }} />
         <Stack.Screen name="flight/add" options={{ headerShown: false, presentation: tourPresentation, gestureEnabled: tourGesture }} />
         <Stack.Screen name="flight/review" options={{ title: 'Review OCR data', presentation: 'modal' }} />
         <Stack.Screen name="flight/scan-review" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
