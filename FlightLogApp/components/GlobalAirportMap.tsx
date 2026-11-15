@@ -218,7 +218,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
       .catch(() => { camBusy.current = false; });
   };
 
-  // Vald flygplats (sök/lista) → zooma in så hela banan syns tydligt + skifta till satellit.
+  // Vald flygplats (sök/lista) → zooma in så hela banan syns tydligt (satellit: skifta till satellit utan etiketter).
   // Zoomgrad skalas efter längsta rullbanan (~2.2× dess längd). När fokus stängs → återställ
   // föregående vy (region + lager) som fanns innan man valde flygplatsen.
   useEffect(() => {
@@ -228,8 +228,11 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
       const km = longestM > 0 ? longestM / 1000 : 0.9;
       const delta = Math.min(0.11, Math.max(0.018, (km / 111) * 2.2));
       zoomTo(focus[4], focus[5], delta);
-      // Byt lager (mapType) FÖRST efter att zoom-animationen körts klart — ändras mapType under
-      // animationen avbryter iOS den (kartan zoomar då in först vid nästa val).
+      // Kartläget (standard) stannar i kartläget: ett byte standard → satelliteFlyover nollställer
+      // kameran på iOS (zoomen försvann, och utzoomningen avmarkerade flygplatsen direkt). Bara när man
+      // redan står i satellit (hybridFlyover) byts lagret, och FÖRST efter att zoom-animationen körts
+      // klart — ändras mapType under animationen avbryter iOS den.
+      if (layer === 'standard' || layer === 'mutedStandard') return;
       const id = setTimeout(() => setLayer('satelliteFlyover'), 550);
       return () => clearTimeout(id);
     } else if (prevRegionRef.current) {
@@ -239,7 +242,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
       // X-knappen). Har man zoomat ut (auto-avmarkering) ska kartan stanna där man är – inte zooma
       // in igen. Fokus-zoomen har delta ≤ 0.11; auto-avmarkering sker vid delta > 2.5.
       if (region.latitudeDelta <= 0.5) mapRef.current?.animateToRegion(p, 450);
-      const id = setTimeout(() => { if (pl) setLayer(pl); }, 550);
+      const id = setTimeout(() => { if (pl) setLayer((cur) => (cur === pl ? cur : pl)); }, 550);
       return () => clearTimeout(id);
     }
   }, [focus]); // eslint-disable-line react-hooks/exhaustive-deps

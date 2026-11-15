@@ -2,6 +2,13 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 167,
+      "date": "2026-11-15",
+      "notes": [
+        "Fixed: Tapping an airport on the Global map zooms in and shows its details in Map view too."
+      ]
+    },
+    {
       "id": 166,
       "date": "2026-11-15",
       "notes": [
