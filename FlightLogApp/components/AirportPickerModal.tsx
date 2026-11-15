@@ -2,7 +2,7 @@
 // överblick, banvind, tidslinje, ändringar och rå text). Öppnas förvald på stationen väderkortet visar. Ändrar INTE
 // den rullande tickern på dashboarden (den visar alltid destinationen) — detta är bara en uppslagsvy.
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, ScrollView, StyleSheet, Keyboard, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, ScrollView, StyleSheet, Keyboard, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
@@ -19,6 +19,7 @@ export function AirportPickerModal({ visible, onClose, initialIcao }: {
   initialIcao?: string | null; // förvald flygplats (destinationen) att visa direkt vid öppning
 }) {
   const insets = useSafeAreaInsets();
+  const winH = useWindowDimensions().height;
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<IcaoAirport[]>([]);
   const [searching, setSearching] = useState(false);
@@ -92,8 +93,9 @@ export function AirportPickerModal({ visible, onClose, initialIcao }: {
           </TouchableOpacity>
         </View>
 
+        <View style={{ flex: 1 }}>
         {/* Tolkad vädersida ↔ rå METAR/TAF. */}
-        {!showResults && selected && wx && !wxLoading ? (
+        {selected && wx && !wxLoading ? (
           <View style={styles.viewSeg}>
             {(['decoded', 'raw'] as const).map((m) => (
               <TouchableOpacity key={m} activeOpacity={0.8} onPress={() => setView(m)} accessibilityRole="button" accessibilityState={{ selected: view === m }}
@@ -104,31 +106,7 @@ export function AirportPickerModal({ visible, onClose, initialIcao }: {
           </View>
         ) : null}
 
-        {showResults ? (
-          <FlatList
-            data={results}
-            keyExtractor={(a) => a.icao}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            style={styles.list}
-            renderItem={({ item }) => (
-              <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={() => selectAirport(item.icao, item.name)}>
-                <Text style={styles.rowIcao}>{item.icao}</Text>
-                <View style={styles.rowMid}>
-                  <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
-                  {(item.municipality || item.country) ? (
-                    <Text style={styles.rowSub} numberOfLines={1}>{[item.municipality, item.country].filter(Boolean).join(', ')}</Text>
-                  ) : null}
-                </View>
-                {item.iata ? <Text style={styles.rowIata}>{item.iata}</Text> : null}
-              </TouchableOpacity>
-            )}
-            ListEmptyComponent={
-              searching ? <View style={styles.empty}><ActivityIndicator color={Colors.primary} /></View>
-                : <Text style={styles.emptyTxt}>No airports found</Text>
-            }
-          />
-        ) : selected ? (
+        {selected ? (
           <ScrollView style={styles.detail} contentContainerStyle={{ paddingBottom: insets.bottom + 32 }} showsVerticalScrollIndicator={false}>
             {wxLoading ? (
               <View style={styles.empty}><ActivityIndicator color={Colors.primary} /></View>
@@ -144,6 +122,40 @@ export function AirportPickerModal({ visible, onClose, initialIcao }: {
         ) : (
           <Text style={styles.emptyTxt}>Search an airport to see its METAR and TAF</Text>
         )}
+
+        {/* Sökträffarna som en rullista OVANPÅ vädersidan (sidan ligger kvar under). Tryck utanför → stäng. */}
+        {showResults ? (
+          <>
+            <TouchableOpacity activeOpacity={1} accessibilityLabel="Close search results"
+              onPress={() => { setQuery(''); Keyboard.dismiss(); }}
+              style={[{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(6,16,30,0.55)' }]} />
+            <View style={[styles.dropdown, { maxHeight: Math.max(220, winH * 0.42) }]}>
+              <FlatList
+                data={results}
+                keyExtractor={(a) => a.icao}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                renderItem={({ item, index }) => (
+                  <TouchableOpacity style={[styles.row, index === results.length - 1 && { borderBottomWidth: 0 }]} activeOpacity={0.7} onPress={() => selectAirport(item.icao, item.name)}>
+                    <Text style={styles.rowIcao}>{item.icao}</Text>
+                    <View style={styles.rowMid}>
+                      <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
+                      {(item.municipality || item.country) ? (
+                        <Text style={styles.rowSub} numberOfLines={1}>{[item.municipality, item.country].filter(Boolean).join(', ')}</Text>
+                      ) : null}
+                    </View>
+                    {item.iata ? <Text style={styles.rowIata}>{item.iata}</Text> : null}
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  searching ? <View style={styles.empty}><ActivityIndicator color={Colors.primary} /></View>
+                    : <Text style={styles.emptyTxt}>No airports found</Text>
+                }
+              />
+            </View>
+          </>
+        ) : null}
+        </View>
       </View>
     </Modal>
   );
@@ -159,7 +171,7 @@ const styles = StyleSheet.create({
   searchBar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, height: 44, borderRadius: 12, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
   input: { flex: 1, color: Colors.textPrimary, fontSize: 15, fontWeight: '600', padding: 0 },
 
-  list: { flex: 1, marginTop: 4 },
+  dropdown: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, borderRadius: 14, paddingHorizontal: 12, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.separator },
   rowIcao: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800', width: 52, letterSpacing: 0.4, fontVariant: ['tabular-nums'] },
   rowMid: { flex: 1 },

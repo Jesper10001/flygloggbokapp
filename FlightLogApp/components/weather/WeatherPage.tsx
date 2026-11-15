@@ -30,7 +30,8 @@ export function WeatherPage({ wx, fallbackName, view = 'decoded' }: { wx: Decode
   const station = wx.metarStation ?? wx.tafStation ?? wx.destIcao;
   const name = (station === wx.metarStation ? wx.metarStationName : wx.tafStationName) || fallbackName || '';
 
-  const runways = useMemo(() => getRunwayGeo(wx.metarStation ?? station), [wx.metarStation, station]);
+  // Helikopterbanor ("08H/26H") räknas inte: de är inte banor för flygplan och skulle bara störa banvinden.
+  const runways = useMemo(() => getRunwayGeo(wx.metarStation ?? station).filter((r) => !/H$/.test(r.leIdent) && !/H$/.test(r.heIdent)), [wx.metarStation, station]);
   const rw = useMemo(() => runwayWinds(
     runways.map((r) => ({ leIdent: r.leIdent, heIdent: r.heIdent, bearing: runwayBearing(r) })),
     page.now?.windDir ?? null, page.now?.windSpd ?? 0,
