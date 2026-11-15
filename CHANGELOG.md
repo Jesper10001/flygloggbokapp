@@ -10,6 +10,8 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
+- Improved: Scanning your logbook leaves out the remarks column, so nothing written there ends up in your flights. Second pilots come only from a name column of their own.
+- New: Set cruise speed and endurance for each model right in the scan report.
 - Improved: Scan reports with three or more spreads show two flights side by side, and Save stays in view at the bottom of the screen.
 - Improved: Checking a scan shows which spread you're on, and a Stay button lets you double-check your corrections before going back.
 - New: Scanning learns how you write your numbers. When you keep correcting the same digit, like 5s read as 6s, Blades fixes it where your totals confirm, marks the rest for you to check, and lets you undo it.
@@ -34,6 +36,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Skanningen tar inte med något ur remarks (scanImport.withoutRemarks + prompten): remarks tom, inga remarks_suggestion/frågor, namn ur remarks (applyPilotNamesFromRemarks) avstängt; second pilot bara om grid/mall har en egen second_pilot-kolumn. Namnkontrollen och "remove" lägger inte längre namnet i remarks. Scan report: Models & registrations visar CRUISE (kt) och ENDURANCE (h) per modell, redigerbara; flottans typer sparas vid Save (updateAircraftCruiseSpeed/Endurance), nya typer som förut.
 - Scan report (ScanReportSimple): från tre uppslag två flight cards i bredd (samma kort, mindre mått via CS-stilarna; "p. 42 · row 3" flyttad till raden under rutten); "Save xx flights" flyter längst ner som glasknapp (GlassFill, som Log flight).
 - Skanningens helskärm (LogbookCrossRef): "By column"-knappen (TranscribeOverlay) borttagen, ersatt med texten "Spread 6 of 10 · p. 42–43"; rutan "Nothing left to check" har "Stay" bredvid "Go back".
 - Skanningen: handstilsprofil per loggbok (services/scanHandwriting.ts, setting scan_handwriting[:formatId]). Rättningar av Claudes egen läsning (en per cell, högst två siffror bytta) räknas per förväxling; gäller efter 3 rättningar och om motsatt håll är högst hälften så vanligt. Rättar bara där blocktiden eller sidans summa bekräftar och just den varianten ensam får det att gå ihop; annars gul cell med förslag (bara där raden/kolumnen inte går ihop, högst 3 per kolumn). Celler användaren rört och celler med frågor rörs aldrig. Undo i rapporten och i notisen nollar förväxlingen. Claude får förväxlingen som en uppmaning att flagga, aldrig att läsa om. Test: scripts/test-scan-handwriting.cjs.

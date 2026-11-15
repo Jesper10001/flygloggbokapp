@@ -93,6 +93,9 @@ export function ScanReportSimple(p: {
   // Handstilsprofilen: förväxlade siffror som lärts av rättningarna, vad de ändrat, och Undo.
   handwriting?: { pair: string; fixed: number; suggested: number }[];
   onUndoHandwriting?: (pair: string) => void;
+  // Modellernas farthastighet (kt) och uthållighet (h), redigerbara direkt i Models & registrations.
+  specs?: Record<string, { speed: string; endurance: string; loading?: boolean }>;
+  onSpec?: (type: string, field: 'speed' | 'endurance', value: string) => void;
 }) {
   const fmt = (h: number) => formatTimeValue(h, p.timeFormat);
   const [crewOpen, setCrewOpen] = useState(false);
@@ -272,7 +275,7 @@ export function ScanReportSimple(p: {
                 ))}
                 {movedCrew.map((r) => (
                   <View key={r.key} style={s.crewRow}>
-                    <Text style={[s.small, { flex: 1 }]} numberOfLines={1}>{r.crewRemoved!.name} · {r.crewRemoved!.auto ? 'not a name, in remarks' : 'in remarks'}</Text>
+                    <Text style={[s.small, { flex: 1 }]} numberOfLines={1}>{r.crewRemoved!.name} · {r.crewRemoved!.auto ? 'not a name, removed' : 'removed'}</Text>
                     <TouchableOpacity onPress={() => p.onRestoreCrew(r.key)} hitSlop={8} accessibilityRole="button"><Text style={s.link}>Undo</Text></TouchableOpacity>
                   </View>
                 ))}
@@ -302,6 +305,20 @@ export function ScanReportSimple(p: {
                       <View style={{ flex: 1 }} />
                       <Text style={[s.tag, { color: p.newTypes.has(m.type) ? Colors.warning : Colors.success }]}>{p.newTypes.has(m.type) ? 'NEW MODEL' : 'IN FLEET'}</Text>
                     </View>
+                    {p.specs?.[m.type] && p.onSpec && (
+                      <View style={s.specRow}>
+                        {(['speed', 'endurance'] as const).map((f) => (
+                          <View key={f} style={s.spec}>
+                            <Text style={s.specLabel}>{f === 'speed' ? 'CRUISE' : 'ENDURANCE'}</Text>
+                            <TextInput value={p.specs![m.type][f]} onChangeText={(t) => p.onSpec!(m.type, f, t)}
+                              style={s.specInput} keyboardType={f === 'speed' ? 'number-pad' : 'decimal-pad'} returnKeyType="done"
+                              placeholder={p.specs![m.type].loading ? '…' : '—'} placeholderTextColor={Colors.textMuted}
+                              accessibilityLabel={`${f === 'speed' ? 'Cruise speed in knots' : 'Endurance in hours'} for ${m.type}`} />
+                            <Text style={s.specUnit}>{f === 'speed' ? 'kt' : 'h'}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
                     {m.regs.map(([reg, n]) => {
                       const isNew = p.newRegs.has(reg);
                       return (
@@ -515,6 +532,11 @@ const s = StyleSheet.create({
   chipText: { color: '#FFFFFF', fontSize: 13.5, fontWeight: '600' },
   chipLink: { minHeight: 36, paddingHorizontal: 6, justifyContent: 'center' },
   outBox: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 10, marginBottom: 10, padding: 10, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.04)' },
+  specRow: { flexDirection: 'row', gap: 8 },
+  spec: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, minHeight: 40, borderRadius: 12, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: 'rgba(255,255,255,0.03)' },
+  specLabel: { fontFamily: FONT_MONO, fontSize: 9, fontWeight: '800', letterSpacing: 1, color: Colors.textSecondary },
+  specInput: { flex: 1, minWidth: 0, padding: 0, textAlign: 'right', fontFamily: FONT_MONO, fontSize: 14, fontWeight: '700', color: '#FFFFFF', fontVariant: ['tabular-nums'] },
+  specUnit: { fontFamily: FONT_MONO, fontSize: 11, color: Colors.textSecondary },
   list: { gap: 14 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP },
   // Flytande glasknapp som Log flight på dashboarden (GlassFill, ingen egen bakgrund).

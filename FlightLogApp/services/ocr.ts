@@ -350,13 +350,10 @@ nästa kolumn: det hör till tiden till vänster och är ALDRIG ett värde i nä
 "1.3 + 0.2" och "+ 0.2" når in i kolumnen AR landings → dual = 1.5, och AR landings är tom på den raden.
 
 ANMÄRKNINGAR OCH ANDREPILOT:
-Remarks-kolumnen innehåller ofta andrepilotens/instruktörens initialer eller namn följt av anmärkningar
-(t.ex. "SZ, NDB" eller "PUA, IFR RNAV"). Returnera remarks EXAKT som det står — inklusive initialer och
-namn. Flytta dem inte och skicka inget förslag: appen känner själv igen initialer, namn, PICUS/SPIC/NVG och
-frågar användaren en gång för hela boken. Sätt bara second_pilot om boken har en egen kolumn för det.
-Säger remarks-kolumnens TRYCKTA rubrik att befälhavarens eller den andra pilotens namn skrivs där (t.ex.
-"name of PIC", "name of PIC or if another"), sätt remarks_pilot_names = true. Är du osäker på hur ett namn
-eller initialer i remarks ska läsas, flagga det i field_issues med field "remarks".
+Remarks-kolumnen tas INTE med: returnera inget remarks-värde, inga field_issues för remarks och sätt inte
+remarks_pilot_names. Du får läsa den för att förstå raden (t.ex. att det är ett simulatorpass), men inget ur
+den hamnar i svaret. Sätt second_pilot BARA när boken har en egen namnkolumn utanför remarks (t.ex.
+"Name(s) PIC"), aldrig ur remarks — inte heller när remarks-rubriken säger att namn skrivs där.
 
 SIMULATOR (VIKTIGT): En kolumn med rubriken (tryckt eller handskriven) "Simulator", "Simulator time", "Sim",
 "FSTD", "FFS", "FNPT" eller "Synthetic training" innehåller simulatortid. Lägg sådana värden i "sim" och sätt
@@ -468,7 +465,7 @@ standardvärden utelämnas):
   "flights": [
     { "row_index": 1, "date": "2024-05-12", "aircraft_type": "C172", "registration": "SE-ABC",
       "dep_place": "ESSB", "dep_utc": "09:10", "arr_place": "ESSB", "arr_utc": "10:40",
-      "total_time": 1.5, "dual": 1.5, "landings_day": 4, "remarks": "Circuits" },
+      "total_time": 1.5, "dual": 1.5, "landings_day": 4 },
     { "row_index": 2, "date": "2024-05-14", "aircraft_type": "C172", "registration": "SE-ABC",
       "dep_place": "ESSB", "dep_utc": "13:05", "arr_place": "ESKN", "arr_utc": "14:00",
       "total_time": 0.9, "pic": 0.9, "landings_day": 1,

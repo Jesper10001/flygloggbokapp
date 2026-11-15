@@ -652,6 +652,21 @@ export function applyPilotNamesFromRemarks(rows: ScanRow[], known?: Set<string>)
 // Claude läser ibland ord i namnkolumnen som en andrepilot. Är det inget namn (services/scanNames.ts personCheck)
 // flyttas texten till anmärkningen, och rapporten visar det med Undo. "SELF"/"Själv" betyder att piloten själv
 // var befälhavare: den tas bort helt. Namn som redan finns i loggboken godtas alltid.
+/**
+ * Skanningen tar inte med något ur anmärkningen (remarks): texten, förslagen ur den och frågor om den tas bort.
+ * Second pilot behålls bara när boken har en egen namnkolumn utanför anmärkningen (t.ex. "Name(s) PIC").
+ */
+export function withoutRemarks(f: OcrFlightResult, nameColumn: boolean): OcrFlightResult {
+  const drop = new Set(['remarks', ...(nameColumn ? [] : ['second_pilot'])]);
+  return {
+    ...f,
+    remarks: '',
+    remarks_suggestion: undefined,
+    ...(nameColumn ? {} : { second_pilot: '', second_pilot_role: '' }),
+    field_issues: (f.field_issues ?? []).filter((x) => !drop.has(x.field)),
+  } as OcrFlightResult;
+}
+
 export function screenSecondPilots(rows: ScanRow[], known?: Set<string>): { moved: string[]; self: number } {
   const moved: string[] = [];
   let self = 0;
@@ -666,11 +681,11 @@ export function screenSecondPilots(rows: ScanRow[], known?: Set<string>): { move
       continue;
     }
     if (c.kind !== 'not') continue;
+    // Inte ett namn: tas bort (skanningen sparar inget i anmärkningen). Går att lägga tillbaka i rapporten.
     const current = String(d.remarks ?? '');
-    const remarks = current.toUpperCase().includes(name.toUpperCase()) ? current : [name, current].filter(Boolean).join(' ');
     r.crewRemoved = { name, role: d.second_pilot_role ?? '', remarks: current, auto: true };
     r.crewChecked = true;
-    r.data = { ...d, second_pilot: '', second_pilot_role: '', remarks } as OcrFlightResult;
+    r.data = { ...d, second_pilot: '', second_pilot_role: '' } as OcrFlightResult;
     moved.push(`${name} (${c.reason})`);
   }
   return { moved, self };

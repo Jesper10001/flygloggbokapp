@@ -56,7 +56,7 @@ import {
 import {
   prepareFlight, findUnknownIcaos, flagUnknownIcaos, saveScanRows, saveLearnedCorrections, matchScanRows, EMPTY_SCAN_MATCH, type ScanMatch, columnTotals,
   detectTimeAddition, fitsTimeAddition, checkRowSequence, checkLandingPairs, reconcileSimColumn, typicalRowsPerPage, reconcileAddition,
-  rowsMatchBlockTimes, pageTotalsPointAt, findExtraRow, headerNamesPilot, applyPilotNamesFromRemarks, screenSecondPilots, type ScanRow,
+  rowsMatchBlockTimes, pageTotalsPointAt, findExtraRow, headerNamesPilot, applyPilotNamesFromRemarks, screenSecondPilots, withoutRemarks, type ScanRow,
 } from '../../services/scanImport';
 import { mergeScan, ledgerStatus, type PaperFix, type LedgerSpread } from '../../services/scanPaperFixes';
 import { loadLedger, saveLedger } from '../../services/paperLedger';
@@ -803,6 +803,9 @@ export default function ScanReviewScreen() {
     return () => { live = false; clearTimeout(t); };
   }, [matchSig]); // eslint-disable-line react-hooks/exhaustive-deps
   const [aircraft, setAircraft] = useState<Record<string, AircraftInput>>({});
+  // Flottans farthastighet och uthållighet per typ (versaler), och det användaren ändrat i rapporten.
+  const [fleetSpecs, setFleetSpecs] = useState<Record<string, { speed: string; endurance: string }>>({});
+  const [specEdits, setSpecEdits] = useState<Record<string, { speed?: string; endurance?: string }>>({});
   const [acLoading, setAcLoading] = useState<Set<string>>(new Set());
   const [acFailed, setAcFailed] = useState<Set<string>>(new Set());
   const lookedUp = useRef<Set<string>>(new Set());
@@ -961,7 +964,10 @@ export default function ScanReviewScreen() {
 
       // Flygplanstyperna kontrolleras mot flottan och slås ihop för hela skanningen (services/scanTypes.ts,
       // effekten "Flygplanstyperna" nedan) — inte här, per uppslag.
-      const newRows: ScanRow[] = result.flights.map((f, idx) => {
+      // Inget ur anmärkningen (remarks) tas med. Second pilot bara ur en egen namnkolumn utanför anmärkningen.
+      const nameColumn = !!(result.grid?.columns.some((c) => c.field === 'second_pilot') || layoutRef.current?.columns.some((c) => c.field === 'second_pilot'));
+      const newRows: ScanRow[] = result.flights.map((raw, idx) => {
+        const f = withoutRemarks(raw, nameColumn);
         const data = flagUnknownIcaos(prepareFlight(f), unknown);
         let rowIndex = f.row_index ?? 0;
         if (!rowIndex && grid && typeof f.row_y_pct === 'number') {
@@ -987,18 +993,10 @@ export default function ScanReviewScreen() {
       // Säger anmärkningens rubrik att pilotens namn står där ("name of PIC") sätts second pilot automatiskt:
       // SIC om flygningen har egen PIC-tid, annars PIC. Gäller hela skanningen (samma bok), även uppslag som
       // redan lästs. Osäkra läsningar frågas som förut.
-      if (!pilotNamesRef.current && (result.remarksPilotNames || headerNamesPilot(words.map((w) => w.text)))) {
-        pilotNamesRef.current = true;
-        console.log(`[SCAN] Anmärkningens rubrik: pilotens namn står där (${result.remarksPilotNames ? 'Claude' : 'Vision'})`);
-        setRows((prev) => { const copy = prev.map((r) => ({ ...r })); return applyPilotNamesFromRemarks(copy, knownKeysRef.current) ? copy : prev; });
-      }
-      if (pilotNamesRef.current) {
-        const set = applyPilotNamesFromRemarks(newRows, knownKeysRef.current);
-        if (set) console.log(`[SCAN] Second pilot ur anmärkningen på ${set} rader`);
-      }
+      // (Namn ur anmärkningen läses inte längre in: skanningen tar inte med något ur remarks, 2026-11-15.)
       // Namnkontrollen på det Claude läst i namnkolumnen: inga namn → till anmärkningen, "SELF" → bort.
       const screened = screenSecondPilots(newRows, knownKeysRef.current);
-      if (screened.moved.length || screened.self) console.log(`[SCAN] Namnkontroll: ${screened.moved.length} till anmärkningen${screened.moved.length ? ` (${screened.moved.join(', ')})` : ''}, ${screened.self} SELF borttagna`);
+      if (screened.moved.length || screened.self) console.log(`[SCAN] Namnkontroll: ${screened.moved.length} borttagna (inga namn)${screened.moved.length ? ` (${screened.moved.join(', ')})` : ''}, ${screened.self} SELF borttagna`);
       // Osäkra eller okända platskoder → liknande flygplatser som förslag (i bakgrunden, ingen AI).
       for (const r of newRows) for (const f of ['dep_place', 'arr_place'] as const) {
         const c = String(r.data[f] ?? '').toUpperCase();
@@ -1228,6 +1226,10 @@ export default function ScanReviewScreen() {
       ]);
       knownRef.current = new Set(types.map((t: any) => String(t.aircraft_type ?? '').toUpperCase()).filter(Boolean));
       setKnown(knownRef.current);
+      setFleetSpecs(Object.fromEntries(types.map((t: any) => [String(t.aircraft_type ?? '').toUpperCase(), {
+        speed: Number(t.cruise_speed_kts) > 0 ? String(t.cruise_speed_kts) : '',
+        endurance: Number(t.endurance_h) > 0 ? String(t.endurance_h) : '',
+      }])));
       layoutRef.current = layout;
       // Formatet vet redan om anmärkningens rubrik säger att pilotens namn står där.
       if (format?.remarksPilotNames) pilotNamesRef.current = true;
@@ -1321,7 +1323,7 @@ export default function ScanReviewScreen() {
     touched.current = true;
     setNameSeparate((st) => new Set([...st, ...id.split('|')]));
   };
-  // Second pilot som inte var en person (Claude tog text i anmärkningen för ett namn): tillbaka till anmärkningen.
+  // Second pilot som inte var en person: tas bort (skanningen sparar inget i anmärkningen).
   const removeCrew = (rowKey: string) => {
     touched.current = true;
     crewEdited.current.add(rowKey);
@@ -1330,12 +1332,10 @@ export default function ScanReviewScreen() {
       const name = r.data.second_pilot;
       if (r.key !== rowKey || !name) return r;
       const current = r.data.remarks ?? '';
-      const original = r.original.remarks ?? '';
-      const remarks = original.toUpperCase().includes(name.toUpperCase()) ? original : [name, current].filter(Boolean).join(' ');
       return {
         ...r,
         crewRemoved: { name, role: r.data.second_pilot_role ?? '', remarks: current },
-        data: { ...r.data, second_pilot: '', second_pilot_role: '', remarks },
+        data: { ...r.data, second_pilot: '', second_pilot_role: '' },
       };
     }));
   };
@@ -2120,6 +2120,26 @@ export default function ScanReviewScreen() {
   const removeIds = [...new Set([...keepNew].filter((k) => rowByKey.get(k) && !rowByKey.get(k)!.skip)
     .flatMap((k) => (scanMatch.clashes[k] ?? []).map((c) => c.logged.id)))];
 
+  // Rapportens modeller: farthastighet (kt) och uthållighet (h), redigerbara direkt. Nya typer använder
+  // uppgifterna som hämtas (aircraft), flottans typer det som finns sparat plus det som ändrats.
+  const modelSpecs = useMemo(() => {
+    const out: Record<string, { speed: string; endurance: string; loading?: boolean }> = {};
+    for (const r of rows) {
+      const t = String(r.data.aircraft_type || '').toUpperCase().trim();
+      if (!t || out[t]) continue;
+      const a = aircraft[t];
+      out[t] = a ? { speed: a.speed, endurance: a.endurance, loading: acLoading.has(t) }
+        : { speed: specEdits[t]?.speed ?? fleetSpecs[t]?.speed ?? '', endurance: specEdits[t]?.endurance ?? fleetSpecs[t]?.endurance ?? '' };
+    }
+    return out;
+  }, [rows, aircraft, acLoading, fleetSpecs, specEdits]);
+  const setModelSpec = (type: string, field: 'speed' | 'endurance', raw: string) => {
+    const value = field === 'speed' ? raw.replace(/[^0-9]/g, '').slice(0, 4) : raw.replace(',', '.').replace(/[^0-9.]/g, '').slice(0, 5);
+    touched.current = true;
+    if (aircraft[type]) setAircraft((a) => ({ ...a, [type]: { ...a[type], [field]: value, ai: a[type].ai.filter((x) => x !== field) } }));
+    else setSpecEdits((e) => ({ ...e, [type]: { ...e[type], [field]: value } }));
+  };
+
   const saveReport = async () => {
     if (savingRef.current) return;
     savingRef.current = true;
@@ -2132,6 +2152,13 @@ export default function ScanReviewScreen() {
         await addAircraftTypeToRegistry(type, speed, endurance, [...a.crew].sort().join(','), a.category, a.engine);
         if (speed > 0) await updateAircraftCruiseSpeed(type, speed);
         if (endurance > 0) await updateAircraftEndurance(type, endurance);
+      }
+      // Flottans typer där farthastighet eller uthållighet ändrats i rapporten.
+      for (const [type, e] of Object.entries(specEdits)) {
+        if (newTypes.some((n) => n.type === type)) continue;
+        const speed = parseInt(e.speed ?? '', 10) || 0, endurance = parseFloat(e.endurance ?? '') || 0;
+        if (e.speed != null && speed > 0) await updateAircraftCruiseSpeed(type, speed);
+        if (e.endurance != null && endurance > 0) await updateAircraftEndurance(type, endurance);
       }
       // Krockar där den skannade flygningen behålls: loggbokens flygning tas bort först.
       const removed = removeIds;
@@ -2498,6 +2525,8 @@ export default function ScanReviewScreen() {
           onSave={saveReport}
           handwriting={handLearned}
           onUndoHandwriting={undoHand}
+          specs={modelSpecs}
+          onSpec={setModelSpec}
         />
         {editorKey && (
           <FlightEditor
