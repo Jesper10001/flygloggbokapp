@@ -10,6 +10,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
+- Fixed: The latest flight card shows airport names under the route only when there are names to show.
 - Improved: Updates arrive sooner. Blades checks every hour while it's open and tells you when an update is ready, so you can restart right away or let it install next time.
 - Improved: The Log flight button, the buttons beside it and the album shortcuts below have a new look.
 - Improved: The Logbook and layout sheet in Settings matches the rest of Blades, follows your accent colour and says exactly what will change.
@@ -44,6 +45,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Latest flight-kortet: raden under rutten visar bara riktiga flygplatsnamn (eller egna platsnamn). Ingen upprepning av koden ("ZZZZ → ZZZZ"); finns bara ett namn visas det ensamt, inget namn → ingen rad.
 - Karusellens åtgärdssida (Flight album, Sync album, Share) i samma variant B-stil som Log flight-raden: tunn ram + svag ton i accentfärgen, skiljelinjer i samma ton (GlassFill borttagen), pilot och drönare.
 - Log flight-raden (pilot + drönare) i variant B från Claude design "Log flight-knappar": tunn ram + svag ton i accentfärgen (Create logbook-stilen), rundad som glaset (27), vita ikoner; GlassFill och skuggan borttagna i raden. Drönarläget använder den valda accenten.
 - EAS Update, steg 1 (utan nytt bygge):

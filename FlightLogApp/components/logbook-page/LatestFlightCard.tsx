@@ -24,18 +24,19 @@ export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAdd
   const { nightFrac, darkOnsetUtc } = useNightFraction(f);
   const d = parseDate(f.date);
   const dateLabel = `${String(d.getDate()).padStart(2, '0')} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} ${String(d.getFullYear()).slice(2)}`;
-  const city = (icao: string) => placeNames[icao] || icao;
   const nightPct = Math.round(nightFrac * 100);
 
-  // Riktiga flygplatsnamn (icao_airports.name) för raden under ICAO→ICAO; fallback till ICAO.
-  const [names, setNames] = useState<{ dep: string; arr: string }>({ dep: city(f.dep_place), arr: city(f.arr_place) });
+  // Bara riktiga flygplatsnamn (icao_airports.name eller ett eget platsnamn) på raden under ICAO→ICAO. Saknas namn
+  // blir det ingen upprepning av koden (t.ex. "ZZZZ → ZZZZ"): finns bara ett namn visas det ensamt, inget → ingen rad.
+  const named = (icao: string, n?: string | null) => (n && n.trim() && n.trim().toUpperCase() !== (icao || '').toUpperCase() ? n.trim() : '');
+  const [names, setNames] = useState<{ dep: string; arr: string }>({ dep: named(f.dep_place, placeNames[f.dep_place]), arr: named(f.arr_place, placeNames[f.arr_place]) });
   useEffect(() => {
     let alive = true;
     Promise.all([getAirportByIcao(f.dep_place), getAirportByIcao(f.arr_place)]).then(([dep, arr]) => {
       if (!alive) return;
       setNames({
-        dep: dep?.name && dep.name !== f.dep_place ? dep.name : city(f.dep_place),
-        arr: arr?.name && arr.name !== f.arr_place ? arr.name : city(f.arr_place),
+        dep: named(f.dep_place, dep?.name) || named(f.dep_place, placeNames[f.dep_place]),
+        arr: named(f.arr_place, arr?.name) || named(f.arr_place, placeNames[f.arr_place]),
       });
     }).catch(() => {});
     return () => { alive = false; };
@@ -120,7 +121,11 @@ export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAdd
             {darkOnsetUtc ? <Text style={{ fontFamily: FONT_MONO, fontSize: 9.5, fontWeight: '700', color: NIGHT_FILL }}>· dark {darkOnsetUtc}z</Text> : null}
           </View>
         )}
-        <Text numberOfLines={1} style={{ fontSize: 11.5, color: Colors.textSecondary, paddingHorizontal: 14, paddingBottom: 10 }}>{names.dep} → {names.arr}</Text>
+        {names.dep || names.arr ? (
+          <Text numberOfLines={1} style={{ fontSize: 11.5, color: Colors.textSecondary, paddingHorizontal: 14, paddingBottom: 10 }}>
+            {names.dep && names.arr ? `${names.dep} → ${names.arr}` : names.dep || names.arr}
+          </Text>
+        ) : <View style={{ height: 4 }} />}
         {/* 5-cellsremsa */}
         <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: accent + '33' }}>
           {strip.map(([k, v, hot], i) => (
