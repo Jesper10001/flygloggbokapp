@@ -11,7 +11,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 ### What's New
 
 - Improved: The weather forecast band groups periods with the same flight category into one block, and tapping it lists each period.
-- Improved: The weather page has a Decoded and Raw switch right under the search, and the runway map uses a dark map.
+- Improved: The weather page has a Decoded and Raw switch right under the search. The airport map fills half the wind card, with runways drawn like real runways, numbers at each end and a clear wind arrow.
 - New: A redesigned weather page. See the weather at a glance, the wind on each runway on a small airport map, and the forecast as a colour band over the next hours, in UTC or local time.
 - Improved: Projections and Next licence open in full screen smoothly, without the screen jumping as it turns.
 - Fixed: Tapping the weather card shows the station the card is showing, also when your last flight went to an airport without a weather report.
@@ -41,6 +41,12 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Vädersidan, omgång 4 (efter test på telefon):
+  - Tillbaka till Apple-kartan (mutedStandard, mörk). Esris mörka karta valdes bort; proxyvägen `/map/dark` ligger kvar oanvänd.
+  - Now-kortet delat på mitten: kartan fyller vänstra halvan (kvadrat), vind och banvind till höger.
+  - Banorna ritas i SVG ovanpå kartan på punkter från `pointForCoordinate`: asfalt, vita kantlinjer, streckad centrumlinje och bannumret i varje ände, roterat åt landningsriktningen. Gynnade banor har cyan kanter och nummer.
+  - Vindpilen har fjädrar vid kanten och en fylld spets mot flygplatsens mitt.
+  - Sammanfattningsmeningen under flygplatsnamnet borttagen.
 - Vädersidan, omgång 3:
   - Rubriken "Weather" borta; sökfältet och stängknappen delar rad. Under sökfältet en DECODED/RAW-växel (`AirportPickerModal` → `WeatherPage view`). RAW visar stationen och rå METAR/TAF (TAF-grupperna färgade per kategori); knappen "Show raw" längst ned är borttagen.
   - Kartcirkeln använder Esris mörka karta (Dark Gray Canvas utan etiketter) via ny proxyväg `/map/dark/{z}/{y}/{x}` (samma nyckel, enhets-ID och rate limit som `/map/imagery`, inget lagras). Fast källtext `DARK_MAP_CREDIT`. Tills proxyn har vägen ritas banorna på mörk botten; appen provar igen efter 10 min, så kartan dyker upp utan ny uppdatering.

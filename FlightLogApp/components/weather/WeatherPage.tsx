@@ -2,7 +2,7 @@
 // stationen och en mening om vädret, Now + de två närmaste förändringarna, Now (METAR) med kartcirkel,
 // banvind och fyra värden på en rad, tidslinjen för TAF:en med UTC/LOCAL-växel, en rad per TAF-grupp och
 // rå METAR/TAF bakom en knapp. All logik i services/wxPage.ts; design: Claude design "Vädersidan METAR + TAF".
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Colors } from '../../constants/colors';
@@ -20,8 +20,7 @@ export function WeatherPage({ wx, fallbackName, view = 'decoded' }: { wx: Decode
   const [tz, setTz] = useState<WxTz>('utc');
   const [sel, setSel] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(Date.now());
-  const [mapCredit, setMapCredit] = useState<string | null>(null);
-  const onCredit = useCallback((c: string | null) => setMapCredit(c), []);
+
 
   useEffect(() => { getSetting(TZ_KEY).then((v) => { if (v === 'local' || v === 'utc') setTz(v); }).catch(() => {}); }, []);
   useEffect(() => { const t = setInterval(() => setNowMs(Date.now()), 60000); return () => clearInterval(t); }, []);
@@ -94,7 +93,6 @@ export function WeatherPage({ wx, fallbackName, view = 'decoded' }: { wx: Decode
             ? <Text style={st.meta}>NEAREST REPORT TO {wx.destIcao}</Text> : null}
           {obsTime ? <Text style={st.meta}>OBSERVED {obsTime}{obsAge != null ? ` · ${obsAge < 60 ? `${obsAge} MIN` : `${Math.floor(obsAge / 60)} H ${obsAge % 60} MIN`} AGO` : ''}</Text> : null}
         </View>
-        <Text style={st.summary}>{page.summary}</Text>
         {page.glance.length > 0 && (
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {page.glance.map((g, i) => {
@@ -119,9 +117,12 @@ export function WeatherPage({ wx, fallbackName, view = 'decoded' }: { wx: Decode
             <Text style={st.sec}>NOW</Text>
             <Text style={st.secSub}>METAR {obsTime}</Text>
           </View>
-          <View style={[st.card, { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 }]}>
-            <WxRunwayMap runways={runways} favored={rw.favored} windDir={page.now.windDir} onCredit={onCredit} />
-            <View style={{ flex: 1, gap: 10 }}>
+          {/* Kortet delat på mitten: kartan fyller vänstra halvan, vinden och banorna till höger. */}
+          <View style={[st.card, { flexDirection: 'row', overflow: 'hidden' }]}>
+            <View style={{ flex: 1, aspectRatio: 1, borderRightWidth: 1, borderRightColor: Colors.border }}>
+              <WxRunwayMap runways={runways} favored={rw.favored} windDir={page.now.windDir} />
+            </View>
+            <View style={{ flex: 1, gap: 10, padding: 12, justifyContent: 'center' }}>
               <View style={{ gap: 2 }}>
                 <Text style={st.wind} numberOfLines={1} adjustsFontSizeToFit>
                   {page.now.windValue}{page.now.windSpd > 0 ? <Text style={st.windUnit}> kt</Text> : null}
@@ -138,7 +139,6 @@ export function WeatherPage({ wx, fallbackName, view = 'decoded' }: { wx: Decode
               ))}
             </View>
           </View>
-          {mapCredit ? <Text style={st.credit} numberOfLines={2}>{mapCredit}</Text> : null}
           <View style={{ flexDirection: 'row', gap: 6 }}>
             {page.now.tiles.map((t) => (
               <View key={t.label} style={st.tile}>
@@ -264,7 +264,6 @@ const st = StyleSheet.create({
   icao: { fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 46, fontWeight: '700', color: Colors.textPrimary, letterSpacing: 0.5, lineHeight: 52 },
   name: { fontSize: 15, color: Colors.textSecondary },
   meta: { fontFamily: MONO, fontSize: 10.5, letterSpacing: 0.4, color: Colors.textSecondary },
-  summary: { fontSize: 17, lineHeight: 24, fontWeight: '600', color: Colors.textPrimary },
   glance: { flex: 1, gap: 6, paddingVertical: 11, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, backgroundColor: Colors.card },
   lbl: { fontFamily: MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 1.2, color: Colors.textSecondary },
   glanceCat: { fontFamily: MONO, fontSize: 17, fontWeight: '800' },
@@ -279,7 +278,6 @@ const st = StyleSheet.create({
   rwRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, paddingHorizontal: 9, borderRadius: 10 },
   rwId: { fontFamily: MONO, fontSize: 11, fontWeight: '800', width: 40 },
   rwTxt: { flex: 1, fontSize: 12 },
-  credit: { fontSize: 9, lineHeight: 12, color: Colors.textMuted, marginTop: -4, paddingHorizontal: 4 },
   tile: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: 10, paddingHorizontal: 6, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card },
   tileLbl: { fontFamily: MONO, fontSize: 8, fontWeight: '700', letterSpacing: 1, color: Colors.textSecondary },
   tileVal: { fontFamily: MONO, fontSize: 17, fontWeight: '800', color: Colors.textPrimary },
