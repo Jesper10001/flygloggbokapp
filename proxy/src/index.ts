@@ -844,6 +844,8 @@ async function refreshIncidentNews(env: Env): Promise<NewsIncident[]> {
 // Esri ser bara vår server, inte användarens IP. Tiles LAGRAS INTE här — Esris villkor tillåter inte att
 // data skrapas, laddas ner eller lagras — de skickas bara vidare (ingen edge-cache).
 const ESRI_IMAGERY_TILE = 'https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile';
+// Mörk karta (Dark Gray Canvas, bara bas utan etiketter) för vädersidans kartcirkel.
+const ESRI_DARK_TILE = 'https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/arcgis/dark-gray/base/static/tile';
 const ESRI_IMAGERY_ATTRIBUTION = 'https://static.arcgis.com/attribution/World_Imagery';
 const MAP_TILE_MAX_ZOOM = 16;   // share-kortet använder z9–14; taket stoppar skrapning av detaljnivåer
 const NO_EDGE_CACHE = { cacheTtlByStatus: { '100-599': -1 } }; // negativ TTL = Cloudflare cachar inte alls
@@ -1010,6 +1012,33 @@ export default {
           return new Response('Tile unavailable', { status: 502, headers: { 'Cache-Control': 'no-store' } });
         }
         // Appens bildcache får hålla tilen lika länge som Esris egen max-age (1 dygn).
+        return new Response(upstream.body, { headers: { 'Content-Type': ct, 'Cache-Control': 'private, max-age=86400' } });
+      } catch {
+        return new Response('Tile unavailable', { status: 502, headers: { 'Cache-Control': 'no-store' } });
+      }
+    }
+
+    // ── Mörk kartruta till vädersidans kartcirkel: GET /map/dark/{z}/{y}/{x} (Esri Dark Gray Canvas utan etiketter) ──
+    // Samma nyckel, enhets-ID-krav, rate limit och "lagras inte"-regel som satellitrutorna ovan. Static Basemap
+    // Tiles-tjänsten (ArcGIS Location Platform, privilegiet Basemaps). Källhänvisningen är fast för stilen och
+    // står i appen (DARK_MAP_CREDIT i FlightLogApp/components/weather/WxRunwayMap.tsx).
+    const darkM = url.pathname.match(/^\/map\/dark\/(\d{1,2})\/(\d{1,6})\/(\d{1,6})$/);
+    if (darkM && request.method === 'GET') {
+      const z = +darkM[1], y = +darkM[2], x = +darkM[3], n = 2 ** z;
+      if (z < 1 || z > MAP_TILE_MAX_ZOOM || x >= n || y >= n) return new Response('Bad tile', { status: 400 });
+      if (!env.ARCGIS_API_KEY) return new Response('Map tiles not configured', { status: 503 });
+      const devId = request.headers.get('X-Device-ID');
+      if (!devId) return new Response('Forbidden', { status: 403 });
+      if (env.MAP_LIMITER) {
+        const { success } = await env.MAP_LIMITER.limit({ key: `tile:${await hashDevice(devId)}` });
+        if (!success) return new Response('Too many requests', { status: 429, headers: { 'Retry-After': '60' } });
+      }
+      try {
+        const upstream = await fetch(`${ESRI_DARK_TILE}/${z}/${y}/${x}?token=${encodeURIComponent(env.ARCGIS_API_KEY)}`, { cf: NO_EDGE_CACHE } as RequestInit);
+        const ct = upstream.headers.get('Content-Type') ?? '';
+        if (!upstream.ok || !ct.startsWith('image/')) {
+          return new Response('Tile unavailable', { status: 502, headers: { 'Cache-Control': 'no-store' } });
+        }
         return new Response(upstream.body, { headers: { 'Content-Type': ct, 'Cache-Control': 'private, max-age=86400' } });
       } catch {
         return new Response('Tile unavailable', { status: 502, headers: { 'Cache-Control': 'no-store' } });

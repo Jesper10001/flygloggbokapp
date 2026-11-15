@@ -26,6 +26,7 @@ export function AirportPickerModal({ visible, onClose, initialIcao }: {
   const [selectedName, setSelectedName] = useState('');
   const [wx, setWx] = useState<DecodedWx | null>(null);
   const [wxLoading, setWxLoading] = useState(false);
+  const [view, setView] = useState<'decoded' | 'raw'>('decoded');
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectAirport = async (icao: string, name?: string) => {
@@ -43,7 +44,7 @@ export function AirportPickerModal({ visible, onClose, initialIcao }: {
   // Vid öppning: nollställ sök och förvälj destinationen (om given).
   useEffect(() => {
     if (!visible) return;
-    setQuery(''); setResults([]);
+    setQuery(''); setResults([]); setView('decoded');
     if (initialIcao && isIcao(initialIcao)) { selectAirport(initialIcao); }
     else { setSelected(null); setSelectedName(''); setWx(null); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -67,14 +68,9 @@ export function AirportPickerModal({ visible, onClose, initialIcao }: {
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
+        {/* Ingen rubrik: sökfältet och stängknappen på samma rad. */}
         <View style={styles.header}>
-          <Text style={styles.title}>Weather</Text>
-          <TouchableOpacity onPress={onClose} hitSlop={12} style={styles.closeBtn}>
-            <Ionicons name="close" size={22} color={Colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.searchBar}>
+        <View style={[styles.searchBar, { flex: 1 }]}>
           <Ionicons name="search" size={16} color={Colors.textMuted} />
           <TextInput
             value={query}
@@ -91,6 +87,22 @@ export function AirportPickerModal({ visible, onClose, initialIcao }: {
             </TouchableOpacity>
           )}
         </View>
+          <TouchableOpacity onPress={onClose} hitSlop={12} style={styles.closeBtn} accessibilityLabel="Close weather">
+            <Ionicons name="close" size={22} color={Colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Tolkad vädersida ↔ rå METAR/TAF. */}
+        {!showResults && selected && wx && !wxLoading ? (
+          <View style={styles.viewSeg}>
+            {(['decoded', 'raw'] as const).map((m) => (
+              <TouchableOpacity key={m} activeOpacity={0.8} onPress={() => setView(m)} accessibilityRole="button" accessibilityState={{ selected: view === m }}
+                style={[styles.viewBtn, view === m && { backgroundColor: Colors.primary }]}>
+                <Text style={[styles.viewTxt, { color: view === m ? Colors.card : Colors.textSecondary }]}>{m === 'decoded' ? 'DECODED' : 'RAW'}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
 
         {showResults ? (
           <FlatList
@@ -121,7 +133,7 @@ export function AirportPickerModal({ visible, onClose, initialIcao }: {
             {wxLoading ? (
               <View style={styles.empty}><ActivityIndicator color={Colors.primary} /></View>
             ) : wx ? (
-              <WeatherPage wx={wx} fallbackName={selectedName} />
+              <WeatherPage wx={wx} fallbackName={selectedName} view={view} />
             ) : (
               <>
                 <Text style={styles.airport}>{selected}{selectedName ? ` · ${selectedName}` : ''}</Text>
@@ -139,8 +151,10 @@ export function AirportPickerModal({ visible, onClose, initialIcao }: {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background, paddingHorizontal: 16 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  title: { color: Colors.textPrimary, fontSize: 18, fontWeight: '800' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
+  viewSeg: { flexDirection: 'row', alignSelf: 'flex-start', borderWidth: 1, borderColor: Colors.border, borderRadius: 10, overflow: 'hidden', marginBottom: 4 },
+  viewBtn: { paddingHorizontal: 16, paddingVertical: 8 },
+  viewTxt: { fontFamily: 'JetBrainsMono', fontSize: 10.5, fontWeight: '700', letterSpacing: 0.6 },
   closeBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   searchBar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, height: 44, borderRadius: 12, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
   input: { flex: 1, color: Colors.textPrimary, fontSize: 15, fontWeight: '600', padding: 0 },

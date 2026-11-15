@@ -10,7 +10,8 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
-- Improved: The weather forecast band groups periods with the same flight category into one block, and tapping it lists each period. The runway map shows a satellite image.
+- Improved: The weather forecast band groups periods with the same flight category into one block, and tapping it lists each period.
+- Improved: The weather page has a Decoded and Raw switch right under the search, and the runway map uses a dark map.
 - New: A redesigned weather page. See the weather at a glance, the wind on each runway on a small airport map, and the forecast as a colour band over the next hours, in UTC or local time.
 - Improved: Projections and Next licence open in full screen smoothly, without the screen jumping as it turns.
 - Fixed: Tapping the weather card shows the station the card is showing, also when your last flight went to an airport without a weather report.
@@ -40,6 +41,9 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Vädersidan, omgång 3:
+  - Rubriken "Weather" borta; sökfältet och stängknappen delar rad. Under sökfältet en DECODED/RAW-växel (`AirportPickerModal` → `WeatherPage view`). RAW visar stationen och rå METAR/TAF (TAF-grupperna färgade per kategori); knappen "Show raw" längst ned är borttagen.
+  - Kartcirkeln använder Esris mörka karta (Dark Gray Canvas utan etiketter) via ny proxyväg `/map/dark/{z}/{y}/{x}` (samma nyckel, enhets-ID och rate limit som `/map/imagery`, inget lagras). Fast källtext `DARK_MAP_CREDIT`. Tills proxyn har vägen ritas banorna på mörk botten; appen provar igen efter 10 min, så kartan dyker upp utan ny uppdatering.
 - Vädersidan, efter test på telefon:
   - Grundperioder i rad med samma kategori slås ihop till ett block (`ids`, `parts` på `WxSeg`); rutan under tidslinjen listar varje period. VFR–IFR–VFR blir fortfarande tre block. En BECMG-övergång räknas som en del av sin period.
   - TEMPO-raden visar bara kategorin (streckad = tillfälligt), PROB visar "40% IFR".

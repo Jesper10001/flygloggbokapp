@@ -4,7 +4,6 @@
 // rå METAR/TAF bakom en knapp. All logik i services/wxPage.ts; design: Claude design "Vädersidan METAR + TAF".
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import { Colors } from '../../constants/colors';
 import { categoryColor, type DecodedWx, type FlightCat } from '../../services/weather';
@@ -17,10 +16,9 @@ const MONO = 'JetBrainsMono';
 const TZ_KEY = 'wx_time_zone';
 const catColor = (c: FlightCat | null) => (c ? categoryColor(c) : Colors.textSecondary);
 
-export function WeatherPage({ wx, fallbackName }: { wx: DecodedWx; fallbackName?: string }) {
+export function WeatherPage({ wx, fallbackName, view = 'decoded' }: { wx: DecodedWx; fallbackName?: string; view?: 'decoded' | 'raw' }) {
   const [tz, setTz] = useState<WxTz>('utc');
   const [sel, setSel] = useState<string | null>(null);
-  const [rawOpen, setRawOpen] = useState(false);
   const [nowMs, setNowMs] = useState(Date.now());
   const [mapCredit, setMapCredit] = useState<string | null>(null);
   const onCredit = useCallback((c: string | null) => setMapCredit(c), []);
@@ -50,8 +48,43 @@ export function WeatherPage({ wx, fallbackName }: { wx: DecodedWx; fallbackName?
   const obsTime = wx.metarObsMs ? fmtTime(wx.metarObsMs / 1000, tz, nowMs / 1000).toUpperCase() : '';
   const pct = (sec: number) => (tl ? ((sec - tl.start) / (tl.end - tl.start)) * 100 : 0);
 
+  const rawCard = (
+    <View style={[st.card, { padding: 14, gap: 14 }]}>
+      {wx.rawMetar ? (
+        <View style={{ gap: 6 }}>
+          <Text style={st.tileLbl}>METAR {wx.metarStation}</Text>
+          <Text selectable style={st.raw}>{wx.rawMetar}</Text>
+        </View>
+      ) : null}
+      {wx.rawTaf ? (
+        <View style={{ gap: 6 }}>
+          <Text style={st.tileLbl}>TAF {wx.tafStation}</Text>
+          <Text selectable style={st.raw}>
+            {page.rawTaf.length
+              ? page.rawTaf.map((g, i) => <Text key={i} style={{ color: g.cat ? catColor(g.cat) : Colors.textPrimary }}>{(i ? '\n' : '') + g.text}</Text>)
+              : wx.rawTaf}
+          </Text>
+        </View>
+      ) : null}
+      {page.rawTaf.length > 1 ? <Text style={{ fontSize: 12, color: Colors.textMuted }}>Each forecast group is coloured by its flight category.</Text> : null}
+      {!wx.rawMetar && !wx.rawTaf ? <Text style={st.empty}>No reports for this station</Text> : null}
+    </View>
+  );
+
+  if (view === 'raw') {
+    return (
+      <View style={{ gap: 14, marginTop: 10 }}>
+        <View style={{ gap: 4 }}>
+          <Text style={st.icao}>{station}</Text>
+          {name ? <Text style={st.name} numberOfLines={1}>{name}</Text> : null}
+        </View>
+        {rawCard}
+      </View>
+    );
+  }
+
   return (
-    <View style={{ gap: 22 }}>
+    <View style={{ gap: 22, marginTop: 10 }}>
       {/* Station + överblick */}
       <View style={{ gap: 14 }}>
         <View style={{ gap: 4 }}>
@@ -223,36 +256,6 @@ export function WeatherPage({ wx, fallbackName }: { wx: DecodedWx; fallbackName?
         </View>
       )}
 
-      {/* Rå METAR och TAF */}
-      {(wx.rawMetar || wx.rawTaf) && (
-        <View style={{ gap: 10 }}>
-          <TouchableOpacity onPress={() => setRawOpen((o) => !o)} activeOpacity={0.8} style={st.rawBtn} accessibilityRole="button">
-            <Text style={st.rawBtnTxt}>{rawOpen ? 'HIDE RAW METAR & TAF' : 'SHOW RAW METAR & TAF'}</Text>
-            <Ionicons name={rawOpen ? 'chevron-up' : 'chevron-down'} size={13} color={Colors.primary} />
-          </TouchableOpacity>
-          {rawOpen && (
-            <View style={[st.card, { padding: 14, gap: 14 }]}>
-              {wx.rawMetar ? (
-                <View style={{ gap: 6 }}>
-                  <Text style={st.tileLbl}>METAR {wx.metarStation}</Text>
-                  <Text selectable style={st.raw}>{wx.rawMetar}</Text>
-                </View>
-              ) : null}
-              {wx.rawTaf ? (
-                <View style={{ gap: 6 }}>
-                  <Text style={st.tileLbl}>TAF {wx.tafStation}</Text>
-                  <Text selectable style={st.raw}>
-                    {page.rawTaf.length
-                      ? page.rawTaf.map((g, i) => <Text key={i} style={{ color: g.cat ? catColor(g.cat) : Colors.textPrimary }}>{(i ? '\n' : '') + g.text}</Text>)
-                      : wx.rawTaf}
-                  </Text>
-                </View>
-              ) : null}
-              {page.rawTaf.length > 1 ? <Text style={{ fontSize: 12, color: Colors.textMuted }}>Colours match the forecast band above.</Text> : null}
-            </View>
-          )}
-        </View>
-      )}
     </View>
   );
 }
@@ -301,8 +304,6 @@ const st = StyleSheet.create({
   chKind: { fontFamily: MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 0.8, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, borderWidth: 1, borderColor: Colors.border, color: Colors.textSecondary, overflow: 'hidden' },
   chCat: { fontFamily: MONO, fontSize: 11, fontWeight: '800' },
   chTxt: { fontSize: 13, lineHeight: 19, color: Colors.textSecondary },
-  rawBtn: { height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: Colors.border, borderRadius: 14 },
-  rawBtnTxt: { fontFamily: MONO, fontSize: 10.5, fontWeight: '700', letterSpacing: 0.8, color: Colors.primary },
   raw: { fontFamily: MONO, fontSize: 12.5, lineHeight: 20, color: Colors.textPrimary },
   empty: { color: Colors.textMuted, fontSize: 13, textAlign: 'center', paddingVertical: 20 },
 });

@@ -1,15 +1,33 @@
-// Liten rund kartbild på vädersidan: Esri-satellitbild (World Imagery via vår proxy, samma rutor som delningskortet)
-// under en mörk slöja, banorna ur runway-geo.json (samma data som Global map) ritade tjockt utan mått och
+// Liten rund kartbild på vädersidan: Esris mörka karta (Dark Gray Canvas utan etiketter, via proxyns /map/dark
+// som lägger på nyckeln), banorna ur runway-geo.json (samma data som Global map) ritade tjockt utan mått och
 // bannummer, och vindpilen ovanpå. Inramningen räknas så att alla banor precis får plats i cirkeln.
-// Saknas satellitbilder (proxyn utan nyckel) eller bangeometri ritas banorna/kompassen på mörk botten.
-// Esris krav: "Powered by Esri" + bildleverantörerna syns på sidan → onCredit (WeatherPage skriver ut raden).
+// Svarar inte proxyn med kartrutor, eller saknas bangeometri, ritas banorna/kompassen på mörk botten.
+// Esris krav: "Powered by Esri" + källorna syns på sidan → onCredit (WeatherPage skriver ut raden).
 import { useEffect, useMemo, useState } from 'react';
 import { View, Image } from 'react-native';
 import Svg, { Circle, G, Line, Path } from 'react-native-svg';
 import type { RunwayGeo } from '../../constants/runwayGeo';
 import { Colors } from '../../constants/colors';
 import { getDeviceId } from '../../services/anthropicClient';
-import { imageryAvailable, imageryTileUri, IMAGERY_MAX_ZOOM, fetchImageryProviders, imageryCredit } from '../SatelliteSnap';
+
+const PROXY_URL = process.env.EXPO_PUBLIC_PROXY_URL ?? '';
+const MAX_ZOOM = 16; // = proxyns tak
+const tileUri = (z: number, y: number, x: number) => `${PROXY_URL}/map/dark/${z}/${y}/${x}`;
+// Fast källtext för stilen Dark Gray Canvas.
+export const DARK_MAP_CREDIT = 'Powered by Esri · Source: Esri, TomTom, Garmin, FAO, NOAA, USGS, © OpenStreetMap contributors, and the GIS User Community';
+
+// Har proxyn mörka kartrutor? Provas en gång per appsession; ett "nej" provas om efter 10 min (rutorna dyker då
+// upp av sig själva när proxyn fått vägen, utan ny app-uppdatering).
+let darkProbe: { ok: boolean; at: number } | null = null;
+async function darkAvailable(): Promise<boolean> {
+  if (!PROXY_URL) return false;
+  if (darkProbe && (darkProbe.ok || Date.now() - darkProbe.at < 10 * 60 * 1000)) return darkProbe.ok;
+  try {
+    const r = await fetch(tileUri(1, 0, 0), { headers: { 'X-Device-ID': getDeviceId() } });
+    darkProbe = { ok: r.ok && (r.headers.get('Content-Type') ?? '').startsWith('image/'), at: Date.now() };
+  } catch { darkProbe = { ok: false, at: Date.now() }; }
+  return darkProbe.ok;
+}
 
 const FAV = '#67E8F9';   // banor vinden gynnar (samma cyan som kart-snippeten)
 const RWY = '#E8F0F8';
@@ -25,7 +43,7 @@ export function WxRunwayMap({ runways, favored, windDir, size = 150, onCredit }:
   runways: RunwayGeo[]; favored: number[]; windDir: number | null; size?: number; onCredit?: (credit: string | null) => void;
 }) {
   const [imagery, setImagery] = useState(false);
-  useEffect(() => { let alive = true; imageryAvailable().then((ok) => { if (alive) setImagery(ok); }); return () => { alive = false; }; }, []);
+  useEffect(() => { let alive = true; darkAvailable().then((ok) => { if (alive) setImagery(ok); }); return () => { alive = false; }; }, []);
 
   // Utsnittet: mitt i banornas ram, radie = längsta avståndet till en banände + luft. Rutorna hämtas på den
   // lägsta zoom som ger minst dubbla upplösningen (skarp bild), högst proxyns tak.
@@ -41,7 +59,7 @@ export function WxRunwayMap({ runways, favored, windDir, size = 150, onCredit }:
     rad0 = Math.max(rad0, 0.002); // minst ~en liten flygplats
     const span0 = 2 * rad0 * 1.12;
     let z = 1;
-    while (z < IMAGERY_MAX_ZOOM && span0 * 2 ** z < size * 2) z++;
+    while (z < MAX_ZOOM && span0 * 2 ** z < size * 2) z++;
     const k = 2 ** z, span = span0 * k;
     const x0 = c0.x * k - span / 2, y0 = c0.y * k - span / 2;
     const scale = size / span;
@@ -51,26 +69,20 @@ export function WxRunwayMap({ runways, favored, windDir, size = 150, onCredit }:
       if (ty < 0 || ty >= n) continue;
       for (let tx = Math.floor(x0 / TILE); tx <= Math.floor((x0 + span - 1) / TILE); tx++) {
         const wx = ((tx % n) + n) % n;
-        tiles.push({ key: `${z}/${ty}/${tx}`, uri: imageryTileUri(z, ty, wx), left: (tx * TILE - x0) * scale, top: (ty * TILE - y0) * scale });
+        tiles.push({ key: `${z}/${ty}/${tx}`, uri: tileUri(z, ty, wx), left: (tx * TILE - x0) * scale, top: (ty * TILE - y0) * scale });
       }
     }
     const lines = runways.map((r) => {
       const a = worldPx(r.le.lat, r.le.lon, z), b = worldPx(r.he.lat, r.he.lon, z);
       return { x1: (a.x - x0) * scale, y1: (a.y - y0) * scale, x2: (b.x - x0) * scale, y2: (b.y - y0) * scale };
     });
-    const center = { lat: (minLa + maxLa) / 2, lon: (minLo + maxLo) / 2 };
-    return { tiles, lines, side: Math.ceil(TILE * scale) + 1, z, center };
+    return { tiles, lines, side: Math.ceil(TILE * scale) + 1 };
   }, [runways, size]);
 
   // Källhänvisningen för området (Esri-krav), bara när bilden visas.
   useEffect(() => {
     if (!onCredit) return;
-    if (!imagery || !view) { onCredit(null); return; }
-    let alive = true;
-    onCredit(imageryCredit(null));
-    fetchImageryProviders([{ lat: view.center.lat, lon: view.center.lon, zoom: view.z - 1 }])
-      .then((p) => { if (alive) onCredit(imageryCredit(p)); });
-    return () => { alive = false; };
+    onCredit(imagery && view ? DARK_MAP_CREDIT : null);
   }, [imagery, view, onCredit]);
 
   const headers = useMemo(() => ({ 'X-Device-ID': getDeviceId() }), []);
@@ -81,7 +93,7 @@ export function WxRunwayMap({ runways, favored, windDir, size = 150, onCredit }:
         <Image key={t.key} source={{ uri: t.uri, headers }}
           style={{ position: 'absolute', left: Math.floor(t.left), top: Math.floor(t.top), width: view.side, height: view.side }} />
       )) : null}
-      {imagery && view ? <View style={{ position: 'absolute', left: 0, top: 0, width: size, height: size, backgroundColor: 'rgba(10,22,40,0.38)' }} /> : null}
+      {imagery && view ? <View style={{ position: 'absolute', left: 0, top: 0, width: size, height: size, backgroundColor: 'rgba(10,22,40,0.18)' }} /> : null}
       {view ? (
         <Svg width={size} height={size} style={{ position: 'absolute', left: 0, top: 0 }}>
           {view.lines.map((l, i) => (
