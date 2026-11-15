@@ -845,7 +845,7 @@ async function refreshIncidentNews(env: Env): Promise<NewsIncident[]> {
 // data skrapas, laddas ner eller lagras — de skickas bara vidare (ingen edge-cache).
 const ESRI_IMAGERY_TILE = 'https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile';
 // Mörk karta (Dark Gray Canvas, bara bas utan etiketter) för vädersidans kartcirkel.
-const ESRI_DARK_TILE = 'https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/arcgis/dark-gray/base/static/tile';
+const ESRI_DARK_TILE = 'https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/arcgis/dark-gray/static/tile';
 const ESRI_IMAGERY_ATTRIBUTION = 'https://static.arcgis.com/attribution/World_Imagery';
 const MAP_TILE_MAX_ZOOM = 16;   // share-kortet använder z9–14; taket stoppar skrapning av detaljnivåer
 const NO_EDGE_CACHE = { cacheTtlByStatus: { '100-599': -1 } }; // negativ TTL = Cloudflare cachar inte alls
@@ -1037,6 +1037,8 @@ export default {
         const upstream = await fetch(`${ESRI_DARK_TILE}/${z}/${y}/${x}?token=${encodeURIComponent(env.ARCGIS_API_KEY)}`, { cf: NO_EDGE_CACHE } as RequestInit);
         const ct = upstream.headers.get('Content-Type') ?? '';
         if (!upstream.ok || !ct.startsWith('image/')) {
+          // Felsökning: Esris status och felkod (svaret innehåller aldrig nyckeln).
+          console.log(`[map/dark] upstream ${upstream.status} ${ct} ${(await upstream.text().catch(() => '')).slice(0, 300)}`);
           return new Response('Tile unavailable', { status: 502, headers: { 'Cache-Control': 'no-store' } });
         }
         return new Response(upstream.body, { headers: { 'Content-Type': ct, 'Cache-Control': 'private, max-age=86400' } });
