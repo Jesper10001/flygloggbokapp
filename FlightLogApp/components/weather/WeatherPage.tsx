@@ -43,6 +43,8 @@ export function WeatherPage({ wx, fallbackName, view = 'decoded' }: { wx: Decode
     ?? tl?.base.find((s) => s.from <= nowMs / 1000 && s.to > nowMs / 1000) ?? tl?.base[0];
   const isSel = (id: string) => (cur ? cur.ids.includes(id) : false);
 
+  // Kommande förändringar (rutan för "Now" ersätts av kategorietiketten bredvid stationen).
+  const upcoming = page.glance.filter((g) => g.when !== 'NOW');
   const obsAge = wx.metarObsMs ? Math.max(0, Math.round((nowMs - wx.metarObsMs) / 60000)) : null;
   const obsTime = wx.metarObsMs ? fmtTime(wx.metarObsMs / 1000, tz, nowMs / 1000).toUpperCase() : '';
   const pct = (sec: number) => (tl ? ((sec - tl.start) / (tl.end - tl.start)) * 100 : 0);
@@ -84,28 +86,34 @@ export function WeatherPage({ wx, fallbackName, view = 'decoded' }: { wx: Decode
 
   return (
     <View style={{ gap: 22, marginTop: 10 }}>
-      {/* Station + överblick */}
+      {/* Station med kategorin just nu till höger, sedan kommande förändringar som halvbreda rutor. */}
       <View style={{ gap: 14 }}>
         <View style={{ gap: 4 }}>
-          <Text style={st.icao}>{station}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Text style={[st.icao, { flex: 1 }]} numberOfLines={1}>{station}</Text>
+            {page.nowCat ? (
+              <TouchableOpacity activeOpacity={0.8} onPress={() => setSel(null)} accessibilityLabel={`${page.nowCat} now`}
+                style={[st.nowBadge, { borderColor: catColor(page.nowCat) + '99', backgroundColor: catColor(page.nowCat) + '1F' }]}>
+                <View style={[st.nowDot, { backgroundColor: catColor(page.nowCat) }]} />
+                <Text style={[st.nowCat, { color: catColor(page.nowCat) }]}>{page.nowCat}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
           {name ? <Text style={st.name} numberOfLines={1}>{name}</Text> : null}
           {wx.metarIsAlternate || wx.tafIsAlternate
             ? <Text style={st.meta}>NEAREST REPORT TO {wx.destIcao}</Text> : null}
           {obsTime ? <Text style={st.meta}>OBSERVED {obsTime}{obsAge != null ? ` · ${obsAge < 60 ? `${obsAge} MIN` : `${Math.floor(obsAge / 60)} H ${obsAge % 60} MIN`} AGO` : ''}</Text> : null}
         </View>
-        {page.glance.length > 0 && (
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {page.glance.map((g, i) => {
-              const on = i === 0 ? !sel || isSel(g.id) : isSel(g.id);
-              return (
-                <TouchableOpacity key={g.id + i} activeOpacity={0.8} onPress={() => setSel(g.id)}
-                  style={[st.glance, { borderColor: on ? catColor(g.cat) : Colors.border }]}>
-                  <Text style={st.lbl} numberOfLines={1}>{g.when}</Text>
-                  <Text style={[st.glanceCat, { color: catColor(g.cat) }]} numberOfLines={1} adjustsFontSizeToFit>{g.label}</Text>
-                  <Text style={st.glanceNote} numberOfLines={2}>{g.note}</Text>
-                </TouchableOpacity>
-              );
-            })}
+        {upcoming.length > 0 && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {upcoming.map((g, i) => (
+              <TouchableOpacity key={g.id + i} activeOpacity={0.8} onPress={() => setSel(g.id)}
+                style={[st.glance, { borderColor: isSel(g.id) && sel ? catColor(g.cat) : Colors.border }]}>
+                <Text style={st.lbl} numberOfLines={1}>{g.when}</Text>
+                <Text style={[st.glanceCat, { color: catColor(g.cat) }]} numberOfLines={1} adjustsFontSizeToFit>{g.label}</Text>
+                <Text style={st.glanceNote} numberOfLines={2}>{g.note}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         )}
       </View>
@@ -264,7 +272,10 @@ const st = StyleSheet.create({
   icao: { fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 46, fontWeight: '700', color: Colors.textPrimary, letterSpacing: 0.5, lineHeight: 52 },
   name: { fontSize: 15, color: Colors.textSecondary },
   meta: { fontFamily: MONO, fontSize: 10.5, letterSpacing: 0.4, color: Colors.textSecondary },
-  glance: { flex: 1, gap: 6, paddingVertical: 11, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, backgroundColor: Colors.card },
+  nowBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
+  nowDot: { width: 8, height: 8, borderRadius: 4 },
+  nowCat: { fontFamily: MONO, fontSize: 20, fontWeight: '800', letterSpacing: 1 },
+  glance: { width: '48.6%', gap: 6, paddingVertical: 11, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, backgroundColor: Colors.card },
   lbl: { fontFamily: MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 1.2, color: Colors.textSecondary },
   glanceCat: { fontFamily: MONO, fontSize: 17, fontWeight: '800' },
   glanceNote: { fontSize: 11.5, lineHeight: 15, color: Colors.textSecondary },

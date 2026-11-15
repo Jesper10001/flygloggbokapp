@@ -41,6 +41,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Vädersidan, omgång 5: kategorin just nu som etikett till höger om ICAO-koden (rutan "Now" borttagen); kommande förändringar som halvbreda rutor under stationen, aldrig en ruta över hela raden.
 - Vädersidan, omgång 4 (efter test på telefon):
   - Tillbaka till Apple-kartan (mutedStandard, mörk). Esris mörka karta valdes bort; proxyvägen `/map/dark` ligger kvar oanvänd.
   - Now-kortet delat på mitten: kartan fyller vänstra halvan (kvadrat), vind och banvind till höger.
