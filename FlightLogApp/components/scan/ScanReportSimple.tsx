@@ -89,6 +89,9 @@ export function ScanReportSimple(p: {
   onRestoreCrew: (rowKey: string) => void;
   onBack: () => void;
   onSave: () => void;
+  // Handstilsprofilen: förväxlade siffror som lärts av rättningarna, vad de ändrat, och Undo.
+  handwriting?: { pair: string; fixed: number; suggested: number }[];
+  onUndoHandwriting?: (pair: string) => void;
 }) {
   const fmt = (h: number) => formatTimeValue(h, p.timeFormat);
   const [crewOpen, setCrewOpen] = useState(false);
@@ -198,6 +201,30 @@ export function ScanReportSimple(p: {
             ))}
           </View>
         </View>
+
+        {/* Handstilen: siffror som förväxlas, lärda av rättningarna. Rättat bara där summor eller blocktid bekräftar. */}
+        {(p.handwriting?.length ?? 0) > 0 && (
+          <View style={s.drop}>
+            {p.handwriting!.map((h, k) => {
+              const [read, actual] = h.pair.split('>');
+              const what = [h.fixed ? `${h.fixed} fixed where your totals or times confirm` : '', h.suggested ? `${h.suggested} marked to check` : ''].filter(Boolean).join(' · ');
+              return (
+                <View key={h.pair} style={[s.dropHead, k > 0 && { borderTopWidth: 1, borderTopColor: Colors.cardBorder }]}>
+                  <Ionicons name="sparkles-outline" size={19} color={Colors.primary} />
+                  <View style={{ flex: 1, paddingVertical: 10 }}>
+                    <Text style={s.dropTitle}>Your {actual}s can look like {read}s</Text>
+                    {what ? <Text style={s.small}>{what}</Text> : null}
+                  </View>
+                  {p.onUndoHandwriting && (
+                    <TouchableOpacity onPress={() => p.onUndoHandwriting!(h.pair)} hitSlop={8} accessibilityRole="button">
+                      <Text style={s.link}>Undo</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        )}
 
         {/* Second pilots */}
         {(crew.length > 0 || movedCrew.length > 0) && (

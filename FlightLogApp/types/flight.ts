@@ -187,6 +187,7 @@ export interface OcrFlightResult extends FlightFormData {
     from?: string;   // fältet värdet kommer från (t.ex. dual när det kan vara simulatortid)
     read_as?: string;    // det Claude läste när det inte kan vara ett värde (klockslaget 07:80); cellen är tömd
     options?: string[];  // giltiga värden att välja bland i stället
+    hand?: string;       // förslag från handstilsprofilen (förväxlingen, t.ex. "6>5"); tas bort om den ångras
   }[];
   // Övergripande säkerhet 0–1 på hela raden. ≥ 0.95 = fast-track (komprimerad
   // rad, auto-godkänd) om needs_review=false.

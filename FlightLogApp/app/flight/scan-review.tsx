@@ -31,6 +31,9 @@ import type { TimeFormat } from '../../store/timeFormatStore';
 import { useFlightStore } from '../../store/flightStore';
 import { isTokenQuotaError, openCoinShop, showMonthlyTokenLimitAlert, scanReach } from '../../utils/tokenGate';
 import { requestScanPass } from '../../services/scanPass';
+import { landingCandidates, decideLandings, decideBySecondLook, landingQuestion } from '../../services/scanLandings';
+import { secondLookLandings } from '../../services/scanSecondLook';
+import { HAND_FIELDS, digitSwaps, recordCorrection, activePairs, handwritingHint, handwritingSweep, emptyProfile, type HandwritingProfile, type HandFix, type HandSuggestion } from '../../services/scanHandwriting';
 import { coinShopAvailable } from '../../services/coinPacks';
 import { presentPaywall } from '../../services/purchases';
 import { getAllAircraftTypes, getFleetRegistrationTypes, getSecondPilotCounts, addAircraftTypeToRegistry, updateAircraftCruiseSpeed, updateAircraftEndurance, getSetting, setSetting, deleteFlights } from '../../db/flights';
@@ -64,7 +67,7 @@ import {
   buildPageGrid, cellRect, rowRect, rowBand, mappedBoxRect, unionRect, hitTest, columnFor, type PageGrid, type Rect,
 } from '../../services/scanGeometry';
 import {
-  alignGrid, chooseBookGrid, type BookColumns, type AlignRow, completeGridFromHeaders, untangleColumns, crossCheckCounts, measureRows, relocateColumnsByValues, reconcileSimSpill, pageTotalsByVision, columnMovePlan, type ColumnMove, type VisionBox,
+  alignGrid, chooseBookGrid, type BookColumns, type AlignRow, completeGridFromHeaders, untangleColumns, crossCheckCounts, measureRows, relocateColumnsByValues, reconcileSimSpill, pageTotalsByVision, columnMovePlan, landingAgreement, type ColumnMove, type VisionBox,
 } from '../../services/scanAlign';
 import type { LogbookLayout } from '../../services/logbookLayout';
 import type { OcrFlightResult } from '../../types/flight';
@@ -724,7 +727,15 @@ export default function ScanReviewScreen() {
   const [rules, setRules] = useState<ValueRule[]>([]);
   const ruleStash = useRef(new Map<string, RuleStash>());
   const ruleAnswers = useRef(new Map<string, Set<string>>());
-  const [learnNote, setLearnNote] = useState<{ text: string; rule: ValueRule } | null>(null);
+  const [learnNote, setLearnNote] = useState<{ text: string; rule?: ValueRule; hand?: string } | null>(null);
+  // Handstilsprofilen (services/scanHandwriting.ts): förväxlade siffror, lärda av rättningarna, sparade per loggbok.
+  const handRef = useRef<HandwritingProfile>(emptyProfile());
+  const handKey = useRef('scan_handwriting');
+  const handTouched = useRef(new Set<string>());   // celler ("rowKey|field") användaren själv ändrat: rörs aldrig
+  const handCounted = useRef(new Set<string>());   // celler vars rättning redan räknats (en gång per cell)
+  const handBlocked = useRef(new Set<string>());   // förväxlingar som ångrats under skanningen
+  const handFixes = useRef<HandFix[]>([]);          // det profilen rättat, för Undo
+  const [handLearned, setHandLearned] = useState<{ pair: string; fixed: number; suggested: number }[]>([]);
   const learnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Bokens kolumner: mallen från uppslaget som stämmer bäst med bilden, och det som behövs för att pröva om
   // redan lästa uppslag när en bättre mall kommer (scanAlign.chooseBookGrid).
@@ -937,7 +948,7 @@ export default function ScanReviewScreen() {
         // En omgång ur en hel bok: bokens format (läst från första uppslaget) är kolumnlistan, och bokens eget
         // tidsformat styr tolkningen.
         result = await ocrScanPage(base64, page.mediaType, bookFormatRef.current?.timeFormat ?? fmtRef.current, ctx,
-          { useBookLayout: getScanUseBookLayout(), ...(bookFormatRef.current ? { layout: layoutRef.current } : {}), timeAddition, model: OCR_MODEL, wholeSpread: true });
+          { useBookLayout: getScanUseBookLayout(), ...(bookFormatRef.current ? { layout: layoutRef.current } : {}), timeAddition, model: OCR_MODEL, wholeSpread: true, handwriting: handwritingHint(handRef.current) || undefined });
         if (page.readUri) FileSystem.writeAsStringAsync(page.readUri, JSON.stringify(result)).catch(() => {});
       }
       // Sidnumren lästes inte: de sidnummer uppslaget bör ha enligt bokens sidspann.
@@ -1072,40 +1083,58 @@ export default function ScanReviewScreen() {
           result = { ...result, pageTotals: { ...result.pageTotals, by_field: { ...(result.pageTotals?.by_field ?? {}), ...visionTotals } } };
         }
 
-        // Landningar: jämför med vad Vision läser i samma cell. Olika → en fråga med Visions tal som förslag.
-        const checks = crossCheckCounts(grid, newRows.map((r) => ({
+        // Landningar: Claude och Vision läser olika i samma cell. Appen avgör själv (services/scanLandings.ts):
+        // sidans summor, nattiden, Visions läge och till sist en andra titt på cellerna. Bara det som inget av
+        // det avgör blir en fråga, med båda läsningarna som val.
+        const landingRead = newRows.map((r) => ({
           rowIndex: r.rowIndex,
           read: { landings_day: r.data.landings_day, landings_night: r.data.landings_night },
-        })), words);
-        // Claude jämför först mot sig själv: går landningskolumnerna ihop med sidans summor ("Total this page")
-        // stämmer Claudes läsning, och Visions avvikelse beror på att rutnätet ligger snett → ingen fråga.
-        const sums = columnTotals(newRows, i, result.pageTotals?.by_field);
-        const sumOf = (f: string) => newRows.reduce((acc, r) => acc + (Number((r.data as any)[f]) || 0), 0);
-        const dayCheck = sums.find((c) => c.field === 'landings_day');
-        const nightCheck = sums.find((c) => c.field === 'landings_night');
-        const landingsConfirmed = dayCheck?.ok === true && (nightCheck ? nightCheck.ok : sumOf('landings_night') === 0);
-        let asked = 0;
-        if (!landingsConfirmed) for (const c of checks) {
-          const row = newRows.find((r) => r.rowIndex === c.rowIndex);
-          if (!row) continue;
-          const issues = [...(row.data.field_issues ?? [])];
-          const existing = issues.find((x) => x.field === c.field);
-          // Står Visions tal redan i grannkolumnen (dag ↔ natt) på samma rad är det samma handskrift sedd i
-          // två kolumner. Frågan blir då vilken kolumn talet står i — inget förslag som skulle räkna det två gånger.
-          const sibling = c.field === 'landings_day' ? 'landings_night' : 'landings_day';
-          const sibVal = Number((row.data as any)[sibling]) || 0;
-          const sameAsSibling = sibVal > 0 && sibVal === Number(c.vision) && !(Number(c.read) > 0);
-          const reason = sameAsSibling
-            ? `Claude read ${sibVal} as ${label(sibling).toLowerCase()}, but on the page it seems to stand under ${label(c.field).toLowerCase()}. Which column is it in?`
-            : `Claude read ${c.read && c.read !== '0' ? c.read : 'nothing'}, but the page seems to say ${c.vision}.`;
-          if (existing) { if (!existing.suggested_value && !sameAsSibling) existing.suggested_value = c.vision; }
-          else issues.push({ field: c.field, reason, confidence: 0.5, ...(sameAsSibling ? {} : { suggested_value: c.vision }) });
-          row.data = { ...row.data, field_issues: issues, needs_review: true };
-          asked++;
+        }));
+        const checks = crossCheckCounts(grid, landingRead, words);
+        const cands = landingCandidates(checks, newRows);
+        if (cands.length) {
+          const sums = columnTotals(newRows, i, result.pageTotals?.by_field);
+          const sumOf = (f: string) => newRows.reduce((acc, r) => acc + (Number((r.data as any)[f]) || 0), 0);
+          const printedOf = (f: string) => sums.find((c) => c.field === f)?.printed;
+          const agreeing = landingAgreement(grid, landingRead, words);
+          const decisions = decideLandings(cands, { day: sumOf('landings_day'), night: sumOf('landings_night') },
+            { day: printedOf('landings_day'), night: printedOf('landings_night') }, agreeing);
+          const open = cands.filter((c) => !decisions.some((d) => d.rowIndex === c.rowIndex));
+          if (open.length) {
+            const seen = await secondLookLandings({ uri: pagesRef.current[i]?.uri ?? page.uri }, grid, open.map((c) => c.rowIndex));
+            for (const c of open) { const d = decideBySecondLook(c, seen?.get(c.rowIndex)); if (d) decisions.push(d); }
+          }
+          for (const c of cands) {
+            const row = newRows.find((r) => r.rowIndex === c.rowIndex);
+            if (!row) continue;
+            const d = decisions.find((x) => x.rowIndex === c.rowIndex);
+            const landingIssue = (x: { field: string }) => x.field === 'landings_day' || x.field === 'landings_night';
+            if (d) {
+              const p = d.pick === 'vision' ? c.vision : c.claude;
+              const issues = (row.data.field_issues ?? []).filter((x) => !landingIssue(x));
+              row.data = { ...row.data, landings_day: String(p.day), landings_night: String(p.night), field_issues: issues };
+              continue;
+            }
+            const q = landingQuestion(c);
+            const from = c.kind === 'move' ? (q.field === 'landings_day' ? 'landings_night' : 'landings_day') : undefined;
+            const issues = (row.data.field_issues ?? []).filter((x) => !landingIssue(x));
+            issues.push({ field: q.field, reason: q.reason, confidence: 0.5, options: q.options.length ? q.options : [String(Math.max(c.claude.day, c.claude.night))], ...(from ? { from } : {}) });
+            row.data = { ...row.data, field_issues: issues, needs_review: true };
+          }
+          const by = (w: string) => decisions.filter((d) => d.why === w).length;
+          console.log(`[SCAN] Landningar där Claude och Vision skiljer sig: ${cands.length} rader · summorna ${by('totals')} · nattid ${by('night_time')} · läget ${by('position')} (${agreeing} rader överens) · andra titten ${by('second_look')} · frågor ${cands.length - decisions.length} · Vision vann ${decisions.filter((d) => d.pick === 'vision').length}`);
         }
-        if (checks.length) console.log(`[SCAN] Landningar som skiljer sig från Vision: ${checks.length}${landingsConfirmed ? ' — summorna stämmer med Claudes läsning, ingen fråga' : `, ${asked} frågor`}`);
       } else if (grid) {
         grid = untangleColumns(grid);
+      }
+
+      // Handstilsprofilen på det nya uppslaget: rättar bara det blocktiden eller sidans summa bekräftar.
+      const handPairs = activePairs(handRef.current, handBlocked.current);
+      if (handPairs.length) {
+        const printed = { [i]: Object.fromEntries(columnTotals(newRows, i, result.pageTotals?.by_field).map((c) => [c.field, c.printed])) };
+        const res = handwritingSweep(newRows, handPairs, printed, handTouched.current, timeAddition ?? 0);
+        applyHand(newRows, res);
+        if (res.fixes.length || res.suggestions.length) console.log(`[SCAN] Handstilen på uppslag ${i + 1}: ${res.fixes.length} rättade (${res.fixes.map((f) => `${f.from}→${f.to} ${f.why}`).join(', ')}), ${res.suggestions.length} förslag`);
       }
 
       if (__DEV__) {
@@ -1183,6 +1212,11 @@ export default function ScanReviewScreen() {
       bookFormatRef.current = format;
       if (format) bookGridRef.current = format.template ?? { columns: format.columns.map((c) => ({ field: c.field, label: c.label, left: c.left, right: c.right })), spine: format.spine, score: -1 };
       getSecondPilotCounts().then((list) => { knownKeysRef.current = new Set(list.map((x) => nameKey(x.name))); setKnownNames(list); }).catch(() => {});
+      handKey.current = format ? `scan_handwriting:${format.id}` : 'scan_handwriting';
+      try {
+        const hp = JSON.parse((await getSetting(handKey.current)) || 'null');
+        if (hp && hp.v === 1 && hp.pairs && typeof hp.pairs === 'object') handRef.current = hp;
+      } catch { /* ingen profil */ }
       try {
         const saved = JSON.parse((await getSetting('scan_value_rules')) || '[]');
         if (Array.isArray(saved)) { rulesRef.current = saved; setRules(saved); }
@@ -1607,19 +1641,103 @@ export default function ScanReviewScreen() {
     if (field === 'second_pilot') { crewEdited.current.add(rowKey); nameWritten.current.delete(rowKey); }
     const before = rows.find((r) => r.key === rowKey);
     if (before && upper((before.data as any)[field]) !== upper(value)) learnAnswer(field, rowKey, (before.data as any)[field], value);
+    handTouched.current.add(`${rowKey}|${field}`);
+    if (before) noteHandwriting(before, field, value);
     setRows((prev) => prev.map((r) => {
       if (r.key !== rowKey) return r;
       // Simulatorpass: passets längd är både simulatortid och total tid (appens modell) — håll dem lika.
       const sync = r.data.flight_type === 'sim' && (field === 'sim' || field === 'total_time') ? { sim: value, total_time: value } : {};
-      return { ...r, data: { ...r.data, [field]: value, ...sync } };
+      // Landningar flyttade dag ↔ natt (frågan "day or night?", from = kolumnen Claude lade dem i): samma tal i
+      // grannkolumnen töms, så att landningarna inte räknas två gånger.
+      const moved = (r.data.field_issues ?? []).find((x) => x.field === field && (x.from === 'landings_day' || x.from === 'landings_night'));
+      const unmove = moved && Number(value) > 0 && Number((r.data as any)[moved.from!]) === Number(value) ? { [moved.from!]: '0' } : {};
+      return { ...r, data: { ...r.data, [field]: value, ...sync, ...unmove } };
     }));
   };
 
   // Samma svar tre gånger → regel för resten av boken. Frågorna försvinner, och raden visas ett tag med "Undo".
-  const showLearned = (text: string, rule: ValueRule) => {
-    setLearnNote({ text, rule });
+  const showLearned = (text: string, rule?: ValueRule, hand?: string) => {
+    setLearnNote({ text, rule, hand });
     if (learnTimer.current) clearTimeout(learnTimer.current);
     learnTimer.current = setTimeout(() => setLearnNote(null), 7000);
+  };
+  // Handstilsprofilen: lägger rättningar och förslag på raderna (muterar, för rader som inte är satta än).
+  const applyHand = (list: ScanRow[], res: { fixes: HandFix[]; suggestions: HandSuggestion[] }) => {
+    for (const f of res.fixes) {
+      const r = list.find((x) => x.key === f.rowKey);
+      if (!r || String((r.data as any)[f.field] ?? '') !== f.from) continue;
+      r.data = { ...r.data, [f.field]: f.to };
+      handFixes.current.push(f);
+    }
+    for (const g of res.suggestions) {
+      const r = list.find((x) => x.key === g.rowKey);
+      if (!r || (r.data.field_issues ?? []).some((x) => x.field === g.field)) continue;
+      r.data = { ...r.data, needs_review: true, field_issues: [...(r.data.field_issues ?? []), { field: g.field, reason: g.reason, confidence: 0.5, suggested_value: g.value, hand: g.pair }] };
+    }
+    if (res.fixes.length || res.suggestions.length) {
+      setHandLearned((prev) => {
+        const next = [...prev];
+        for (const pair of new Set([...res.fixes.map((f) => f.pair), ...res.suggestions.map((g) => g.pair)])) {
+          const k = next.findIndex((x) => x.pair === pair);
+          const add = { fixed: res.fixes.filter((f) => f.pair === pair).length, suggested: res.suggestions.filter((g) => g.pair === pair).length };
+          if (k < 0) next.push({ pair, ...add }); else next[k] = { pair, fixed: next[k].fixed + add.fixed, suggested: next[k].suggested + add.suggested };
+        }
+        return next;
+      });
+    }
+  };
+  // En rättning av Claudes egen läsning (inte av en tidigare rättning), en gång per cell, lärs in i profilen.
+  // Börjar en förväxling gälla gås hela skanningen igenom.
+  const noteHandwriting = (row: ScanRow, field: string, value: string) => {
+    const cell = `${row.key}|${field}`;
+    const was = String((row.data as any)[field] ?? '');
+    const dig = (v: unknown) => String(v ?? '').replace(/\D/g, '');
+    if (!HAND_FIELDS.has(field) || handCounted.current.has(cell) || !dig(was) || dig(was) !== dig((row.original as any)?.[field])) return;
+    const swaps = digitSwaps(was, value);
+    if (!swaps.length) return;
+    handCounted.current.add(cell);
+    const beforePairs = new Set(activePairs(handRef.current, handBlocked.current).map((x) => `${x.read}>${x.actual}`));
+    handRef.current = recordCorrection(handRef.current, swaps);
+    setSetting(handKey.current, JSON.stringify(handRef.current)).catch(() => {});
+    const fresh = activePairs(handRef.current, handBlocked.current).filter((x) => !beforePairs.has(`${x.read}>${x.actual}`));
+    if (!fresh.length) return;
+    const list = rows.map((r) => (r.key === row.key ? { ...r, data: { ...r.data, [field]: value } } : { ...r }));
+    const printed: Record<number, Record<string, number>> = {};
+    pagesRef.current.forEach((_, idx) => { printed[idx] = Object.fromEntries(columnTotals(list, idx, pagesRef.current[idx]?.totals?.by_field).map((c) => [c.field, c.printed])); });
+    const res = handwritingSweep(list, fresh, printed, handTouched.current, additionRef.current ?? 0);
+    const changed = new Map<string, ScanRow>();
+    const work = list.filter((r) => res.fixes.some((f) => f.rowKey === r.key) || res.suggestions.some((g) => g.rowKey === r.key));
+    applyHand(work, res);
+    work.forEach((r) => changed.set(r.key, r));
+    if (changed.size) setRows((prev) => prev.map((r) => {
+      const c = changed.get(r.key);
+      if (!c) return r;
+      // Bara cellerna profilen rörde; resten av raden kan ha ändrats sedan.
+      const patch: Record<string, any> = {};
+      for (const f of res.fixes) if (f.rowKey === r.key && String((r.data as any)[f.field] ?? '') === f.from) patch[f.field] = f.to;
+      const extra = (c.data.field_issues ?? []).filter((x) => x.hand && !(r.data.field_issues ?? []).some((y) => y.field === x.field));
+      return { ...r, data: { ...r.data, ...patch, ...(extra.length ? { needs_review: true, field_issues: [...(r.data.field_issues ?? []), ...extra] } : {}) } };
+    }));
+    const p = fresh[0];
+    const n = res.fixes.length, m = res.suggestions.length;
+    console.log(`[SCAN] Handstilen: ${fresh.map((x) => `${x.read}>${x.actual}`).join(', ')} gäller nu · ${n} rättade · ${m} förslag`);
+    showLearned(`Your ${p.actual}s can look like ${p.read}s.${n ? ` Fixed ${n} ${n === 1 ? 'cell' : 'cells'} your totals confirm.` : ''}${m ? ` ${m} more to check.` : ''}`, undefined, `${p.read}>${p.actual}`);
+  };
+  // Ångra: rättningarna läggs tillbaka (där cellen inte ändrats sedan), förslagen tas bort och förväxlingen nollas.
+  const undoHand = (pair: string) => {
+    const fixes = handFixes.current.filter((f) => f.pair === pair);
+    handFixes.current = handFixes.current.filter((f) => f.pair !== pair);
+    handBlocked.current.add(pair);
+    handRef.current = { ...handRef.current, pairs: { ...handRef.current.pairs, [pair]: 0 } };
+    setSetting(handKey.current, JSON.stringify(handRef.current)).catch(() => {});
+    setRows((prev) => prev.map((r) => {
+      const mine = fixes.filter((f) => f.rowKey === r.key && String((r.data as any)[f.field] ?? '') === f.to);
+      const hasHand = (r.data.field_issues ?? []).some((x) => x.hand === pair);
+      if (!mine.length && !hasHand) return r;
+      return { ...r, data: { ...r.data, ...Object.fromEntries(mine.map((f) => [f.field, f.from])), field_issues: (r.data.field_issues ?? []).filter((x) => x.hand !== pair) } };
+    }));
+    setHandLearned((prev) => prev.filter((x) => x.pair !== pair));
+    setLearnNote(null);
   };
   const saveRules = (next: ValueRule[]) => {
     rulesRef.current = next;
@@ -2378,6 +2496,8 @@ export default function ScanReviewScreen() {
           onRestoreCrew={restoreCrew}
           onBack={close}
           onSave={saveReport}
+          handwriting={handLearned}
+          onUndoHandwriting={undoHand}
         />
         {editorKey && (
           <FlightEditor
@@ -2748,7 +2868,7 @@ export default function ScanReviewScreen() {
           <View style={[s.learnBar, { bottom: Math.max(insets.bottom, 6) + 2, right: padR + 4, width: Math.min(380, W * 0.5) }]}>
             <Ionicons name="sparkles" size={15} color={Colors.primary} />
             <Text style={s.learnText} numberOfLines={2}>{learnNote.text}</Text>
-            <TouchableOpacity onPress={() => undoRule(learnNote.rule)} hitSlop={10} accessibilityRole="button">
+            <TouchableOpacity onPress={() => (learnNote.rule ? undoRule(learnNote.rule) : learnNote.hand ? undoHand(learnNote.hand) : setLearnNote(null))} hitSlop={10} accessibilityRole="button">
               <Text style={s.learnUndo}>Undo</Text>
             </TouchableOpacity>
           </View>
@@ -2966,7 +3086,7 @@ export default function ScanReviewScreen() {
         <View style={[s.learnBar, { top: insets.top + (pages.length > 1 ? 100 : 54), left: insets.left + 12, right: insets.right + 12 }]}>
           <Ionicons name="sparkles" size={15} color={Colors.primary} />
           <Text style={s.learnText} numberOfLines={2}>{learnNote.text}</Text>
-          <TouchableOpacity onPress={() => undoRule(learnNote.rule)} hitSlop={10} accessibilityRole="button">
+          <TouchableOpacity onPress={() => (learnNote.rule ? undoRule(learnNote.rule) : learnNote.hand ? undoHand(learnNote.hand) : setLearnNote(null))} hitSlop={10} accessibilityRole="button">
             <Text style={s.learnUndo}>Undo</Text>
           </TouchableOpacity>
         </View>

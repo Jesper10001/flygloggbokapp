@@ -10,6 +10,9 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
+- Improved: Checking a scan shows which spread you're on, and a Stay button lets you double-check your corrections before going back.
+- New: Scanning learns how you write your numbers. When you keep correcting the same digit, like 5s read as 6s, Blades fixes it where your totals confirm, marks the rest for you to check, and lets you undo it.
+- Improved: Scanning settles day and night landings itself when the readings disagree, and only asks when it can't tell.
 - Improved: Hold a Fleet card or scroll it, and the aircraft photo steps back so you can read the numbers underneath.
 - Improved: Imported flights are saved exactly as written, without asking about endurance.
 - Improved: Weather on the dashboard uses the airport nearest you when your last flight has no airport.
@@ -30,6 +33,9 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Skanningens helskärm (LogbookCrossRef): "By column"-knappen (TranscribeOverlay) borttagen, ersatt med texten "Spread 6 of 10 · p. 42–43"; rutan "Nothing left to check" har "Stay" bredvid "Go back".
+- Skanningen: handstilsprofil per loggbok (services/scanHandwriting.ts, setting scan_handwriting[:formatId]). Rättningar av Claudes egen läsning (en per cell, högst två siffror bytta) räknas per förväxling; gäller efter 3 rättningar och om motsatt håll är högst hälften så vanligt. Rättar bara där blocktiden eller sidans summa bekräftar och just den varianten ensam får det att gå ihop; annars gul cell med förslag (bara där raden/kolumnen inte går ihop, högst 3 per kolumn). Celler användaren rört och celler med frågor rörs aldrig. Undo i rapporten och i notisen nollar förväxlingen. Claude får förväxlingen som en uppmaning att flagga, aldrig att läsa om. Test: scripts/test-scan-handwriting.cjs.
+- Skanningen: när Claude och Apple Vision läser landningar olika avgör appen själv (services/scanLandings.ts): sidans summor, nattid (nattlandning kräver nattid, helt mörker = natt), Visions läge när rutnätet bevisat stämmer, och till sist en andra titt där Claude läser cellutsnitten (services/scanSecondLook.ts, några coins). Bara oavgjorda blir frågor, med båda läsningarna som val; dag/natt-svaret tömmer grannkolumnen. Test: scripts/test-scan-landings.cjs.
 - Fleet (pilot + drönare): urklippet som spiller över statistiken tonas bort medan man håller fingret på kortet eller drar listan/karusellen, och tonas tillbaka efter släpp (components/logbook-page/fleetHold.ts).
 - Post 149 = sammanfattning (summary) av 145–148 inför den riktiga appen: loggboksguidens sidor/rader och väderradens flygplatsnamn.
 - Rättat: väderraden visade fortfarande ICAO-koden — dashboardens placeNames har bara egna platsers namn. Namnet slås nu upp i flygplatsdatabasen (getAirportByIcao).

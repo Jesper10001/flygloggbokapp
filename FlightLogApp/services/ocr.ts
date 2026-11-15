@@ -714,7 +714,7 @@ export async function ocrScanPage(
   timeFormat: TimeFormat = 'decimal',
   prevContext?: PageContext,
   // layout: bokens format läst i "Scan your whole logbook" (scanFormat) — används i stället för den digitala bokens.
-  opts: { useBookLayout?: boolean; layout?: LogbookLayout | null; timeAddition?: number; focus?: 'exact' | 'balanced' | 'totals'; model?: string; wholeSpread?: boolean } = {},
+  opts: { useBookLayout?: boolean; layout?: LogbookLayout | null; timeAddition?: number; focus?: 'exact' | 'balanced' | 'totals'; model?: string; wholeSpread?: boolean; handwriting?: string } = {},
 ): Promise<OcrPageResult> {
   const model = opts.model ?? OCR_MODEL;
   let baseContext = '';
@@ -735,6 +735,8 @@ export async function ocrScanPage(
   // Bifoga inlärda mappningar från tidigare skanningar
   const learnedHint = await buildContextHint();
   if (learnedHint) baseContext += `\n\n${learnedHint}`;
+  // Handstilsprofilen (services/scanHandwriting.ts): siffror som förväxlas — en uppmaning att flagga, aldrig att läsa om.
+  if (opts.handwriting) baseContext += `\n\n${opts.handwriting}`;
 
   const omitNote = ' Utelämna alla fält som är 0, tomma eller saknas — de tolkas automatiskt som 0/tom. Returnera bara fält och rader med verkligt innehåll. Schemat ovan är illustrativt, inte ett krav att fylla varje fält. Anropa emit_flights direkt, utan någon text.';
 

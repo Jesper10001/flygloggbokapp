@@ -615,6 +615,26 @@ export function crossCheckCounts(
   return out;
 }
 
+/**
+ * Rader där Vision läser samma landningar som Claude (dag eller natt, tal över 0) i rätt kolumn. Några sådana
+ * rader på ett uppslag visar att rutnätet ligger rätt över landningskolumnerna, så att Visions läge går att lita på.
+ */
+export function landingAgreement(
+  grid: PageGrid,
+  rows: { rowIndex: number; read: Record<string, string | undefined> }[],
+  words: VisionBox[],
+): number {
+  let n = 0;
+  for (const r of rows) {
+    const day = visionDigitsInCell(grid, r.rowIndex, 'landings_day', words, 0.1);
+    const nightRaw = visionDigitsInCell(grid, r.rowIndex, 'landings_night', words, 0.25);
+    const night = nightRaw && nightRaw === day ? null : nightRaw;
+    const hit = (v: string | null, read: string | undefined) => v != null && Number(v) > 0 && Number(read) === Number(v);
+    if (hit(day, r.read.landings_day) || hit(night, r.read.landings_night)) n++;
+  }
+  return n;
+}
+
 // ── Simulatorpass och sidans summor, kontrollerade med Vision ────────────────────────────────────────────────
 
 export interface SpillRow { key: string; rowIndex: number; skip?: boolean; data: Record<string, any> }

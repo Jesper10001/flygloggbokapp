@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 151,
+      "date": "2026-11-15",
+      "notes": [
+        "New: Scanning learns how you write your numbers, fixes them where your totals confirm and lets you undo it.",
+        "Improved: Scanning settles day and night landings itself and only asks when it can't tell.",
+        "Improved: Checking a scan shows which spread you're on, with a Stay button to double-check your corrections."
+      ]
+    },
+    {
       "id": 150,
       "date": "2026-11-14",
       "notes": [

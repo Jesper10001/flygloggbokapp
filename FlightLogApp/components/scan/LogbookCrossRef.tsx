@@ -1,8 +1,7 @@
 // "View as logbook" i skanningsrapporten: de skannade uppslagen ritade som loggbok, i liggande helskärm som
 // "Dina böcker", med samma kolumner och rader som de fotade uppslagen (services/logbook/scanSpread.ts). Alla
 // uppslag i skanningen finns med — svep mellan dem; vyn öppnar på uppslaget man tryckte på. Man lägger
-// pappersboken bredvid och jämför. "By column" går igenom kolumnerna en i taget som Transcribe
-// (TranscribeOverlay), utan de tomma.
+// pappersboken bredvid och jämför. Nederst står vilket uppslag man är på.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, FlatList, useWindowDimensions, Image, TextInput, ScrollView, Keyboard } from 'react-native';
@@ -18,7 +17,6 @@ import { cellRect } from '../../services/scanGeometry';
 import { inputValue, parseInput, shapeInput, label as fieldLabel, PLACE, UPPER, DURATION, CLOCK, COUNT } from '../../services/scanFields';
 import { searchAirports } from '../../db/icao';
 import { SpreadWebView } from '../logbook/SpreadWebView';
-import { TranscribeOverlay } from '../logbook/TranscribeOverlay';
 
 export interface ScannedSpread {
   page: number;                                         // uppslagets index i skanningen
@@ -54,7 +52,6 @@ export function LogbookCrossRef(p: {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const [ready, setReady] = useState(false);       // dölj boken tills orienteringen lagt sig (ingen stående blixt)
-  const [byColumn, setByColumn] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const listRef = useRef<FlatList>(null);
 
@@ -70,6 +67,7 @@ export function LogbookCrossRef(p: {
   // Efter en rättad cell: hoppa till nästa när rapporten räknat om vilka celler som är osäkra.
   const [advance, setAdvance] = useState<{ bi: number; slot: number; colId: string } | null>(null);
   const [allDone, setAllDone] = useState(false);
+  const [stayed, setStayed] = useState(false);   // "Stay": rutan döljs så att man kan dubbelkolla sina rättningar
   const [draft, setDraft] = useState('');
   const [bad, setBad] = useState(false);
   const [clearSel, setClearSel] = useState(0);
@@ -225,7 +223,7 @@ export function LogbookCrossRef(p: {
 
   const label = (b: (typeof books)[number]) => (b.sp.pageNumbers.left ? `p. ${b.spread.page_left}–${b.spread.page_right}` : `Spread ${b.sp.page + 1}`);
 
-  // Liggande medan boken visas (By column vrider själv till stående och tillbaka).
+  // Liggande medan boken visas.
   useEffect(() => {
     ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
     const t = setTimeout(() => setReady(true), 260);
@@ -289,7 +287,7 @@ export function LogbookCrossRef(p: {
                 <View style={{ width, flex: 1 }}>
                   <SpreadWebView spread={item.spread} template={item.template} pilotName="" timeFormat={p.timeFormat}
                     width={width} interactive={false} centerVertical onlyThisPageTotal
-                    marks={marksBy[index]} onCell={ed ? (r, c) => { setAllDone(false); pick(item, r, c); } : undefined} clearSel={clearSel}
+                    marks={marksBy[index]} onCell={ed ? (r, c) => { setAllDone(false); setStayed(false); pick(item, r, c); } : undefined} clearSel={clearSel}
                     selectCell={sel && sel.page === item.sp.page ? { r: sel.slot, c: sel.colId, n: selTick } : null} />
                 </View>
               )}
@@ -303,10 +301,9 @@ export function LogbookCrossRef(p: {
               <Ionicons name="chevron-back" size={18} color={idx <= 0 ? Colors.textMuted : Colors.textSecondary} />
             </TouchableOpacity>
           )}
-          <TouchableOpacity style={s.byColumn} onPress={() => setByColumn(true)} activeOpacity={0.85} disabled={!ready || leaving || !cur}>
-            <Ionicons name="reader-outline" size={16} color={Colors.primary} />
-            <Text style={s.byColumnText}>By column</Text>
-          </TouchableOpacity>
+          <Text style={s.where} numberOfLines={1} accessibilityLiveRegion="polite">
+            {cur ? (many ? `Spread ${idx + 1} of ${books.length}  ·  ${label(cur)}` : label(cur)) : ''}
+          </Text>
           {many && (
             <TouchableOpacity style={s.arrow} onPress={() => go(idx + 1)} disabled={idx >= books.length - 1} accessibilityLabel="Next spread">
               <Ionicons name="chevron-forward" size={18} color={idx >= books.length - 1 ? Colors.textMuted : Colors.textSecondary} />
@@ -367,29 +364,23 @@ export function LogbookCrossRef(p: {
       )}
 
       {/* Inget kvar att rätta: en liten ruta mitt på skärmen. Boken går fortfarande att trycka på runt om. */}
-      {ed && allDone && !sel && !byColumn && (
+      {ed && allDone && !stayed && !sel && (
         <View style={s.doneWrap} pointerEvents="box-none">
           <View style={s.doneCard} accessibilityLiveRegion="polite">
             <View style={s.doneIcon}><Ionicons name="checkmark" size={22} color="#0A1628" /></View>
             <Text style={s.doneTitle}>Nothing left to check</Text>
-            <TouchableOpacity onPress={close} style={s.doneBtn} accessibilityRole="button">
-              <Text style={s.doneBtnText}>Go back</Text>
-            </TouchableOpacity>
+            <View style={s.doneBtns}>
+              <TouchableOpacity onPress={() => setStayed(true)} style={s.stayBtn} accessibilityRole="button" accessibilityHint="Stay here to double-check your corrections">
+                <Text style={s.stayBtnText}>Stay</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={close} style={s.doneBtn} accessibilityRole="button">
+                <Text style={s.doneBtnText}>Go back</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       )}
 
-      {byColumn && cur && (
-        <TranscribeOverlay
-          spread={cur.spread}
-          template={cur.template}
-          pilotName=""
-          timeFormat={p.timeFormat}
-          onlyThisPageTotal
-          skipEmptyColumns
-          onClose={() => setByColumn(false)}
-        />
-      )}
     </Modal>
   );
 }
@@ -448,7 +439,10 @@ const s = StyleSheet.create({
   doneCard: { alignItems: 'center', gap: 10, paddingVertical: 18, paddingHorizontal: 28, borderRadius: 18, backgroundColor: '#0F1E3A', borderWidth: 1, borderColor: Colors.success + '66', shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 16, shadowOffset: { width: 0, height: 8 } },
   doneIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.success, alignItems: 'center', justifyContent: 'center' },
   doneTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '800' },
-  doneBtn: { height: 38, paddingHorizontal: 22, borderRadius: 19, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  doneBtns: { flexDirection: 'row', gap: 10, marginTop: 2 },
+  stayBtn: { height: 38, paddingHorizontal: 22, borderRadius: 19, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
+  stayBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  doneBtn: { height: 38, paddingHorizontal: 22, borderRadius: 19, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
   doneBtnText: { color: '#0A1628', fontSize: 14, fontWeight: '800' },
   kbBar: { position: 'absolute', left: 0, right: 0, backgroundColor: '#0F1E3A', borderTopWidth: 1, borderTopColor: Colors.cardBorder },
   kbChips: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8 },
@@ -466,8 +460,7 @@ const s = StyleSheet.create({
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 6, backgroundColor: Colors.surface, borderTopWidth: 0.5, borderTopColor: Colors.border },
   arrow: { width: 38, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.cardBorder },
   // Samma knapp som "Transcribe" i Dina böcker.
-  byColumn: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 8, paddingHorizontal: 18, borderRadius: 10, backgroundColor: Colors.primary + '14', borderWidth: 1, borderColor: Colors.primary + '44' },
-  byColumnText: { color: Colors.primary, fontSize: 13, fontWeight: '800' },
+  where: { color: Colors.textSecondary, fontSize: 13, fontWeight: '700', letterSpacing: 0.3, paddingHorizontal: 18, minWidth: 0, flexShrink: 1, textAlign: 'center', fontVariant: ['tabular-nums'] },
   useOff: { backgroundColor: 'transparent', borderColor: Colors.cardBorder, borderStyle: 'dashed' },
   useOn: { backgroundColor: Colors.success + '14', borderColor: Colors.success + '66' },
 });
