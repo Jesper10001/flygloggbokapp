@@ -17,6 +17,10 @@ const MAX_TILE_ZOOM = 16;  // = proxyns tak
 // leverantörslistan inte går att hämta.
 export const ESRI_IMAGERY_SOURCE_FALLBACK = 'Esri, Vantor, Earthstar Geographics, and the GIS User Community';
 
+// Satellitruta via proxyn (vädersidans kartcirkel använder samma rutor).
+export const imageryTileUri = (z: number, y: number, x: number) => `${PROXY_URL}/map/imagery/${z}/${y}/${x}`;
+export const IMAGERY_MAX_ZOOM = MAX_TILE_ZOOM;
+
 const tileZoom = (zoom: number) => Math.min(MAX_TILE_ZOOM, Math.round(zoom) + 1);
 
 // Web Mercator: lat/lon → världspixlar på zoom z.

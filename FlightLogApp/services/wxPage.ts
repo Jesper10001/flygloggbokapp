@@ -12,6 +12,8 @@ export type WxTz = 'utc' | 'local';
 export type WxSeg = {
   id: string; from: number; to: number; cat: FlightCat | null;
   kind: 'base' | 'becmg' | 'temp'; label: string; when: string; text: string;
+  // Ihopslagna perioder med samma kategori: alla TAF-grupper i blocket och varje dels tid + text.
+  ids: string[]; parts: { when: string; text: string; from?: number }[];
 };
 export type WxGlance = { id: string; when: string; cat: FlightCat | null; label: string; note: string };
 export type WxNowTile = { label: string; value: string; unit: string; note: string };
@@ -179,9 +181,10 @@ export function buildWxPage(m: any, t: any, tz: WxTz, nowMs: number = Date.now()
   const issued = typeof t?.issueTime === 'string' ? Date.parse(t.issueTime) / 1000 : num(t?.issueTime);
   const tafIssued = Number.isFinite(issued) && issued > 0 ? fmtTime(issued, tz, now).toUpperCase() : '';
 
-  let timeline: WxTimeline | null = null;
-  const cards: WxCard[] = [];
   const allSegs: WxSeg[] = [];
+  let timeline: WxTimeline | null = null;
+  const segOf = (id: string) => allSegs.find((x) => x.ids.includes(id) && x.kind !== 'becmg') ?? allSegs.find((x) => x.ids.includes(id));
+  const cards: WxCard[] = [];
   if (baseList.length && end > start) {
     const base: WxSeg[] = [];
     baseList.forEach((b, i) => {
@@ -191,13 +194,38 @@ export function buildWxPage(m: any, t: any, tz: WxTz, nowMs: number = Date.now()
       if (to <= from) return;
       const bec = b.f.fcstChange === 'BECMG' ? Math.min(num(b.f.timeBec) || from, to) : from;
       if (bec > from) {
-        base.push({ id: b.id, from, to: bec, cat: b.cat, kind: 'becmg', label: '›',
+        base.push({ id: b.id, ids: [b.id], parts: [], from, to: bec, cat: b.cat, kind: 'becmg', label: '›',
           when: `${fmtRange(from, bec, tz, now, ' – ')} · becoming`.toUpperCase(),
           text: `Changing gradually to: ${stateProse(b.s).replace(/^./, (c) => c.toLowerCase())}` });
       }
-      if (to > bec) base.push({ id: b.id, from: bec, to, cat: b.cat, kind: 'base', label: b.cat ?? '',
+      if (to > bec) base.push({ id: b.id, ids: [b.id], parts: [], from: bec, to, cat: b.cat, kind: 'base', label: b.cat ?? '',
         when: (bec <= now ? `Now – ${fmtTime(to, tz, now)}` : fmtRange(bec, to, tz, now, ' – ')).toUpperCase(), text: stateProse(b.s) });
     });
+    // Perioder i rad med samma kategori blir ett block; rutan under tidslinjen listar varje del.
+    const mergedBase: WxSeg[] = [];
+    for (const sg of base) {
+      const last = mergedBase[mergedBase.length - 1];
+      const part = { when: sg.when, text: sg.text, from: sg.from };
+      if (last && last.cat === sg.cat && last.to === sg.from) {
+        last.to = sg.to;
+        // Övergången (BECMG) och perioden den leder till är samma TAF-grupp: en del, med periodens text.
+        if (last.ids.includes(sg.id)) {
+          const pp = last.parts[last.parts.length - 1];
+          const pFrom = last.parts.length === 1 ? last.from : pp.from ?? sg.from;
+          pp.text = sg.text;
+          pp.when = (pFrom <= now ? `Now – ${fmtTime(sg.to, tz, now)}` : fmtRange(pFrom, sg.to, tz, now, ' – ')).toUpperCase();
+          if (last.parts.length === 1) { last.when = pp.when; last.text = sg.text; }
+        } else { last.ids.push(sg.id); last.parts.push(part); }
+        last.kind = 'base'; last.label = sg.cat ?? '';
+      } else mergedBase.push({ ...sg, ids: [...sg.ids], parts: [part] });
+    }
+    for (const sg of mergedBase) {
+      if (sg.parts.length > 1) {
+        sg.when = (sg.from <= now ? `Now – ${fmtTime(sg.to, tz, now)}` : fmtRange(sg.from, sg.to, tz, now, ' – ')).toUpperCase();
+        sg.text = `${sg.parts.length} periods, all ${sg.cat ?? 'similar'}.`;
+      }
+    }
+    base.length = 0; base.push(...mergedBase);
     // Tillfälliga perioder: grundläget när de börjar + det de själva anger. Läggs på första lediga raden (högst två).
     const rows: WxSeg[][] = [[], []];
     fcsts.forEach((f, i) => {
@@ -209,7 +237,7 @@ export function buildWxPage(m: any, t: any, tz: WxTz, nowMs: number = Date.now()
       const cat = catOf(over);
       const p = num(f.probability);
       const kind = p > 0 ? `${p}% chance` : 'temporarily';
-      const seg: WxSeg = { id: `f${i}`, from, to, cat, kind: 'temp', label: `${p > 0 ? p + '%' : 'TEMPO'} ${cat ?? ''}`.trim(),
+      const seg: WxSeg = { id: `f${i}`, ids: [`f${i}`], parts: [], from, to, cat, kind: 'temp', label: `${p > 0 ? p + '% ' : ''}${cat ?? ''}`.trim() || 'TEMPO',
         when: `${fmtRange(from, to, tz, now, ' – ')} · ${kind}`.toUpperCase(),
         text: `${p > 0 ? 'Possibly' : 'At times'} ${stateProse({ wdir: f.wdir, wspd: f.wspd, wgst: f.wgst, visib: f.visib, wxString: f.wxString, clouds: Array.isArray(f.clouds) ? f.clouds : [] }).replace(/^./, (c) => c.toLowerCase())}` };
       const row = rows.find((r) => r.every((x) => x.to <= from || x.from >= to));
@@ -231,7 +259,7 @@ export function buildWxPage(m: any, t: any, tz: WxTz, nowMs: number = Date.now()
     fcsts.forEach((f, i) => {
       const toS = isTemp(f) ? num(f.timeTo) : (() => { const bi = baseList.findIndex((b) => b.id === `f${i}`); const nx = baseList[bi + 1]; return nx ? num(nx.f.timeFrom) : validTo; })();
       if (toS <= now) return;
-      const seg = allSegs.find((x) => x.id === `f${i}` && x.kind !== 'becmg') ?? allSegs.find((x) => x.id === `f${i}`);
+      const seg = segOf(`f${i}`);
       const p = num(f.probability);
       const kind = isTemp(f) ? (p > 0 ? `${p}% CHANCE` : 'TEMPORARY') : f.fcstChange === 'BECMG' ? 'BECOMING' : 'FROM';
       const from = num(f.timeFrom);
@@ -255,7 +283,7 @@ export function buildWxPage(m: any, t: any, tz: WxTz, nowMs: number = Date.now()
   for (const x of picked) {
     const f = fcsts[Number(x.id.slice(1))];
     const over = x.kind === 'temp' ? f : baseList.find((b) => b.id === x.id)!.s;
-    const startAt = x.kind === 'base' ? (allSegs.find((y) => y.id === x.id && y.kind === 'becmg')?.from ?? x.from) : x.from;
+    const startAt = x.from;
     glance.push({
       id: x.id, cat: x.cat,
       when: (x.kind === 'temp' ? fmtRange(x.from, x.to, tz, now) : `from ${fmtTime(startAt, tz, now)}`).replace(' tomorrow', '').toUpperCase(),
@@ -271,7 +299,7 @@ export function buildWxPage(m: any, t: any, tz: WxTz, nowMs: number = Date.now()
     const st = baseList.find((b) => b.id === nextBase.id)!.s;
     const wx = wxProse(st.wxString).split(',')[0];
     const worse = nowCat && nextBase.cat ? RANK[nextBase.cat] > RANK[nowCat] : false;
-    const startAt = allSegs.find((y) => y.id === nextBase.id && y.kind === 'becmg')?.from ?? nextBase.from;
+    const startAt = nextBase.from;
     sentences.push(`${worse ? 'Worsening to' : 'Improving to'} ${nextBase.cat} from ${fmtTime(startAt, tz, now)}${wx ? ` with ${wx}` : ''}.`);
   }
   const tempWorst = picked.filter((x) => x.kind === 'temp').sort((a, b) => (b.cat ? RANK[b.cat] : 0) - (a.cat ? RANK[a.cat] : 0))[0];
@@ -294,7 +322,7 @@ export function buildWxPage(m: any, t: any, tz: WxTz, nowMs: number = Date.now()
       if (/^TEMPO\b/.test(txt) && /^PROB\d{2}$/.test(parts[i - 1] ?? '')) return;
       const text = /^PROB\d{2}$/.test(txt) && /^TEMPO\b/.test(parts[i + 1] ?? '') ? `${txt} ${parts[i + 1]}` : txt;
       const f = fcsts[fi];
-      const seg = allSegs.find((x) => x.id === `f${fi}` && x.kind !== 'becmg') ?? allSegs.find((x) => x.id === `f${fi}`);
+      const seg = segOf(`f${fi}`);
       const cat = seg?.cat ?? (f ? (isTemp(f) ? catOf(merge(baseAt(num(f.timeFrom))?.s ?? null, f, false)) : baseList.find((b) => b.id === `f${fi}`)?.cat ?? null) : null);
       rawTaf.push({ text, cat, marker: i > 0 });
       fi++;

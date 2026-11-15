@@ -34,7 +34,21 @@ ok(p.nowCat === 'VFR', 'Now = VFR');
 ok(/Good VFR now/.test(p.summary) && /MVFR/.test(p.summary) && /40% chance of IFR/.test(p.summary), 'meningen nämner VFR, MVFR och 40% IFR');
 ok(p.glance.length === 3 && p.glance[1].cat === 'MVFR' && p.glance[2].label === '40% IFR', 'överblick: Now, MVFR, 40% IFR → ' + p.glance.map((g) => `${g.when}:${g.label}:${g.note}`).join(' | '));
 ok(p.now.tiles.map((x) => x.value).join(',') === '10+,None,4°/-2°,1000', 'METAR-rutor ' + p.now.tiles.map((x) => x.value + x.unit + '(' + x.note + ')').join(' '));
-ok(p.timeline && p.timeline.base.some((s) => s.kind === 'becmg') && p.timeline.temp.length === 1, 'tidslinje med övergång och en PROB-rad');
+ok(p.timeline && p.timeline.base.map((s) => s.cat).join() === 'VFR,MVFR,VFR' && p.timeline.temp.length === 1, 'tidslinje: VFR, MVFR, VFR (övergången hör till sin period) och en PROB-rad');
+{
+  // Samma kategori i rad blir ett block; VFR–IFR–VFR blir tre.
+  const t2 = { ...taf, fcsts: [
+    { timeFrom: T(15, 12), timeTo: T(16, 18), fcstChange: null, wdir: 80, wspd: 6, visib: '6+', clouds: [{ cover: 'BKN', base: 6000 }] },
+    { timeFrom: T(15, 21), timeTo: T(16, 3), fcstChange: 'FM', wdir: 270, wspd: 10, visib: '6+', clouds: [{ cover: 'SCT', base: 20000 }] },
+    { timeFrom: T(16, 3), timeTo: T(16, 8), fcstChange: 'FM', wdir: 260, wspd: 4, visib: '6+', clouds: [{ cover: 'BKN', base: 25000 }] },
+    { timeFrom: T(16, 8), timeTo: T(16, 10), fcstChange: 'FM', wdir: 260, wspd: 4, visib: 1.5, clouds: [{ cover: 'OVC', base: 600 }] },
+    { timeFrom: T(16, 10), timeTo: T(16, 18), fcstChange: 'FM', wdir: 260, wspd: 4, visib: '6+', clouds: [{ cover: 'SCT', base: 3000 }] },
+  ] };
+  const q = buildWxPage(metar, t2, 'utc', now);
+  ok(q.timeline.base.map((s) => s.cat).join() === 'VFR,IFR,VFR', 'VFR×3, IFR, VFR → tre block: ' + q.timeline.base.map((s) => s.cat + '(' + s.parts.length + ')').join(' '));
+  ok(q.timeline.base[0].parts.length === 3 && q.timeline.base[0].ids.length === 3, 'första blocket listar tre perioder');
+  ok(q.cards.every((c) => c.cat), 'alla kort har kategori även när blocken är ihopslagna');
+}
 ok(p.timeline.ticks[0].label === 'NOW' && p.timeline.ticks.length >= 9, 'ticks ' + p.timeline.ticks.map((x) => x.label).join(' '));
 ok(p.timeline.winds.some((w) => w.gust === 28), 'byar 28 i vindraden');
 ok(p.cards.length === 4 && p.cards[2].kind === '40% CHANCE' && p.cards[2].cat === 'IFR', 'kort: ' + p.cards.map((c) => `${c.when} ${c.kind} ${c.cat}`).join(' | '));

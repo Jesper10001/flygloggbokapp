@@ -10,6 +10,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
+- Improved: The weather forecast band groups periods with the same flight category into one block, and tapping it lists each period. The runway map shows a satellite image.
 - New: A redesigned weather page. See the weather at a glance, the wind on each runway on a small airport map, and the forecast as a colour band over the next hours, in UTC or local time.
 - Improved: Projections and Next licence open in full screen smoothly, without the screen jumping as it turns.
 - Fixed: Tapping the weather card shows the station the card is showing, also when your last flight went to an airport without a weather report.
@@ -39,6 +40,10 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Vädersidan, efter test på telefon:
+  - Grundperioder i rad med samma kategori slås ihop till ett block (`ids`, `parts` på `WxSeg`); rutan under tidslinjen listar varje period. VFR–IFR–VFR blir fortfarande tre block. En BECMG-övergång räknas som en del av sin period.
+  - TEMPO-raden visar bara kategorin (streckad = tillfälligt), PROB visar "40% IFR".
+  - Kartcirkeln använder Esri World Imagery via proxyns `/map/imagery` (samma rutor som delningskortet) under en mörk slöja, med banorna ritade ovanpå i samma Mercator-projektion. Zoom = lägsta som ger dubbel upplösning. "Powered by Esri" + leverantörerna står under kortet. Utan bilder (proxy utan nyckel) ritas banorna på mörk botten. MapView används inte längre på vädersidan.
 - Ny vädersida (design: Claude design "Vädersidan METAR + TAF"), ersätter Decoded/Raw-texten i `AirportPickerModal`:
   - `services/wxPage.ts` bygger allt ur API-objekten (`metarObj`/`tafObj` sparas nu i `DecodedWx`): en mening om vädret, Now + de två närmaste förändringarna, METAR-rutor, tidslinje (grundprognos med BECMG-övergångar, TEMPO/PROB på egna rader), vind var tredje timme, en rad per TAF-grupp och rå TAF per grupp. Testas av `scripts/test-wx-page.cjs`.
   - `components/weather/WxRunwayMap.tsx`: mörk kartbild (mutedStandard) i en cirkel, inramad så att alla banor ur `runway-geo.json` precis får plats, banorna tjocka utan nummer, de vinden gynnar i cyan, vindpilen ovanpå.

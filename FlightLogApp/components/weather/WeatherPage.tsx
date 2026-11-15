@@ -2,7 +2,7 @@
 // stationen och en mening om vädret, Now + de två närmaste förändringarna, Now (METAR) med kartcirkel,
 // banvind och fyra värden på en rad, tidslinjen för TAF:en med UTC/LOCAL-växel, en rad per TAF-grupp och
 // rå METAR/TAF bakom en knapp. All logik i services/wxPage.ts; design: Claude design "Vädersidan METAR + TAF".
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
@@ -22,6 +22,8 @@ export function WeatherPage({ wx, fallbackName }: { wx: DecodedWx; fallbackName?
   const [sel, setSel] = useState<string | null>(null);
   const [rawOpen, setRawOpen] = useState(false);
   const [nowMs, setNowMs] = useState(Date.now());
+  const [mapCredit, setMapCredit] = useState<string | null>(null);
+  const onCredit = useCallback((c: string | null) => setMapCredit(c), []);
 
   useEffect(() => { getSetting(TZ_KEY).then((v) => { if (v === 'local' || v === 'utc') setTz(v); }).catch(() => {}); }, []);
   useEffect(() => { const t = setInterval(() => setNowMs(Date.now()), 60000); return () => clearInterval(t); }, []);
@@ -40,9 +42,9 @@ export function WeatherPage({ wx, fallbackName }: { wx: DecodedWx; fallbackName?
   // Vald del av tidslinjen (förvalt: det som gäller nu).
   const tl = page.timeline;
   const segs: WxSeg[] = tl ? [...tl.base, ...tl.temp.flat()] : [];
-  const cur = segs.find((s) => s.id === sel && (s.kind !== 'becmg' || !segs.some((x) => x.id === sel && x.kind !== 'becmg')))
-    ?? segs.find((s) => s.id === sel) ?? tl?.base.find((s) => s.from <= nowMs / 1000 && s.to > nowMs / 1000) ?? tl?.base[0];
-  const isSel = (id: string) => (cur ? cur.id === id : false);
+  const cur = (sel ? segs.find((s) => s.ids.includes(sel) && s.kind !== 'becmg') ?? segs.find((s) => s.ids.includes(sel)) : undefined)
+    ?? tl?.base.find((s) => s.from <= nowMs / 1000 && s.to > nowMs / 1000) ?? tl?.base[0];
+  const isSel = (id: string) => (cur ? cur.ids.includes(id) : false);
 
   const obsAge = wx.metarObsMs ? Math.max(0, Math.round((nowMs - wx.metarObsMs) / 60000)) : null;
   const obsTime = wx.metarObsMs ? fmtTime(wx.metarObsMs / 1000, tz, nowMs / 1000).toUpperCase() : '';
@@ -85,7 +87,7 @@ export function WeatherPage({ wx, fallbackName }: { wx: DecodedWx; fallbackName?
             <Text style={st.secSub}>METAR {obsTime}</Text>
           </View>
           <View style={[st.card, { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 }]}>
-            <WxRunwayMap runways={runways} favored={rw.favored} windDir={page.now.windDir} />
+            <WxRunwayMap runways={runways} favored={rw.favored} windDir={page.now.windDir} onCredit={onCredit} />
             <View style={{ flex: 1, gap: 10 }}>
               <View style={{ gap: 2 }}>
                 <Text style={st.wind} numberOfLines={1} adjustsFontSizeToFit>
@@ -103,6 +105,7 @@ export function WeatherPage({ wx, fallbackName }: { wx: DecodedWx; fallbackName?
               ))}
             </View>
           </View>
+          {mapCredit ? <Text style={st.credit} numberOfLines={2}>{mapCredit}</Text> : null}
           <View style={{ flexDirection: 'row', gap: 6 }}>
             {page.now.tiles.map((t) => (
               <View key={t.label} style={st.tile}>
@@ -178,9 +181,18 @@ export function WeatherPage({ wx, fallbackName }: { wx: DecodedWx; fallbackName?
               <View style={st.readout}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Text style={[st.readCat, { color: catColor(cur.cat) }]}>{cur.kind === 'temp' ? cur.label : cur.cat ?? '—'}</Text>
-                  <Text style={st.readWhen} numberOfLines={1}>{cur.when}</Text>
+                  <Text style={st.readWhen} numberOfLines={1}>{cur.when}{cur.parts.length > 1 ? ` · ${cur.parts.length} PERIODS` : ''}</Text>
                 </View>
-                <Text style={st.readTxt}>{cur.text}</Text>
+                {cur.parts.length > 1 ? (
+                  <View style={{ gap: 8, marginTop: 2 }}>
+                    {cur.parts.map((pt, i) => (
+                      <View key={i} style={{ gap: 2 }}>
+                        <Text style={st.partWhen}>{pt.when}</Text>
+                        <Text style={st.readTxt}>{pt.text}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : <Text style={st.readTxt}>{cur.text}</Text>}
               </View>
             ) : null}
           </View>
@@ -264,6 +276,7 @@ const st = StyleSheet.create({
   rwRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, paddingHorizontal: 9, borderRadius: 10 },
   rwId: { fontFamily: MONO, fontSize: 11, fontWeight: '800', width: 40 },
   rwTxt: { flex: 1, fontSize: 12 },
+  credit: { fontSize: 9, lineHeight: 12, color: Colors.textMuted, marginTop: -4, paddingHorizontal: 4 },
   tile: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: 10, paddingHorizontal: 6, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card },
   tileLbl: { fontFamily: MONO, fontSize: 8, fontWeight: '700', letterSpacing: 1, color: Colors.textSecondary },
   tileVal: { fontFamily: MONO, fontSize: 17, fontWeight: '800', color: Colors.textPrimary },
@@ -281,6 +294,7 @@ const st = StyleSheet.create({
   readout: { marginTop: 4, padding: 12, borderRadius: 12, backgroundColor: Colors.background, gap: 4 },
   readCat: { fontFamily: MONO, fontSize: 10, fontWeight: '800' },
   readWhen: { flex: 1, fontFamily: MONO, fontSize: 10, letterSpacing: 0.3, color: Colors.textSecondary },
+  partWhen: { fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 0.4, color: Colors.textSecondary },
   readTxt: { fontSize: 14, lineHeight: 20, color: Colors.textPrimary },
   change: { flexDirection: 'row', gap: 12, padding: 12, paddingHorizontal: 14, borderRadius: 16, borderWidth: 1, backgroundColor: Colors.card },
   chWhen: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
