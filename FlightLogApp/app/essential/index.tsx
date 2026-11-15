@@ -16,6 +16,7 @@ import { useAcarsScanStart } from '../../components/AcarsScanChooser';
 import { useDroneScanStart } from '../../components/DroneScanChooser';
 import { useLogbookScanStart } from '../../components/LogbookScanChooser';
 import { UpdateAvailableModal } from '../../components/UpdateAvailableModal';
+import { UpdateReadyDialog } from '../../components/UpdateReadyDialog';
 import { UpdateAppliedModal } from '../../components/UpdateAppliedModal';
 import { DraftBanner } from '../../components/DraftBanner';
 import { useToastStore } from '../../components/Toast';
@@ -241,6 +242,7 @@ export default function EssentialHome() {
         secondary={{ label: 'Cancel', onPress: closeMode }}
       />
       <UpdateAvailableModal />
+      <UpdateReadyDialog />
       <UpdateAppliedModal />
     </View>
   );

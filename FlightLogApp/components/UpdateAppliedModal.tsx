@@ -6,6 +6,7 @@
 // (components/SilentUpdates.tsx).
 
 import { useEffect, useState } from 'react';
+import { create } from 'zustand';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import * as Updates from 'expo-updates';
 import { Colors } from '../constants/colors';
@@ -25,6 +26,9 @@ function runningUpdateId(): string | null {
   if (__DEV__ || !Updates.isEnabled || Updates.isEmbeddedLaunch) return null;
   return Updates.updateId ?? null;
 }
+
+// Rutan är öppen → "Update ready" (UpdateReadyDialog) väntar, så att två rutor aldrig ligger på varandra.
+export const useUpdateAppliedOpen = create<{ open: boolean }>(() => ({ open: false }));
 
 export function UpdateAppliedModal() {
   const tourActive = useTourStore((st) => st.active || !!st.promptMode);
@@ -61,6 +65,10 @@ export function UpdateAppliedModal() {
   const notes = shown?.notes ?? [];
   const more = shown?.more ?? false;
   const visible = !!shown && !tourActive && !storeUpdate;
+  useEffect(() => {
+    useUpdateAppliedOpen.setState({ open: visible });
+    return () => useUpdateAppliedOpen.setState({ open: false }); // skärmen kan lämnas medan rutan är öppen
+  }, [visible]);
   return (
     <GlassDialog
       visible={visible}

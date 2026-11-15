@@ -20,6 +20,7 @@ import { GlobalMapButton } from '../../components/GlobalMapButton';
 import { GlobalMapModal } from '../../components/GlobalMapModal';
 import { DashboardGlobe } from '../../components/DashboardGlobe';
 import { UpdateAvailableModal } from '../../components/UpdateAvailableModal';
+import { UpdateReadyDialog } from '../../components/UpdateReadyDialog';
 import { UpdateAppliedModal } from '../../components/UpdateAppliedModal';
 import { useTourStore } from '../../store/tourStore';
 import { TourSpot, useTourScrollTo } from '../../components/TourSpot';
@@ -530,8 +531,7 @@ function LogFlightButton({ onPress, label, style }: { onPress: () => void; label
   const s = makeDashStyles();
   return (
     <TouchableOpacity style={[s.addBtn, style]} onPress={onPress} activeOpacity={0.9}>
-      {/* Klart glas som flikraden (GlassFill), bara texten (inget plustecken, test 2026-11-14). */}
-      <GlassFill radius={GLASS_R} />
+      {/* Variant B (Claude design "Log flight-knappar"): tunn ram + svag ton i accentfärgen, rundad som glaset. */}
       <Text style={s.addBtnText}>{label}</Text>
       <TourSpot id="dash-log" radius={GLASS_R} inset={0} />
     </TouchableOpacity>
@@ -1036,7 +1036,7 @@ export default function DashboardScreen() {
       {/* ── Log new flight — photolog vänster + fysisk loggbok höger ── */}
       <View style={s.logRow} onLayout={(e) => { onLogRowLayout(e); onScanRowLayout(e); }}>
         {/* Logbook scan är öppen bara när skanningen är lanserad (SCAN_OPEN); annars går knappen direkt till ACARS. */}
-        <ScanSpeedDial style={s.sideBtn} accessibilityLabel="Scan" background={<GlassFill radius={GLASS_R} />} iconColor="#FFFFFF" options={[
+        <ScanSpeedDial style={s.sideBtn} accessibilityLabel="Scan" iconColor="#FFFFFF" options={[
           ...(SCAN_OPEN ? [{ key: 'logbook', label: 'Logbook scan', icon: 'book-outline' as const, onPress: logbookScan.start }] : []),
           { key: 'acars', label: 'ACARS scan', icon: 'hardware-chip-outline' as const, onPress: acarsScan.start },
         ]} />
@@ -1051,7 +1051,6 @@ export default function DashboardScreen() {
           activeOpacity={0.85}
           accessibilityRole="button" accessibilityLabel="Your logbooks"
         >
-          <GlassFill radius={GLASS_R} />
           <Ionicons name="book" size={22} color={spreadPrompt ? Colors.gold : '#FFFFFF'} />
         </TouchableOpacity>
       </View>
@@ -1142,6 +1141,7 @@ export default function DashboardScreen() {
 
     {/* Mjuk "uppdatering finns"-popup (dyker upp vid app-öppning, går att trycka bort). */}
     <UpdateAvailableModal />
+    <UpdateReadyDialog />
     <UpdateAppliedModal />
     <GlassDialog
       visible={shareNeedsName}
@@ -1211,11 +1211,11 @@ function makeDashStyles() { return StyleSheet.create({
   },
   telAdviceText: { flex: 1, fontSize: 11, color: Colors.textPrimary, lineHeight: 16 },
 
-  // Klart glas (GlassFill i knappen): ingen egen bakgrund eller ram, rundad som flikraden, mjuk skugga.
+  // Variant B (2026-11-15): stilen från "Create logbook" (tunn ram + svag ton i accentfärgen) men rundad som glaset.
   addBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     borderRadius: GLASS_R, paddingVertical: 16, marginTop: 16, marginBottom: 6,
-    shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 },
+    borderWidth: 1, borderColor: Colors.primary + '55', backgroundColor: Colors.primary + '14',
   },
   addBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
   physBtn: {
@@ -1242,8 +1242,8 @@ function makeDashStyles() { return StyleSheet.create({
   unknownSub: { color: Colors.textSecondary, fontSize: 11, fontWeight: '600', marginTop: 1 },
   unknownBtn: { width: 34, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   sideBtn: {
-    width: 54, alignItems: 'center', justifyContent: 'center', borderRadius: GLASS_R,
-    shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 },
+    width: 56, alignItems: 'center', justifyContent: 'center', borderRadius: GLASS_R,
+    borderWidth: 1, borderColor: Colors.primary + '55', backgroundColor: Colors.primary + '14',
   },
 
   sectionHeader: {

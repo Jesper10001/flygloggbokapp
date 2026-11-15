@@ -42,6 +42,7 @@ import { categoryLabel } from '../../constants/droneCategories';
 import { DroneDashboardGlobe } from '../../components/DroneDashboardGlobe';
 import { GlobalMapModal } from '../../components/GlobalMapModal';
 import { UpdateAvailableModal } from '../../components/UpdateAvailableModal';
+import { UpdateReadyDialog } from '../../components/UpdateReadyDialog';
 import { UpdateAppliedModal } from '../../components/UpdateAppliedModal';
 import { AirportQuickSearch } from '../../components/AirportQuickSearch';
 import { AirportPickerModal } from '../../components/AirportPickerModal';
@@ -105,6 +106,8 @@ export default function DroneDashboardScreen() {
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const accent = useDroneAccentStore((s) => s.color);
+  // Log flight-radens ram (variant B): tunn kant + svag ton i accentfärgen.
+  const frame = { borderColor: accent + '55', backgroundColor: accent + '14' };
   const loadAccent = useDroneAccentStore((s) => s.load);
   const { flights: realDroneFlights, stats: realDroneStats, loadFlights, loadStats } = useDroneFlightStore();
   // Blades introduction: DEMO-flygningar + demo-stats när rundturen kör och drönar-loggboken annars är tom.
@@ -248,19 +251,16 @@ export default function DroneDashboardScreen() {
       {droneScan.chooser}
       {/* ── 3. Log-flight-rad: scan · B-logga · fysisk bok (= manned) ── */}
       <View style={s.logRow} onLayout={(e) => { onLogRowLayout(e); onScanRowLayout(e); }}>
-        {/* Klart glas som pilotläget och flikraden (GlassFill); Log flight utan plustecken (test 2026-11-14). */}
-        <TouchableOpacity style={s.sideBtn} activeOpacity={0.85} onPress={() => { tapHaptic(); droneScan.start(); }} accessibilityRole="button" accessibilityLabel="Scan">
-          <GlassFill radius={GLASS_R} />
+        {/* Variant B som pilotläget: tunn ram + svag ton i den valda accentfärgen, rundad som glaset. */}
+        <TouchableOpacity style={[s.sideBtn, frame]} activeOpacity={0.85} onPress={() => { tapHaptic(); droneScan.start(); }} accessibilityRole="button" accessibilityLabel="Scan">
           <Ionicons name="scan-outline" size={22} color="#FFFFFF" />
           <TourSpot id="dash-scan" radius={GLASS_R} inset={0} />
         </TouchableOpacity>
-        <TouchableOpacity style={s.addBtn} onPress={() => { tapHaptic(); router.push('/drone-flight/add'); }} activeOpacity={0.9}>
-          <GlassFill radius={GLASS_R} />
+        <TouchableOpacity style={[s.addBtn, frame]} onPress={() => { tapHaptic(); router.push('/drone-flight/add'); }} activeOpacity={0.9}>
           <Text style={[s.addBtnText, { color: '#FFFFFF' }]}>{t('log_new_flight') ?? 'Log flight'}</Text>
           <TourSpot id="dash-log" radius={GLASS_R} inset={0} />
         </TouchableOpacity>
-        <TouchableOpacity style={s.sideBtn} onPress={() => { tapHaptic(); router.push('/drone-logbook?recent=1'); }} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Your logbooks">
-          <GlassFill radius={GLASS_R} />
+        <TouchableOpacity style={[s.sideBtn, frame]} onPress={() => { tapHaptic(); router.push('/drone-logbook?recent=1'); }} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Your logbooks">
           <Ionicons name="book" size={22} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
@@ -306,6 +306,7 @@ export default function DroneDashboardScreen() {
       <AirportPickerModal visible={wxPickerOpen} onClose={() => setWxPickerOpen(false)} initialIcao={wx?.metarStation ?? wx?.tafStation ?? null} />
       {/* Mjuk "uppdatering finns"-popup (dyker upp vid app-öppning, går att trycka bort). */}
       <UpdateAvailableModal />
+      <UpdateReadyDialog />
       <UpdateAppliedModal />
     </ScrollView>
     </Animated.View>
@@ -581,8 +582,8 @@ const s = StyleSheet.create({
   telAdviceText: { flex: 1, fontSize: 11, color: Colors.textPrimary, lineHeight: 16 },
 
   logRow: { flexDirection: 'row', alignItems: 'stretch', gap: 8, marginTop: 16 },
-  // Klart glas (GlassFill i knappen): ingen egen bakgrund eller ram, rundad som flikraden, mjuk skugga (= pilot).
-  sideBtn: { width: 54, alignItems: 'center', justifyContent: 'center', borderRadius: GLASS_R, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } },
-  addBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: GLASS_R, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } },
+  // Variant B (= pilot): ram + ton i accentfärgen sätts i komponenten (frame), rundad som glaset.
+  sideBtn: { width: 56, alignItems: 'center', justifyContent: 'center', borderRadius: GLASS_R, borderWidth: 1 },
+  addBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: GLASS_R, borderWidth: 1 },
   addBtnText: { fontSize: 16, fontWeight: '800' },
 });

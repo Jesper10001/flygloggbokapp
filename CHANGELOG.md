@@ -10,6 +10,8 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
+- Improved: Updates arrive sooner. Blades checks every hour while it's open and tells you when an update is ready, so you can restart right away or let it install next time.
+- Improved: The Log flight button and the buttons beside it have a new look.
 - Improved: The Logbook and layout sheet in Settings matches the rest of Blades, follows your accent colour and says exactly what will change.
 - Improved: The weather forecast band groups periods with the same flight category into one block, and tapping it lists each period.
 - Improved: The weather page has a Decoded and Raw switch right under the search. The airport map fills half the wind card, with runways drawn like real runways, numbers at each end and a clear wind arrow.
@@ -42,6 +44,11 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Log flight-raden (pilot + drönare) i variant B från Claude design "Log flight-knappar": tunn ram + svag ton i accentfärgen (Create logbook-stilen), rundad som glaset (27), vita ikoner; GlassFill och skuggan borttagna i raden. Drönarläget använder den valda accenten.
+- EAS Update, steg 1 (utan nytt bygge):
+  - `SilentUpdates` kollar och hämtar en gång i timmen medan appen är öppen och direkt när den kommer tillbaka från bakgrunden (högst var femte minut; tidigare var halvtimme).
+  - Ny `UpdateReadyDialog` (GlassDialog "A new update is ready", Restart now / Later) när `useUpdates().isUpdatePending`. Bara på dashboarden (pilot, drönare, Essential) och aldrig före onboarding och Blades introduction (`isIntroTourPending`), under rundturen, ovanpå App Store-popupen, "Blades was updated" (`useUpdateAppliedOpen` tillbaka), en karta eller delningsrutan. Later gäller samma uppdatering tills nästa start.
+  - Steg 2 (bakgrundskoll via iOS och ingen koll före onboarding vid första installationen) kräver bygge 1.0.2.
 - Settings → Logbook and layout-arket omgjort efter Claude design "Logbook and layout": navy-ark i stället för grått glas (BlurView borta), rubrik i Georgia, LOGBOOK/LAYOUT i JetBrains Mono, Pilot/Drone en rad var med bock, Full/Essential bredvid varandra med en liten skiss, accenten följer vald loggbok (Pilot = Colors.primary, Drone = `useDroneAccentStore`), "All your data is kept" som en rad med grön sköld, knappen "Done" i glas eller accentfylld med texten för bytet.
 - Vädersidan, omgång 7: UTC/LOCAL-växeln flyttad upp till höger på samma rad och i samma storlek som DECODED/RAW (tillståndet ligger nu i `AirportPickerModal`, skickas som `tz` till `WeatherPage`). Post 160 i uppdateringsnotisen sammanfattar 154–159 inför den riktiga appen.
 - Vädersidan, omgång 6: sökträffarna visas som en rullista ovanpå vädersidan (absolut placerad under sökfältet, mörk slöja bakom; tryck utanför stänger) i stället för att ersätta sidan. DECODED/RAW-växeln syns även under sökningen. Helikopterbanor (ident som slutar på H, t.ex. LFPG 08H/26H) ritas inte och räknas inte i banvinden.

@@ -189,6 +189,12 @@ export async function maybeStartIntroTour(mode: TourMode): Promise<void> {
   st2.setPrompt(mode);
 }
 
+/** Väntar Blades introduction fortfarande på svar efter onboarding? (UpdateReadyDialog väntar då.) */
+export async function isIntroTourPending(): Promise<boolean> {
+  const pending = await getSetting(PENDING_KEY).catch(() => null);
+  return !!pending;
+}
+
 /** Frågan efter onboarding är besvarad (Ja eller Senare) → visa den inte igen. */
 export async function clearIntroTourPending(): Promise<void> {
   await setSetting(PENDING_KEY, '').catch(() => {});
