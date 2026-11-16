@@ -8,9 +8,6 @@ try { channel = require('expo-updates').channel ?? null; } catch { channel = nul
 
 export const NEW_PAYWALLS = NEW_PAYWALLS_LIVE || channel === 'preview';
 
-// TestFlight-bygget (kanalen preview) eller dev: knappar som bara är till för att titta, t.ex. förhandsvisningen av onboardingen.
-export const IS_PREVIEW_BUILD = channel === 'preview' || __DEV__;
-
 // RevenueCats offering med Premium och Max (identifier i RevenueCat-dashboarden). Det nuvarande erbjudandet
 // "standard" ligger kvar som current för App Store-bygget.
 export const PLANS_OFFERING_ID = 'premium_max';

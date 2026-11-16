@@ -93,6 +93,20 @@ plan = E.planBulkEdit('drone', D, [2], { kind: 'role', role: 'dual' });
 after = E.applyPlan(D, plan);
 ok(after[1].pilot_role === 'dual' && after[1].dual === 0.4 && after[1].co_pilot_fpv === 0, 'co-pilot → student: tiden flyttas till dual');
 ok(JSON.stringify(undo(after, plan)) === JSON.stringify(D), 'ångra ger exakt samma drönarflygningar som före');
+plan = E.planBulkEdit('drone', D, ids(D), { kind: 'remarks', add: 'Wind gusts' });
+after = E.applyPlan(D, plan);
+ok(plan.changes.length === 2 && after[0].remarks === 'Wind gusts' && after[1].remarks === 'Wind gusts' && !after[2].remarks, 'drönare: text i remarks på båda flygningarna, inte på summeringsraden');
+plan = E.planBulkEdit('drone', D, [2], { kind: 'delete' });
+ok(plan.changes.length === 1 && plan.changes[0].fields[E.DELETED_FIELD], 'drönare: en flygning går att radera');
+const DD = [
+  { id: 11, date: '2026-05-01', location: 'Grinda', takeoff_time: '10:00', total_time: 0.3, registration: 'MINI4-01', source: 'manual' },
+  { id: 12, date: '2026-05-01', location: 'grinda', takeoff_time: '10:00', total_time: 0.3, registration: 'MINI4-01', source: 'import' },
+  { id: 13, date: '2026-05-01', location: 'Grinda', takeoff_time: '', total_time: 0.3, registration: 'MINI4-01', source: 'manual' },
+  { id: 14, date: '2026-05-01', location: 'Grinda', takeoff_time: '', total_time: 0.3, registration: 'MINI4-01', source: 'manual' },
+];
+const dup = E.suggestionsFor('drone', DD).find((x) => x.id === 'duplicates');
+ok(dup && dup.ids.join() === '12' && dup.column === 'cleanup', `drönare: dubbletten (samma plats och starttid) föreslås raderad, pass utan starttid lämnas (fick ${dup && dup.ids.join()})`);
+ok(E.suggestionsFor('drone', D).every((x) => E.DRONE_COLUMNS.some((c) => c.key === x.column)), 'drönare: varje förslag hör till en ruta i rutnätet');
 
 console.log('Förslagen');
 let sg = E.suggestionsFor('pilot', P);

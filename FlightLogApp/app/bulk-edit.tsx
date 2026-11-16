@@ -1,8 +1,7 @@
-// Edit flights (pilotläget) / Edit many flights (drönarläget): ändra många flygningar på en gång, se före och
-// efter, spara, ångra. Öppnas med ?mode=pilot|drone.
-//
-// Pilotläget (pennan i loggbokens rubrik, components/logbook-page/PilotLogbook):
-//  1. Kolumn: ett rutnät med loggbokens kolumner (PILOT_COLUMNS). En gul siffra = flygningar som Blades har
+// Edit flights: ändra många flygningar på en gång, se före och efter, spara, ångra. Öppnas med ?mode=pilot|drone
+// från pennan i loggbokens rubrik (components/logbook-page/PilotLogbook resp. app/(tabs)/drone-log). Samma
+// flöde i båda lägena:
+//  1. Kolumn: ett rutnät med loggbokens kolumner (PILOT_COLUMNS / DRONE_COLUMNS). En gul siffra = flygningar som Blades har
 //     hittat något att kontrollera på i den kolumnen. Längst ner de senaste ändringarna med Undo.
 //  2. Ändring: kolumnens ändringar. Överst det Blades har hittat ("Found in your logbook"), med flygningarna
 //     redan valda.
@@ -10,8 +9,6 @@
 //  4. Förhandsvisning: hur många som ändras, totalerna före och efter, vilka som lämnas och varför, och
 //     flygningarna med från → till. Inget sparas före det här steget.
 //  5. Klart: med Undo.
-// Drönarläget (components/bulk/BulkEditEntry i loggbokens lista) har kvar ordningen flygningar → ändring →
-// förhandsvisning, med förslagen ("Check your data") överst i flyglistan.
 // Reglerna (vad som får ändras, vad som hänger ihop) ligger i services/bulkEdit/engine.ts; sparandet och
 // ångra i db/bulkEdits.ts.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -35,14 +32,14 @@ import { recalcNight } from '../services/bulkEdit/night';
 import { codeValues } from '../services/bulkEdit/codes';
 import {
   planBulkEdit, protectedReason, nightOf, suggestionsFor, skippedByReason, isTextField, isCountField, FIELD_LABEL, PILOT_ROLES, DRONE_ROLES,
-  PILOT_COLUMNS, DELETED_FIELD,
+  PILOT_COLUMNS, DRONE_COLUMNS, DELETED_FIELD,
   type BulkMode, type BulkOp, type BulkPlan, type BulkRow, type BulkSuggestion,
 } from '../services/bulkEdit/engine';
 import type { Flight } from '../types/flight';
 
 type Step = 'column' | 'pick' | 'change' | 'preview' | 'done';
 interface Choice { id: string; label: string }
-// column = loggbokskolumnen ändringen hör till (pilotläget). input = värdet skrivs in (typ, registrering, text).
+// column = loggbokskolumnen ändringen hör till. input = värdet skrivs in (typ, registrering, text).
 interface Action {
   key: string; group: string; title: string; sub: string; icon: keyof typeof Ionicons.glyphMap; choices: Choice[];
   column?: string; input?: 'type' | 'reg' | 'text'; danger?: boolean;
@@ -86,11 +83,14 @@ function actionsFor(mode: BulkMode, rows: BulkRow[]): Action[] {
   // Kategorier som redan finns i loggboken (t.ex. NATO-klasser) går också att välja.
   const used = [...new Set(rows.map((r) => String(r.category || '').trim()).filter(Boolean))].filter((c) => !(CIVIL_CATEGORIES as readonly string[]).includes(c));
   return [
-    { key: 'night', group: 'Fill in a time', title: 'Night time', sub: 'How much of each flight was at night', icon: 'cloudy-night-outline', choices: SHARES },
-    { key: 'category', group: 'Change a value', title: 'Category', sub: 'The category these flights were flown in', icon: 'pricetag-outline', choices: [...CIVIL_CATEGORIES, ...used].map((c) => ({ id: c, label: c })) },
-    { key: 'flight_mode', group: 'Change a value', title: 'Sight mode', sub: 'The whole flight in one mode', icon: 'eye-outline', choices: ['VLOS', 'EVLOS', 'BVLOS'].map((c) => ({ id: c, label: c })) },
-    { key: 'operation', group: 'Change a value', title: 'Private or commercial', sub: 'The Type column in your logbook', icon: 'briefcase-outline', choices: Object.entries(DRONE_OPERATION).map(([id, label]) => ({ id, label })) },
-    { key: 'role', group: 'Change a value', title: 'My role', sub: 'The whole flight time goes to the role you pick', icon: 'person-outline', choices: DRONE_ROLES.map((r) => ({ id: r.key, label: r.label })) },
+    { column: 'category', key: 'category', group: '', title: 'Category', sub: 'The category these flights were flown in', icon: 'pricetag-outline', choices: [...CIVIL_CATEGORIES, ...used].map((c) => ({ id: c, label: c })) },
+    { column: 'operation', key: 'operation', group: '', title: 'Private or commercial', sub: 'The Type column in your logbook', icon: 'briefcase-outline', choices: Object.entries(DRONE_OPERATION).map(([id, label]) => ({ id, label })) },
+    { column: 'sight', key: 'flight_mode', group: '', title: 'Sight mode', sub: 'The whole flight in one mode', icon: 'eye-outline', choices: ['VLOS', 'EVLOS', 'BVLOS'].map((c) => ({ id: c, label: c })) },
+    { column: 'function', key: 'role', group: '', title: 'My role', sub: 'The whole flight time goes to the role you pick', icon: 'person-outline', choices: DRONE_ROLES.map((r) => ({ id: r.key, label: r.label })) },
+    { column: 'night', key: 'night', group: '', title: 'Night time', sub: 'How much of each flight was at night', icon: 'cloudy-night-outline', choices: SHARES },
+    { column: 'remarks', key: 'rem_add', group: '', title: 'Add text', sub: 'A new line at the end of the remarks', icon: 'add-circle-outline', choices: [], input: 'text' },
+    { column: 'remarks', key: 'rem_remove', group: '', title: 'Remove text', sub: 'Takes this text out of the remarks, wherever it stands', icon: 'remove-circle-outline', choices: [], input: 'text' },
+    { column: 'cleanup', key: 'delete', group: '', title: 'Delete flights', sub: 'Takes the flights out of your logbook. You can undo it afterwards', icon: 'trash-outline', choices: [], danger: true },
   ];
 }
 
@@ -99,14 +99,14 @@ function buildOp(mode: BulkMode, key: string | null, choice: string | null, nigh
   text = '', codeVals: Record<number, { dep?: string; arr?: string }> | null = null): { op: BulkOp; label: string } | null {
   if (!key) return null;
   if (key === 'nightcalc') return nightValues ? { op: { kind: 'night', values: nightValues }, label: 'Night time recalculated' } : null;
+  const t = text.trim();
+  if (key === 'delete') return { op: { kind: 'delete' }, label: 'Flights deleted' };
+  if (key === 'rem_add') return t ? { op: { kind: 'remarks', add: t }, label: `Remarks + “${clip(t, 30)}”` } : null;
+  if (key === 'rem_remove') return t ? { op: { kind: 'remarks', remove: t }, label: `Remarks − “${clip(t, 30)}”` } : null;
   if (mode === 'pilot') {
-    const t = text.trim();
     if (key === 'icao' || key === 'iata') return codeVals ? { op: { kind: 'codes', values: codeVals }, label: `Airport codes → ${key.toUpperCase()}` } : null;
-    if (key === 'delete') return { op: { kind: 'delete' }, label: 'Flights deleted' };
     if (key === 'ac_type') return t ? { op: { kind: 'set', field: 'aircraft_type', value: t.toUpperCase() }, label: `Type → ${t.toUpperCase()}` } : null;
     if (key === 'ac_reg') return t ? { op: { kind: 'set', field: 'registration', value: t.toUpperCase() }, label: `Registration → ${t.toUpperCase()}` } : null;
-    if (key === 'rem_add') return t ? { op: { kind: 'remarks', add: t }, label: `Remarks + “${clip(t, 30)}”` } : null;
-    if (key === 'rem_remove') return t ? { op: { kind: 'remarks', remove: t }, label: `Remarks − “${clip(t, 30)}”` } : null;
     if ((key === 'takeoffs' || key === 'landings') && choice) {
       const one = key === 'takeoffs' ? 'Take-off' : 'Landing';
       return { op: { kind: 'bump', what: key, delta: choice === 'add' ? 1 : -1 }, label: `${one} ${choice === 'add' ? 'added' : 'removed'}` };
@@ -154,8 +154,8 @@ export default function BulkEditScreen() {
   const [everything, setEverything] = useState<BulkRow[]>([]);   // alla rader, även summeringsrader (för totalerna)
   const [recent, setRecent] = useState<BulkEditEntry[]>([]);
   const [dismissed, setDismissed] = useState<string[]>([]);
-  const [step, setStep] = useState<Step>(mode === 'pilot' ? 'column' : 'pick');
-  const [column, setColumn] = useState<string | null>(null);   // pilotläget: vald loggbokskolumn
+  const [step, setStep] = useState<Step>('column');
+  const [column, setColumn] = useState<string | null>(null);   // vald loggbokskolumn
   const [text, setText] = useState('');                         // inskrivet värde (typ, registrering, text i remarks)
   const [codeVals, setCodeVals] = useState<Record<number, { dep?: string; arr?: string }> | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -228,7 +228,7 @@ export default function BulkEditScreen() {
     for (const r of all) { const t = String(r.registration || '').trim().toUpperCase(); if (t) m.set(t, (m.get(t) ?? 0) + 1); }
     return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([t]) => t);
   }, [all]);
-  // Pilotläget: antal flygningar att kontrollera per kolumn (rutnätets gula siffror).
+  // Antal flygningar att kontrollera per kolumn (rutnätets gula siffror).
   const found = useMemo(() => {
     const m: Record<string, Set<number>> = {};
     for (const sg of suggestions) { if (!sg.column) continue; const set = (m[sg.column] ??= new Set<number>()); sg.ids.forEach((id) => set.add(id)); }
@@ -373,30 +373,22 @@ export default function BulkEditScreen() {
   };
   const startOver = () => {
     setActionKey(null); setChoice(null); setNightValues(null); setCodeVals(null); setText(''); setResult(null);
-    if (mode === 'pilot') { setColumn(null); setSelected(new Set()); go('column'); } else go('pick');
+    setColumn(null); setSelected(new Set()); go('column');
   };
 
   // ── Topp och botten ──
-  const pilot = mode === 'pilot';
-  const steps: Step[] = pilot ? ['column', 'change', 'pick', 'preview'] : ['pick', 'change', 'preview'];
+  const columns = mode === 'pilot' ? PILOT_COLUMNS : DRONE_COLUMNS;
+  const steps: Step[] = ['column', 'change', 'pick', 'preview'];
   const stepIdx = steps.indexOf(step);
   const TITLES: Record<Step, string> = { column: 'Choose a column', pick: 'Choose flights', change: 'Choose the change', preview: 'Check before you save', done: 'Done' };
   const back = () => {
-    if (pilot) {
-      if (step === 'change') go('column'); else if (step === 'pick') go('change'); else if (step === 'preview') go('pick'); else router.back();
-    } else if (step === 'change') go('pick');
-    else if (step === 'preview') go(actionKey && actions.some((a) => a.key === actionKey) ? 'change' : 'pick');
-    else router.back();
+    if (step === 'change') go('column'); else if (step === 'pick') go('change'); else if (step === 'preview') go('pick'); else router.back();
   };
   const nSel = selected.size;
   let cta: { label: string; onPress: () => void; disabled: boolean } | null;
   if (step === 'column') cta = null;
-  else if (step === 'pick') cta = pilot
-    ? { label: nSel ? `See what changes · ${nSel.toLocaleString('en-US')}` : 'Select flights first', onPress: toPreview, disabled: busy || !nSel }
-    : { label: nSel ? `Choose what to change · ${nSel.toLocaleString('en-US')}` : 'Select flights first', onPress: () => go('change'), disabled: !nSel };
-  else if (step === 'change') cta = pilot
-    ? { label: ready ? (nSel ? `Choose flights · ${nSel.toLocaleString('en-US')} selected` : 'Choose flights') : 'Choose a change', onPress: () => go('pick'), disabled: !ready }
-    : { label: built || actionKey === 'nightcalc' ? 'See what changes' : 'Choose a change', onPress: toPreview, disabled: busy || !(built || actionKey === 'nightcalc') };
+  else if (step === 'pick') cta = { label: nSel ? `See what changes · ${nSel.toLocaleString('en-US')}` : 'Select flights first', onPress: toPreview, disabled: busy || !nSel };
+  else if (step === 'change') cta = { label: ready ? (nSel ? `Choose flights · ${nSel.toLocaleString('en-US')} selected` : 'Choose flights') : 'Choose a change', onPress: () => go('pick'), disabled: !ready };
   else if (step === 'preview') cta = { label: plan?.changes.length ? `${isDelete ? 'Delete' : 'Change'} ${plural(plan.changes.length, 'flight')}` : 'Nothing to change', onPress: apply, disabled: busy || !plan?.changes.length };
   else cta = { label: 'Done', onPress: () => router.back(), disabled: busy };
 
@@ -475,13 +467,6 @@ export default function BulkEditScreen() {
 
   const pickHeader = (
     <View style={{ gap: 16, paddingBottom: 6 }}>
-      {!pilot && suggestions.length > 0 && (
-        <View style={{ gap: 10 }}>
-          <Text style={s.eyebrow}>CHECK YOUR DATA</Text>
-          {suggestions.map(suggestionCard)}
-        </View>
-      )}
-      {!pilot && recentBlock}
       {!!error && <Text style={s.note}>{error}</Text>}
       <View style={{ gap: 10 }}>
         <Text style={s.eyebrow}>FLIGHTS</Text>
@@ -524,7 +509,7 @@ export default function BulkEditScreen() {
             </TouchableOpacity>
           ) : <View style={{ width: 40 }} />}
           <View style={{ flex: 1, alignItems: 'center', gap: 3 }}>
-            <Text style={s.topTitle}>{pilot ? 'Edit flights' : 'Edit many flights'}</Text>
+            <Text style={s.topTitle}>Edit flights</Text>
             <Text style={s.topStep}>{stepIdx >= 0 ? `STEP ${stepIdx + 1} OF ${steps.length} · ${TITLES[step].toUpperCase()}` : 'DONE'}</Text>
           </View>
           <TouchableOpacity onPress={() => router.back()} style={s.closeBtn} accessibilityRole="button" accessibilityLabel="Close">
@@ -580,12 +565,12 @@ export default function BulkEditScreen() {
         />
       ) : (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={s.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          {/* ═══ Pilotläget 1 · Välj kolumn ═══ */}
+          {/* ═══ 1 · Välj kolumn ═══ */}
           {step === 'column' && (
             <View style={{ gap: 18 }}>
               <Head title="Which column needs fixing?" lead="The same columns as in your logbook. A yellow number means Blades found flights to check there." />
               <View style={s.grid}>
-                {PILOT_COLUMNS.map((col) => {
+                {columns.map((col) => {
                   const n = found[col.key] ?? 0;
                   return (
                     <TouchableOpacity key={col.key} onPress={() => pickColumn(col.key)} activeOpacity={0.8} style={[s.tile, n > 0 && s.tileWarn]}
@@ -607,9 +592,9 @@ export default function BulkEditScreen() {
             </View>
           )}
 
-          {/* ═══ Pilotläget 2 · Välj ändring i kolumnen ═══ */}
-          {step === 'change' && pilot && (() => {
-            const col = PILOT_COLUMNS.find((c) => c.key === column);
+          {/* ═══ 2 · Välj ändring i kolumnen ═══ */}
+          {step === 'change' && (() => {
+            const col = columns.find((c) => c.key === column);
             const mine = suggestions.filter((sg) => sg.column === column);
             return (
               <View style={{ gap: 18 }}>
@@ -628,20 +613,6 @@ export default function BulkEditScreen() {
               </View>
             );
           })()}
-
-          {/* ═══ Drönarläget 2 · Välj ändring ═══ */}
-          {step === 'change' && !pilot && (
-            <View style={{ gap: 18 }}>
-              <Head title={`What should change on ${plural(nSel, 'flight')}?`} lead="Pick one change. You see every flight before and after on the next step, and nothing is saved until then." />
-              {[...new Set(actions.map((a) => a.group))].map((group) => (
-                <View key={group} style={{ gap: 10 }}>
-                  <Text style={s.eyebrow}>{group.toUpperCase()}</Text>
-                  {actions.filter((a) => a.group === group).map(actionCard)}
-                </View>
-              ))}
-              {!!error && <Text style={s.note}>{error}</Text>}
-            </View>
-          )}
 
           {/* ═══ 3 · Före och efter ═══ */}
           {step === 'preview' && plan && fullPlan && built && (

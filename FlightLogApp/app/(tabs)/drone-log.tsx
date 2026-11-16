@@ -18,7 +18,6 @@ import { useTourStore } from '../../store/tourStore';
 import { DEMO_DRONE_FLIGHTS, DEMO_DRONE_MODELS, TOUR_EXAMPLE_ID } from '../../constants/tourDemoData';
 import { TourSpot } from '../../components/TourSpot';
 import { LogbookEmptyCTA } from '../../components/logbook-page/LogbookEmptyCTA';
-import { BulkEditEntry } from '../../components/bulk/BulkEditEntry';
 import { decimalToHHMM, decimalToMMSS } from '../../hooks/useTimeFormat';
 import {
   getDroneFleetByModel, addDrone, persistDroneModelLookup,
@@ -61,6 +60,7 @@ export default function DroneLog() {
   const loadAccent = useDroneAccentStore((s) => s.load);
   const { flights: realDroneFlights, loadFlights } = useDroneFlightStore();
   const tourDemo = useTourStore((s) => s.demo);
+  const tourActive = useTourStore((s) => s.active);
   // Blades introduction: exempelpasset (bara i minnet) läggs överst; DEMO-data fyller på när loggboken är tom.
   const tourExample = useTourStore((s) => (s.active ? s.exampleDrone : null));
   const flights = useMemo(
@@ -81,7 +81,20 @@ export default function DroneLog() {
 
   // Kompakt ikon-toggle till höger (= manned SegmentedToggle: List/Book/Fleet).
   const TABS: [typeof tab, any][] = [['flights', 'list'], ['book', 'book-outline'], ['fleet', 'grid-outline']];
+  // Pennan till vänster om väljaren öppnar Edit flights (app/bulk-edit.tsx), som i pilotläget: bara i
+  // flyglistan, inte under rundturen (exempelflygningarna finns inte i databasen) och inte utan flygningar.
+  const canEdit = tab === 'flights' && realDroneFlights.length > 0 && !tourDemo && !tourActive;
   const toggle = (
+    <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: 8 }}>
+    {canEdit && (
+      <TouchableOpacity onPress={() => router.push('/bulk-edit?mode=drone' as any)} activeOpacity={0.75}
+        accessibilityRole="button" accessibilityLabel="Edit flights" hitSlop={6}
+        style={{ width: 36, borderRadius: 9, borderWidth: 1, borderColor: accent + '73', backgroundColor: accent + '1F', alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 18, height: 18, alignItems: 'center', justifyContent: 'center', transform: [{ translateX: 1 }, { translateY: -1 }] }}>
+          <Ionicons name="create-outline" size={18} color={accent} style={{ lineHeight: 18 }} />
+        </View>
+      </TouchableOpacity>
+    )}
     <View style={s.segToggle}>
       {TABS.map(([k, icon]) => (
         <TouchableOpacity
@@ -93,6 +106,7 @@ export default function DroneLog() {
           <Ionicons name={icon} size={16} color={tab === k ? DR.inkOnAccent : DR.text3} />
         </TouchableOpacity>
       ))}
+    </View>
     </View>
   );
 
@@ -138,7 +152,6 @@ function FlightsTab({ flights, accent, onOpen }: {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
   const tourDemo = useTourStore((s) => s.demo);
-  const tourActive = useTourStore((s) => s.active);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -186,8 +199,6 @@ function FlightsTab({ flights, accent, onOpen }: {
             );
           })}
         </ScrollView>
-        {/* Ändra många flygningar på en gång (inte under rundturen: exempelflygningarna finns inte i databasen). */}
-        {flights.length > 0 && !tourDemo && !tourActive && <BulkEditEntry mode="drone" rows={flights} accent={accent} />}
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: tabSpace + 28 }} keyboardShouldPersistTaps="handled">

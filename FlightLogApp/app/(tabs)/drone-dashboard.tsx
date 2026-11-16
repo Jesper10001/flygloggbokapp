@@ -354,16 +354,19 @@ function DroneLatestFlightCard({ flight: f, accent, showLabel, onPress, onAddPho
           {showLabel
             ? <Text style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.8, textTransform: 'uppercase', color: accent }}>Latest flight</Text>
             : <Text style={{ fontFamily: MONO, fontSize: 10, color: DR.text3 }}>{dateLabel}</Text>}
-          {/* Add media: till höger om rubriken (senaste kortet) resp. datumet (övriga kort). */}
-          {onAddPhoto && !f.photo_uri && !f.photo_local_id && (
-            <TouchableOpacity onPress={() => onAddPhoto(f)} activeOpacity={0.8} hitSlop={8}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: DR.warning + '1A', borderWidth: 1, borderColor: DR.warning + '66' }}>
-              <Ionicons name="camera-outline" size={12} color={DR.warning} />
-              <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: DR.warning }}>Add media</Text>
-            </TouchableOpacity>
-          )}
           <View style={{ flex: 1, height: 1, backgroundColor: accent + '33' }} />
           {showLabel && <Text style={{ fontFamily: MONO, fontSize: 10, color: DR.text3 }}>{dateLabel}</Text>}
+          {/* Add media: rund kameraikon längst till höger (= pilotens LatestFlightCard), visas bara utan media.
+              Tryckytan är 44 pt och drar in headerns kant (negativa marginaler) så att kortets höjd inte ändras. */}
+          {onAddPhoto && !f.photo_uri && !f.photo_local_id && (
+            <TouchableOpacity onPress={() => onAddPhoto(f)} activeOpacity={0.7}
+              accessibilityRole="button" accessibilityLabel="Add media to this flight"
+              style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginVertical: -15, marginRight: -10, marginLeft: -4 }}>
+              <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.gold + '1F', borderWidth: 1, borderColor: Colors.gold + '80' }}>
+                <Ionicons name="camera-outline" size={15} color={Colors.gold} />
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingBottom: 6 }}>
           <Text style={{ fontFamily: SERIF, fontSize: 20, fontWeight: '600', color: DR.text }} numberOfLines={1}>{f.mission_type || 'Flight'}</Text>

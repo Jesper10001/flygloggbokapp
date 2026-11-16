@@ -10,7 +10,14 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
+- Improved: Edit flights in drone mode works like in pilot mode: tap the pen next to Logbook, pick a column, then the flights. Remarks, delete and duplicates are new.
+- Improved: The Add media button on the drone dashboard looks the same as in pilot mode.
+
 ### Alla ändringar
+
+- Drönarläget: Edit flights öppnas med pennan i loggbokens rubrik (raden "Edit many flights" borta, components/bulk/BulkEditEntry raderad); samma flöde som pilotläget (kolumn → ändring → flygningar → förhandsvisning) med DRONE_COLUMNS: Category, Type, Sight mode, Pilot function, Night, Remarks, Clean up. Nytt för drönare: text i remarks, radera flygningar (går att ångra), dubbletter (samma datum, plats, starttid, flygtid och drönare).
+- Drönardashboarden: Add media är den runda guldfärgade kameraknappen längst till höger i kortets rubrik, som i pilotläget.
+- Inställningar: länken "Preview the onboarding" borttagen (följde med i bygge 18/19); IS_PREVIEW_BUILD borttagen.
 
 ## 1.0.2 – byggs 2026-11-16
 

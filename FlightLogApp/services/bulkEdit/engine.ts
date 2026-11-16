@@ -35,8 +35,8 @@ export type BulkOp =
   | { kind: 'night'; values: Record<number, number> }             // pilotläget: nattid räknad ur rutt och tider
   | { kind: 'codes'; values: Record<number, { dep?: string; arr?: string }> }   // pilotläget: flygplatskoderna som visas (ICAO eller IATA)
   | { kind: 'bump'; what: 'takeoffs' | 'landings'; delta: 1 | -1 }               // pilotläget: en start eller landning mer eller mindre
-  | { kind: 'remarks'; add?: string; remove?: string }                          // pilotläget: lägg till eller ta bort text i remarks
-  | { kind: 'delete' };                                                         // pilotläget: radera flygningarna (går att ångra)
+  | { kind: 'remarks'; add?: string; remove?: string }                          // lägg till eller ta bort text i remarks
+  | { kind: 'delete' };                                                         // radera flygningarna (går att ångra)
 
 /** Markören för en raderad flygning i planen (db/bulkEdits.ts sparar hela raden så att den kan läggas tillbaka). */
 export const DELETED_FIELD = '__deleted';
@@ -50,7 +50,7 @@ export const BULK_COLUMNS: Record<BulkMode, readonly string[]> = {
     'aircraft_type', 'registration', 'dep_place_raw', 'arr_place_raw', 'takeoffs_day', 'takeoffs_night', 'landings_day', 'landings_night',
     'remarks'],
   drone: ['night_time', 'is_night', 'category', 'flight_mode', 'h_vlos', 'h_evlos', 'h_bvlos', 'operation_type',
-    'pilot_role', 'co_pilot_fpv', 'dual', 'instructor'],
+    'pilot_role', 'co_pilot_fpv', 'dual', 'instructor', 'remarks'],
 };
 const TEXT_FIELDS = new Set(['flight_rules', 'category', 'flight_mode', 'operation_type', 'pilot_role',
   'aircraft_type', 'registration', 'dep_place_raw', 'arr_place_raw', 'remarks', DELETED_FIELD]);
@@ -98,6 +98,17 @@ export const PILOT_COLUMNS: { key: string; title: string; sub: string; icon: str
   { key: 'function', title: 'Pilot function', sub: 'Role, pilot flying', icon: 'id-card-outline' },
   { key: 'conditions', title: 'Conditions', sub: 'IFR, night, cross-country', icon: 'cloudy-night-outline' },
   { key: 'landings', title: 'Landings', sub: 'Take-offs, landings', icon: 'trending-down-outline' },
+  { key: 'remarks', title: 'Remarks', sub: 'Add or remove text', icon: 'reorder-three-outline' },
+  { key: 'cleanup', title: 'Clean up', sub: 'Duplicates, delete', icon: 'trash-outline' },
+];
+
+// Drönarläget: samma rutnät som pilotläget, med drönarloggbokens kolumner.
+export const DRONE_COLUMNS: { key: string; title: string; sub: string; icon: string }[] = [
+  { key: 'category', title: 'Category', sub: 'A1, A2, A3, Specific', icon: 'pricetag-outline' },
+  { key: 'operation', title: 'Type', sub: 'Private or commercial', icon: 'briefcase-outline' },
+  { key: 'sight', title: 'Sight mode', sub: 'VLOS, EVLOS, BVLOS', icon: 'eye-outline' },
+  { key: 'function', title: 'Pilot function', sub: 'Your role', icon: 'id-card-outline' },
+  { key: 'night', title: 'Night', sub: 'Night time', icon: 'cloudy-night-outline' },
   { key: 'remarks', title: 'Remarks', sub: 'Add or remove text', icon: 'reorder-three-outline' },
   { key: 'cleanup', title: 'Clean up', sub: 'Duplicates, delete', icon: 'trash-outline' },
 ];
@@ -298,7 +309,7 @@ export interface BulkSuggestion {
   title: string;
   body: string;
   ids: number[];            // flygningarna det gäller
-  column?: string;          // pilotläget: loggbokskolumnen förslaget hör till (PILOT_COLUMNS)
+  column?: string;          // loggbokskolumnen förslaget hör till (PILOT_COLUMNS / DRONE_COLUMNS)
   op?: BulkOp;              // färdig ändring (annars väljer man själv)
   ask?: 'role' | 'crew' | 'category' | 'operation';   // ändringen man får välja värde för
   dismissLabel: string;
@@ -335,12 +346,22 @@ export function suggestionsFor(mode: BulkMode, rows: BulkRow[]): BulkSuggestion[
     add({ id: 'duplicates', column: 'cleanup', icon: 'copy-outline', title: '{n} logged twice', body: 'Same date, route, times and aircraft as another flight. Delete the extra copy and keep the first one.', op: { kind: 'delete' }, dismissLabel: 'They are separate flights' },
       (r) => copies.has(r.id));
   } else {
-    add({ id: 'night_gt_total', icon: 'alert-circle-outline', title: '{n} with more night time than flight time', body: 'Night time can’t be longer than the flight. Set it to the flight time.', op: { kind: 'fill', field: 'night_time', of: 'total_time', pct: 100 }, dismissLabel: 'Leave as is' },
+    add({ id: 'night_gt_total', column: 'night', icon: 'alert-circle-outline', title: '{n} with more night time than flight time', body: 'Night time can’t be longer than the flight. Set it to the flight time.', op: { kind: 'fill', field: 'night_time', of: 'total_time', pct: 100 }, dismissLabel: 'Leave as is' },
       (r) => num(r.night_time) > total(r) + 0.05 && total(r) > 0);
-    add({ id: 'no_category', icon: 'pricetag-outline', title: '{n} with no category', body: 'Without a category these hours are missing from your A1, A2, A3 and Specific totals. Pick the category you flew in.', ask: 'category', dismissLabel: 'Leave as is' },
+    add({ id: 'no_category', column: 'category', icon: 'pricetag-outline', title: '{n} with no category', body: 'Without a category these hours are missing from your A1, A2, A3 and Specific totals. Pick the category you flew in.', ask: 'category', dismissLabel: 'Leave as is' },
       (r) => !str(r.category).trim());
-    add({ id: 'no_operation', icon: 'briefcase-outline', title: '{n} not marked private or commercial', body: 'Your logbook’s Type column is empty for {it}. Pick which {it} were.', ask: 'operation', dismissLabel: 'Leave as is' },
+    add({ id: 'no_operation', column: 'operation', icon: 'briefcase-outline', title: '{n} not marked private or commercial', body: 'Your logbook’s Type column is empty for {it}. Pick which {it} were.', ask: 'operation', dismissLabel: 'Leave as is' },
       (r) => !str(r.operation_type).trim() && !str(r.mission_type).trim());
+    // Samma datum, plats, starttid, flygtid och drönare som en annan flygning: den första behålls.
+    const seen = new Set<string>();
+    const copies = new Set<number>();
+    for (const r of [...real].sort((x, y) => x.id - y.id)) {
+      if (!str(r.date) || !str(r.takeoff_time).trim()) continue;   // utan starttid kan två lika pass vara två olika
+      const key = [r.date, str(r.location).trim().toUpperCase(), str(r.takeoff_time).trim(), r2(total(r)), str(r.registration || r.drone_type).trim().toUpperCase()].join('|');
+      if (seen.has(key)) copies.add(r.id); else seen.add(key);
+    }
+    add({ id: 'duplicates', column: 'cleanup', icon: 'copy-outline', title: '{n} logged twice', body: 'Same date, site, take-off time and drone as another flight. Delete the extra copy and keep the first one.', op: { kind: 'delete' }, dismissLabel: 'They are separate flights' },
+      (r) => copies.has(r.id));
   }
   return out;
 }

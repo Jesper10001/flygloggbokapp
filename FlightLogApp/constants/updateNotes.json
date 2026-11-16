@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 172,
+      "date": "2026-11-17",
+      "notes": [
+        "Improved: Edit flights in drone mode works like in pilot mode. Tap the pen next to Logbook, then pick a column.",
+        "Improved: Drone pilots can now add or remove text in remarks, delete flights and find duplicates in Edit flights.",
+        "Improved: The Add media button on the drone dashboard matches pilot mode."
+      ]
+    },
+    {
       "id": 171,
       "date": "2026-11-16",
       "notes": [
