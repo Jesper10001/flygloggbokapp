@@ -1,8 +1,11 @@
-// "Block import manually" (pilot) — tidigare erfarenhet som klumpsumma eller år för år.
+// "Block import" (pilot) — tidigare erfarenhet som klumpsumma eller år för år.
 // Startsidan (som Logbook scan / Import logbook): fota senaste uppslaget (eller ett per årsskifte) så läser
 // Claude summaraderna och flygplanen (services/totalsScan.ts) under Blade-myntet (BladeProgress), och formuläret
 // fylls i därifrån; "Enter by hand" öppnar det tomt. Fotoflödet följer skanningens spärr (SCAN_OPEN).
-// Totaltiden är huvudsaken; resten läggs till med knappar och syns först när den lagts till.
+// Granskningen (design "Block import, ny granskning" 2026-11-16, samma sida efter foto och för Enter by hand):
+// totalen överst med raden som bevisar den, det som inte går ihop först (gult, Use/Keep, Save väntar på det),
+// sedan EN lista med loggbokens kolumner där varje tid står i ett eget LED-fält, "Add a time" för det boken saknar
+// kolumn för, och "If you want": fördelning per flygplanstyp och simulator, som fälls ut först när man vill.
 // Tiden kan ges ut per flygplanstyp (mätaren visar hur mycket som är kvar). Sparas som:
 //   • en summeringsrad (flight_type='summary') per flygplanstyp med typens tid,
 //   • en summeringsrad utan typ med resten av tiden + alla nedbrytningar (PIC, IFR, landningar …),
@@ -33,8 +36,8 @@ import {
 import { useFlightStore } from '../../store/flightStore';
 import { Colors } from '../../constants/colors';
 import {
-  type XPalette, toMin, hm, minToHours, Card, Section, ModeSwitch, HeroTotal, TimeRow, Tile, SplitBar, SumCheck,
-  Hint, ChipGroup, AllocationMeter, AddPicker, YearBars, YearHeader, SaveBar, ALLOC_COLORS, LedText,
+  type XPalette, toMin, hm, minToHours, Card, Section, ModeSwitch, HeroTotal, TimeRow, SumCheck,
+  Hint, ChipGroup, AllocationMeter, AddPicker, YearBars, YearHeader, SaveBar, ALLOC_COLORS, LedText, LedInput,
 } from '../../components/experience/ExperienceKit';
 
 const PREV_EXP_REMARK = 'Blades previous experience';
@@ -59,7 +62,6 @@ const SIMS = [
   { key: 'sim_CPT_PPT', cat: 'CPT_PPT', label: 'CPT/PPT', sub: 'Cockpit or procedures trainer' },
   { key: 'sim_CBT', cat: 'CBT', label: 'CBT', sub: 'Computer-based training' },
 ] as const;
-const CREW_COLORS = ['#7FE3F3', '#00C8E8'];
 
 interface Ac { id: string; type: string; time: string; found?: boolean }
 // Raden under totalen när den lästs ur foto: kontrollen BF + this page, eller hur ett år räknats fram.
@@ -78,11 +80,14 @@ interface Block {
   flags: string[];          // fält att kontrollera (gula)
   eq?: Eq;
   simRead?: number;         // simulatortid i loggboken (typen väljs av användaren)
+  checks?: Record<string, { bf: number; page: number }>;   // gula fält med BF + this page ur fotot (Use-knappen)
   fromYear?: number | null; // år för år från foto: perioden from–year (null = från början); undefined = ett år
 }
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const emptyBlock = (year = ''): Block => ({ id: uid(), year, total: '', v: {}, shown: [], aircraft: [], showAircraft: false, photo: [], flags: [] });
+// Loggbokens vanliga kolumner: visas alltid i listan när man skriver in för hand.
+const LOGBOOK_KEYS = ['pic', 'co_pilot', 'dual', 'multi_pilot', 'single_pilot', 'ifr', 'night', 'landings_day', 'landings_night'];
 const blockLabel = (b: Block) => (b.fromYear === undefined ? b.year : periodLabel({ from: b.fromYear, to: parseInt(b.year, 10) || 0 }));
 const simMins = (b: Block) => SIMS.reduce((a, s) => a + toMin(b.v[s.key] ?? ''), 0);
 const isReady = (b: Block) => toMin(b.total) > 0 || simMins(b) > 0 || (b.simRead ?? 0) > 0;
@@ -103,25 +108,34 @@ function BlockForm({
   fleet: { label: string; regs: number }[];
   onChange: (fn: (b: Block) => Block) => void;
 }) {
-  const [moreRoles, setMoreRoles] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [showSim, setShowSim] = useState(false);
   const total = toMin(block.total);
+  const fromPhoto = block.photo.length > 0;
   const val = (k: string) => block.v[k] ?? '';
-  const setVal = (k: string) => (v: string) => onChange((b) => ({ ...b, v: { ...b.v, [k]: v } }));
-  const show = (k: string) => onChange((b) => (b.shown.includes(k) ? b : { ...b, shown: [...b.shown, k] }));
+  // Att skriva i ett gult fält räknas som att man kontrollerat det.
+  const setVal = (k: string) => (v: string) => onChange((b) => ({ ...b, v: { ...b.v, [k]: v }, flags: b.flags.filter((f) => f !== k) }));
   const has = (k: string) => block.shown.includes(k) || !!val(k);
-  const shownOf = (fs: readonly Field[]) => fs.filter((f) => has(f.key));
-  const hiddenOf = (fs: readonly Field[]) => fs.filter((f) => !has(f.key));
+  const ALL: Field[] = [...ROLE, ...CREW, ...COND, ...LAND, ...SPECIAL];
+  const integer = (k: string) => k === 'landings_day' || k === 'landings_night';
+  const labelOf = (f: Field) => (LAND.includes(f) ? `${f.label} landings` : f.label);
+  const open = block.flags.filter((k) => k !== 'total' && ALL.some((f) => f.key === k));
+  // Listan: det fotot läste (eller bokens vanliga kolumner för hand) + det man lagt till, i loggbokens ordning.
+  const base = (k: string) => (fromPhoto ? block.photo.includes(k) : LOGBOOK_KEYS.includes(k));
+  const rows = ALL.filter((f) => !open.includes(f.key) && (base(f.key) || has(f.key)));
+  const extra = (k: string) => !base(k);
+  const addable = ALL.filter((f) => !rows.includes(f) && !open.includes(f.key));
+  const add = (k: string) => { setAdding(false); onChange((b) => ({ ...b, shown: b.shown.includes(k) ? b.shown : [...b.shown, k] })); };
+  const remove = (k: string) => onChange((b) => ({ ...b, shown: b.shown.filter((x) => x !== k), v: { ...b.v, [k]: '' } }));
 
-  const role = shownOf(ROLE), crew = shownOf(CREW), cond = shownOf(COND), land = shownOf(LAND), special = shownOf(SPECIAL);
   const sims = SIMS.filter((s) => has(s.key));
   const hiddenSims = SIMS.filter((s) => !has(s.key));
   const acMins = block.aircraft.map((a) => toMin(a.time));
-  const showAircraft = block.showAircraft || block.aircraft.length > 0;
-  const nothingShown = !showAircraft && !role.length && !crew.length && !cond.length && !land.length && !special.length && !sims.length;
-
-  const roleMain = ['pic', 'co_pilot', 'dual'].filter((k) => has(k));
+  const showAircraft = block.showAircraft;
+  const roleMain = ['pic', 'co_pilot', 'dual'].filter((k) => !!val(k));
   const roleSum = roleMain.reduce((a, k) => a + toMin(val(k)), 0);
-  const crewSum = crew.reduce((a, f) => a + toMin(val(f.key)), 0);
+  const crewKeys = ['single_pilot', 'multi_pilot'].filter((k) => !!val(k));
+  const crewSum = crewKeys.reduce((a, k) => a + toMin(val(k)), 0);
 
   const taken = new Set(block.aircraft.map((a) => a.type.trim().toUpperCase()));
   const suggestions = fleet
@@ -133,14 +147,8 @@ function BlockForm({
     if (n == null) return 'New type, added to Fleet';
     return n ? `${n} in Fleet` : 'In your logbook';
   };
-
-  const ph = (k: string) => block.photo.includes(k);
-  const fl = (k: string) => block.flags.includes(k);
-  const tilesRow = (fs: Field[], integer?: boolean) => (
-    <View style={{ flexDirection: 'row', gap: 8 }}>
-      {fs.map((f) => <Tile key={f.key} P={P} label={f.label} value={val(f.key)} onChange={setVal(f.key)} integer={integer} photo={ph(f.key)} flag={fl(f.key)} />)}
-    </View>
-  );
+  const found = block.aircraft.filter((a) => a.found).map((a) => a.type);
+  const simTotal = block.simRead ?? simMins(block);
 
   return (
     <>
@@ -149,158 +157,178 @@ function BlockForm({
         label={yearly ? `Flight time in ${blockLabel(block) || 'this year'}` : 'Total flight time'}
         value={block.total}
         onChange={(v) => onChange((b) => ({ ...b, total: v }))}
-        photo={ph('total')}
         hint={block.eq ? undefined : yearly ? 'The flight time for the year. Type 214:10 or 214.2.' : 'The "Total to date" line on your last logbook page. Type 1248:30 or 1248.5.'}
         footer={block.eq ? <EqLine P={P} eq={block.eq} /> : null}
       />
 
-      {showAircraft ? (
-        <Section P={P} title="Aircraft" note="optional">
-          <Card P={P}>
-            <AllocationMeter P={P} total={total} parts={acMins} noun="an aircraft" />
-            {block.aircraft.map((a, i) => (
-              <TimeRow
-                key={a.id}
-                P={P}
-                label={a.type}
-                sub={a.found && !toMin(a.time) ? `On your photo · ${acSub(a.type)}. Type your hours in it.` : a.found ? `On your photo · ${acSub(a.type)}` : acSub(a.type)}
-                dot={ALLOC_COLORS[i % ALLOC_COLORS.length]}
-                value={a.time}
-                onChange={(v) => onChange((b) => ({ ...b, aircraft: b.aircraft.map((x) => (x.id === a.id ? { ...x, time: v } : x)) }))}
-                onRemove={() => onChange((b) => ({ ...b, aircraft: b.aircraft.filter((x) => x.id !== a.id) }))}
-              />
-            ))}
-            <AddPicker
-              P={P}
-              label="Add aircraft"
-              note="Fleet or new type"
-              placeholder="Aircraft type, e.g. C172"
-              suggestions={suggestions}
-              onPick={(_k, text) => {
-                const type = text.trim();
-                if (!type || taken.has(type.toUpperCase())) return;
-                onChange((b) => ({ ...b, aircraft: [...b.aircraft, { id: uid(), type, time: '' }] }));
-              }}
-            />
-          </Card>
-          <Hint P={P}>{block.aircraft.some((a) => a.found)
-            ? 'Only the aircraft on your photo are found. Add the ones you flew earlier, or leave the rest without a type.'
-            : "Time you don't give to an aircraft is saved without a type."}</Hint>
-        </Section>
-      ) : null}
-
-      {role.length ? (
-        <Section P={P} title="Role" noteLed={roleSum ? hm(roleSum) : undefined}>
-          <Card P={P}>
-            {role.map((f, i) => (
-              <TimeRow key={f.key} P={P} label={f.label} value={val(f.key)} onChange={setVal(f.key)} first={i === 0}
-                share={total ? toMin(val(f.key)) / total : 0} photo={ph(f.key)} flag={fl(f.key)} />
-            ))}
-          </Card>
-          {roleMain.length >= 2 ? (
-            <SumCheck P={P} parts={roleSum} total={total}
-              ok="PIC, co-pilot and dual add up to your total"
-              over="PIC, co-pilot and dual are more than your total"
-              under="PIC, co-pilot and dual" />
-          ) : null}
-        </Section>
-      ) : null}
-
-      {crew.length ? (
-        <Section P={P} title="Crew" noteLed={crewSum ? hm(crewSum) : undefined}>
-          <Card P={P}>
-            <SplitBar P={P} style={{ marginHorizontal: 16, marginTop: 16, marginBottom: 6 }}
-              parts={CREW.map((f, i) => ({ v: toMin(val(f.key)), color: CREW_COLORS[i] }))} />
-            {crew.map((f, i) => (
-              <TimeRow key={f.key} P={P} label={f.label} dot={CREW_COLORS[CREW.indexOf(f)]} value={val(f.key)} onChange={setVal(f.key)} first={i === 0} photo={ph(f.key)} flag={fl(f.key)} />
-            ))}
-          </Card>
-          {crew.length === 2 ? (
-            <SumCheck P={P} parts={crewSum} total={total}
-              ok="Single and multi-pilot add up to your total"
-              over="Single and multi-pilot are more than your total"
-              under="Single and multi-pilot" />
-          ) : null}
-        </Section>
-      ) : null}
-
-      {cond.length ? <Section P={P} title="Conditions">{tilesRow(cond)}</Section> : null}
-      {land.length ? <Section P={P} title="Landings">{tilesRow(land, true)}</Section> : null}
-
-      {special.length ? (
-        <Section P={P} title="Special roles">
-          <Card P={P}>
-            {special.map((f, i) => <TimeRow key={f.key} P={P} label={f.label} value={val(f.key)} onChange={setVal(f.key)} first={i === 0} photo={ph(f.key)} flag={fl(f.key)} />)}
-          </Card>
-        </Section>
-      ) : null}
-
-      {block.simRead ? (
-        // Simulatortid från fotot: vilken typ (eller vilka typer) direkt, med det som är kvar att fördela.
-        <Section P={P} title="Simulator" note="kept apart from flight time">
-          <Card P={P}>
-            <AllocationMeter P={P} total={block.simRead} parts={sims.map((s) => toMin(val(s.key)))} noun="a simulator type" />
-            {sims.map((s, i) => (
-              <TimeRow key={s.key} P={P} label={s.label} sub={s.sub} dot={ALLOC_COLORS[i % ALLOC_COLORS.length]} value={val(s.key)} onChange={setVal(s.key)}
-                onRemove={() => onChange((b) => ({ ...b, shown: b.shown.filter((k) => k !== s.key), v: { ...b.v, [s.key]: '' } }))} />
-            ))}
-            {hiddenSims.length ? (
-              <View style={{ padding: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: P.sep, gap: 10 }}>
-                {!sims.length ? (
-                  <Text style={{ color: P.text, fontSize: 14, fontWeight: '600' }}>What type of simulator?</Text>
-                ) : null}
-                <ChipGroup
-                  P={P}
-                  title={sims.length ? 'Another type' : 'Choose one, or several if you flew more than one type'}
-                  items={hiddenSims.map((s) => ({
-                    label: s.label,
-                    // Den nya typen får det som är kvar; ändra tiden om den ska delas.
-                    onPress: () => onChange((b) => {
-                      const left = (b.simRead ?? 0) - SIMS.reduce((a, x) => a + toMin(b.v[x.key] ?? ''), 0);
-                      return { ...b, shown: [...b.shown, s.key], v: { ...b.v, [s.key]: left > 0 ? hm(left) : '' } };
-                    }),
-                  }))}
-                />
+      {/* Det som inte går ihop: först, gult. Use = summan av Brought forward och sidan, Keep = det som står. */}
+      {open.length ? (
+        <View style={{ gap: 8 }}>
+          <Text style={{ color: P.warning, fontSize: 13, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', paddingHorizontal: 4 }}>
+            {open.length} to check
+          </Text>
+          {open.map((k) => {
+            const f = ALL.find((x) => x.key === k)!;
+            const c = block.checks?.[k];
+            const fmtv = (m: number) => (integer(k) ? String(m) : hm(m));
+            const sum = c ? c.bf + c.page : null;
+            const resolve = (v?: string) => onChange((b) => ({ ...b, v: v != null ? { ...b.v, [k]: v } : b.v, flags: b.flags.filter((x) => x !== k) }));
+            return (
+              <View key={k} style={{ borderRadius: 16, borderWidth: 1, borderColor: P.warning + '73', backgroundColor: P.warning + '12', padding: 14, paddingHorizontal: 16, gap: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Text style={{ flex: 1, color: P.text, fontSize: 16, fontWeight: '600' }}>{labelOf(f)}</Text>
+                  <LedInput P={P} value={val(k)} onChangeText={setVal(k)} width={128} integer={integer(k)} label={labelOf(f)} />
+                  {!integer(k) ? <Text style={{ color: P.text2, fontSize: 13, width: 9 }}>h</Text> : null}
+                </View>
+                <Text style={{ color: '#CFE0EE', fontSize: 13, lineHeight: 19 }}>
+                  {c && sum != null
+                    ? `Brought forward ${fmtv(c.bf)} + this page ${fmtv(c.page)} makes ${fmtv(sum)}. Your page says ${val(k) || '—'}.`
+                    : 'Check this against your logbook. Change it above if it is wrong.'}
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {c && sum != null && fmtv(sum) !== val(k) ? (
+                    <TouchableOpacity onPress={() => resolve(fmtv(sum))} accessibilityRole="button"
+                      style={{ flex: 1, height: 44, borderRadius: 12, backgroundColor: P.warning, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: '#2A1D00', fontSize: 14.5, fontWeight: '700' }}>Use {fmtv(sum)}</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  <TouchableOpacity onPress={() => resolve()} accessibilityRole="button"
+                    style={{ flex: 1, height: 44, borderRadius: 12, borderWidth: 1, borderColor: P.warning + '73', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: P.text, fontSize: 14.5, fontWeight: '600' }}>{val(k) ? `Keep ${val(k)}` : 'Leave it empty'}</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            ) : null}
-          </Card>
-          <Hint P={P}>Time you don't give a type is saved as simulator time without a type.</Hint>
-        </Section>
-      ) : sims.length ? (
-        <Section P={P} title="Simulator" noteLed={simMins(block) ? hm(simMins(block)) : undefined}>
-          <Card P={P}>
-            {sims.map((s, i) => <TimeRow key={s.key} P={P} label={s.label} sub={s.sub} value={val(s.key)} onChange={setVal(s.key)} first={i === 0} />)}
-            {hiddenSims.length ? (
-              <View style={{ padding: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: P.sep }}>
-                <ChipGroup P={P} title="Add a simulator type" items={hiddenSims.map((s) => ({ label: s.label, onPress: () => show(s.key) }))} />
-              </View>
-            ) : null}
-          </Card>
-          <Hint P={P}>Simulator time is kept apart and not added to your flight time.</Hint>
-        </Section>
+            );
+          })}
+        </View>
       ) : null}
 
-      <Section P={P} title={block.photo.length ? 'Not in your logbook?' : nothingShown ? 'Add detail' : 'Add more'} note={nothingShown ? 'optional' : undefined}>
-        <Card P={P} style={{ padding: 16, gap: 16 }}>
-          {block.photo.length ? <Text style={{ color: P.text2, fontSize: 13, lineHeight: 18 }}>Add what your logbook has no column for, like NVG.</Text> : null}
-          {!showAircraft ? (
-            <ChipGroup P={P} title="Aircraft · give your hours to each type"
-              items={[{ label: 'Add aircraft', onPress: () => onChange((b) => ({ ...b, showAircraft: true })) }]} />
+      {/* En lista: varje tid i ett eget fält, Add a time längst ner. */}
+      <Section P={P} title={fromPhoto ? 'From your logbook' : 'Your totals'}>
+        <Card P={P}>
+          {rows.map((f, i) => (
+            <TimeRow key={f.key} P={P} label={labelOf(f)} value={val(f.key)} onChange={setVal(f.key)} first={i === 0}
+              integer={integer(f.key)} sub={extra(f.key) ? 'Added by you' : undefined}
+              onRemove={extra(f.key) ? () => remove(f.key) : undefined} />
+          ))}
+          {addable.length ? (
+            <TouchableOpacity onPress={() => setAdding((a) => !a)} accessibilityRole="button" accessibilityState={{ expanded: adding }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, paddingHorizontal: 16, borderTopWidth: rows.length ? 1 : 0, borderTopColor: P.sep }}>
+              <Ionicons name="add" size={18} color={P.accent} />
+              <Text style={{ color: P.accent, fontSize: 15, fontWeight: '600' }}>Add a time</Text>
+            </TouchableOpacity>
           ) : null}
-          <ChipGroup P={P} title="Role" items={hiddenOf(ROLE).map((f) => ({ label: f.label, onPress: () => show(f.key) }))} />
-          <ChipGroup P={P} title="Crew" items={hiddenOf(CREW).map((f) => ({ label: f.label, onPress: () => show(f.key) }))} />
-          <ChipGroup P={P} title="Conditions" items={hiddenOf(COND).map((f) => ({ label: f.label, onPress: () => show(f.key) }))} />
-          <ChipGroup P={P} title="Landings" items={hiddenOf(LAND).map((f) => ({ label: `${f.label} landings`, onPress: () => show(f.key) }))} />
-          {!sims.length && !block.simRead ? (
-            <ChipGroup P={P} title="Simulator · kept apart from flight time" items={SIMS.map((s) => ({ label: s.label, onPress: () => show(s.key) }))} />
-          ) : null}
-          {hiddenOf(SPECIAL).length ? (
-            moreRoles
-              ? <ChipGroup P={P} title="Special roles" items={hiddenOf(SPECIAL).map((f) => ({ label: f.label, onPress: () => show(f.key) }))} />
-              : <ChipGroup P={P} title="Less common" items={[{ label: 'Special roles', onPress: () => setMoreRoles(true) }]} />
+          {adding ? (
+            <View style={{ paddingHorizontal: 16, paddingBottom: 16, gap: 10 }}>
+              <Text style={{ color: P.text2, fontSize: 13, lineHeight: 18 }}>
+                {fromPhoto ? 'For what your logbook has no column for.' : 'Add the times your logbook keeps.'}
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {addable.map((f) => (
+                  <TouchableOpacity key={f.key} onPress={() => add(f.key)} activeOpacity={0.75} accessibilityRole="button" accessibilityLabel={`Add ${labelOf(f)}`}
+                    style={{ height: 40, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: P.border, backgroundColor: P.elevated, justifyContent: 'center' }}>
+                    <Text style={{ color: P.text, fontSize: 14, fontWeight: '600' }}>{labelOf(f)}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
           ) : null}
         </Card>
-        {nothingShown ? <Hint P={P}>Each one you tap becomes a field above. Only what you fill in is saved.</Hint> : null}
+        {roleMain.length >= 2 ? (
+          <SumCheck P={P} parts={roleSum} total={total}
+            ok="PIC, co-pilot and dual add up to your total"
+            over="PIC, co-pilot and dual are more than your total"
+            under="PIC, co-pilot and dual" />
+        ) : null}
+        {crewKeys.length === 2 ? (
+          <SumCheck P={P} parts={crewSum} total={total}
+            ok="Single and multi-pilot add up to your total"
+            over="Single and multi-pilot are more than your total"
+            under="Single and multi-pilot" />
+        ) : null}
+        <Hint P={P}>Type 812:20 or 812.3. Only what you fill in is saved.</Hint>
+      </Section>
+
+      {/* Om man vill: per flygplanstyp och simulator. Fälls ut först när man trycker. */}
+      <Section P={P} title="If you want">
+        <Card P={P}>
+          <TouchableOpacity onPress={() => onChange((b) => ({ ...b, showAircraft: !b.showAircraft }))} accessibilityRole="button" accessibilityState={{ expanded: showAircraft }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingVertical: 10, paddingHorizontal: 16 }}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={{ color: P.text, fontSize: 15 }}>Split by aircraft</Text>
+              <Text style={{ color: P.text2, fontSize: 12.5 }} numberOfLines={1}>
+                {found.length ? `${found.slice(0, 3).join(found.length === 2 ? ' and ' : ', ')} on your page` : 'Give your hours to each type'}
+              </Text>
+            </View>
+            <Ionicons name={showAircraft ? 'chevron-up' : 'chevron-down'} size={16} color={P.muted} />
+          </TouchableOpacity>
+          {showAircraft ? (
+            <View style={{ borderTopWidth: 1, borderTopColor: P.sep }}>
+              <AllocationMeter P={P} total={total} parts={acMins} noun="an aircraft" />
+              {block.aircraft.map((a, i) => (
+                <TimeRow
+                  key={a.id}
+                  P={P}
+                  label={a.type}
+                  sub={a.found ? `On your page · ${acSub(a.type)}` : acSub(a.type)}
+                  dot={ALLOC_COLORS[i % ALLOC_COLORS.length]}
+                  value={a.time}
+                  onChange={(v) => onChange((b) => ({ ...b, aircraft: b.aircraft.map((x) => (x.id === a.id ? { ...x, time: v } : x)) }))}
+                  onRemove={() => onChange((b) => ({ ...b, aircraft: b.aircraft.filter((x) => x.id !== a.id) }))}
+                />
+              ))}
+              <AddPicker
+                P={P}
+                label="Add an aircraft"
+                note="Fleet or new type"
+                placeholder="Aircraft type, e.g. C172"
+                suggestions={suggestions}
+                onPick={(_k, text) => {
+                  const type = text.trim();
+                  if (!type || taken.has(type.toUpperCase())) return;
+                  onChange((b) => ({ ...b, aircraft: [...b.aircraft, { id: uid(), type, time: '' }] }));
+                }}
+              />
+            </View>
+          ) : null}
+          <TouchableOpacity onPress={() => setShowSim((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showSim }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingVertical: 10, paddingHorizontal: 16, borderTopWidth: 1, borderTopColor: P.sep }}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ color: P.text, fontSize: 15 }}>Simulator</Text>
+                {simTotal > 0 ? <LedText size={13} color={P.text}>{hm(simTotal)}</LedText> : null}
+              </View>
+              <Text style={{ color: P.text2, fontSize: 12.5 }}>{block.simRead && !sims.length ? 'Choose the type · kept apart from flight time' : 'Kept apart from flight time'}</Text>
+            </View>
+            <Ionicons name={showSim ? 'chevron-up' : 'chevron-down'} size={16} color={P.muted} />
+          </TouchableOpacity>
+          {showSim ? (
+            <View style={{ borderTopWidth: 1, borderTopColor: P.sep }}>
+              {block.simRead ? <AllocationMeter P={P} total={block.simRead} parts={sims.map((x) => toMin(val(x.key)))} noun="a simulator type" /> : null}
+              {sims.map((x, i) => (
+                <TimeRow key={x.key} P={P} label={x.label} sub={x.sub} dot={block.simRead ? ALLOC_COLORS[i % ALLOC_COLORS.length] : undefined}
+                  value={val(x.key)} onChange={setVal(x.key)} first={!block.simRead && i === 0}
+                  onRemove={() => onChange((b) => ({ ...b, shown: b.shown.filter((k) => k !== x.key), v: { ...b.v, [x.key]: '' } }))} />
+              ))}
+              {hiddenSims.length ? (
+                <View style={{ padding: 16, paddingTop: 12, borderTopWidth: sims.length || block.simRead ? 1 : 0, borderTopColor: P.sep }}>
+                  <ChipGroup
+                    P={P}
+                    title={sims.length ? 'Another type' : 'What type of simulator?'}
+                    items={hiddenSims.map((x) => ({
+                      label: x.label,
+                      // Den nya typen får det som är kvar av simulatortiden ur fotot; ändra tiden om den ska delas.
+                      onPress: () => onChange((b) => {
+                        const left = (b.simRead ?? 0) - SIMS.reduce((a, y) => a + toMin(b.v[y.key] ?? ''), 0);
+                        return { ...b, shown: [...b.shown, x.key], v: { ...b.v, [x.key]: left > 0 ? hm(left) : '' } };
+                      }),
+                    }))}
+                  />
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+        </Card>
       </Section>
     </>
   );
@@ -333,7 +361,6 @@ function blockFromValues(
     seen.add(label.toUpperCase());
     b.aircraft.push({ id: uid(), type: label, time: '', found: true });
   }
-  b.showAircraft = b.aircraft.length > 0;
   b.photo = photo;
   b.flags = flags.map((f) => (f === 'total_time' ? 'total' : f));
   return b;
@@ -342,11 +369,13 @@ function blockFromValues(
 const readingValues = (r: TotalsReading) => {
   const values: Partial<Record<FormField, number>> = {};
   const flags: string[] = [];
+  const checks: Record<string, { bf: number; page: number }> = {};
   for (const [k, v] of Object.entries(r.fields) as [FormField, NonNullable<TotalsReading['fields'][FormField]>][]) {
     values[k] = v.value;
     if (v.check) flags.push(k);
+    if (v.check && v.bf != null && v.page != null) checks[k] = { bf: v.bf, page: v.page };
   }
-  return { values, flags };
+  return { values, flags, checks };
 };
 
 /** Raden under totalen: hur värdet kontrollerats eller räknats fram. */
@@ -513,10 +542,11 @@ export default function ManualExperienceScreen() {
   const showReadings = useCallback((years: boolean, photos: number, noYear: number) => {
     const latest = latestRef.current;
     if (!latest) return;
-    const { values, flags } = readingValues(latest);
+    const { values, flags, checks } = readingValues(latest);
     const tot = latest.fields.total_time;
     if (!years) {
       const b = blockFromValues(values, flags, latest.aircraft.map((a) => a.type), fleetRef.current, {
+        checks,
         eq: tot && tot.bf != null && tot.page != null ? { kind: 'bf', bf: tot.bf, page: tot.page, ok: !tot.check } : undefined,
       });
       setMode('lump');
@@ -695,7 +725,10 @@ export default function ManualExperienceScreen() {
   const merged = blocks.filter((b) => b.fromYear != null && parseInt(b.year, 10) > b.fromYear);
 
   // Knappen säger bara Save; varför den är grå står i raden ovanför.
-  const blocked = !ready.length ? 'Enter your total time to save.'
+  const FIELD_LABEL: Record<string, string> = Object.fromEntries([...ROLE, ...CREW, ...COND, ...SPECIAL].map((f) => [f.key, f.label]).concat(LAND.map((f) => [f.key, `${f.label} landings`])));
+  const toCheck = blocks.flatMap((b) => b.flags.filter((k) => k !== 'total' && FIELD_LABEL[k]).map((k) => FIELD_LABEL[k]));
+  const blocked = toCheck.length ? `Check ${toCheck.slice(0, 2).join(' and ')}${toCheck.length > 2 ? ` and ${toCheck.length - 2} more` : ''} to save.`
+    : !ready.length ? 'Enter your total time to save.'
     : overGiven ? 'Your aircraft add up to more than the total. Lower one of them to save.'
       : badYear ? 'Enter a year from 1950 to 2099 to save.' : null;
   const disabled = !!blocked;
@@ -866,7 +899,7 @@ export default function ManualExperienceScreen() {
                   <Text style={{ color: P.text2, fontSize: 12, lineHeight: 16 }}>
                     {photoSource.years
                       ? `Latest page and ${Math.max(0, endsRef.current.length)} new ${endsRef.current.length === 1 ? 'year' : 'years'}`
-                      : 'Your latest page'} · fields marked with a camera
+                      : 'Your latest page'} · tap any time to change it
                     {photoSource.noYear ? `. ${photoSource.noYear} ${photoSource.noYear === 1 ? 'photo had' : 'photos had'} no new year on it` : ''}
                   </Text>
                 </View>

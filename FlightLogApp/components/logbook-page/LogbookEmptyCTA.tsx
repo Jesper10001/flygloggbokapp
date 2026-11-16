@@ -14,7 +14,7 @@ export function LogbookEmptyCTA({ accent, mode }: { accent: string; mode: 'pilot
   const drone = mode === 'drone';
   const options: { icon: keyof typeof Ionicons.glyphMap; label: string; route: string }[] = [
     { icon: 'document-attach-outline', label: 'Import CSV/Excel', route: drone ? '/drone-import' : '/import' },
-    { icon: 'create-outline', label: 'Block import manually', route: drone ? '/drone-import/manual' : '/import/manual' },
+    { icon: 'create-outline', label: 'Block import', route: drone ? '/drone-import/manual' : '/import/manual' },
     { icon: 'airplane', label: 'Log flight', route: drone ? '/drone-flight/add' : '/flight/add' },
     ...(!drone && SCAN_OPEN ? [{ icon: 'scan-outline' as const, label: 'Scan your logbook', route: '/import/scan' }] : []),
   ];

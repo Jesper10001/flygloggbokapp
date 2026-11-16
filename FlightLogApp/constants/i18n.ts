@@ -242,7 +242,7 @@ export const translations = {
     scan_no_scans_free_desc: 'Your free scans are used up. Premium includes more logbook scans every month.',
     scan_see_premium: 'See Premium',
 
-    import_manual_title: 'Block import manually',
+    import_manual_title: 'Block import',
     import_manual_sub: 'Fill in flight details by hand',
     scan_profile_title: 'Scan Profile',
     scan_profile_sub: 'Help AI read your logbook accurately',

@@ -1,4 +1,4 @@
-// Byggstenar för "Block import manually" (pilot + drönare): LED-fält med ghost-8:or, mätaren
+// Byggstenar för "Block import" (pilot + drönare): LED-fält med ghost-8:or, mätaren
 // "Left to give out", års-staplarna, sektioner och knapprader. Färgerna kommer in som en palett
 // så pilot (Colors) och drönare (DR + accent) delar samma utseende.
 import { useState, type ReactNode } from 'react';

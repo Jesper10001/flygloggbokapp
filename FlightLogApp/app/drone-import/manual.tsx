@@ -1,4 +1,4 @@
-// "Block import manually" (drönare) — historiska drönartimmar som klumpsumma eller år för år.
+// "Block import" (drönare) — historiska drönartimmar som klumpsumma eller år för år.
 // Samma upplägg som pilotens /import/manual (components/experience/ExperienceKit). Sparas som
 // summeringsrader (source='summary'): räknas i drönar-totalerna (getDroneStats → dashboard/insights)
 // och syns som en batch under Imported data, men listas inte som flygningar (droneFlightStore filtrerar).

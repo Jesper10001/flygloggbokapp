@@ -40,7 +40,7 @@ const CATS: { key: keyof Flight; label: string }[] = [
 
 function methodOf(f: Flight): Method {
   if ((f as any).flight_type === 'summary') return 'manual';
-  // Simulatortid från Block import manually (sim-rad med samma remarks) hör till samma manuella import.
+  // Simulatortid från Block import (sim-rad med samma remarks) hör till samma manuella import.
   if ((f as any).flight_type === 'sim' && f.remarks === 'Blades previous experience') return 'manual';
   if (f.source === 'ocr') return 'ocr';
   return 'csv';

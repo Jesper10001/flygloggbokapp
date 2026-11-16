@@ -1,8 +1,9 @@
 // Onboardingen, förenklad (2026-11-16, Claude design "Blades onboarding, förenklad"): tre skärmar.
 //   1. What do you fly?  Välkomsten och farkostvalet på samma skärm; ett tryck på en farkost går vidare.
 //   2. Where are your hours today?  Den enda frågan som ändrar vad appen gör härnäst (pappersbok, annan app eller
-//      kalkylblad, skriva in totaler, precis börjat). Drönarpiloter väljer först sorts flygning (behövs för
-//      loggboken). Regelverket gissas ur regionen och går att byta på en stillsam rad.
+//      kalkylblad, skriva in totaler, precis börjat). Drönarpiloter får ingen fråga om sorts flygning (användarens
+//      val 2026-11-16): profilen blir Commercial och går att byta i Inställningar. Regelverket gissas ur regionen
+//      och går att byta på en stillsam rad.
 //   3. Betalväggen (OnboardingPaywall, oförändrad design: användarens val 2026-11-16) med en rubrik som följer svaret.
 // Sedan direkt till det man valde: skanningen, importen, starttotalerna eller dashboarden, med rundturen som förut.
 // Den som lägger till en andra roll (returning) eller redan betalar hoppar över betalväggen.
@@ -53,11 +54,6 @@ const CRAFTS: { key: Craft; title: string; desc: string }[] = [
   { key: 'plane', title: 'Airplane', desc: 'Piston, turboprop and jet.' },
   { key: 'drone', title: 'Drone', desc: 'Hobby, commercial or military.' },
 ];
-const DRONE_KINDS: { k: SubRole; title: string }[] = [
-  { k: 'hobby', title: 'Hobby' },
-  { k: 'commercial', title: 'Commercial' },
-  { k: 'military', title: 'Military' },
-];
 const RULES: { k: RegulationStandard; name: string }[] = [
   { k: 'easa', name: 'EASA · Part-FCL' },
   { k: 'faa', name: 'FAA · Part 61' },
@@ -90,7 +86,6 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
 
   const [step, setStep] = useState<Step>('craft');
   const [craft, setCraft] = useState<Craft | null>(null);
-  const [droneKind, setDroneKind] = useState<SubRole | null>(null);
   const [where, setWhere] = useState<Where | null>(null);
   const [rules, setRules] = useState<RegulationStandard>(() => standardForRegion(useRegulationStandardStore.getState().standard));
   const [plans, setPlans] = useState<PlanOption[] | null>(null);
@@ -124,7 +119,7 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
 
   const pickCraft = (k: Craft) => {
     tap();
-    if (craft && (craft === 'drone') !== (k === 'drone')) { setDroneKind(null); setWhere(null); }
+    if (craft && (craft === 'drone') !== (k === 'drone')) setWhere(null);
     setCraft(k);
     timers.current.push(setTimeout(() => setStep('hours'), 260));
   };
@@ -150,7 +145,7 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
     try {
       if (!craft) { router.replace('/(tabs)'); return; }
       const mainRole: MainRole = pilot ? 'pilot-manned' : 'pilot-unmanned';
-      const subRole: SubRole = pilot ? (craft === 'heli' ? 'rotary' : 'fixed') : (droneKind || 'commercial');
+      const subRole: SubRole = pilot ? (craft === 'heli' ? 'rotary' : 'fixed') : 'commercial';
       const profile: Profile = { mainRole, subRole };
       if (pilot) await useRegulationStandardStore.getState().setStandard(rules);
       else await useTimeFormatStore.getState().setTimeFormat('hhmm');
@@ -180,7 +175,6 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
     : where === 'start' ? ['Start your logbook the right way.', 'Every hour counts. From day one.']
     : ['Your whole flying life in one logbook.', craft === 'plane' ? 'From short hops to long cross-countries.' : 'From local circuits to long cross-countries.'];
 
-  const canGo = pilot || !!droneKind;
   const showBack = step === 'hours';
 
   return (
@@ -240,25 +234,9 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
         {step === 'hours' ? (
           <View style={{ flex: 1 }}>
             <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: insets.top + 64, paddingHorizontal: 22, paddingBottom: 16 }} showsVerticalScrollIndicator={false}>
-              {!pilot ? (
-                <View style={{ marginBottom: 30 }}>
-                  <Text style={s.h1}>What kind of flying?</Text>
-                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }} accessibilityRole="radiogroup">
-                    {DRONE_KINDS.map((d) => {
-                      const on = droneKind === d.k;
-                      return (
-                        <Pressable key={d.k} onPress={() => { tap(); setDroneKind(d.k); }} style={[s.pill, on && s.pillOn]}
-                          accessibilityRole="radio" accessibilityState={{ checked: on }}>
-                          <Text style={s.pillText}>{d.title}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-              ) : null}
-              <Text style={pilot ? s.h1 : s.h2}>Where are your hours today?</Text>
+              <Text style={s.h1}>Where are your hours today?</Text>
               <Text style={s.sub}>Blades brings them in, so your totals are right from the first day.</Text>
-              <View style={{ gap: 10, marginTop: 22, opacity: canGo ? 1 : 0.4 }} pointerEvents={canGo && !waiting ? 'auto' : 'none'}>
+              <View style={{ gap: 10, marginTop: 22 }} pointerEvents={waiting ? 'none' : 'auto'}>
                 {pilot ? (
                   <Row icon="book-open-variant" title="In a paper logbook"
                     desc={SCAN_OPEN ? 'Photograph the pages and Blades types them in.' : 'Enter the totals from your last page.'}
@@ -280,8 +258,8 @@ export default function NewOnboarding({ preview = false }: { preview?: boolean }
                   </Pressable>
                 </View>
               ) : null}
-              <Pressable onPress={() => pickWhere(null)} disabled={!canGo || waiting} style={s.ghost} accessibilityRole="button">
-                {waiting ? <ActivityIndicator color={SUB} /> : <Text style={[s.ghostText, !canGo && { opacity: 0.4 }]}>I'll do this later</Text>}
+              <Pressable onPress={() => pickWhere(null)} disabled={waiting} style={s.ghost} accessibilityRole="button">
+                {waiting ? <ActivityIndicator color={SUB} /> : <Text style={s.ghostText}>I'll do this later</Text>}
               </Pressable>
             </View>
           </View>
@@ -317,7 +295,6 @@ const s = StyleSheet.create({
   seg: { flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(127,168,200,0.2)' },
   segOn: { backgroundColor: CYAN },
   h1: { fontFamily: SERIF, fontSize: 31, fontWeight: '600', lineHeight: 35, color: '#FFFFFF' },
-  h2: { fontFamily: SERIF, fontSize: 23, fontWeight: '600', lineHeight: 28, color: '#FFFFFF' },
   sub: { fontSize: 15, lineHeight: 21, color: SUB, marginTop: 10 },
   fine: { textAlign: 'center', fontSize: 13, lineHeight: 19, color: MUTED },
   tile: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 112, paddingRight: 16, borderRadius: 20, backgroundColor: 'rgba(15,30,58,0.6)', borderWidth: 1, borderColor: 'rgba(127,168,200,0.18)', overflow: 'hidden' },
@@ -330,9 +307,6 @@ const s = StyleSheet.create({
   ricon: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(0,200,232,0.10)', alignItems: 'center', justifyContent: 'center' },
   rt: { fontSize: 15.5, fontWeight: '600', color: '#FFFFFF' },
   rs: { fontSize: 12.5, lineHeight: 17, color: SUB },
-  pill: { flex: 1, height: 46, borderRadius: 23, borderWidth: 1, borderColor: 'rgba(127,168,200,0.25)', backgroundColor: 'rgba(15,30,58,0.6)', alignItems: 'center', justifyContent: 'center' },
-  pillOn: { borderWidth: 2, borderColor: CYAN, backgroundColor: 'rgba(0,200,232,0.10)' },
-  pillText: { fontSize: 14.5, fontWeight: '600', color: '#FFFFFF' },
   rules: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingLeft: 16, paddingRight: 4, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(127,168,200,0.14)' },
   change: { minHeight: 44, paddingHorizontal: 12, justifyContent: 'center' },
   ghost: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },

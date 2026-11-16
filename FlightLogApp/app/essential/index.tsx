@@ -170,7 +170,7 @@ export default function EssentialHome() {
     ],
     import: [
       { key: 'csv', label: 'CSV import', icon: 'document-attach-outline', onPress: () => router.push(isDrone ? '/drone-import' : '/import') },
-      { key: 'block', label: 'Block import manually', icon: 'create-outline', onPress: () => router.push(isDrone ? '/drone-import/manual' : '/import/manual') },
+      { key: 'block', label: 'Block import', icon: 'create-outline', onPress: () => router.push(isDrone ? '/drone-import/manual' : '/import/manual') },
     ],
     export: [
       { key: 'pages', label: 'Pages', icon: 'document-text-outline', onPress: () => router.push('/essential/export-pages') },

@@ -380,7 +380,7 @@ export default function DroneSettingsScreen() {
       {expanded === 'import' && (
         <View>
         <SectionCard>
-          <Row accent={accent} icon="create-outline" iconColor={accent} title="Block import manually" subtitle="Add historical drone hours" onPress={() => router.push('/drone-import/manual')} separatorColor={DR.background} tourPressId="import-manual" />
+          <Row accent={accent} icon="create-outline" iconColor={accent} title="Block import" subtitle="Add historical drone hours" onPress={() => router.push('/drone-import/manual')} separatorColor={DR.background} tourPressId="import-manual" />
           <Row accent={accent} icon="camera-outline" iconColor={accent} title="Scan controller log" subtitle="Log flights from a DJI / Autel screenshot" onPress={droneScan.start} separatorColor={DR.background} />
           <Row accent={accent} icon="document-attach-outline" iconColor={accent} title="Import CSV" subtitle="Import a drone-log CSV" onPress={() => router.push('/drone-import')} separatorColor={DR.background} />
           <Row accent={accent} icon="folder-open-outline" iconColor={accent} title="Imported data" subtitle="Review and delete your imports" onPress={() => router.push('/drone-import/history')} border={false} tourPressId="import-history" />

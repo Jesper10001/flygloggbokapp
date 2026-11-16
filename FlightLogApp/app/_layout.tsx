@@ -361,11 +361,11 @@ export default function RootLayout() {
             nekades återgången till stående när kameran stängdes, och appen blev kvar liggande. */}
         <Stack.Screen name="import/scan-camera" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="import/scan-crop" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
-        <Stack.Screen name="import/manual" options={{ title: 'Block import manually', presentation: tourPresentation }} />
+        <Stack.Screen name="import/manual" options={{ title: 'Block import', presentation: tourPresentation }} />
         <Stack.Screen name="import/history" options={{ title: 'Imported data', presentation: tourPresentation }} />
         <Stack.Screen name="drone-import/index" options={{ title: 'Import CSV', presentation: 'modal' }} />
         <Stack.Screen name="drone-import/history" options={{ title: 'Imported data', presentation: tourPresentation }} />
-        <Stack.Screen name="drone-import/manual" options={{ title: 'Block import manually', presentation: tourPresentation }} />
+        <Stack.Screen name="drone-import/manual" options={{ title: 'Block import', presentation: tourPresentation }} />
         <Stack.Screen name="photo-sync" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="settings/airport" options={{ title: 'Manage airports', presentation: 'modal' }} />
         <Stack.Screen name="settings/album" options={{ headerShown: false, presentation: 'modal' }} />
