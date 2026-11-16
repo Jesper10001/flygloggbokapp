@@ -51,7 +51,7 @@ ok(p.timeline && p.timeline.base.map((s) => s.cat).join() === 'VFR,MVFR,VFR' && 
 }
 ok(p.timeline.ticks[0].label === 'NOW' && p.timeline.ticks.length >= 9, 'ticks ' + p.timeline.ticks.map((x) => x.label).join(' '));
 ok(p.timeline.winds.some((w) => w.gust === 28), 'byar 28 i vindraden');
-ok(p.cards.length === 4 && p.cards[2].kind === '40% CHANCE' && p.cards[2].cat === 'IFR', 'kort: ' + p.cards.map((c) => `${c.when} ${c.kind} ${c.cat}`).join(' | '));
+ok(p.cards.length === 4 && /^PROBABILITY 40%/.test(p.cards[2].kind) && p.cards[2].cat === 'IFR', 'kort: ' + p.cards.map((c) => `${c.when} ${c.kind} ${c.cat}`).join(' | '));
 ok(p.rawTaf.length === 4 && p.rawTaf[2].cat === 'IFR' && p.rawTaf[1].cat === 'MVFR', 'rå TAF i fyra färgade grupper');
 ok(p.tafIssued === '11Z', 'TAF utfärdad 11Z');
 p.timeline.base.concat(p.timeline.temp.flat()).forEach((s) => console.log('     ', s.kind, s.label, s.when, '·', s.text));

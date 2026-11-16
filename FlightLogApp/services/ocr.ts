@@ -72,6 +72,7 @@ const OCR_TOOL_SCHEMA: Record<string, any> = {
           remarks: { type: 'string' },
           other_times: { type: 'object', additionalProperties: { type: 'number' } },
           other_time_labels: { type: 'object', additionalProperties: { type: 'string' } },
+          ditto: { type: 'array', items: { type: 'string' } },
           // needs_review, review_reason och remarks_suggestion räknar appen ut själv (scanImport.prepareFlight):
           // de stod för ungefär en tredjedel av svaret och därmed av tiden och kostnaden.
           field_issues: {
@@ -302,6 +303,10 @@ ditto-symbolen som värde — alltid det lösta värdet.
 
 Om en ditto-symbol står på sidans första rad utan föregående värde, lämna fältet
 tomt och flagga det i field_issues med reason "Ditto with no value above".
+
+ditto: lista per rad med de fält där raden har en ditto-symbol i stället för ett utskrivet
+värde, t.ex. "ditto": ["date", "dep_place", "arr_place"]. Appen ringar då in cellen med det
+utskrivna värdet ovanför när piloten kontrollerar. Utelämna listan när raden inte har någon.
 
 BOKSTAVSFÖRVÄXLINGAR I HANDSKRIFT — MYCKET VANLIGT:
 - A ↔ H (t.ex. ETAB ↔ ETHB, A109 ↔ H109)
@@ -932,6 +937,8 @@ function parseOcrResponse(parsed: any): OcrPageResult {
       row_y_pct: typeof f.row_y_pct === 'number' ? f.row_y_pct : undefined,
       row_index: Number.isFinite(Number(f.row_index)) && Number(f.row_index) > 0 ? Number(f.row_index) : undefined,
       field_issues: fieldIssues,
+      // Alltid en lista i nya läsningar (tom = inga ditto-tecken); äldre sparade skanningar saknar den helt.
+      ditto: Array.isArray(f.ditto) ? f.ditto.map((x: any) => String(x)).filter(Boolean) : [],
     } as OcrFlightResult;
   });
 

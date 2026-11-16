@@ -28,7 +28,9 @@ export type WxTimeline = {
   winds: { t: number; dir: number | null; spd: number; gust: number }[];
   ticks: { t: number; label: string }[];
 };
-export type WxCard = { id: string; when: string; kind: string; cat: FlightCat | null; text: string };
+// kind = TAF:ens egen term (TEMPORARY, BECOMING, FROM, PROBABILITY 40%); tom för grundprognosen.
+// temp = tillfällig grupp (TEMPO/PROB): streckad etikett, som stapeln i tidsbandet.
+export type WxCard = { id: string; when: string; kind: string; temp: boolean; cat: FlightCat | null; text: string };
 export type WxRawGroup = { text: string; cat: FlightCat | null; marker: boolean };
 export type WxPage = {
   summary: string;
@@ -236,7 +238,7 @@ export function buildWxPage(m: any, t: any, tz: WxTz, nowMs: number = Date.now()
       const over = merge(b?.s ?? null, f, false);
       const cat = catOf(over);
       const p = num(f.probability);
-      const kind = p > 0 ? `${p}% chance` : 'temporarily';
+      const kind = p > 0 ? `probability ${p}%` : 'temporary';
       const seg: WxSeg = { id: `f${i}`, ids: [`f${i}`], parts: [], from, to, cat, kind: 'temp', label: `${p > 0 ? p + '% ' : ''}${cat ?? ''}`.trim() || 'TEMPO',
         when: `${fmtRange(from, to, tz, now, ' – ')} · ${kind}`.toUpperCase(),
         text: `${p > 0 ? 'Possibly' : 'At times'} ${stateProse({ wdir: f.wdir, wspd: f.wspd, wgst: f.wgst, visib: f.visib, wxString: f.wxString, clouds: Array.isArray(f.clouds) ? f.clouds : [] }).replace(/^./, (c) => c.toLowerCase())}` };
@@ -261,11 +263,17 @@ export function buildWxPage(m: any, t: any, tz: WxTz, nowMs: number = Date.now()
       if (toS <= now) return;
       const seg = segOf(`f${i}`);
       const p = num(f.probability);
-      const kind = isTemp(f) ? (p > 0 ? `${p}% CHANCE` : 'TEMPORARY') : f.fcstChange === 'BECMG' ? 'BECOMING' : 'FROM';
+      // TAF:ens egna termer (användarens val 2026-11-16): Temporary, Becoming, From, Probability.
+      const temp = isTemp(f);
+      const kind = temp ? (p > 0 ? `PROBABILITY ${p}%${f.fcstChange === 'TEMPO' ? ' TEMPORARY' : ''}` : 'TEMPORARY')
+        : f.fcstChange === 'BECMG' ? 'BECOMING' : f.fcstChange === 'FM' ? 'FROM' : '';
       const from = num(f.timeFrom);
       const when = from <= now ? `Now – ${fmtTime(toS, tz, now)}` : fmtRange(from, toS, tz, now, ' – ');
+      // Grundgrupperna visar hela läget som gäller då (BECMG anger bara det som ändras); en tillfällig grupp det den själv anger.
+      const state = temp ? null : baseList.find((b) => b.id === `f${i}`)?.s ?? null;
       const own = tafPeriodProse(f);
-      cards.push({ id: `f${i}`, when, kind, cat: seg?.cat ?? null, text: cap(own) + (own ? '.' : '') || 'No change in the conditions.' });
+      const text = state ? stateProse(state) : cap(own) + (own ? '.' : '');
+      cards.push({ id: `f${i}`, when, kind, temp, cat: seg?.cat ?? null, text: text || 'No change in the conditions.' });
     });
   }
 
@@ -333,16 +341,20 @@ export function buildWxPage(m: any, t: any, tz: WxTz, nowMs: number = Date.now()
 }
 
 // Mot- och sidvind per bana: bästa änden per bana (mest motvind), parallella banor slås ihop ("19L/R").
-// favored = index i `runways` för banorna vinden gynnar (lyses upp i kartan).
+// favored = index i `runways` för banorna vinden gynnar (lyses upp i listan).
+// ends = per bana vilken ände som har motvind ('le'/'he'), null vid ren sidvind eller ingen vind: den änden
+// märks cyan i kartan (tröskel, nummer och pil).
 export type RwyWind = { ident: string; head: number; cross: number; favored: boolean };
-export function runwayWinds(runways: { leIdent: string; heIdent: string; bearing: number }[], dir: number | null, spd: number): { list: RwyWind[]; favored: number[] } {
-  if (dir == null || !(spd > 0) || !runways.length) return { list: [], favored: [] };
+export type RwyEnd = 'le' | 'he' | null;
+export function runwayWinds(runways: { leIdent: string; heIdent: string; bearing: number }[], dir: number | null, spd: number): { list: RwyWind[]; favored: number[]; ends: RwyEnd[] } {
+  if (dir == null || !(spd > 0) || !runways.length) return { list: [], favored: [], ends: runways.map(() => null) };
   const rows = runways.map((r, i) => {
     const useLe = Math.cos(((dir - r.bearing) * Math.PI) / 180) >= 0;
     const brg = useLe ? r.bearing : (r.bearing + 180) % 360;
     const ang = ((dir - brg) * Math.PI) / 180;
-    return { i, ident: (useLe ? r.leIdent : r.heIdent) || '', head: Math.round(Math.cos(ang) * spd), cross: Math.round(Math.abs(Math.sin(ang)) * spd) };
+    return { i, useLe, ident: (useLe ? r.leIdent : r.heIdent) || '', head: Math.round(Math.cos(ang) * spd), cross: Math.round(Math.abs(Math.sin(ang)) * spd) };
   });
+  const ends: RwyEnd[] = rows.map((r) => (r.head >= 1 ? (r.useLe ? 'le' : 'he') : null));
   const groups: { num: string; sfx: string[]; head: number; cross: number; idx: number[] }[] = [];
   for (const r of rows) {
     const m = /^(\d+)([LRC]?)$/.exec(r.ident);
@@ -361,5 +373,5 @@ export function runwayWinds(runways: { leIdent: string; heIdent: string; bearing
     const sfx = g.sfx.sort((a, b) => order.indexOf(a) - order.indexOf(b));
     return { ident: g.num + (sfx.length ? sfx[0] + (sfx.length > 1 ? '/' + sfx.slice(1).join('/') : '') : ''), head: g.head, cross: g.cross, favored: fav };
   });
-  return { list, favored };
+  return { list, favored, ends };
 }

@@ -14,6 +14,7 @@ import type { ScanRow } from '../../services/scanImport';
 import type { PageGrid } from '../../services/scanGeometry';
 import { scanSpreadAsLogbook, fieldOfColumn } from '../../services/logbook/scanSpread';
 import { cellRect } from '../../services/scanGeometry';
+import { dittoSource } from '../../services/scanDitto';
 import { inputValue, parseInput, shapeInput, label as fieldLabel, PLACE, UPPER, DURATION, CLOCK, COUNT } from '../../services/scanFields';
 import { searchAirports } from '../../db/icao';
 import { SpreadWebView } from '../logbook/SpreadWebView';
@@ -152,6 +153,8 @@ export function LogbookCrossRef(p: {
   };
   const unpick = () => { setSel(null); setBad(false); setClearSel((n) => n + 1); };
   const selRow = sel ? rowOf(sel.page, sel.rowKey) : null;
+  // Ett ditto-tecken ("-::-") i cellen: raden ovanför där värdet står utskrivet ringas också in.
+  const selSrc = sel && selRow ? dittoSource(p.spreads.find((x) => x.page === sel.page)?.rows ?? [], selRow, sel.field) : null;
   const selIssue = sel?.field && ed ? ed.issueFor(sel.rowKey, sel.field) : null;
   const selOpen = !!(sel?.field && ed && ed.cellState(sel.rowKey, sel.field) === 'open');
   const unchanged = !!(sel?.field && selRow && draft === inputValue(selRow.data, sel.field, p.timeFormat));
@@ -317,9 +320,10 @@ export function LogbookCrossRef(p: {
         <View style={[s.edit, { left: insets.left + 8, right: insets.right + 8, borderColor: selOpen ? Colors.danger + 'BB' : Colors.primary }]}>
           {/* Nyckel per cell: fotobiten byggs om från början för varje vald cell, så att den aldrig visar förra cellens bild. */}
           <CellSnippet key={`${sel.page}|${sel.rowKey}|${sel.field ?? sel.colLabel}`} photo={ed?.photo(sel.page) ?? null} grid={p.spreads.find((x) => x.page === sel.page)?.grid ?? null}
-            rowIndex={selRow.rowIndex} field={sel.field} danger={selOpen} />
+            rowIndex={selRow.rowIndex} field={sel.field} danger={selOpen} srcRowIndex={selSrc?.rowIndex ?? null} />
           <View style={{ flex: 1, gap: 6 }}>
-            <Text style={s.editLabel} numberOfLines={1}>ROW {selRow.rowIndex} · {(sel.field ? fieldLabel(sel.field) : sel.colLabel).toUpperCase()}</Text>
+            <Text style={s.editLabel} numberOfLines={1}>ROW {selRow.rowIndex} · {(sel.field ? fieldLabel(sel.field) : sel.colLabel).toUpperCase()}
+              {selSrc ? <Text style={{ color: Colors.primary }}>{`  ·  SAME AS ROW ${selSrc.rowIndex}`}</Text> : null}</Text>
             {sel.field ? (
               <Text style={[s.editReason, selOpen && { color: Colors.danger }]} numberOfLines={2}>
                 {bad ? "That doesn't look right for this column. Check the value."
@@ -395,11 +399,14 @@ function keyboardFor(field: string, timeFormat: 'decimal' | 'hhmm') {
 }
 
 // En bit av fotot: cellen (inringad) med lite av grannarna runt om, i fotots egna proportioner.
-const SNIP_H = 66, SNIP_W = 230;
-function CellSnippet({ photo, grid, rowIndex, field, danger }: {
+// Ett ditto-tecken: biten sträcker sig upp till raden där värdet står utskrivet, som ringas in i blått.
+const SNIP_H = 66, SNIP_W = 230, SNIP_H_MAX = 120;
+function CellSnippet({ photo, grid, rowIndex, field, danger, srcRowIndex }: {
   photo: { uri: string; width: number; height: number } | null; grid: ScannedSpread['grid']; rowIndex: number; field: string | null; danger: boolean;
+  srcRowIndex?: number | null;
 }) {
   const rect = photo && grid && field ? cellRect(grid, rowIndex, field) : null;
+  const src = photo && grid && field && srcRowIndex ? cellRect(grid, srcRowIndex, field) : null;
   if (!photo || !rect) {
     return (
       <View style={[s.snip, { alignItems: 'center', justifyContent: 'center' }]}>
@@ -409,18 +416,30 @@ function CellSnippet({ photo, grid, rowIndex, field, danger }: {
     );
   }
   const W = photo.width, H = photo.height;
-  const y1 = Math.max(0, rect.y - rect.h * 0.7), y2 = Math.min(1, rect.y + rect.h * 1.7);
-  const scale = SNIP_H / Math.max(1, (y2 - y1) * H);
+  const top = src ? Math.min(src.y, rect.y) : rect.y;
+  const y1 = Math.max(0, top - rect.h * 0.7), y2 = Math.min(1, rect.y + rect.h * 1.7);
+  // Utan källa: fast höjd. Med källa: högre bit (till ett tak), och skalan så att båda raderna får plats.
+  const boxH = src ? Math.min(SNIP_H_MAX, Math.max(SNIP_H, (y2 - y1) * H * (SNIP_H / Math.max(1, rect.h * 3.4 * H)))) : SNIP_H;
+  const scale = boxH / Math.max(1, (y2 - y1) * H);
   const cx = (rect.x + rect.w / 2) * W * scale;
   const left = Math.min(0, Math.max(SNIP_W - W * scale, SNIP_W / 2 - cx));
+  const ring = (r: { x: number; y: number; w: number; h: number }, color: string, dashed = false) => (
+    <View style={{
+      position: 'absolute', left: left + r.x * W * scale - 2, top: (r.y - y1) * H * scale - 2,
+      width: r.w * W * scale + 4, height: r.h * H * scale + 4, borderRadius: 5, borderWidth: 2,
+      borderColor: color, borderStyle: dashed ? 'dashed' : 'solid',
+    }} />
+  );
   return (
-    <View style={s.snip} accessibilityLabel="Your handwriting in this cell, from the photo">
+    <View style={[s.snip, { height: boxH }]} accessibilityLabel={src ? `Your handwriting in this cell, and the row ${srcRowIndex} it repeats, from the photo` : 'Your handwriting in this cell, from the photo'}>
       <Image source={{ uri: photo.uri }} style={{ position: 'absolute', width: W * scale, height: H * scale, left, top: -y1 * H * scale }} />
-      <View style={{
-        position: 'absolute', left: left + rect.x * W * scale - 2, top: (rect.y - y1) * H * scale - 2,
-        width: rect.w * W * scale + 4, height: rect.h * H * scale + 4, borderRadius: 5, borderWidth: 2,
-        borderColor: danger ? Colors.danger : Colors.primary,
-      }} />
+      {src && rect.y > src.y && (
+        // Tunn linje från den utskrivna cellen ner till ditto-tecknet.
+        <View style={{ position: 'absolute', left: left + (rect.x + rect.w / 2) * W * scale - 1, width: 2, borderRadius: 1, backgroundColor: Colors.primary + 'AA',
+          top: (src.y + src.h - y1) * H * scale + 2, height: Math.max(0, (rect.y - src.y - src.h) * H * scale - 4) }} />
+      )}
+      {src && ring(src, Colors.primary)}
+      {ring(rect, danger ? Colors.danger : Colors.primary)}
     </View>
   );
 }

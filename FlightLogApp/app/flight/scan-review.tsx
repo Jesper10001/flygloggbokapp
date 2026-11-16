@@ -66,6 +66,7 @@ import { FocusDialog, type FocusEstimate } from '../../components/scan/FocusDial
 import {
   buildPageGrid, cellRect, rowRect, rowBand, mappedBoxRect, unionRect, hitTest, columnFor, type PageGrid, type Rect,
 } from '../../services/scanGeometry';
+import { dittoSource } from '../../services/scanDitto';
 import {
   alignGrid, chooseBookGrid, type BookColumns, type AlignRow, completeGridFromHeaders, untangleColumns, crossCheckCounts, measureRows, relocateColumnsByValues, reconcileSimSpill, pageTotalsByVision, columnMovePlan, landingAgreement, type ColumnMove, type VisionBox,
 } from '../../services/scanAlign';
@@ -2427,6 +2428,9 @@ export default function ScanReviewScreen() {
   const pageIssues = issues.filter((i) => i.page === activePage);
   const pageRows = rows.filter((r) => r.page === activePage);
   const focusRect = selection ? rectFor(selection) : null;
+  // Ett ditto-tecken ("-::-") i den valda cellen: raden ovanför där värdet står utskrivet ringas in i blått.
+  const dittoSrc = selectedRow && selField && !selectedIssue?.group ? dittoSource(pageRows, selectedRow, selField) : null;
+  const dittoRect = dittoSrc && page?.grid ? cellRect(page.grid, dittoSrc.rowIndex, selField) : null;
   const k = 1 / Math.max(1, zoom);   // linjer och ringar behåller sin tjocklek när man zoomar
   // Claudes avläsningar i kolumnen man arbetar med (tal) visas till vänster om varje rad, så att man ser direkt
   // var det blivit fel utan att trycka på varje cell. Längst ner radernas summa mot sidans. Ett tryck öppnar cellen.
@@ -3038,6 +3042,9 @@ export default function ScanReviewScreen() {
                 : focusRect && (
                   <View style={[place(focusRect, fit, 4 * k), s.ring, { borderRadius: 8 * k, borderWidth: 3 * k }]} />
                 )}
+              {dittoRect && (
+                <View style={[place(dittoRect, fit, 4 * k), { borderRadius: 8 * k, borderWidth: 2.5 * k, borderColor: Colors.primary, backgroundColor: 'rgba(0,200,232,0.10)' }]} />
+              )}
             </View>
 
             {/* Avläsningarna står till vänster om rutnätets kolumn. Vid en flytt mellan kolumner ligger rutnätet ofta

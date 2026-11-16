@@ -147,6 +147,8 @@ export interface OcrFlightResult extends FlightFormData {
   // Varianten raden hade innan användaren slog ihop den med en annan ("Merge into one" i skanningsrapporten).
   // Sparas i flights.aircraft_type_orig så att "Split into variants" i Fleet kan ångra det.
   aircraft_type_orig?: string;
+  // Skanningen: fält där raden hade ett ditto-tecken ("-::-") i stället för ett utskrivet värde (services/scanDitto.ts).
+  ditto?: string[];
   // Varaktighet per tids-kandidatkolumn (kolumnrubrik → timmar) → låter import-sidan byta
   // vilken kolumn (Block/Air/Flight) som blir loggbokens total_time utan att läsa om filen.
   timeOptions?: Record<string, string>;

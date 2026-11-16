@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 169,
+      "date": "2026-11-16",
+      "notes": [
+        "Improved: The weather page is tidier. Now is one card, and the forecast lists each period in plain words, with the terms Temporary and Becoming.",
+        "Improved: Crossing runways are drawn as one surface. Runways on the Global map, in Find airport and in Closest to me have the same look, in true size.",
+        "Improved: When you check a scanned cell with a ditto mark (-::-), the row it repeats is circled too."
+      ]
+    },
+    {
       "id": 168,
       "date": "2026-11-16",
       "notes": [

@@ -101,3 +101,79 @@ export function runwaySideLabelPoint(rw: RunwayGeo, offsetM: number): LatLng {
     longitude: midLon + (px * offsetM) / mPerDegLon,
   };
 }
+
+// ── Banmarkeringar i verklig skala (Global map, Find airport, Closest to me) ──────────────────────────────
+// Samma utseende som vädersidans bankarta, men i meter på kartan: asfalt i banans riktiga bredd och längd,
+// tröskelstreck, streckad mittlinje och en plats för bannumret innanför tröskeln. Korsande banor: mittlinjen
+// går obruten på den längsta banan och bryts på den korsande. Allt räknas i ett gemensamt lokalt meter-plan
+// (ekvirektangulärt kring första banans le-tröskel; en flygplats är några km → felet är försumbart).
+export type RunwayMarkings = {
+  corners: LatLng[];                         // banans rektangel
+  centre: LatLng[][];                        // mittlinjens delar (bruten i korsningar med en längre bana)
+  keys: { le: LatLng[][]; he: LatLng[][] };  // tröskelstreck som små rektanglar
+  chevron: { le: LatLng[]; he: LatLng[] };   // pil utanför tröskeln, pekar i landningsriktningen
+  num: { le: LatLng; he: LatLng };           // bannumrets mitt, innanför tröskeln
+  bearing: number;                           // le→he, grader från norr
+};
+export function runwayMarkings(runways: RunwayGeo[]): RunwayMarkings[] {
+  if (!runways.length) return [];
+  const M = 111320;
+  const o = runways[0].le;
+  const kLon = M * Math.cos((o.lat * Math.PI) / 180);
+  const toM = (p: { lat: number; lon: number }) => ({ x: (p.lon - o.lon) * kLon, y: (p.lat - o.lat) * M });
+  const toLL = (x: number, y: number): LatLng => ({ latitude: o.lat + y / M, longitude: o.lon + x / kLon });
+  const frames = runways.map((rw) => {
+    const a = toM(rw.le), b = toM(rw.he);
+    const L = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const ux = (b.x - a.x) / L, uy = (b.y - a.y) / L;
+    const w = rw.widthM > 0 ? rw.widthM : 30;
+    // s = meter längs banan från le, c = meter tvärs (positivt åt vänster i banriktningen).
+    const at = (s: number, c: number) => toLL(a.x + ux * s - uy * c, a.y + uy * s + ux * c);
+    return { a, b, L, ux, uy, w, at };
+  });
+  return frames.map((f, i) => {
+    const { L, w, at } = f;
+    const keyIn = 6, keyLen = L >= 300 ? 30 : 0;
+    const numAt = keyIn + keyLen + 45;
+    // Mittlinjen börjar efter numret; bryts där en längre bana korsar.
+    const gaps: [number, number][] = [];
+    frames.forEach((g, j) => {
+      if (j === i || g.L < L || (g.L === L && j > i)) return;
+      const den = f.ux * g.uy - f.uy * g.ux;
+      if (Math.abs(den) < 1e-6) return;
+      const dx = g.a.x - f.a.x, dy = g.a.y - f.a.y;
+      const s = (dx * g.uy - dy * g.ux) / den;     // meter längs denna bana
+      const u = (dx * f.uy - dy * f.ux) / den;     // meter längs den andra
+      if (s < 0 || s > L || u < -w / 2 || u > g.L + w / 2) return;
+      const half = (g.w / 2 + 8) / Math.max(0.35, Math.abs(den));
+      gaps.push([s - half, s + half]);
+    });
+    gaps.sort((p, q) => p[0] - q[0]);
+    const centre: LatLng[][] = [];
+    if (L > 400) {
+      let from = numAt + 60;
+      const end = L - numAt - 60;
+      for (const [g1, g2] of gaps) { if (g1 - from > 20) centre.push([at(from, 0), at(Math.min(g1, end), 0)]); from = Math.max(from, g2); }
+      if (end - from > 20) centre.push([at(from, 0), at(end, 0)]);
+    }
+    // Tröskelstreck: n streck jämnt över bredden, med lika breda mellanrum och kant.
+    const n = w >= 30 ? 4 : 2;
+    const slot = w / (2 * n + 1);
+    const stripes = (s1: number, s2: number) => Array.from({ length: n }, (_, k) => {
+      const c1 = -w / 2 + slot * (2 * k + 1), c2 = c1 + slot;
+      return [at(s1, c1), at(s2, c1), at(s2, c2), at(s1, c2)];
+    });
+    const wing = Math.max(w * 0.38, 10);
+    return {
+      corners: [at(0, w / 2), at(L, w / 2), at(L, -w / 2), at(0, -w / 2)],
+      centre,
+      keys: keyLen ? { le: stripes(keyIn, keyIn + keyLen), he: stripes(L - keyIn - keyLen, L - keyIn) } : { le: [], he: [] },
+      chevron: {
+        le: [at(-18 - wing, wing), at(-18, 0), at(-18 - wing, -wing)],
+        he: [at(L + 18 + wing, wing), at(L + 18, 0), at(L + 18 + wing, -wing)],
+      },
+      num: { le: at(Math.min(numAt, L * 0.25), 0), he: at(L - Math.min(numAt, L * 0.25), 0) },
+      bearing: runwayBearing(runways[i]),
+    };
+  });
+}

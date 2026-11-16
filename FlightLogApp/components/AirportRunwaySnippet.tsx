@@ -1,13 +1,13 @@
-// Liten fokuserad kart-snippet över EN flygplats med utritade landningsbanor (samma stil som global map).
+// Liten fokuserad kart-snippet över EN flygplats med utritade landningsbanor (RunwayOverlays: samma stil som
+// vädersidan och Global map, i verklig bredd och längd).
 // Ej vridbar (rotateEnabled=false) men inzoomningsbar. Saknas bangeometri → visa bara flygplatsens läge.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import MapView, { Marker, Polygon, Polyline, type Region } from 'react-native-maps';
+import MapView, { Marker, Polyline, type Region } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
-import { getRunwayGeo, runwayCorners, runwayBearing, runwaySideLabelPoint } from '../constants/runwayGeo';
+import { getRunwayGeo, runwayCorners, runwayBearing } from '../constants/runwayGeo';
+import { RunwayOverlays } from './RunwayOverlays';
 import { Colors } from '../constants/colors';
-
-const RWY_HL = '#67E8F9'; // cyan-highlight för aktiv bana (efter vind)
 
 export function AirportRunwaySnippet({ icao, lat, lon, windDir, windSpeed, style, frozen, userLat, userLon, fitUser }: {
   icao: string;
@@ -31,10 +31,8 @@ export function AirportRunwaySnippet({ icao, lat, lon, windDir, windSpeed, style
     if (Math.abs(hw) < 0.02) return null; // ~vinkelrät (mitt mellan) → ingen
     return hw > 0 ? 'le' : 'he';
   };
-  const runways = useMemo(
-    () => getRunwayGeo(icao).map((rw) => ({ rw, corners: runwayCorners(rw) })),
-    [icao],
-  );
+  const rwList = useMemo(() => getRunwayGeo(icao), [icao]);
+  const runways = useMemo(() => rwList.map((rw) => ({ rw, corners: runwayCorners(rw) })), [rwList]);
   const hasRw = runways.length > 0;
 
   // Rama in banorna (annars en liten default-ruta runt fältet). ×1.7 → lite mer inzoomad (banorna fyller mer).
@@ -146,28 +144,8 @@ export function AirportRunwaySnippet({ icao, lat, lon, windDir, windSpeed, style
             </Marker>
           </>
         )}
-        {/* Banor (mörk asfalt + vit kant) */}
-        {runways.map(({ corners }, i) => (
-          <Polygon key={`rwy-${i}`} coordinates={corners}
-            fillColor="rgba(24,24,27,0.82)" strokeColor="rgba(255,255,255,0.9)" strokeWidth={1.2} zIndex={5} />
-        ))}
-        {/* Bannummer vid trösklarna + mått bredvid banan. Billboard-markörer (ej flat, ingen rotation) →
-            FASTA positioner + storlek: upprätta, roterar/skalar inte när man vrider skärmen/kartan. */}
-        {runways.flatMap(({ rw }, i) => {
-          const dimPt = runwaySideLabelPoint(rw, rw.widthM / 2 + 80);
-          const act = activeEnd(rw); // banände gynnad av vinden → cyan-highlight (vit text kvar)
-          return [
-            <Marker key={`le-${i}`} coordinate={{ latitude: rw.le.lat, longitude: rw.le.lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={!frozen && tracks}>
-              <View style={act === 'le' ? styles.identActive : undefined}><Text style={styles.ident}>{rw.leIdent}</Text></View>
-            </Marker>,
-            <Marker key={`he-${i}`} coordinate={{ latitude: rw.he.lat, longitude: rw.he.lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={!frozen && tracks}>
-              <View style={act === 'he' ? styles.identActive : undefined}><Text style={styles.ident}>{rw.heIdent}</Text></View>
-            </Marker>,
-            <Marker key={`dim-${i}`} coordinate={dimPt} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={!frozen && tracks}>
-              <View><Text style={styles.dim}>{rw.lengthM} m × {rw.widthM} m</Text></View>
-            </Marker>,
-          ];
-        })}
+        {/* Banor i verklig bredd och längd, i vädersidans stil; änden vinden gynnar är cyan. Inga måttetiketter. */}
+        {hasRw && <RunwayOverlays runways={rwList} ends={rwList.map(activeEnd)} tracks={!frozen && tracks} id={icao} />}
         {/* Utan bangeometri: markera bara fältets läge. */}
         {!hasRw && (
           <Marker coordinate={{ latitude: lat, longitude: lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={!frozen && tracks}>
@@ -214,10 +192,6 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   routeArrowIcon: { marginTop: -0.5 },
-  ident: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.5, textShadowColor: 'rgba(0,0,0,0.95)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 0 } },
-  // Aktiv banände (efter vind): cyan ram runt bansiffran, texten förblir vit.
-  identActive: { borderWidth: 1.5, borderColor: RWY_HL, borderRadius: 5, paddingHorizontal: 4, paddingVertical: 1, backgroundColor: 'rgba(103,232,249,0.18)' },
-  dim: { color: '#fff', fontSize: 9, fontWeight: '700', letterSpacing: 0.3, textShadowColor: 'rgba(0,0,0,0.95)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 0 } },
   dot: { width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.primary, borderWidth: 2, borderColor: '#fff' },
   noRwBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(15,22,38,0.9)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },
   noRwTxt: { color: Colors.textSecondary, fontSize: 10.5, fontWeight: '700' },

@@ -10,7 +10,8 @@ import { useMemo, useRef, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, InteractionManager } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polygon, type Region, type MapType } from 'react-native-maps';
-import { getRunwayGeo, runwayCorners, runwaySideLabelPoint, runwayLabelRotation, runwayBearing } from '../constants/runwayGeo';
+import { getRunwayGeo } from '../constants/runwayGeo';
+import { RunwayOverlays } from './RunwayOverlays';
 import { clusterIndexFor, regionToZoom, regionToBbox } from '../services/airportClusters';
 
 // En post från supercluster: antingen ett kluster (properties.cluster) eller en flygplats (properties.row).
@@ -147,12 +148,8 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
   // Landningsbanor ritas ENDAST för den flygplats man tryckt på (focus → inforuta + inzoomning).
   // Gejtat på focus, INTE på zoom/region → inget räknas om eller re-renderas under zoom/panorering,
   // vilket tidigare fick Apple Maps att krascha. PoC: bara ICAO som finns i RUNWAY_GEO (ESSA).
-  const runwayShapes = useMemo(() => {
-    const icao = focus?.[0];
-    if (!icao) return [];
-    return getRunwayGeo(icao).map((rw) => ({ key: `${icao}-${rw.leIdent}`, rw, corners: runwayCorners(rw) }));
-  }, [focus]);
-  const showRunwayLabels = runwayShapes.length > 0;
+  const runwayList = useMemo(() => (focus?.[0] ? getRunwayGeo(focus[0]) : []), [focus]);
+  const showRunwayLabels = runwayList.length > 0;
 
   // En spårnings-tick när en flygplats fokuseras så iOS rasteriserar de roterade etikett-vyerna.
   useEffect(() => {
@@ -291,34 +288,10 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           fillColor="rgba(0,0,0,0)" strokeColor="rgba(103,232,249,0.85)" strokeWidth={1.5} />
       ))}
 
-      {/* Landningsbanor på faktisk plats (mörk asfalt + vit kant) — syns när man zoomat in på flygplatsen. */}
-      {runwayShapes.map((r) => (
-        <Polygon key={`rwy-${r.key}`} coordinates={r.corners}
-          fillColor="rgba(24,24,27,0.82)" strokeColor="rgba(255,255,255,0.9)" strokeWidth={1.2} zIndex={5} />
-      ))}
-
-      {/* Bannummer vid trösklarna + längd i mitten, roterade så de löper längs banan (AeroWeather-stil). */}
-      {showRunwayLabels && runwayShapes.flatMap((r) => {
-        const bearing = runwayBearing(r.rw);            // le→he (grader från norr)
-        const dimRot = runwayLabelRotation(r.rw);        // måttet: löper LÄNGS banan, alltid läsbart
-        const dimPt = runwaySideLabelPoint(r.rw, r.rw.widthM / 2 + 80); // mått bredvid banan, inte ovanpå
-        // flat=true → markören ligger på kartytan och roterar MED kartan. Själva vinkeln sätts via en
-        // child-transform (rotation-PROPEN ignoreras för egna vyer på Apple Maps) → bakas in i snapshoten,
-        // och flat roterar sedan hela snapshoten med kartan → etiketterna sitter fast i linje med banan.
-        // Bannumren orienteras "uppför banan" per ände (le = bäring, he = bäring+180) precis som på asfalten;
-        // måttet löper längs banan (normaliserat så det aldrig blir upp-och-ner).
-        return [
-          <Marker key={`rwl-le-${r.key}`} coordinate={{ latitude: r.rw.le.lat, longitude: r.rw.le.lon }} anchor={{ x: 0.5, y: 0.5 }} flat tracksViewChanges={tracks}>
-            <View style={{ transform: [{ rotate: `${bearing}deg` }] }}><Text style={s.rwyIdent}>{r.rw.leIdent}</Text></View>
-          </Marker>,
-          <Marker key={`rwl-he-${r.key}`} coordinate={{ latitude: r.rw.he.lat, longitude: r.rw.he.lon }} anchor={{ x: 0.5, y: 0.5 }} flat tracksViewChanges={tracks}>
-            <View style={{ transform: [{ rotate: `${(bearing + 180) % 360}deg` }] }}><Text style={s.rwyIdent}>{r.rw.heIdent}</Text></View>
-          </Marker>,
-          <Marker key={`rwl-dim-${r.key}`} coordinate={dimPt} anchor={{ x: 0.5, y: 0.5 }} flat tracksViewChanges={tracks}>
-            <View style={{ transform: [{ rotate: `${dimRot}deg` }] }}><Text style={s.rwyDim}>{r.rw.lengthM} m × {r.rw.widthM} m</Text></View>
-          </Marker>,
-        ];
-      })}
+      {/* Landningsbanor på faktisk plats, i verklig bredd och längd och i vädersidans stil (asfalt, kantlinje,
+          tröskelstreck, mittlinje, bannumret innanför tröskeln). Korsande banor bildar en yta. Syns när man
+          zoomat in på flygplatsen. Inga måttetiketter (användarens val 2026-11-16). */}
+      {focus && runwayList.length > 0 && <RunwayOverlays runways={runwayList} tracks={tracks} id={focus[0]} />}
 
       {level === 'country' && !hideCountries && !showPins && byCountry.map((c) => (
         <Marker
@@ -498,8 +471,6 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
 
 const s = StyleSheet.create({
   // Bana-etiketter: vit text med mörk skugga → läsbar mot den mörka asfaltsremsan/satelliten.
-  rwyIdent: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.5, textShadowColor: 'rgba(0,0,0,0.95)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 0 } },
-  rwyDim: { color: '#fff', fontSize: 9, fontWeight: '700', letterSpacing: 0.3, textShadowColor: 'rgba(0,0,0,0.95)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 0 } },
   flagPin: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
     backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 9,
