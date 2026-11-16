@@ -55,8 +55,8 @@ SENTRY_PROJECT_ID = "4512330034839632"
 ASC_APP_ID = "6798360464"
 # Anthropic-kredit vid ett datum → /ops visar uppskattat saldo (kredit minus proxyns kostnad sedan dess).
 # Uppdatera båda när du fyller på krediten.
-OPS_CREDIT_USD = "24"
-OPS_CREDIT_SINCE = "2026-10-28"
+OPS_CREDIT_USD = "22"
+OPS_CREDIT_SINCE = "2026-11-15"
 # Enheter som inte förbrukar Blade coins (device-hash d2_…, kommaseparerat). TILLFÄLLIGT medan skanningen
 # byggs: bara dev-builden på utvecklarens telefon. TestFlight-appen togs bort 2026-11-05 och köper coins i
 # sandlådan i stället. Töm när funktionen är klar.
