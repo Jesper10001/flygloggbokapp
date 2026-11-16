@@ -25,7 +25,7 @@ import { useTimeFormatStore } from '../../store/timeFormatStore';
 import { useThemeStore } from '../../store/themeStore';
 import { useAppModeStore } from '../../store/appModeStore';
 import { useTourStore, beginTour } from '../../store/tourStore';
-import { NEW_PAYWALLS } from '../../constants/paywalls';
+import { NEW_PAYWALLS, IS_PREVIEW_BUILD } from '../../constants/paywalls';
 import { TourPress } from '../../components/TourPress';
 import { TourSpot } from '../../components/TourSpot';
 import { useToastStore } from '../../components/Toast';
@@ -879,6 +879,16 @@ export default function SettingsScreen() {
       {/* Blades introduction — centrerad pillerknapp (design C2). */}
       <IntroductionButton onPress={() => beginTour(isDrone ? 'drone' : 'pilot')} />
       <View style={{ marginTop: 6, marginBottom: 28, alignItems: 'center' }}>
+        {/* Bara i TestFlight-bygget: onboardingen att titta på, utan att något sparas. */}
+        {IS_PREVIEW_BUILD ? (
+          <TouchableOpacity onPress={() => router.push('/onboarding?preview=1' as any)} activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
+            style={{ minHeight: 44, justifyContent: 'center', marginTop: 6 }} accessibilityRole="button">
+            <Text style={{ fontSize: 13, fontWeight: '500', color: Colors.textSecondary, borderBottomWidth: 1, borderBottomColor: '#2A4260', paddingBottom: 2 }}>
+              Preview the onboarding
+            </Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
 

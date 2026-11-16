@@ -6,6 +6,7 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch, LayoutAnimation, Platform, UIManager, Linking, Alert, ActivityIndicator, Modal, Pressable, TextInput, AppState } from 'react-native';
 import * as Location from 'expo-location';
+import { IS_PREVIEW_BUILD } from '../../constants/paywalls';
 import { useRouter } from 'expo-router';
 import { useDroneScanStart } from '../../components/DroneScanChooser';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -503,6 +504,17 @@ export default function DroneSettingsScreen() {
 
       {/* Blades introduction — centrerad pillerknapp (design C2). */}
       <IntroductionButton onPress={() => beginTour('drone')} />
+      {/* Bara i TestFlight-bygget: onboardingen att titta på, utan att något sparas. */}
+      {IS_PREVIEW_BUILD ? (
+        <View style={{ alignItems: 'center', marginTop: 6 }}>
+          <TouchableOpacity onPress={() => router.push('/onboarding?preview=1' as any)} activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }} style={{ minHeight: 44, justifyContent: 'center' }} accessibilityRole="button">
+            <Text style={{ fontSize: 13, fontWeight: '500', color: DR.text3, borderBottomWidth: 1, borderBottomColor: '#2A4260', paddingBottom: 2 }}>
+              Preview the onboarding
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       <View style={{ height: 34 }} />
 
       {/* Blade-coins — förklarande popup */}
