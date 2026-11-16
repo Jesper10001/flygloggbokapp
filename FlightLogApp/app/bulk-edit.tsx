@@ -251,6 +251,16 @@ export default function BulkEditScreen() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [all, query, conds, type, year, mode]);
+  // Flygningar som redan var markerade när man kom till listan (t.ex. från "Found in your logbook")
+  // läggs överst i en egen grupp, så man slipper bläddra för att hitta dem. Ögonblicksbild vid
+  // inträdet → raderna hoppar inte runt när man bockar i eller ur.
+  const [pinned, setPinned] = useState<Set<number>>(new Set());
+  useEffect(() => { if (step === 'pick') setPinned(new Set(selected)); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+  const listed = useMemo(() => {
+    if (!pinned.size) return { rows: filtered, top: 0 };
+    const top = filtered.filter((r) => pinned.has(r.id));
+    return { rows: top.length ? [...top, ...filtered.filter((r) => !pinned.has(r.id))] : filtered, top: top.length };
+  }, [filtered, pinned]);
   const shownSelected = useMemo(() => filtered.reduce((a, r) => a + (selected.has(r.id) ? 1 : 0), 0), [filtered, selected]);
   const allShown = filtered.length > 0 && shownSelected === filtered.length;
   const toggle = (id: number) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -532,7 +542,7 @@ export default function BulkEditScreen() {
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={Colors.primary} /></View>
       ) : step === 'pick' ? (
         <FlatList
-          data={filtered}
+          data={listed.rows}
           keyExtractor={(r) => String(r.id)}
           ListHeaderComponent={pickHeader}
           ListEmptyComponent={<Text style={[s.cardSub, { textAlign: 'center', paddingVertical: 30 }]}>{all.length ? 'No flights match these filters.' : 'There are no flights to edit yet.'}</Text>}
@@ -540,10 +550,14 @@ export default function BulkEditScreen() {
           keyboardShouldPersistTaps="handled"
           initialNumToRender={14} maxToRenderPerBatch={20} windowSize={9}
           extraData={selected}
-          renderItem={({ item: r }) => {
+          renderItem={({ item: r, index }) => {
             const on = selected.has(r.id);
             const night = nightOf(mode, r);
+            const label = listed.top > 0 && index === 0 ? 'SELECTED'
+              : listed.top > 0 && index === listed.top ? 'ALL FLIGHTS' : null;
             return (
+              <>
+              {label && <Text style={[s.eyebrow, { marginTop: index === 0 ? 0 : 10, marginBottom: 2 }]}>{label}</Text>}
               <TouchableOpacity onPress={() => toggle(r.id)} activeOpacity={0.75} style={[s.row, on && s.rowOn]} accessibilityRole="checkbox" accessibilityState={{ checked: on }}
                 accessibilityLabel={`${shortDate(r.date)} ${rowTitle(r)}`}>
                 <Check on={on} />
@@ -560,6 +574,7 @@ export default function BulkEditScreen() {
                   </Text>
                 </View>
               </TouchableOpacity>
+              </>
             );
           }}
         />

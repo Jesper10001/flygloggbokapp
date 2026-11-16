@@ -10,6 +10,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
+- Improved: In Edit flights, the flights you've already selected are listed on their own at the top, so you don't have to scroll to find them.
 - Fixed: Tapping an airport on the Global map zooms in and shows its details in Map view too, not just in Satellite.
 - Improved: In the full drone Log flight, the time bars for VLOS, EVLOS, BVLOS and night are always shown, just like VFR and IFR for pilots.
 - Improved: Creating your first logbook starts straight on the first step.
@@ -48,6 +49,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Edit flights, steg Choose flights: flygningar som var markerade när man kom till listan (t.ex. via Review i Found in your logbook) ligger överst under SELECTED, resten under ALL FLIGHTS. Ögonblicksbild vid inträdet, så raderna hoppar inte när man bockar i/ur (app/bulk-edit.tsx).
 - Global map: tryck på en flygplats i kartläget (Map) zoomar in och visar inforutan. Lagerbytet standard → satelliteFlyover nollställde kameran på iOS och avmarkerade flygplatsen; kartläget behåller nu sitt lager (GlobalAirportMap).
 - Drönarens Log flight (Full): fällningen "Time per mode · night · VFR/IFR" (streckad ruta, rubrik med NIGHT-sammanfattning) borttagen. VLOS/EVLOS/BVLOS- och nattbarerna, "Use my position for night" och VFR/Y/Z/IFR-toggeln ligger alltid utfällda direkt under siktlägestoggeln, utan ruta, som pilotens Full. VFR/IFR-barerna fälls fortfarande ut först när Y/Z väljs.
 - Loggboksguiden (BookSetupFlow, första boken): sidan "Before you start" (steget `intro`) borttagen; guiden börjar på "Which logbook" (eller "latest" i drönarläget med en enda mall). Tillbaka från första steget finns inte längre (stäng med krysset).
