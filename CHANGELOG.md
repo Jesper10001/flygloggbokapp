@@ -10,6 +10,23 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
+### Alla ändringar
+
+## 1.0.2 – byggs 2026-11-16
+
+### What's New
+
+- New: Scanning learns how you write your numbers, settles readings it can check itself and marks less for you to look at.
+- New: See your scanned spreads as a logbook and tap any cell to fix it, with your handwriting next to it.
+- New: A redesigned weather page with the wind on each runway, crossing runways drawn as one surface and the forecast as a colour band.
+- Improved: Getting started is shorter: pick what you fly and tell Blades where your hours are today.
+- Improved: Block import is simpler, with every time in its own field and anything that doesn't add up first.
+- Improved: Updates arrive sooner. Blades checks every hour while it's open and tells you when one is ready.
+- Improved: Runways on the Global map, in Find airport and in Closest to me in their true size.
+- Fixed: Tapping an airport on the Global map zooms in and shows its details in Map view too.
+
+### Alla What's New-rader (inte i App Store-texten)
+
 - Improved: Block import is simpler. After the photo you check one list, every time is in its own field, and anything that doesn't add up comes first. You can add a time your logbook has no column for.
 - Improved: Getting started is shorter. Pick what you fly, tell Blades where your hours are today, and you're in.
 - Improved: The weather page is tidier. Now is one card with the map, wind and the four values, and the forecast lists each period in plain words under the time band, using the TAF's own terms Temporary and Becoming.
