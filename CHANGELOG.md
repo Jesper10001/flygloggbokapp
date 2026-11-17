@@ -33,6 +33,9 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Väderkortet på kartorna 10 % genomskinligt: jämn bas rgba(15,30,58,0.9) under kategoritonen (förut släppte tonens hörn igenom nästan allt).
 - Play: flygkortet får en rubrikrad överst, "25/01/24 · LAST FLIGHT FROM ETHB" (TO/FROM flygplatsen man tryckte på), i kortets rubrikstil (LatestFlightCard caption).
 - Visited airports: valt land får guldkontur (GlobalAirportMap goldOutline, sken + linje, tonas in). Ny data assets/country-outlines.json (scripts/build-country-outlines.mjs: Natural Earth 50m admin-0, Douglas–Peucker ~1 km, ~1 MB, 236 länder); utils/countryOutline.ts rundar hörnen med Chaikin. borders.json (Global map) orörd.
+- Play-knappen på flygplatskortet lika hög som texten på raden (18 pt, tryckyta 44 pt via hitSlop).
+- Global map: Region-knappen borttagen; kartan är alltid i Cluster-läget (regionsdrillens kod ligger kvar men nås inte).
+- Rutten från min position (Fly to på Global map, Find airport, Closest to me) i flygplatskortets stil: components/RouteStatsCard (rubrikrad FROM YOUR POSITION + farkostval, remsa DISTANCE · COURSE ⇄ · TIME · FUEL ⇄ med guldetiketter) ersätter de två kopiorna i AirportNavPanel och AirportQuickSearch.
 
 ## 1.0.2 – byggs 2026-11-16
 

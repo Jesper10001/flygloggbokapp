@@ -233,7 +233,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [drillStack, setDrillStack] = useState<DrillNode[]>([]);
   // Kartläge (växlas nere till höger): 'Cluster' (default) = geografiska kluster som delas när man zoomar
   // in; 'Region' = land → region → sektor-drill. clusterMode true = Cluster.
-  const [clusterMode, setClusterMode] = useState(true);
+  // Region-knappen är borttagen (2026-11-17): kartan är alltid i Cluster-läget. Region-koden ligger kvar orörd.
+  const [clusterMode] = useState(true);
   // Kartans nuvarande vy (rapporteras från GlobalAirportMap i klusterläge) → används för center-landrutan
   // och för att BEHÅLLA positionen när kartan monteras om vid filterändring (i st f att hoppa till världen).
   const [mapRegion, setMapRegion] = useState<Region>(WORLD);
@@ -580,12 +581,6 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
       return;
     }
     setDrillStack((s) => s.slice(0, -1));
-  };
-  // Cluster/Region-växel: byt läge + nollställ navigering (drill/fokus/sök/vy) så det nya läget börjar rent.
-  const setMode = (cluster: boolean) => {
-    if (cluster === clusterMode) return;
-    setClusterMode(cluster);
-    setDrillStack([]); setFocusAirport(null); setMapSearch(''); setMapRegion(WORLD);
   };
 
   // ── Filter-hjälpare ──────────────────────────────────────────────────────────
@@ -1037,13 +1032,6 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
               <Ionicons name="newspaper-outline" size={15} color="#fff" />
               <Text style={styles.mapCtrlTxt}>News</Text>
             </TouchableOpacity>
-            {/* Region/Cluster-växeln döljs i väderläget (legenden täcker den ändå). */}
-            {!wxCat && (
-              <TouchableOpacity onPress={() => setMode(!clusterMode)} activeOpacity={0.8} style={styles.mapCtrlBtn}>
-                <Ionicons name={clusterMode ? 'flag' : 'apps'} size={15} color="#fff" />
-                <Text style={styles.mapCtrlTxt}>{clusterMode ? 'Region' : 'Cluster'}</Text>
-              </TouchableOpacity>
-            )}
             <TouchableOpacity onPress={() => setSatellite((s) => !s)} activeOpacity={0.8} style={styles.mapCtrlBtn}>
               <Ionicons name={satellite ? 'map' : 'globe'} size={15} color="#fff" />
               <Text style={styles.mapCtrlTxt}>{satellite ? 'Map' : 'Satellite'}</Text>

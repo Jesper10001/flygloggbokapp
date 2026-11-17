@@ -1,5 +1,5 @@
-// Fristående "flyg till"-panel: bank-snippet (med användarens position inpassad) + DISTANCE / COURSE /
-// FLIGHT TIME / CONSUMPTION från min position till en flygplats, med farkost-väljare. Självförsörjande —
+// Fristående "flyg till"-panel: bank-snippet (med användarens position inpassad) + rutten (RouteStatsCard: DISTANCE /
+// COURSE / TIME / FUEL) från min position till en flygplats, med farkost-väljare. Självförsörjande —
 // hämtar egen position + deklination + prestanda (senast flugna typ) så den kan droppas in var som helst.
 // Används i globmenyns "Fly to XXXX" och speglar panelen i Find airport (AirportQuickSearch).
 import { useEffect, useRef, useState } from 'react';
@@ -10,6 +10,7 @@ import { Colors } from '../constants/colors';
 import { getLastFlownAircraftType, getAircraftPerf, getAllAircraftTypes } from '../db/flights';
 import type { AirportMetar } from '../services/weather';
 import { AirportRunwaySnippet } from './AirportRunwaySnippet';
+import { RouteStatsCard } from './RouteStatsCard';
 
 // ── Geo (storcirkel) — samma matematik som AirportQuickSearch ─────────────────
 const R_NM = 3440.065; // jordradie i nautiska mil
@@ -144,61 +145,15 @@ export function AirportNavPanel({ icao, lat, lon, accent, frozen = false, metar 
         userLat={pos?.lat ?? null} userLon={pos?.lon ?? null}
         fitUser
       />
-      <View style={styles.navCard}>
-        {locState === 'denied' ? (
-          <Text style={styles.navHint}>Enable location access to see distance & course from your position.</Text>
-        ) : !pos ? (
-          <View style={styles.navLoading}>
-            <ActivityIndicator color={accent} />
-            <Text style={styles.navHint}>Getting your position…</Text>
-          </View>
-        ) : nav ? (
-          <>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-              <View style={styles.navCol}>
-                <Text style={styles.navLabel}>DISTANCE</Text>
-                <Text style={styles.navValue}>{fmtQty(nav.d)}<Text style={styles.navUnit}> NM</Text></Text>
-              </View>
-              {course && (
-                <TouchableOpacity style={styles.navCol} activeOpacity={0.6} onPress={() => setCourseMode((m) => (m === 'mag' ? 'true' : 'mag'))}>
-                  <View style={styles.navLabelRow}>
-                    <Text style={styles.navLabel}>COURSE</Text>
-                    <Ionicons name="swap-horizontal" size={9} color={Colors.textMuted} />
-                  </View>
-                  <Text style={[styles.navValue, { color: accent }]}>{String(Math.round(course.v) % 360).padStart(3, '0')}<Text style={styles.navUnit}>°{course.s}</Text></Text>
-                </TouchableOpacity>
-              )}
-              {nav.ete && (
-                <View style={styles.navCol}>
-                  <Text style={styles.navLabel}>FLIGHT TIME</Text>
-                  <Text style={styles.navValue}>{nav.ete}<Text style={styles.navUnit}> h</Text></Text>
-                </View>
-              )}
-              {fuel && (
-                <TouchableOpacity style={styles.navCol} activeOpacity={0.6} onPress={() => setFuelDisp((u) => (u === 'L' ? 'kg' : u === 'kg' ? 'gal' : 'L'))}>
-                  <View style={styles.navLabelRow}>
-                    <Text style={styles.navLabel}>CONSUMPTION</Text>
-                    <Ionicons name="swap-horizontal" size={9} color={Colors.textMuted} />
-                  </View>
-                  <Text style={styles.navValue}>{fmtQty(fuel.v)}<Text style={styles.navUnit}> {fuel.u}</Text></Text>
-                </TouchableOpacity>
-              )}
-            </View>
-            <View style={styles.navCaptionRow}>
-              <Text style={[styles.navFrom, { flex: 2 }]}>from your position</Text>
-              {perf && nav.ete ? (
-                <TouchableOpacity style={{ flex: 2, flexDirection: 'row', alignItems: 'center', gap: 3 }} activeOpacity={0.6} onPress={openFleetPicker}>
-                  <Text style={styles.navFrom} numberOfLines={1}>based on {perf.type}</Text>
-                  <Ionicons name="chevron-down" size={11} color={accent} />
-                </TouchableOpacity>
-              ) : null}
-            </View>
-            {nav.magBrg == null && locState === 'ready' && (
-              <Text style={styles.trueNote}>Magnetic course needs the compass — showing true (°T). Move the device in a figure-8 to calibrate.</Text>
-            )}
-          </>
-        ) : null}
-      </View>
+      <RouteStatsCard
+        accent={accent} locState={locState} hasPos={!!pos}
+        distanceNm={nav ? nav.d : null} course={course} ete={nav?.ete ?? null} fuel={fuel}
+        aircraft={perf && nav?.ete ? perf.type : null}
+        onToggleCourse={() => setCourseMode((m) => (m === 'mag' ? 'true' : 'mag'))}
+        onToggleFuel={() => setFuelDisp((u) => (u === 'L' ? 'kg' : u === 'kg' ? 'gal' : 'L'))}
+        onPickAircraft={openFleetPicker}
+        trueNote={!!nav && nav.magBrg == null && locState === 'ready'}
+      />
 
       {/* Farkost-väljare som overlay (ingen nästlad Modal → ingen iOS-kart-frysning). */}
       {pickerOpen && (

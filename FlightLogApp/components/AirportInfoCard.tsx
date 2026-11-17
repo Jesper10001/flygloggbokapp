@@ -178,12 +178,13 @@ export function AirportInfoCard({ icao, name, iata, alt, type, country, accent =
             ) : 'Your latest flight from here'}
           </Text>
           {onPlay && (
-            <TouchableOpacity onPress={onPlay} hitSlop={8} activeOpacity={0.8} accessibilityRole="button"
+            // Lika hög som texten på raden; tryckytan når ändå 44 pt med hitSlop.
+            <TouchableOpacity onPress={onPlay} hitSlop={{ top: 14, bottom: 14, left: 8, right: 8 }} activeOpacity={0.8} accessibilityRole="button"
               accessibilityLabel={playing ? 'Stop' : 'Play the latest flight here'}
-              style={{ height: 28, flexDirection: 'row', alignItems: 'center', gap: 5, paddingLeft: 9, paddingRight: 11, borderRadius: 14,
+              style={{ height: 18, flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 7, paddingRight: 9, borderRadius: 9,
                 backgroundColor: playing ? accent + '1F' : accent, borderWidth: 1, borderColor: accent }}>
-              <Ionicons name={playing ? 'stop' : 'play'} size={11} color={playing ? accent : Colors.textInverse} />
-              <Text style={{ fontSize: 12.5, fontWeight: '800', color: playing ? accent : Colors.textInverse }}>{playing ? 'Stop' : 'Play'}</Text>
+              <Ionicons name={playing ? 'stop' : 'play'} size={9} color={playing ? accent : Colors.textInverse} />
+              <Text style={{ fontSize: 12, lineHeight: 15, fontWeight: '800', color: playing ? accent : Colors.textInverse }}>{playing ? 'Stop' : 'Play'}</Text>
             </TouchableOpacity>
           )}
           {onLastPress && <Text style={{ fontSize: 12.5, fontWeight: '700', color: accent }}>Open flight ›</Text>}

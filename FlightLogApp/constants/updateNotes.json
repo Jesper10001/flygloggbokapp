@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 181,
+      "date": "2026-11-17",
+      "notes": [
+        "Improved: Distance, course, time and fuel to an airport now match the airport card in Fly to, Find airport and Closest to me.",
+        "Improved: The Play button on the airport card is smaller.",
+        "Improved: The Global map always groups airports in clusters. The Region button is gone."
+      ]
+    },
+    {
       "id": 180,
       "date": "2026-11-17",
       "notes": [
