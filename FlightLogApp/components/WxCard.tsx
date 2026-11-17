@@ -52,7 +52,7 @@ export function WxCard({ wx, loading, byPosition, onPress, translucent = false }
   loading?: boolean;     // en ny hämtning pågår (sidan drogs ner igen): kortet står kvar, åldern byts mot en snurra
   byPosition?: boolean;  // vädret gäller närmaste station från ens position (ingen destination att utgå från)
   onPress: () => void;
-  translucent?: boolean; // ovanpå en karta (WxMapPopup): 20 % genomskinligt
+  translucent?: boolean; // ovanpå en karta (WxMapPopup): 10 % genomskinligt
 }) {
   // Åldern räknas om en gång i halvminuten medan kortet visas.
   const [, setTick] = useState(0);
@@ -89,7 +89,9 @@ export function WxCard({ wx, loading, byPosition, onPress, translucent = false }
       accessibilityLabel={`Weather for ${station}. Opens the full METAR and TAF.`}
       style={{ borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: accent + '66', marginBottom: 6 }}
     >
-      <LinearGradient colors={[accent + '1F', translucent ? 'rgba(15,30,58,0.8)' : Colors.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: '100%', height: '100%', position: 'absolute' }} />
+      {/* Ovanpå kartan: en jämn bas som släpper igenom 10 %, kategorifärgen som en svag ton ovanpå. */}
+      {translucent && <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15,30,58,0.9)' }} />}
+      <LinearGradient colors={[accent + '1F', translucent ? 'rgba(15,30,58,0)' : Colors.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: '100%', height: '100%', position: 'absolute' }} />
 
       {/* Rubrik: kategori, station, ålder */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: 11, paddingBottom: note ? 4 : 10 }}>

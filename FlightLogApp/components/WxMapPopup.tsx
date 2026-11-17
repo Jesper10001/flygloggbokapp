@@ -1,5 +1,5 @@
 // Vädret för en flygplats ovanpå kartorna (Global map, Visited airports): samma väderkort som på dashboarden
-// (WxCard), 20 % genomskinligt. Tryck på kortet fäller ut hela METAR och TAF (Decoded/Raw) under det; tryck
+// (WxCard), 10 % genomskinligt. Tryck på kortet fäller ut hela METAR och TAF (Decoded/Raw) under det; tryck
 // utanför stänger. Ett overlay, ingen native Modal: en Modal ovanpå kartans Modal gör att Apple-kartan slutar svara.
 import { useEffect, useState } from 'react';
 import { View, Text, Pressable, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
@@ -8,7 +8,7 @@ import { fetchDecodedWx, type DecodedWx } from '../services/weather';
 import { WxCard, WxFetchingRow } from './WxCard';
 import { FONT_MONO } from './logbook-page/tokens';
 
-const PANEL = { borderRadius: 16, overflow: 'hidden' as const, borderWidth: 1, borderColor: Colors.primary + '44', backgroundColor: 'rgba(15,30,58,0.8)' };
+const PANEL = { borderRadius: 16, overflow: 'hidden' as const, borderWidth: 1, borderColor: Colors.primary + '44', backgroundColor: 'rgba(15,30,58,0.9)' };
 
 export function WxMapPopup({ icao, onClose }: { icao: string; onClose: () => void }) {
   const [wx, setWx] = useState<DecodedWx | null>(null);

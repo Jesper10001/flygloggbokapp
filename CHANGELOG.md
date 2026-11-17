@@ -29,6 +29,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Flygplatskortet (Global map, Visited airports) och uppspelningens flygkort 20 % genomskinliga (var 40 %).
 - Kartorna (Global map, Visited airports): vädret från flygplatskortet visas i dashboardens väderkort (WxCard translucent, 20 % genomskinligt) i ett overlay (components/WxMapPopup) i stället för METAR-rutan; tryck på kortet fäller ut hela METAR och TAF (Decoded/Raw). Find airport har kvar METAR-rutan.
 - Play: gemensam components/FlightReplay (FlightReplayLayer, buildReplay, banan närmast kursen för startrullningen) och db getLastFlightAt(icao, 'any'|'from'). Visited airports spelar senaste flygningen till ELLER från flygplatsen och byter till ankomstflygplatsens kort när den slutar där (GlobalAirportMap fitTo.endAt). Global map: Play för senaste flygningen FRÅN flygplatsen till en annan flygplats i flygplatslistan; börjar inzoomat med farkosten som rullar på banan, zoomar ut (kortet överst, flygkortet längst ner, kontrollerna dolda, avmarkeringen vid utzoomning spärrad), slutar med inzoomning på ankomstflygplatsen och dess kort. Kortets landningsrad visas med Play även utan landningar ("Your latest flight from here").
+- Väderkortet på kartorna 10 % genomskinligt: jämn bas rgba(15,30,58,0.9) under kategoritonen (förut släppte tonens hörn igenom nästan allt).
 
 ## 1.0.2 – byggs 2026-11-16
 
