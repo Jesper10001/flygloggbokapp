@@ -453,7 +453,7 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
                 accent={accent}
                 onClose={closeSelected}
                 onMetar={setMetar}
-                freqStats
+                solid
               />
               {/* MapView monteras bara medan popupen är öppen; vid stängning avmonteras den FÖRST (placeholder
                   behåller höjden) så native-kartan inte rivs mitt i modalens fade → undviker krasch. */}

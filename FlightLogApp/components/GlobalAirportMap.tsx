@@ -291,7 +291,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
       {/* Landningsbanor på faktisk plats, i verklig bredd och längd och i vädersidans stil (asfalt, kantlinje,
           tröskelstreck, mittlinje, bannumret innanför tröskeln). Korsande banor bildar en yta. Syns när man
           zoomat in på flygplatsen. Inga måttetiketter (användarens val 2026-11-16). */}
-      {focus && runwayList.length > 0 && <RunwayOverlays runways={runwayList} tracks={tracks} id={focus[0]} />}
+      {focus && runwayList.length > 0 && <RunwayOverlays runways={runwayList} tracks={tracks} id={focus[0]} outline />}
 
       {level === 'country' && !hideCountries && !showPins && byCountry.map((c) => (
         <Marker

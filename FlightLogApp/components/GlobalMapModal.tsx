@@ -990,6 +990,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
               <AirportInfoCard
                 icao={focusAirport[0]}
                 name={focusAirport[1]}
+                country={focusAirport[2]}
                 iata={focusAirport[6]}
                 alt={focusAirport[7]}
                 type={focusAirport[8]}
@@ -1024,7 +1025,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                   onClose={closeFlyTo}
                   onMetar={setFlyToMetar}
                   onOpenMetar={setMetarPopup}
-                  freqStats
+                  solid
                 />
                 <AirportNavPanel
                   icao={focusAirport[0]}

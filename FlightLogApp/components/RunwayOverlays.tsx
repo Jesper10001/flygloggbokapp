@@ -5,6 +5,8 @@
 // Korsande banor ritas som EN yta, i tre lager (ordningen bland barnen = ritordningen):
 //   1. allas kantlinje (ytan med vit kontur)  2. allas asfalt ovanpå (täcker den andra banans kantlinje i
 //   korsningen, så konturen följer ytterkanten)  3. markeringarna.
+// outline (bara Global map): bara kantlinje och markeringar på en nästan genomskinlig yta, så att den riktiga
+// banan i satellitbilden syns igenom. Utan andra asfaltlagret: i korsningar syns båda banornas kantlinjer.
 // ends: per bana änden vinden gynnar ('le'/'he') → cyan tröskel, nummer och pil. Utan vind är allt vitt.
 // Läggs som barn till en MapView: <RunwayOverlays runways={…} tracks={…} />.
 import { useMemo } from 'react';
@@ -17,8 +19,12 @@ const EDGE = '#EEF3F8';
 const ASPHALT = '#364154';
 const MARK = 'rgba(255,255,255,0.85)';
 
-export function RunwayOverlays({ runways, ends, tracks, id }: {
+const OUTLINE_FILL = 'rgba(10,22,40,0.10)';
+const OUTLINE_EDGE = 'rgba(255,255,255,0.92)';
+
+export function RunwayOverlays({ runways, ends, tracks, id, outline = false }: {
   runways: RunwayGeo[];
+  outline?: boolean;    // Global map: genomskinlig bana (bara konturer), annars asfalt
   ends?: ('le' | 'he' | null)[];
   tracks: boolean;      // tracksViewChanges för nummermarkörerna (sant en kort stund så iOS rasteriserar dem)
   id: string;           // nyckelprefix (flygplatsens ICAO)
@@ -28,17 +34,17 @@ export function RunwayOverlays({ runways, ends, tracks, id }: {
   return (
     <>
       {marks.map((m, i) => (
-        <Polygon key={`${id}-c${i}`} coordinates={m.corners} fillColor={ASPHALT} strokeColor={EDGE} strokeWidth={2.6} zIndex={5} />
+        <Polygon key={`${id}-c${i}`} coordinates={m.corners} fillColor={outline ? OUTLINE_FILL : ASPHALT} strokeColor={outline ? OUTLINE_EDGE : EDGE} strokeWidth={outline ? 1.5 : 2.6} zIndex={5} />
       ))}
       {/* Asfalten en gång till, utan kantlinje: täcker kantlinjernas inre halva och den andra banans kant i korsningen. */}
-      {marks.map((m, i) => (
+      {!outline && marks.map((m, i) => (
         <Polygon key={`${id}-a${i}`} coordinates={m.corners} fillColor={ASPHALT} strokeColor={ASPHALT} strokeWidth={0} zIndex={6} />
       ))}
       {marks.flatMap((m, i) => m.centre.map((seg, n) => (
-        <Polyline key={`${id}-l${i}-${n}`} coordinates={seg} strokeColor="rgba(255,255,255,0.8)" strokeWidth={1} lineDashPattern={[5, 4]} zIndex={7} />
+        <Polyline key={`${id}-l${i}-${n}`} coordinates={seg} strokeColor={outline ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.8)'} strokeWidth={1} lineDashPattern={[5, 4]} zIndex={7} />
       )))}
       {marks.flatMap((m, i) => (['le', 'he'] as const).flatMap((e) => m.keys[e].map((k, n) => (
-        <Polygon key={`${id}-k${i}${e}${n}`} coordinates={k} fillColor={ends?.[i] === e ? FAV : MARK} strokeColor="rgba(0,0,0,0)" strokeWidth={0} zIndex={7} />
+        <Polygon key={`${id}-k${i}${e}${n}`} coordinates={k} fillColor={ends?.[i] === e ? FAV : outline ? OUTLINE_EDGE : MARK} strokeColor="rgba(0,0,0,0)" strokeWidth={0} zIndex={7} />
       ))))}
       {marks.flatMap((m, i) => (['le', 'he'] as const).filter((e) => ends?.[i] === e).map((e) => (
         <Polyline key={`${id}-v${i}${e}`} coordinates={m.chevron[e]} strokeColor={FAV} strokeWidth={2.4} lineCap="round" lineJoin="round" zIndex={7} />

@@ -12,12 +12,16 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 - Improved: Edit flights in drone mode works like in pilot mode: tap the pen next to Logbook, pick a column, then the flights. Remarks, delete and duplicates are new.
 - Improved: The Add media button on the drone dashboard looks the same as in pilot mode.
+- Improved: A new, lower airport card: name, weather and the key facts at a glance, with runway length and all frequencies.
+- Improved: Runways on the Global map are drawn as outlines, so the real runway in the satellite photo shows through.
 
 ### Alla ändringar
 
 - Drönarläget: Edit flights öppnas med pennan i loggbokens rubrik (raden "Edit many flights" borta, components/bulk/BulkEditEntry raderad); samma flöde som pilotläget (kolumn → ändring → flygningar → förhandsvisning) med DRONE_COLUMNS: Category, Type, Sight mode, Pilot function, Night, Remarks, Clean up. Nytt för drönare: text i remarks, radera flygningar (går att ångra), dubbletter (samma datum, plats, starttid, flygtid och drönare).
 - Drönardashboarden: Add media är den runda guldfärgade kameraknappen längst till höger i kortets rubrik, som i pilotläget.
 - Inställningar: länken "Preview the onboarding" borttagen (följde med i bygge 18/19); IS_PREVIEW_BUILD borttagen.
+- Flygplatskortet (components/AirportInfoCard) omgjort: lågt, halvgenomskinligt (50 %) på kartorna, tätt i Find airport och Fly to (prop solid): rad 1 ICAO · namn · stjärna · stäng, rad 2 IATA · storlek (· land) · väder (tryck → METAR), remsa ELEV · bana/banor + längsta (runway-geo) · första frekvensen, tunna rader för övriga frekvenser och egna landningar. freqStats borttaget; Global map skickar landet.
+- Global map: banorna ritas som konturer (RunwayOverlays outline): nästan genomskinlig yta, vit kant 1,5, svagare mittlinje. Weather, Closest to me och Find airport oförändrade.
 
 ## 1.0.2 – byggs 2026-11-16
 
