@@ -4,7 +4,7 @@
 // Region = land → region → sektor-drill DIREKT PÅ KARTAN (cyan-gränser + antal, borra ner tills ICAO-
 // pins). Infokort i botten vid val. Öppnas från Manage airports + dashboard.
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Pressable, StyleSheet, Keyboard, Alert, LayoutAnimation } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Pressable, StyleSheet, Keyboard, Alert, LayoutAnimation, Clipboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -16,7 +16,8 @@ import { FlightDetailView } from '../app/flight/detail/[id]';
 import { getSeedAirports } from '../db/icao';
 import { getFavoriteIcaos, setFavorite } from '../db/favorites';
 import { RangeBar } from './RangeBar';
-import { getAirportLandingCounts, getAirportLastFlight, getLastFlightAt } from '../db/flights';
+import { getAirportLandingCounts, getAirportLastFlight, getLastFlightAt, getSetting, setSetting } from '../db/flights';
+import { formatCoord, COORD_SYSTEMS, type CoordSystem } from '../utils/coords';
 import { LatestFlightCard } from './logbook-page/LatestFlightCard';
 import { useReplay } from './milestones/ReplayKit';
 import { FlightReplayLayer, buildReplay, replayTotal, replayProgress, replayCaption, type ReplayFlight } from './FlightReplay';
@@ -143,6 +144,24 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   // Börjar inzoomat: farkosten dyker upp på banan som pekar mot målet och rullar iväg. Sedan zoomar kartan ut
   // (flygplatskortet överst, flygkortet längst ner), flygningen spelas och den slutar med att kartan zoomar in på
   // ankomstflygplatsen med dess kort. Bara när ankomsten finns bland flygplatserna (annars inget kort att visa).
+  // Koordinaterna i flygplatsvyn: valt system (sparas, MGRS första gången), rullistan och "Copied".
+  const [coordSys, setCoordSys] = useState<CoordSystem>('mgrs');
+  const [coordListOpen, setCoordListOpen] = useState(false);
+  const [coordCopied, setCoordCopied] = useState(false);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    getSetting('coord_system').then((v) => { if (v && COORD_SYSTEMS.some((c) => c.id === v)) setCoordSys(v as CoordSystem); }).catch(() => {});
+    return () => { if (copiedTimer.current) clearTimeout(copiedTimer.current); };
+  }, []);
+  useEffect(() => { setCoordListOpen(false); setCoordCopied(false); }, [focusAirport]);
+  const pickCoordSys = (id: CoordSystem) => { setCoordSys(id); setCoordListOpen(false); setCoordCopied(false); setSetting('coord_system', id).catch(() => {}); };
+  const copyCoord = (text: string) => {
+    try { Clipboard.setString(text); } catch { return; }
+    setCoordListOpen(false); setCoordCopied(true);
+    if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    copiedTimer.current = setTimeout(() => setCoordCopied(false), 1600);
+  };
+
   const PLAY_PRE = 2.2;
   const [playCand, setPlayCand] = useState<(ReplayFlight & { arrRow: SeedRow }) | null>(null);
   const play = useReplay(replayTotal(PLAY_PRE));
@@ -829,31 +848,86 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
         )}
 
         {/* Stäng — uppe till höger */}
-        {!playOn && <TouchableOpacity onPress={closeMap} activeOpacity={0.8}
+        {!playOn && !focusAirport && <TouchableOpacity onPress={closeMap} activeOpacity={0.8}
           style={{ position: 'absolute', top: insets.top + 12, right: 12, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(15,22,38,0.9)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="close" size={22} color="#fff" />
         </TouchableOpacity>}
 
         {/* Tillbaka — vid flygplatsfokus uppe till vänster (som förr); annars (utan fokus) nere till vänster
             så filtermodulen kan ligga kvar upptill utan krock. */}
-        {showBack && !playOn && (
+        {showBack && !playOn && !focusAirport && (
           <TouchableOpacity onPress={goBack} activeOpacity={0.85}
             style={[{ position: 'absolute', zIndex: 25, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: Colors.primary + '66' },
-              focusAirport ? { top: insets.top + 12, left: 12 } : { bottom: 24, left: 12 }]}>
+              { bottom: 24, left: 12 }]}>
             <Ionicons name="chevron-back" size={16} color={Colors.primary} />
             <Text style={{ color: Colors.primary, fontSize: 13, fontWeight: '700' }}>Back</Text>
           </TouchableOpacity>
         )}
 
-        {/* "Fly to XXXX" — under Back (vid flygplatsfokus). Öppnar plan-overlayn med rutt/distans/förbrukning
-            från min position (samma panel som Find airport "Closest to me"). */}
-        {focusAirport && !flyTo && !playOn && (
-          <TouchableOpacity onPress={openFlyTo} activeOpacity={0.85}
-            style={{ position: 'absolute', zIndex: 25, top: insets.top + 12 + 44, left: 12, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: Colors.primary + '66' }}>
-            <Ionicons name="navigate" size={15} color={Colors.primary} />
-            <Text style={{ color: Colors.primary, fontSize: 13, fontWeight: '700' }}>Fly to {focusAirport[0]}</Text>
-          </TouchableOpacity>
-        )}
+        {/* Flygplatsvyn: överst Back · Fly to · Map/Satellite (ingen X; Back tar en ut), under dem koordinaterna:
+            systemväljaren (rullista) och koordinaterna (tryck = kopiera). Samma stil som flygplatskortet. */}
+        {focusAirport && !flyTo && !playOn && (() => {
+          const coord = formatCoord(focusAirport[4], focusAirport[5], coordSys);
+          const sysName = COORD_SYSTEMS.find((c) => c.id === coordSys)?.name ?? 'MGRS';
+          return (
+            <View style={{ position: 'absolute', zIndex: 25, top: insets.top + 12, left: 12, right: 12, gap: 8 }}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity onPress={goBack} activeOpacity={0.85} style={styles.focusBtn} accessibilityRole="button">
+                  <Ionicons name="chevron-back" size={16} color={Colors.primary} />
+                  <Text style={styles.focusBtnTxt}>Back</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={openFlyTo} activeOpacity={0.85} style={styles.focusBtn} accessibilityRole="button">
+                  <Ionicons name="navigate" size={15} color={Colors.primary} />
+                  <Text style={styles.focusBtnTxt}>Fly to {focusAirport[0]}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setSatellite((v) => !v)} activeOpacity={0.85} style={[styles.focusBtn, { borderColor: 'rgba(255,255,255,0.22)' }]}
+                  accessibilityRole="button" accessibilityLabel={satellite ? 'Show the map' : 'Show satellite'}>
+                  <Ionicons name={satellite ? 'map' : 'globe'} size={15} color="#fff" />
+                  <Text style={[styles.focusBtnTxt, { color: '#fff' }]}>{satellite ? 'Map' : 'Satellite'}</Text>
+                </TouchableOpacity>
+              </View>
+              {coord && (
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity onPress={() => setCoordListOpen((o) => !o)} activeOpacity={0.8} style={[styles.coordBox, { width: 92, justifyContent: 'space-between' }]}
+                    accessibilityRole="button" accessibilityLabel={`Coordinate system: ${sysName}`} accessibilityState={{ expanded: coordListOpen }}>
+                    <Text style={[styles.coordTxt, { color: Colors.primary, fontWeight: '800' }]}>{sysName}</Text>
+                    <Ionicons name={coordListOpen ? 'chevron-up' : 'chevron-down'} size={13} color={Colors.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => copyCoord(coord)} activeOpacity={0.8} style={[styles.coordBox, { flex: 1, justifyContent: 'space-between', gap: 8 }]}
+                    accessibilityRole="button" accessibilityLabel={`Copy coordinates ${coord}`}>
+                    <Text style={[styles.coordTxt, { flex: 1 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{coord}</Text>
+                    {coordCopied ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                        <Ionicons name="checkmark" size={14} color={Colors.success} />
+                        <Text style={{ color: Colors.success, fontSize: 11, fontWeight: '700' }}>Copied</Text>
+                      </View>
+                    ) : <Ionicons name="copy-outline" size={15} color="#8FB0CC" />}
+                  </TouchableOpacity>
+                </View>
+              )}
+              {coordListOpen && (
+                <View style={styles.coordList}>
+                  {COORD_SYSTEMS.map((c, i) => {
+                    const on = c.id === coordSys;
+                    const sample = formatCoord(focusAirport[4], focusAirport[5], c.id);
+                    return (
+                      <TouchableOpacity key={c.id} onPress={() => pickCoordSys(c.id)} activeOpacity={0.7} disabled={!sample}
+                        style={[styles.coordOpt, i > 0 && { borderTopWidth: 1, borderTopColor: Colors.primary + '24' }, !sample && { opacity: 0.4 }]}
+                        accessibilityRole="button" accessibilityState={{ selected: on }}>
+                        <Text style={[styles.coordTxt, { width: 56, fontWeight: '800', color: on ? Colors.primary : '#fff' }]}>{c.name}</Text>
+                        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                          <Text style={{ fontSize: 12, color: '#A9C3DB' }}>{c.desc}</Text>
+                          <Text numberOfLines={1} style={{ fontFamily: 'JetBrainsMono', fontSize: 11, color: '#8FB0CC' }}>{sample ?? 'Not available this far north or south'}</Text>
+                        </View>
+                        {on && <Ionicons name="checkmark" size={16} color={Colors.primary} />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+          );
+        })()}
 
         {/* Landruta vid flygplatsfokus: uppe (mellan Back och X, som förr). */}
         {focusAirport && countryCardEl && !playOn && (
@@ -1139,6 +1213,12 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
 }
 
 const styles = StyleSheet.create({
+  focusBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 10, paddingHorizontal: 10, height: 36, borderWidth: 1, borderColor: Colors.primary + '66' },
+  focusBtnTxt: { color: Colors.primary, fontSize: 13, fontWeight: '700' },
+  coordBox: { flexDirection: 'row', alignItems: 'center', height: 38, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.primary + '55', backgroundColor: 'rgba(15,30,58,0.8)' },
+  coordTxt: { fontFamily: 'JetBrainsMono', fontSize: 13, fontWeight: '700', color: '#fff', letterSpacing: 0.3 },
+  coordList: { width: 300, maxWidth: '100%', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: Colors.primary + '55', backgroundColor: 'rgba(15,30,58,0.97)' },
+  coordOpt: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 10 },
   searchRow: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'rgba(15,22,38,0.95)', borderRadius: 12,
