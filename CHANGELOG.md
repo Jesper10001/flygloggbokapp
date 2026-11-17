@@ -17,6 +17,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - New: Play your latest flight on the Visited airports map and the Global map, the way Best week plays a week.
 - Improved: Tapping the weather on an airport card on the maps shows the same weather card as the dashboard.
 - New: Pick a country in Visited airports and its border is drawn in gold.
+- Improved: Runways on the maps line up with the satellite photo, and more small airfields show their runways.
 
 ### Alla ändringar
 
@@ -36,6 +37,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Play-knappen på flygplatskortet lika hög som texten på raden (18 pt, tryckyta 44 pt via hitSlop).
 - Global map: Region-knappen borttagen; kartan är alltid i Cluster-läget (regionsdrillens kod ligger kvar men nås inte).
 - Rutten från min position (Fly to på Global map, Find airport, Closest to me) i flygplatskortets stil: components/RouteStatsCard (rubrikrad FROM YOUR POSITION + farkostval, remsa DISTANCE · COURSE ⇄ · TIME · FUEL ⇄ med guldetiketter) ersätter de två kopiorna i AirportNavPanel och AirportQuickSearch.
+- Bandatan (assets/runway-geo.json) rättad efter OpenStreetMap: scripts/fetch-osm-runways.mjs hämtar aeroway=runway via Overpass i 20°-rutor (scripts/osm-data, ignoreras lokalt i .git/info/exclude), scripts/build-runways.mjs låter OSM vinna för varje OA-bana i samma riktning inom 600 m (även när längden skiljer), lägger till flygplatser som saknade bandata, behåller OA där OSM saknas; nedlagda flygplatser får lägre prioritet, delade banor slås ihop, blast pads/stoppvägar hoppas över, bredd/längd 0 fylls i. Första omgången bara Skandinavien–Baltikum–Polen (50–70°N, 10–30°E): 440 banor rättade (126 mer än 30 m), 922 nya flygplatser. Acknowledgements: OpenStreetMap (ODbL, bandatabasen på begäran via support@).
 
 ## 1.0.2 – byggs 2026-11-16
 

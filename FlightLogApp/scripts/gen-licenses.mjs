@@ -229,6 +229,8 @@ const data = [
   { name: 'airportmap.de', credit: 'Airport database by komed3 — airport names, codes and positions.', license: 'MIT',
     url: 'https://github.com/komed3/airportmap-database', ...splitLicense(read(path.join(THIRD, 'airportmap-database.txt'))) },
   { name: 'OurAirports', credit: 'Airports, runways and radio frequencies.', license: 'Public domain', url: 'https://ourairports.com/data/' },
+  { name: 'OpenStreetMap', license: 'ODbL 1.0', url: 'https://www.openstreetmap.org/copyright',
+    credit: 'Runway positions on the maps. © OpenStreetMap contributors, available under the Open Database License (ODbL) 1.0. The runway database in Blades, which combines OpenStreetMap and OurAirports, is available under the ODbL on request: support@blades-app.com.' },
   { name: 'Natural Earth', credit: 'Country and region borders. Made with Natural Earth.', license: 'Public domain', url: 'https://www.naturalearthdata.com' },
   { name: 'geoBoundaries', license: 'CC BY 4.0 · ODbL 1.0 · Public domain', url: 'https://www.geoboundaries.org',
     credit: 'Up-to-date region borders for Norway, Kenya, DR Congo and Kazakhstan (gbOpen ADM1, simplified). Runfola, D. et al. (2020) geoBoundaries: A global database of political administrative boundaries. PLoS ONE 15(4): e0231866.\n\n'
