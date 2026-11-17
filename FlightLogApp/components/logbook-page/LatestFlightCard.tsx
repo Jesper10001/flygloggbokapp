@@ -13,7 +13,7 @@ import { roleLabel, isPicFlight, arrUtc, parseDate } from './flightDisplay';
 import { NightRoute } from './NightRoute';
 import { useNightFraction } from './useNightFraction';
 
-export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAddPhoto, onShare, onShareFile, showLabel = true, bare = false, progress }: {
+export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAddPhoto, onShare, onShareFile, showLabel = true, bare = false, progress, caption }: {
   flight: Flight; accent: string; placeNames: Record<string, string>; onPress: () => void;
   onAddPhoto?: (flight: Flight) => void; // snabbknapp för att lägga till media (visas bara utan befintligt media)
   onShare?: (flight: Flight) => void;     // dela flygningen med sin second pilot (rund ikon i headern); visas bara när den är satt
@@ -21,6 +21,7 @@ export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAdd
   showLabel?: boolean; // false på icke-senaste kort i karusellen → datumet står till vänster i stället för rubriken
   bare?: boolean;      // avskalat (uppspelningen i Visited airports): ingen rubrikrad med datum och knappar, 20 % genomskinligt
   progress?: number;   // 0–1: tunn förloppslinje längst ner (uppspelningen)
+  caption?: string;    // bare: rubrikrad överst, t.ex. "25/01/24 · Last flight from ETHB"
 }) {
   const { formatTime, timeFormat } = useTimeFormat();
   const { nightFrac, darkOnsetUtc } = useNightFraction(f);
@@ -57,7 +58,12 @@ export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAdd
     <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 }}>
       <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={{ borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: accent + '55' }}>
         <LinearGradient colors={bare ? ['rgba(18,48,74,0.8)', 'rgba(15,30,58,0.8)'] : [accent + '22', Colors.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: '100%', height: '100%', position: 'absolute' }} />
-        {bare && <View style={{ height: 12 }} />}
+        {bare && (caption ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingTop: 11, paddingBottom: 4 }}>
+            <Text numberOfLines={1} style={{ fontFamily: FONT_MONO, fontSize: 10, fontWeight: '700', letterSpacing: 1.2, color: accent }}>{caption}</Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: accent + '33' }} />
+          </View>
+        ) : <View style={{ height: 12 }} />)}
         {/* header */}
         {!bare && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8 }}>

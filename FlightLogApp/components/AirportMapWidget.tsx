@@ -14,7 +14,7 @@ import { getVisitedAirportIcaos, getVisitedAirportDates, getAirportLandingCounts
 import { LatestFlightCard } from './logbook-page/LatestFlightCard';
 import { useReplay } from './milestones/ReplayKit';
 import type { GeoPt } from './milestones/MilestoneMap';
-import { FlightReplayLayer, buildReplay, replayTotal, replayProgress, type ReplayFlight } from './FlightReplay';
+import { FlightReplayLayer, buildReplay, replayTotal, replayProgress, replayCaption, type ReplayFlight } from './FlightReplay';
 import { getAirportCoordinates, getAllTemporaryPlaces, getSeedAirports } from '../db/icao';
 import runwayData from '../assets/runways.json';
 import { getRunways } from '../utils/runways';
@@ -483,7 +483,7 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
           {replayOn && replayCand && (
             <View pointerEvents="none" onLayout={(e) => setFlightCardH(e.nativeEvent.layout.height)}
               style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 6 }}>
-              <LatestFlightCard flight={replayCand.flight} accent={Colors.primary} placeNames={{}} onPress={() => {}} bare progress={fly} />
+              <LatestFlightCard flight={replayCand.flight} accent={Colors.primary} placeNames={{}} onPress={() => {}} bare progress={fly} caption={replayCaption(replayCand)} />
             </View>
           )}
 

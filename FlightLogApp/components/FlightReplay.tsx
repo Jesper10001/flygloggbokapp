@@ -52,6 +52,14 @@ export async function buildReplay(icao: string, flight: Flight, dep: GeoPt, arr:
   return { icao, flight, depIcao, arrIcao, dep, arr, heli, nm: nmBetween(roll ? roll.to : dep, arr), roll };
 }
 
+/** Rubriken på flygkortet under uppspelningen: "25/01/24 · LAST FLIGHT FROM ETHB" (till/från flygplatsen man tryckte på). */
+export function replayCaption(r: ReplayFlight): string {
+  const [y, m, d] = String(r.flight.date || '').split('-');
+  const date = y && m && d ? `${d}/${m}/${y.slice(-2)}` : '';
+  const dir = r.arrIcao === r.icao ? 'TO' : 'FROM';
+  return `${date ? `${date} · ` : ''}LAST FLIGHT ${dir} ${r.icao}`;
+}
+
 /** Hur långt flygningen har kommit (0–1), för flygkortets förloppslinje. */
 export const replayProgress = (t: number, pre: number) => ease(clamp((t - pre - FLY_START) / FLY_LEN, 0, 1));
 

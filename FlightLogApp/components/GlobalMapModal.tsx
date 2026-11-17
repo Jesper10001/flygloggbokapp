@@ -19,7 +19,7 @@ import { RangeBar } from './RangeBar';
 import { getAirportLandingCounts, getAirportLastFlight, getLastFlightAt } from '../db/flights';
 import { LatestFlightCard } from './logbook-page/LatestFlightCard';
 import { useReplay } from './milestones/ReplayKit';
-import { FlightReplayLayer, buildReplay, replayTotal, replayProgress, type ReplayFlight } from './FlightReplay';
+import { FlightReplayLayer, buildReplay, replayTotal, replayProgress, replayCaption, type ReplayFlight } from './FlightReplay';
 import { getRunwayIndex } from '../utils/runways';
 import { countryNameFull } from '../constants/countryNames';
 import { COUNTRY_POPULATION, formatPopulation } from '../constants/countryPopulation';
@@ -1083,7 +1083,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
         {playOn && playCand && (
           <View pointerEvents="none" onLayout={(e) => setPlayFlightH(e.nativeEvent.layout.height)}
             style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 6, zIndex: 16 }}>
-            <LatestFlightCard flight={playCand.flight} accent={Colors.primary} placeNames={{}} onPress={() => {}} bare progress={replayProgress(play.t, PLAY_PRE)} />
+            <LatestFlightCard flight={playCand.flight} accent={Colors.primary} placeNames={{}} onPress={() => {}} bare progress={replayProgress(play.t, PLAY_PRE)} caption={replayCaption(playCand)} />
           </View>
         )}
 
