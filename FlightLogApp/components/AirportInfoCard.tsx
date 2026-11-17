@@ -2,8 +2,8 @@
 // flygkort men lågt och 20 % genomskinligt (kartan syns igenom):
 //   rad 1: ICAO · namn · stjärna · stäng
 //   rad 2: IATA · storlek (· land) · väder (VFR-märke + kort METAR, tryck → METAR-rutan), annars "No weather"
-//   remsa: ELEV · bana (en: RUNWAY + LENGTH, flera: RUNWAYS + LONGEST) · första frekvensen
-//   tunna rader bara när de finns: övriga frekvenser, egna landningar (tryck → flygningen)
+//   remsa: ELEV · bana (en: RUNWAY + LENGTH, flera: RUNWAYS + LONGEST) · SURFACE
+//   tunna rader bara när de finns: frekvenserna (TWR först), egna landningar (tryck → flygningen)
 // Väder: bara flygplatsens EGEN METAR. På kartorna (Visited airports, Global map) visar föräldern METAR-rutan som
 // overlay (MetarPopup via onOpenMetar): en native Modal ovanpå kartans Modal gör att Apple-kartan slutar svara på iOS.
 import { useEffect, useState } from 'react';
@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../constants/colors';
 import { getAirportFreq } from '../constants/airportFreq';
 import { getRunwayGeo } from '../constants/runwayGeo';
+import { getRunways } from '../utils/runways';
 import { COUNTRY_NAMES } from '../constants/countryNames';
 import { fetchAirportMetar, categoryColor, type AirportMetar } from '../services/weather';
 
@@ -93,9 +94,11 @@ export function AirportInfoCard({ icao, name, iata, alt, type, country, accent =
     cells.push({ label: 'RUNWAYS', value: String(runways.length) });
     if (longest > 0) cells.push({ label: 'LONGEST', value: fmtM(longest) });
   }
-  const stripFreq = freqs[0];
-  if (stripFreq) cells.push({ label: stripFreq[0], value: fmtFreq(stripFreq[1]), freq: true });
-  const moreFreqs = freqs.slice(1);
+  // Ytan (OurAirports, öppna banor): en eller flera, t.ex. "Asphalt" eller "Asphalt/Grass".
+  const surfaces = [...new Set(getRunways(icao).filter((r) => !r.closed && r.surface).map((r) => r.surface))];
+  if (surfaces.length) cells.push({ label: 'SURFACE', value: surfaces.slice(0, 2).join('/') + (surfaces.length > 2 ? '…' : '') });
+  // Alla frekvenser på raden under remsan, TWR först.
+  const moreFreqs = freqs;
   const showLandings = landingCount !== undefined;
   const line = accent + '33';
 

@@ -19,6 +19,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - New: Pick a country in Visited airports and its border is drawn in gold.
 - Improved: Runways on the maps line up with the satellite photo, and more small airfields show their runways.
 - New: The airport's coordinates on the Global map, in MGRS, DMS, DDM, decimal degrees or UTM. Tap to copy.
+- New: The airport card shows the runway surface, such as asphalt, grass or gravel.
 
 ### Alla ändringar
 
@@ -40,6 +41,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Rutten från min position (Fly to på Global map, Find airport, Closest to me) i flygplatskortets stil: components/RouteStatsCard (rubrikrad FROM YOUR POSITION + farkostval, remsa DISTANCE · COURSE ⇄ · TIME · FUEL ⇄ med guldetiketter) ersätter de två kopiorna i AirportNavPanel och AirportQuickSearch.
 - Bandatan (assets/runway-geo.json) rättad efter OpenStreetMap: scripts/fetch-osm-runways.mjs hämtar aeroway=runway via Overpass i 20°-rutor (scripts/osm-data, ignoreras lokalt i .git/info/exclude), scripts/build-runways.mjs låter OSM vinna för varje OA-bana i samma riktning inom 600 m (även när längden skiljer), lägger till flygplatser som saknade bandata, behåller OA där OSM saknas; nedlagda flygplatser får lägre prioritet, delade banor slås ihop, blast pads/stoppvägar hoppas över, bredd/längd 0 fylls i. Första omgången bara Skandinavien–Baltikum–Polen (50–70°N, 10–30°E): 440 banor rättade (126 mer än 30 m), 922 nya flygplatser. Acknowledgements: OpenStreetMap (ODbL, bandatabasen på begäran via support@).
 - Global map, flygplatsvyn: Back · Fly to · Map/Satellite på en rad överst (X borttagen i flygplatsvyn), under dem koordinatraden: systemväljare (rullista med exempel per system, valet sparas i setting coord_system, MGRS som standard) och koordinaterna (tryck kopierar via React Natives Clipboard, "Copied" i 1,6 s). utils/coords.ts: UTM/MGRS (Norge/Svalbard-undantag, ingen UPS), DMS, DDM, DD; kontrollerad mot Washington Monument (18S UJ 23487 06483).
+- Flygplatskortet: sista cellen i remsan är SURFACE (OurAirports via utils/runways getRunways, öppna banor, t.ex. "Asphalt/Gravel"); alla frekvenser står på raden under, TWR först.
 
 ## 1.0.2 – byggs 2026-11-16
 
