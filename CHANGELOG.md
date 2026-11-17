@@ -25,6 +25,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Global map: banorna ritas som konturer (RunwayOverlays outline): nästan genomskinlig yta, vit kant 1,5, svagare mittlinje. Weather, Closest to me och Find airport oförändrade.
 - Flygplatskortet på kartorna 40 % genomskinligt (var 50 %). ESCF TWR 129.805 (OurAirports har 129.8); rättningar ligger i OVERRIDES i scripts/build-frequencies.mjs så att de överlever en ny körning.
 - Visited airports: Play i flygplatskortets landningsrad spelar upp senaste flygningen som landade där (getLastArrivalFlight), bara när den kom från en annan flygplats. Kortet glider upp i periodväljarens plats, väljaren/X/länderlistan/satellitknappen döljs, kartan ramar in båda flygplatserna mellan korten (GlobalAirportMap fitTo, glider tillbaka efteråt), rutt + spår + farkost + landningsringar från Best week (ReplayKit), avskalat flygkort längst ner (LatestFlightCard bare, 40 % genomskinligt, förloppslinje). Stop avbryter; slutar av sig själv efter 7 s.
+- Flygplatskortet (Global map, Visited airports) och uppspelningens flygkort 20 % genomskinliga (var 40 %).
 
 ## 1.0.2 – byggs 2026-11-16
 

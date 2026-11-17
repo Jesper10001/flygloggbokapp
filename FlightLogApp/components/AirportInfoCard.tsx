@@ -1,5 +1,5 @@
 // Delat flygplats-infokort (Global map, Visited airports, Find airport, "Fly to"). Samma stil som dashboardens
-// flygkort men lågt och 40 % genomskinligt (kartan syns igenom):
+// flygkort men lågt och 20 % genomskinligt (kartan syns igenom):
 //   rad 1: ICAO · namn · stjärna · stäng
 //   rad 2: IATA · storlek (· land) · väder (VFR-märke + kort METAR, tryck → METAR-rutan), annars "No weather"
 //   remsa: ELEV · bana (en: RUNWAY + LENGTH, flera: RUNWAYS + LONGEST) · första frekvensen
@@ -101,7 +101,7 @@ export function AirportInfoCard({ icao, name, iata, alt, type, country, accent =
 
   return (
     <View style={{ borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: accent + '55' }}>
-      <LinearGradient colors={solid ? ['rgba(18,48,74,0.97)', 'rgba(15,30,58,0.97)'] : ['rgba(18,48,74,0.6)', 'rgba(15,30,58,0.6)']} locations={[0, 0.55]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={solid ? ['rgba(18,48,74,0.97)', 'rgba(15,30,58,0.97)'] : ['rgba(18,48,74,0.8)', 'rgba(15,30,58,0.8)']} locations={[0, 0.55]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
 
       {/* Rad 1: ICAO · namn · stjärna · stäng */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 14, paddingRight: 10, paddingTop: 10, paddingBottom: 2 }}>
