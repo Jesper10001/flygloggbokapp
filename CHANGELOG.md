@@ -16,6 +16,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: Runways on the Global map are drawn as outlines, so the real runway in the satellite photo shows through.
 - New: Play your latest flight on the Visited airports map and the Global map, the way Best week plays a week.
 - Improved: Tapping the weather on an airport card on the maps shows the same weather card as the dashboard.
+- New: Pick a country in Visited airports and its border is drawn in gold.
 
 ### Alla ändringar
 
@@ -31,6 +32,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Play: gemensam components/FlightReplay (FlightReplayLayer, buildReplay, banan närmast kursen för startrullningen) och db getLastFlightAt(icao, 'any'|'from'). Visited airports spelar senaste flygningen till ELLER från flygplatsen och byter till ankomstflygplatsens kort när den slutar där (GlobalAirportMap fitTo.endAt). Global map: Play för senaste flygningen FRÅN flygplatsen till en annan flygplats i flygplatslistan; börjar inzoomat med farkosten som rullar på banan, zoomar ut (kortet överst, flygkortet längst ner, kontrollerna dolda, avmarkeringen vid utzoomning spärrad), slutar med inzoomning på ankomstflygplatsen och dess kort. Kortets landningsrad visas med Play även utan landningar ("Your latest flight from here").
 - Väderkortet på kartorna 10 % genomskinligt: jämn bas rgba(15,30,58,0.9) under kategoritonen (förut släppte tonens hörn igenom nästan allt).
 - Play: flygkortet får en rubrikrad överst, "25/01/24 · LAST FLIGHT FROM ETHB" (TO/FROM flygplatsen man tryckte på), i kortets rubrikstil (LatestFlightCard caption).
+- Visited airports: valt land får guldkontur (GlobalAirportMap goldOutline, sken + linje, tonas in). Ny data assets/country-outlines.json (scripts/build-country-outlines.mjs: Natural Earth 50m admin-0, Douglas–Peucker ~1 km, ~1 MB, 236 länder); utils/countryOutline.ts rundar hörnen med Chaikin. borders.json (Global map) orörd.
 
 ## 1.0.2 – byggs 2026-11-16
 

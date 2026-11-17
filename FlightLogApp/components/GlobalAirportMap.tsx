@@ -9,7 +9,7 @@
 import { useMemo, useRef, useState, useEffect, type ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, InteractionManager } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, Polygon, type Region, type MapType } from 'react-native-maps';
+import MapView, { Marker, Polygon, Polyline, type Region, type MapType } from 'react-native-maps';
 import { getRunwayGeo } from '../constants/runwayGeo';
 import { RunwayOverlays } from './RunwayOverlays';
 import { clusterIndexFor, regionToZoom, regionToBbox } from '../services/airportClusters';
@@ -37,12 +37,13 @@ const INITIAL: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longit
 // land-flaggor oavsett zoom (för den stora 34k-databasen → byter aldrig till pins, kraschar ej).
 export type RegionMarker = { key: string; label: string; count: number; lat: number; lon: number };
 
-export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, pinCategory, hulls, regionShapes, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborShapes, neighborMarkers, onSelectNeighbor, clustering, clusterKey, onRegionChange, fitTo, children }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; pinCategory?: Map<string, FlightCat | null>; hulls?: { latitude: number; longitude: number }[][]; regionShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void; clustering?: boolean; clusterKey?: string; onRegionChange?: (r: Region) => void;
+export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, pinCategory, hulls, regionShapes, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborShapes, neighborMarkers, onSelectNeighbor, clustering, clusterKey, onRegionChange, fitTo, children, goldOutline }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; pinCategory?: Map<string, FlightCat | null>; hulls?: { latitude: number; longitude: number }[][]; regionShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void; clustering?: boolean; clusterKey?: string; onRegionChange?: (r: Region) => void;
   // Rama in punkter med marginaler (Visited airports: uppspelningen av senaste flygningen, mellan korten). Sätts den
   // till null igen glider kartan tillbaka till vyn den hade innan.
   // endAt: tillbaka med samma zoom men centrerat där (Visited airports: flygningen slutade på en annan flygplats).
   fitTo?: { key: string; pts: { lat: number; lon: number }[]; padding: { top: number; right: number; bottom: number; left: number }; endAt?: { lat: number; lon: number } | null } | null;
   children?: ReactNode; // extra lager inuti kartan (uppspelningens rutt, farkost, ringar)
+  goldOutline?: { key: string; rings: { latitude: number; longitude: number }[][] } | null; // valt land (Visited airports)
 }) {
   const mapRef = useRef<MapView>(null);
   const [region, setRegion] = useState<Region>(initialRegion ?? INITIAL);
@@ -221,6 +222,17 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitKey]);
+
+  // Guldkonturen tonas in mjukt (några steg) när landet väljs.
+  const [outlineA, setOutlineA] = useState(0);
+  const outlineKey = goldOutline?.key ?? null;
+  useEffect(() => {
+    setOutlineA(0);
+    if (!outlineKey) return;
+    const steps = [0.25, 0.5, 0.75, 1];
+    const timers = steps.map((a, i) => setTimeout(() => setOutlineA(a), 250 + i * 130));
+    return () => timers.forEach(clearTimeout);
+  }, [outlineKey]);
 
   const zoomTo = (lat: number, lon: number, d: number) =>
     mapRef.current?.animateToRegion({ latitude: lat, longitude: lon, latitudeDelta: d, longitudeDelta: d }, 450);
@@ -470,6 +482,13 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           <View style={[s.icaoPin, s.icaoPinSel]}><Text style={s.icaoPinTxt}>{focus[0]}</Text></View>
         </Marker>
       )}
+      {/* Valt land: guldkontur med ett svagt sken under (rundade hörn och fogar). */}
+      {goldOutline && outlineA > 0 && goldOutline.rings.map((ring, i) => (
+        <Polyline key={`go-glow-${outlineKey}-${i}`} coordinates={ring} strokeColor={`rgba(255,184,48,${(0.22 * outlineA).toFixed(3)})`} strokeWidth={7} lineCap="round" lineJoin="round" zIndex={2} />
+      ))}
+      {goldOutline && outlineA > 0 && goldOutline.rings.map((ring, i) => (
+        <Polyline key={`go-${outlineKey}-${i}`} coordinates={ring} strokeColor={`rgba(255,200,87,${(0.95 * outlineA).toFixed(3)})`} strokeWidth={2} lineCap="round" lineJoin="round" zIndex={3} />
+      ))}
       {children}
     </MapView>
 

@@ -27,6 +27,7 @@ import { useFlightStore } from '../store/flightStore';
 import { GlobalAirportMap } from './GlobalAirportMap';
 import { RunwayDiagram } from './FlightShareCard';
 import { usePlacedPlaces } from './PlacesToPinNotice';
+import { countryOutline } from '../utils/countryOutline';
 
 // Region som ramar in en uppsättning punkter (för Apple-kartan).
 function fitRegion(pts: { lat: number; lon: number }[]) {
@@ -439,6 +440,8 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
                 onSelectAirport={setSelectedAirport}
                 selectedIcao={selectedAirport ?? undefined}
                 mapType={satellite ? 'hybridFlyover' : 'standard'}
+                // Valt land: konturen i guld (zoomen är densamma som förut, ramad kring besökta flygplatser).
+                goldOutline={selectedCountry ? (() => { const rings = countryOutline(selectedCountry); return rings ? { key: selectedCountry, rings } : null; })() : null}
                 fitTo={replayOn && replayCand ? {
                   key: `play-${replayCand.flight.id}`,
                   pts: [replayCand.dep, replayCand.arr],
