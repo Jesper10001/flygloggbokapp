@@ -4,7 +4,7 @@
 // Region = land → region → sektor-drill DIREKT PÅ KARTAN (cyan-gränser + antal, borra ner tills ICAO-
 // pins). Infokort i botten vid val. Öppnas från Manage airports + dashboard.
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Pressable, StyleSheet, Keyboard, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Pressable, StyleSheet, Keyboard, Alert, LayoutAnimation } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -16,7 +16,10 @@ import { FlightDetailView } from '../app/flight/detail/[id]';
 import { getSeedAirports } from '../db/icao';
 import { getFavoriteIcaos, setFavorite } from '../db/favorites';
 import { RangeBar } from './RangeBar';
-import { getAirportLandingCounts, getAirportLastFlight } from '../db/flights';
+import { getAirportLandingCounts, getAirportLastFlight, getLastFlightAt } from '../db/flights';
+import { LatestFlightCard } from './logbook-page/LatestFlightCard';
+import { useReplay } from './milestones/ReplayKit';
+import { FlightReplayLayer, buildReplay, replayTotal, replayProgress, type ReplayFlight } from './FlightReplay';
 import { getRunwayIndex } from '../utils/runways';
 import { countryNameFull } from '../constants/countryNames';
 import { COUNTRY_POPULATION, formatPopulation } from '../constants/countryPopulation';
@@ -135,6 +138,64 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [landingCounts, setLandingCounts] = useState<Record<string, number>>({});
   const [lastFlightMap, setLastFlightMap] = useState<Record<string, { id: number; date: string; reg: string }>>({});
   const [detailFlightId, setDetailFlightId] = useState<number | null>(null); // flight-detalj som overlay ovanpå kartan
+
+  // ── Play: senaste flygningen FRÅN flygplatsen till en annan flygplats ──
+  // Börjar inzoomat: farkosten dyker upp på banan som pekar mot målet och rullar iväg. Sedan zoomar kartan ut
+  // (flygplatskortet överst, flygkortet längst ner), flygningen spelas och den slutar med att kartan zoomar in på
+  // ankomstflygplatsen med dess kort. Bara när ankomsten finns bland flygplatserna (annars inget kort att visa).
+  const PLAY_PRE = 2.2;
+  const [playCand, setPlayCand] = useState<(ReplayFlight & { arrRow: SeedRow }) | null>(null);
+  const play = useReplay(replayTotal(PLAY_PRE));
+  const [playOn, setPlayOn] = useState(false);
+  const playGuardRef = useRef(0); // fram till den tiden får en utzoomning inte avmarkera flygplatsen
+  const [playCardH, setPlayCardH] = useState(150);
+  const [playFlightH, setPlayFlightH] = useState(150);
+  useEffect(() => {
+    setPlayCand(null);
+    if (!focusAirport) return;
+    let alive = true;
+    (async () => {
+      const f = await getLastFlightAt(focusAirport[0], 'from');
+      if (!f) return;
+      const arrRow = seedData.find((r) => r[0] === f.arr_place.trim().toUpperCase());
+      if (!arrRow) return;
+      const r = await buildReplay(focusAirport[0], f, { lat: focusAirport[4], lon: focusAirport[5] }, { lat: arrRow[4], lon: arrRow[5] }, true);
+      if (alive) setPlayCand({ ...r, arrRow });
+    })().catch(() => {});
+    return () => { alive = false; };
+  }, [focusAirport, seedData]);
+  const playLayout = () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  const startPlay = () => {
+    if (!playCand) return;
+    setMetarPopup(null);
+    playGuardRef.current = Number.MAX_SAFE_INTEGER;
+    playLayout();
+    play.seek(0);
+    setPlayOn(true);
+    play.play();
+  };
+  const stopPlay = () => {
+    play.halt(); play.seek(0);
+    playGuardRef.current = Date.now() + 1500;
+    playLayout();
+    setPlayOn(false);
+  };
+  // Klar → ankomstflygplatsen blir vald: kartan zoomar in där (GlobalAirportMap focus) och dess kort visas.
+  useEffect(() => {
+    if (!playOn || play.playing || play.t < replayTotal(PLAY_PRE) - 0.01) return;
+    const id = setTimeout(() => {
+      const to = playCand?.arrRow;
+      playGuardRef.current = Date.now() + 2000;
+      playLayout();
+      setPlayOn(false); play.seek(0);
+      if (to) setFocusAirport(to);
+    }, 600);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playOn, play.playing, play.t]);
+  // Annan flygplats, stängt kort eller stängd karta → avbryt.
+  useEffect(() => { if (playOn && (!focusAirport || focusAirport[0] !== playCand?.icao)) stopPlay(); }, [focusAirport]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!visible && playOn) stopPlay(); }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Filter: flervals-löv (Set) + Properties (banlängd/höjd/yta/lit) + closed-läge.
   const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set());
@@ -652,7 +713,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
             onRegionChange={(r) => {
               if (clusterMode) setMapRegion(r);
               // Zooma ut tillräckligt → avmarkera flygplatsen automatiskt (flygplatskortet försvinner).
-              if (focusAirport && r.latitudeDelta > 2.5) setFocusAirport(null);
+              // (Inte under Play: uppspelningen zoomar ut med flygplatsen vald.)
+              if (focusAirport && Date.now() > playGuardRef.current && r.latitudeDelta > 2.5) setFocusAirport(null);
             }}
             onSelectCountry={clusterMode ? undefined : handleSelectCountry}
             onSelectAirport={focusByIcao}
@@ -669,7 +731,14 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
             neighborShapes={neighborShapes}
             onSelectNeighbor={handleSelectNeighbor}
             frameRegion={clusterMode ? undefined : frameRegion}
-          />
+            fitTo={playOn && playCand && play.t >= PLAY_PRE - 0.15 ? {
+              key: `play-${playCand.flight.id}`,
+              pts: [playCand.dep, playCand.arr],
+              padding: { top: insets.top + 8 + playCardH + 44, bottom: insets.bottom + 6 + playFlightH + 44, left: 56, right: 56 },
+            } : null}
+          >
+            {playOn && playCand && <FlightReplayLayer r={playCand} t={play.t} pre={PLAY_PRE} playing={play.playing} labels />}
+          </GlobalAirportMap>
         )}
 
         {/* Ingen träff på platsen med aktuellt filter → centrerad varning */}
@@ -765,14 +834,14 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
         )}
 
         {/* Stäng — uppe till höger */}
-        <TouchableOpacity onPress={closeMap} activeOpacity={0.8}
+        {!playOn && <TouchableOpacity onPress={closeMap} activeOpacity={0.8}
           style={{ position: 'absolute', top: insets.top + 12, right: 12, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(15,22,38,0.9)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="close" size={22} color="#fff" />
-        </TouchableOpacity>
+        </TouchableOpacity>}
 
         {/* Tillbaka — vid flygplatsfokus uppe till vänster (som förr); annars (utan fokus) nere till vänster
             så filtermodulen kan ligga kvar upptill utan krock. */}
-        {showBack && (
+        {showBack && !playOn && (
           <TouchableOpacity onPress={goBack} activeOpacity={0.85}
             style={[{ position: 'absolute', zIndex: 25, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: Colors.primary + '66' },
               focusAirport ? { top: insets.top + 12, left: 12 } : { bottom: 24, left: 12 }]}>
@@ -783,7 +852,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
 
         {/* "Fly to XXXX" — under Back (vid flygplatsfokus). Öppnar plan-overlayn med rutt/distans/förbrukning
             från min position (samma panel som Find airport "Closest to me"). */}
-        {focusAirport && !flyTo && (
+        {focusAirport && !flyTo && !playOn && (
           <TouchableOpacity onPress={openFlyTo} activeOpacity={0.85}
             style={{ position: 'absolute', zIndex: 25, top: insets.top + 12 + 44, left: 12, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: Colors.primary + '66' }}>
             <Ionicons name="navigate" size={15} color={Colors.primary} />
@@ -792,7 +861,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
         )}
 
         {/* Landruta vid flygplatsfokus: uppe (mellan Back och X, som förr). */}
-        {focusAirport && countryCardEl && (
+        {focusAirport && countryCardEl && !playOn && (
           <View pointerEvents="none" style={{ position: 'absolute', zIndex: 24, top: insets.top + 12, left: 96, right: 56, alignItems: 'center' }}>
             {countryCardEl}
           </View>
@@ -987,7 +1056,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
           const lc = landingCounts[focusAirport[0]] ?? 0;
           const lf = lastFlightMap[focusAirport[0]];
           return (
-            <View style={{ position: 'absolute', left: 12, right: 12, bottom: insets.bottom + 14, zIndex: 15 }}>
+            <View onLayout={(e) => setPlayCardH(e.nativeEvent.layout.height)}
+              style={[{ position: 'absolute', left: 12, right: 12, zIndex: 15 }, playOn ? { top: insets.top + 8 } : { bottom: insets.bottom + 14 }]}>
               <AirportInfoCard
                 icao={focusAirport[0]}
                 name={focusAirport[1]}
@@ -1002,10 +1072,20 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                 onOpenMetar={setMetarPopup}
                 isFavorite={favorites.has(focusAirport[0])}
                 onToggleFavorite={() => toggleFavorite(focusAirport[0])}
+                onPlay={playCand && playCand.icao === focusAirport[0] ? (playOn ? stopPlay : startPlay) : undefined}
+                playing={playOn}
               />
             </View>
           );
         })()}
+
+        {/* Play: det avskalade flygkortet längst ner */}
+        {playOn && playCand && (
+          <View pointerEvents="none" onLayout={(e) => setPlayFlightH(e.nativeEvent.layout.height)}
+            style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 6, zIndex: 16 }}>
+            <LatestFlightCard flight={playCand.flight} accent={Colors.primary} placeNames={{}} onPress={() => {}} bare progress={replayProgress(play.t, PLAY_PRE)} />
+          </View>
+        )}
 
         {/* "Fly to XXXX" plan-overlay: flygplatskortet + bank-snippet med min position + rutt/distans/
             förbrukning. OVERLAY (ej nästlad Modal → ingen iOS-kart-frysning); nästan opak botten döljer

@@ -165,13 +165,17 @@ export function AirportInfoCard({ icao, name, iata, alt, type, country, accent =
       )}
 
       {/* Egna landningar */}
-      {showLandings && (
+      {(showLandings || !!onPlay) && (
         <TouchableOpacity onPress={onLastPress} disabled={!onLastPress} activeOpacity={0.7} accessibilityRole={onLastPress ? 'button' : undefined}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8, borderTopWidth: 1, borderTopColor: line, backgroundColor: accent + '0F' }}>
           <Text style={{ flex: 1, fontSize: 12.5, color: '#FFFFFF' }} numberOfLines={1}>
-            <Text style={{ fontFamily: MONO, fontWeight: '800' }}>{landingCount}</Text>
-            {landingCount === 1 ? ' landing' : ' landings'}
-            {lastText ? <>{' · last '}<Text style={{ fontFamily: MONO, fontWeight: '700' }}>{lastText}</Text></> : null}
+            {showLandings ? (
+              <>
+                <Text style={{ fontFamily: MONO, fontWeight: '800' }}>{landingCount}</Text>
+                {landingCount === 1 ? ' landing' : ' landings'}
+                {lastText ? <>{' · last '}<Text style={{ fontFamily: MONO, fontWeight: '700' }}>{lastText}</Text></> : null}
+              </>
+            ) : 'Your latest flight from here'}
           </Text>
           {onPlay && (
             <TouchableOpacity onPress={onPlay} hitSlop={8} activeOpacity={0.8} accessibilityRole="button"

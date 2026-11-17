@@ -40,7 +40,8 @@ export type RegionMarker = { key: string; label: string; count: number; lat: num
 export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, pinCategory, hulls, regionShapes, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborShapes, neighborMarkers, onSelectNeighbor, clustering, clusterKey, onRegionChange, fitTo, children }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; pinCategory?: Map<string, FlightCat | null>; hulls?: { latitude: number; longitude: number }[][]; regionShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void; clustering?: boolean; clusterKey?: string; onRegionChange?: (r: Region) => void;
   // Rama in punkter med marginaler (Visited airports: uppspelningen av senaste flygningen, mellan korten). Sätts den
   // till null igen glider kartan tillbaka till vyn den hade innan.
-  fitTo?: { key: string; pts: { lat: number; lon: number }[]; padding: { top: number; right: number; bottom: number; left: number } } | null;
+  // endAt: tillbaka med samma zoom men centrerat där (Visited airports: flygningen slutade på en annan flygplats).
+  fitTo?: { key: string; pts: { lat: number; lon: number }[]; padding: { top: number; right: number; bottom: number; left: number }; endAt?: { lat: number; lon: number } | null } | null;
   children?: ReactNode; // extra lager inuti kartan (uppspelningens rutt, farkost, ringar)
 }) {
   const mapRef = useRef<MapView>(null);
@@ -206,13 +207,17 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
   const regionRef = useRef<Region>(region);
   regionRef.current = region;
   const fitKey = fitTo?.key ?? null;
+  const endAtRef = useRef<{ lat: number; lon: number } | null>(null);
+  endAtRef.current = fitTo ? fitTo.endAt ?? null : endAtRef.current;
   useEffect(() => {
     if (fitTo) {
       if (!beforeFitRef.current) beforeFitRef.current = regionRef.current;
       mapRef.current?.fitToCoordinates(fitTo.pts.map((p) => ({ latitude: p.lat, longitude: p.lon })), { edgePadding: fitTo.padding, animated: true });
     } else if (beforeFitRef.current) {
-      mapRef.current?.animateToRegion(beforeFitRef.current, 650);
+      const end = endAtRef.current;
+      mapRef.current?.animateToRegion(end ? { ...beforeFitRef.current, latitude: end.lat, longitude: end.lon } : beforeFitRef.current, 650);
       beforeFitRef.current = null;
+      endAtRef.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitKey]);

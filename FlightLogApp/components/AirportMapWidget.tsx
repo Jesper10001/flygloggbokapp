@@ -7,14 +7,14 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { continentForCountry } from '../constants/continents';
 import { CountryFlag } from './CountryFlag';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import MapView, { Marker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { getVisitedAirportIcaos, getVisitedAirportDates, getAirportLandingCounts, getAirportLastFlight, getLastArrivalFlight, getAircraftCategory } from '../db/flights';
-import type { Flight } from '../types/flight';
+import { getVisitedAirportIcaos, getVisitedAirportDates, getAirportLandingCounts, getAirportLastFlight, getLastFlightAt } from '../db/flights';
 import { LatestFlightCard } from './logbook-page/LatestFlightCard';
-import { useReplay, ReplayAircraft, RippleMarker, gcPoint, gcPath, gcCourse, ease, clamp } from './milestones/ReplayKit';
-import { toLatLng, type GeoPt } from './milestones/MilestoneMap';
+import { useReplay } from './milestones/ReplayKit';
+import type { GeoPt } from './milestones/MilestoneMap';
+import { FlightReplayLayer, buildReplay, replayTotal, replayProgress, type ReplayFlight } from './FlightReplay';
 import { getAirportCoordinates, getAllTemporaryPlaces, getSeedAirports } from '../db/icao';
 import runwayData from '../assets/runways.json';
 import { getRunways } from '../utils/runways';
@@ -241,38 +241,34 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
   // Thumbnail: centrera över kontinenten man landat mest på + små ICAO-pins där.
   const thumb = useMemo(() => topCountryThumb(visitedSeedRows), [visitedSeedRows]);
 
-  // ── Play: senaste flygningen HIT spelas upp på kartan (som Best week) ──
-  // Bara när den kom från en annan flygplats (inte en lokal flygning) och båda platserna har koordinater.
-  // Under uppspelningen flyttas flygplatskortet upp i periodväljarens ställe, kontrollerna döljs, kartan ramar in
-  // båda flygplatserna mellan korten och ett avskalat flygkort ersätter länderlistan längst ner. Slutar av sig själv.
-  const [replayCand, setReplayCand] = useState<{ flight: Flight; dep: GeoPt; arr: GeoPt; heli: boolean; nm: number } | null>(null);
+  // ── Play: senaste flygningen TILL eller FRÅN flygplatsen spelas upp på kartan (som Best week) ──
+  // Bara flygningar mellan två olika platser där båda har koordinater. Under uppspelningen flyttas flygplatskortet
+  // upp i periodväljarens ställe, kontrollerna döljs, kartan ramar in båda flygplatserna mellan korten och ett
+  // avskalat flygkort ersätter länderlistan längst ner. Slutar av sig själv; gick flygningen till en annan
+  // flygplats byts kortet till den.
+  const [replayCand, setReplayCand] = useState<ReplayFlight | null>(null);
   useEffect(() => {
     setReplayCand(null);
     if (!selectedAirport) return;
     let alive = true;
     (async () => {
-      const f = await getLastArrivalFlight(selectedAirport);
+      const f = await getLastFlightAt(selectedAirport, 'any');
       if (!f) return;
-      const depIc = (f.dep_place || '').trim().toUpperCase(), arrIc = (f.arr_place || '').trim().toUpperCase();
-      if (!depIc || !arrIc || depIc === arrIc) return;
       const where = async (ic: string): Promise<GeoPt | null> => {
         const a = airports.find((x) => x.icao === ic);
         if (a?.lat && a?.lon) return { lat: a.lat, lon: a.lon };
         const c = (await getAirportCoordinates([ic]))[0];
         return c?.lat && c?.lon ? { lat: c.lat, lon: c.lon } : null;
       };
-      const [dep, arr] = await Promise.all([where(depIc), where(arrIc)]);
+      const [dep, arr] = await Promise.all([where(f.dep_place.trim().toUpperCase()), where(f.arr_place.trim().toUpperCase())]);
       if (!dep || !arr || !alive) return;
-      const heli = (await getAircraftCategory(f.aircraft_type || '').catch(() => '')) === 'helicopter';
-      const r = Math.PI / 180;
-      const h = Math.sin(((arr.lat - dep.lat) * r) / 2) ** 2 + Math.cos(dep.lat * r) * Math.cos(arr.lat * r) * Math.sin(((arr.lon - dep.lon) * r) / 2) ** 2;
-      const nm = 2 * 3440.065 * Math.asin(Math.sqrt(h));
-      if (alive) setReplayCand({ flight: f, dep, arr, heli, nm });
+      const r = await buildReplay(selectedAirport, f, dep, arr, false);
+      if (alive) setReplayCand(r);
     })().catch(() => {});
     return () => { alive = false; };
   }, [selectedAirport, airports]);
 
-  const REPLAY_TOTAL = 7; // s: ~1 s inramning, 4,8 s flygning, 1,2 s landning
+  const REPLAY_TOTAL = replayTotal(0); // s: ~1 s inramning, 4,8 s flygning, 1,2 s landning
   const replay = useReplay(REPLAY_TOTAL);
   const [replayOn, setReplayOn] = useState(false);
   const stopReplay = () => { replay.halt(); replay.seek(0); setReplayOn(false); };
@@ -286,7 +282,12 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
   // Klar → kortet och kontrollerna tillbaka, kartan glider tillbaka (GlobalAirportMap fitTo = null).
   useEffect(() => {
     if (!replayOn || replay.playing || replay.t < REPLAY_TOTAL - 0.01) return;
-    const id = setTimeout(() => { setReplayOn(false); replay.seek(0); }, 600);
+    const id = setTimeout(() => {
+      setReplayOn(false); replay.seek(0);
+      // Slutade på en annan flygplats → dess kort (kartan centreras där, GlobalAirportMap fitTo.endAt).
+      const to = replayCand?.arrIcao;
+      if (to && to !== selectedAirport && airports.some((a) => a.icao === to)) setSelectedAirport(to);
+    }, 600);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replayOn, replay.playing, replay.t]);
@@ -299,8 +300,7 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
   }, [replayOn, cardShift]);
   const [cardH, setCardH] = useState(150);
   const [flightCardH, setFlightCardH] = useState(150);
-  const fly = ease(clamp((replay.t - 1) / 4.8, 0, 1));
-  const landed = replay.t >= 5.8;
+  const fly = replayProgress(replay.t, 0);
 
   if (!allIcaos.length) return null;
 
@@ -443,20 +443,10 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
                   key: `play-${replayCand.flight.id}`,
                   pts: [replayCand.dep, replayCand.arr],
                   padding: { top: insets.top + 8 + cardH + 44, bottom: insets.bottom + 6 + flightCardH + 44, left: 56, right: 56 },
+                  endAt: replayCand.arrIcao !== selectedAirport && airports.some((a) => a.icao === replayCand.arrIcao) ? replayCand.arr : null,
                 } : null}
               >
-                {replayOn && replayCand && (
-                  <>
-                    <Polyline coordinates={gcPath(replayCand.dep, replayCand.arr, 0, 1, replayCand.nm).map(toLatLng)} strokeColor="rgba(255,255,255,0.45)" strokeWidth={1.5} lineDashPattern={[5, 6]} zIndex={6} />
-                    {fly > 0.002 && (
-                      <Polyline coordinates={gcPath(replayCand.dep, replayCand.arr, 0, fly, replayCand.nm).map(toLatLng)} strokeColor="#67E8F9" strokeWidth={3} lineCap="round" zIndex={7} />
-                    )}
-                    {landed && <RippleMarker key={`rip-${replayCand.flight.id}`} p={replayCand.arr} />}
-                    <ReplayAircraft p={gcPoint(replayCand.dep, replayCand.arr, fly)} heli={replayCand.heli}
-                      heading={gcCourse(replayCand.dep, replayCand.arr, fly)} spinning={replay.playing && replayCand.heli}
-                      lift={Math.sin(Math.PI * fly) * 6} />
-                  </>
-                )}
+                {replayOn && replayCand && <FlightReplayLayer r={replayCand} t={replay.t} pre={0} playing={replay.playing} />}
               </GlobalAirportMap>
             );
           })()}
@@ -482,7 +472,7 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
                   } : undefined}
                   onOpenMetar={setMetarPopup}
                   onClose={() => { setSelectedAirport(null); setMetarPopup(null); }}
-                  onPlay={replayCand && replayCand.flight.arr_place.trim().toUpperCase() === ic ? (replayOn ? stopReplay : startReplay) : undefined}
+                  onPlay={replayCand && replayCand.icao === ic ? (replayOn ? stopReplay : startReplay) : undefined}
                   playing={replayOn}
                 />
               </Animated.View>

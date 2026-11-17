@@ -2,6 +2,14 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 177,
+      "date": "2026-11-17",
+      "notes": [
+        "New: Play on the Global map: watch your latest flight from an airport take off from the runway and land at the next one.",
+        "Improved: Play in Visited airports also plays flights from the airport and ends on the airport you flew to."
+      ]
+    },
+    {
       "id": 176,
       "date": "2026-11-17",
       "notes": [

@@ -352,13 +352,19 @@ export async function getFlightById(id: number): Promise<Flight | null> {
   return await db.getFirstAsync<Flight>('SELECT * FROM flights WHERE id=?', [id]);
 }
 
-/** Senaste riktiga flygningen som landade på flygplatsen (Visited airports: Play). Inte simulator eller summeringsrader. */
-export async function getLastArrivalFlight(icao: string): Promise<Flight | null> {
+/** Senaste riktiga flygningen mellan två olika platser som rör flygplatsen (Play på kartorna). 'any' = till eller
+ *  från flygplatsen (Visited airports), 'from' = bara därifrån (Global map). Inte simulator, summeringsrader eller
+ *  lokala flygningar. */
+export async function getLastFlightAt(icao: string, dir: 'any' | 'from'): Promise<Flight | null> {
   const db = await getDatabase();
+  const ic = (icao || '').trim().toUpperCase();
+  const where = dir === 'from' ? 'upper(trim(dep_place))=?' : '(upper(trim(dep_place))=? OR upper(trim(arr_place))=?)';
   return await db.getFirstAsync<Flight>(
-    `SELECT * FROM flights WHERE upper(trim(arr_place))=? AND flight_type NOT IN ('sim','summary')
-       AND remarks NOT IN ('[BACKFILL]','Blades previous experience') ORDER BY date DESC, id DESC LIMIT 1`,
-    [(icao || '').trim().toUpperCase()],
+    `SELECT * FROM flights WHERE ${where}
+       AND trim(dep_place) != '' AND trim(arr_place) != '' AND upper(trim(dep_place)) != upper(trim(arr_place))
+       AND flight_type NOT IN ('sim','summary') AND remarks NOT IN ('[BACKFILL]','Blades previous experience')
+     ORDER BY date DESC, id DESC LIMIT 1`,
+    dir === 'from' ? [ic] : [ic, ic],
   );
 }
 
