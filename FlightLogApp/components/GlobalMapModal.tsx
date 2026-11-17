@@ -21,7 +21,7 @@ import { formatCoord, COORD_SYSTEMS, type CoordSystem } from '../utils/coords';
 import { LatestFlightCard } from './logbook-page/LatestFlightCard';
 import { useReplay } from './milestones/ReplayKit';
 import { FlightReplayLayer, buildReplay, replayTotal, replayProgress, replayCaption, type ReplayFlight } from './FlightReplay';
-import { getRunwayIndex } from '../utils/runways';
+import { getRunwayIndex, SURFACE_FILTERS, surfaceBit } from '../utils/runways';
 import { countryNameFull } from '../constants/countryNames';
 import { COUNTRY_POPULATION, formatPopulation } from '../constants/countryPopulation';
 import { CountryFlag } from './CountryFlag';
@@ -271,7 +271,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const typedSeed = useMemo(() => {
     const leaves = leavesFor(activeKeys);
     // Runway-props kräver banindex; elevation (alt, r[7]) ligger på seed-raden → separat filter.
-    const runwayActive = mapProps.minLenM != null || mapProps.maxLenM != null || mapProps.surface != null || mapProps.lit;
+    const runwayActive = mapProps.minLenM != null || mapProps.maxLenM != null || mapProps.surface.length > 0;
     const altActive = mapProps.minAltFt != null || mapProps.maxAltFt != null;
     const pActive = runwayActive || altActive;
     // Favorites-läge: begränsa till favoriter först (går att filtrera vidare bland dem).
@@ -394,7 +394,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   // NAVIGERING (drill/back) ändrar inte nyckeln → ingen remount → frameRegion-effekten sköter mjuk
   // zoom. Efter remount monteras kartan på currentNode via initialRegion={frameRegion} (ingen världshopp).
   const mapKey = useMemo(
-    () => (clusterMode ? 'C' : 'R') + '|' + [...activeKeys].sort().join(',') + `|${mapProps.minLenM}_${mapProps.maxLenM}_${mapProps.surface}_${mapProps.lit}|${closedMode}` + (favMode ? `|F${favorites.size}` : '') + (wxCat && wxCountry ? `|W${wxCat}_${wxCountry}_${wxResults.size}` : ''),
+    () => (clusterMode ? 'C' : 'R') + '|' + [...activeKeys].sort().join(',') + `|${mapProps.minLenM}_${mapProps.maxLenM}_${mapProps.surface.join('+')}|${closedMode}` + (favMode ? `|F${favorites.size}` : '') + (wxCat && wxCountry ? `|W${wxCat}_${wxCountry}_${wxResults.size}` : ''),
     [clusterMode, activeKeys, mapProps, closedMode, favMode, favorites, wxCat, wxCountry, wxResults],
   );
 
@@ -614,7 +614,15 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   // Kombinerade min–max-setters för range-barerna (null vid ytterkant = ingen gräns → filter av).
   const setLenRange = (lo: number, hi: number) => setMapProps((p) => ({ ...p, minLenM: lo <= lenRange.min ? null : lo, maxLenM: hi >= lenRange.max ? null : hi }));
   const setAltRange = (lo: number, hi: number) => setMapProps((p) => ({ ...p, minAltFt: lo <= altRange.min ? null : lo, maxAltFt: hi >= altRange.max ? null : hi }));
-  const toggleSurface = (sfc: 'asphalt' | 'grass') => setMapProps((p) => ({ ...p, surface: p.surface === sfc ? null : sfc }));
+  const toggleSurface = (sfc: string) => setMapProps((p) => ({ ...p, surface: p.surface.includes(sfc) ? p.surface.filter((x) => x !== sfc) : [...p.surface, sfc] }));
+  // Antal flygplatser per yta (öppna banor, hela databasen) — visas under varje val.
+  const surfaceCounts = useMemo(() => {
+    if (!propsOpen) return null;
+    const out: Record<string, number> = {};
+    for (const s of SURFACE_FILTERS) out[s] = 0;
+    for (const info of getRunwayIndex().values()) for (const s of SURFACE_FILTERS) if (info.surfaces & surfaceBit(s)) out[s]++;
+    return out;
+  }, [propsOpen]);
   const toggleSection = (s: 'props' | 'weather' | 'access' | 'closed') => setOpenSection((cur) => (cur === s ? null : s));
   const accessOn = ACCESS_CHIPS.some((c) => activeKeys.has(c.key));
 
@@ -1033,18 +1041,29 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                       low={mapProps.minLenM ?? lenRange.min} high={mapProps.maxLenM ?? lenRange.max} onChange={setLenRange} />
                     <RangeBar label="Elevation" unit="ft" min={altRange.min} max={altRange.max} step={50} dist={altDist}
                       low={mapProps.minAltFt ?? altRange.min} high={mapProps.maxAltFt ?? altRange.max} onChange={setAltRange} />
-                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, alignItems: 'center' }}>
-                      {(['asphalt', 'grass'] as const).map((sfc) => (
-                        <TouchableOpacity key={sfc} onPress={() => toggleSurface(sfc)} activeOpacity={0.7}
-                          style={[styles.propPill, mapProps.surface === sfc && styles.propPillOn]}>
-                          <Text style={[styles.propPillTxt, mapProps.surface === sfc && { color: Colors.primary }]}>{sfc === 'asphalt' ? 'Asphalt' : 'Grass'}</Text>
-                        </TouchableOpacity>
-                      ))}
-                      <TouchableOpacity onPress={() => setMapProps((p) => ({ ...p, lit: !p.lit }))} activeOpacity={0.7}
-                        style={[styles.propPill, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }, mapProps.lit && styles.propPillOn]}>
-                        <Ionicons name={mapProps.lit ? 'flash' : 'flash-outline'} size={12} color={mapProps.lit ? Colors.primary : Colors.textMuted} />
-                        <Text style={[styles.propPillTxt, mapProps.lit && { color: Colors.primary }]}>Lit</Text>
-                      </TouchableOpacity>
+                    {/* Yta: flerval bland alla typer, antalet flygplatser under varje. Inget valt = alla ytor. */}
+                    <View style={{ marginTop: 12, gap: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Text style={styles.surfaceHead}>Surface</Text>
+                        {mapProps.surface.length > 0 ? (
+                          <TouchableOpacity onPress={() => setMapProps((p) => ({ ...p, surface: [] }))} hitSlop={10} activeOpacity={0.7}>
+                            <Text style={{ color: Colors.primary, fontSize: 12, fontWeight: '700' }}>Any surface</Text>
+                          </TouchableOpacity>
+                        ) : <Text style={{ color: Colors.textMuted, fontSize: 11.5, fontWeight: '700' }}>Any</Text>}
+                      </View>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                        {SURFACE_FILTERS.map((sfc) => {
+                          const on = mapProps.surface.includes(sfc);
+                          return (
+                            <TouchableOpacity key={sfc} onPress={() => toggleSurface(sfc)} activeOpacity={0.7}
+                              accessibilityRole="button" accessibilityState={{ selected: on }}
+                              style={[styles.surfaceChip, on && styles.propPillOn]}>
+                              <Text style={[styles.propPillTxt, on && { color: Colors.primary }]} numberOfLines={1}>{sfc}</Text>
+                              <Text style={[styles.surfaceCount, on && { color: Colors.primary }]}>{(surfaceCounts?.[sfc] ?? 0).toLocaleString('en-US')}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
                     </View>
                   </View>
                 )}
@@ -1264,6 +1283,12 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', backgroundColor: 'rgba(255,255,255,0.05)',
   },
   propPillOn: { borderColor: Colors.primary, backgroundColor: Colors.primary + '22' },
+  surfaceHead: { color: Colors.textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
+  surfaceChip: {
+    width: '23.5%', alignItems: 'center', paddingVertical: 7, borderRadius: 8, gap: 1,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  surfaceCount: { fontFamily: 'JetBrainsMono', fontSize: 9.5, fontWeight: '600', color: Colors.textMuted },
   propPillTxt: { color: '#fff', fontSize: 12, fontWeight: '700' },
   noMatchBox: {
     flexDirection: 'row', alignItems: 'center', gap: 10,

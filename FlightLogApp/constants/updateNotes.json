@@ -2,6 +2,14 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 186,
+      "date": "2026-11-17",
+      "notes": [
+        "Improved: Filter the Global map by any runway surface, several at once, and see how many airports have each.",
+        "Fixed: Many grass strips were shown as gravel."
+      ]
+    },
+    {
       "id": 185,
       "date": "2026-11-17",
       "notes": [

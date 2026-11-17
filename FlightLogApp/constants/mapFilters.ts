@@ -3,7 +3,7 @@
 // altiport/balloonport) i SeedRow[8] och restriction (military = "air base", public/private/joint_use) i
 // SeedRow[10]. "Properties" (banlängd/yta/lit) och closed-läget hanteras separat i GlobalMapModal.
 import type { SeedRow } from '../components/GlobalAirportMap';
-import { type RwyInfo } from '../utils/runways';
+import { surfaceBit, type RwyInfo } from '../utils/runways';
 
 export type FilterNode = {
   key: string;                                        // unik nyckel (används i activeKeys-Set)
@@ -85,11 +85,12 @@ export function keysNeedRunway(activeKeys: Set<string>): boolean {
 }
 
 // ── Properties (AND-refinering) ──────────────────────────────────────────────
-export type MapProps = { minLenM: number | null; maxLenM: number | null; surface: 'asphalt' | 'grass' | null; lit: boolean; minAltFt: number | null; maxAltFt: number | null };
-export const EMPTY_PROPS: MapProps = { minLenM: null, maxLenM: null, surface: null, lit: false, minAltFt: null, maxAltFt: null };
+// surface: valda ytor (flerval, SURFACE_FILTERS i utils/runways); tom = alla.
+export type MapProps = { minLenM: number | null; maxLenM: number | null; surface: string[]; minAltFt: number | null; maxAltFt: number | null };
+export const EMPTY_PROPS: MapProps = { minLenM: null, maxLenM: null, surface: [], minAltFt: null, maxAltFt: null };
 
 export function propsActive(p: MapProps): boolean {
-  return p.minLenM != null || p.maxLenM != null || p.surface != null || p.lit || p.minAltFt != null || p.maxAltFt != null;
+  return p.minLenM != null || p.maxLenM != null || p.surface.length > 0 || p.minAltFt != null || p.maxAltFt != null;
 }
 
 /** Uppfyller en flygplats (via dess banindex) de aktiva Properties? Utan bandata → faller bort. */
@@ -97,8 +98,7 @@ export function matchProps(rwy: RwyInfo | undefined, p: MapProps): boolean {
   if (!rwy || !rwy.hasData) return false;
   if (p.minLenM != null && rwy.maxLenM < p.minLenM) return false;
   if (p.maxLenM != null && rwy.maxLenM > p.maxLenM) return false;
-  if (p.surface === 'asphalt' && !rwy.hasHard) return false;
-  if (p.surface === 'grass' && !rwy.hasGrass) return false;
-  if (p.lit && !rwy.anyLit) return false;
+  // Någon öppen bana med någon av de valda ytorna.
+  if (p.surface.length && !(rwy.surfaces & p.surface.reduce((m, s) => m | surfaceBit(s), 0))) return false;
   return true;
 }

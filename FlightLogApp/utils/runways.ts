@@ -22,17 +22,19 @@ function data(): Record<string, Row[]> | null {
 }
 
 // OurAirports-ytkoder är röriga (ASP, ASPH-G, PEM, CON, GRS, TURF …) → läsbar etikett.
+// Koder enligt OurAirports: GRE = graded/rolled earth eller gräs på jordbädd (gräsfält), GRS = gräs, GVL = grus,
+// SAN = sand, WAT = vatten, BIT/MAC = bitumen/makadam (asfalt), PEM/PSP = delvis betong / stålmattor.
 function surfaceLabel(raw: string): string {
   const s = (raw || '').toUpperCase();
-  if (!s) return '';
-  if (s.includes('ASP')) return 'Asphalt';
-  if (s.includes('CONC') || s.includes('CON') || s.includes('PEM') || s.includes('PSP') || s.includes('BIT')) return 'Concrete';
-  if (s.includes('GRASS') || s.includes('GRS') || s.includes('TURF') || s.includes('SOD')) return 'Grass';
-  if (s.includes('GRAVEL') || s.includes('GVL') || s.includes('GRV') || s.includes('GRE') || s.includes('COP')) return 'Gravel';
-  if (s.includes('WATER')) return 'Water';
-  if (s.includes('SNOW') || s.includes('ICE')) return 'Snow/Ice';
-  if (s.includes('DIRT') || s.includes('EARTH') || s.includes('CLAY') || s.includes('GROUND')) return 'Dirt';
-  if (s.includes('SAND')) return 'Sand';
+  if (!s || s === 'U') return '';
+  if (s.includes('WAT')) return 'Water';
+  if (s.includes('SNO') || s.includes('ICE')) return 'Snow/Ice';
+  if (s.includes('ASP') || s.includes('BIT') || s.includes('MAC')) return 'Asphalt';
+  if (s.includes('CON') || s.includes('PEM') || s.includes('PSP')) return 'Concrete';
+  if (s.includes('GRASS') || s.includes('GRS') || s.includes('GRE') || s.includes('TURF') || s.includes('SOD')) return 'Grass';
+  if (s.includes('GRAV') || s.includes('GVL') || s.includes('GRV') || s.includes('COP') || s.includes('PIÇ') || s.includes('PIC')) return 'Gravel';
+  if (s.includes('DIRT') || s.includes('EARTH') || s.includes('CLA') || s.includes('GROUND') || s.includes('LAT')) return 'Dirt';
+  if (s.includes('SAN')) return 'Sand';
   // annars: title-case av råkoden
   return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
 }
@@ -45,7 +47,12 @@ function surfaceKind(raw: string): 'hard' | 'grass' | 'other' {
   return 'other';
 }
 
-export type RwyInfo = { hasHard: boolean; hasGrass: boolean; hasData: boolean; maxLenM: number; anyLit: boolean };
+// Ytorna man kan filtrera på i Global map (Properties). Bit per yta i RwyInfo.surfaces.
+export const SURFACE_FILTERS = ['Asphalt', 'Concrete', 'Grass', 'Gravel', 'Dirt', 'Sand', 'Snow/Ice', 'Water'] as const;
+export type SurfaceFilter = (typeof SURFACE_FILTERS)[number];
+export const surfaceBit = (s: string) => { const i = (SURFACE_FILTERS as readonly string[]).indexOf(s); return i < 0 ? 0 : 1 << i; };
+
+export type RwyInfo = { hasHard: boolean; hasGrass: boolean; hasData: boolean; maxLenM: number; anyLit: boolean; surfaces: number };
 
 let _index: Map<string, RwyInfo> | undefined;
 /** Index (ICAO → sammanfattning) för yt-/längd-/lit-filter. Byggs en gång, cachad. */
@@ -55,8 +62,9 @@ export function getRunwayIndex(): Map<string, RwyInfo> {
     const m = new Map<string, RwyInfo>();
     if (d) {
       for (const icao in d) {
-        let hasHard = false, hasGrass = false, maxFt = 0, anyLit = false;
+        let hasHard = false, hasGrass = false, maxFt = 0, anyLit = false, surfaces = 0;
         for (const r of d[icao]) {
+          if (r[4] !== 1) surfaces |= surfaceBit(surfaceLabel(r[2]));   // bara öppna banor
           const k = surfaceKind(r[2]);
           if (k === 'hard') hasHard = true; else if (k === 'grass') hasGrass = true;
           // Vatten-landningsbanor (sjöflygbaser: surface "WAT"/water) räknas EJ som banlängd — de är
@@ -64,7 +72,7 @@ export function getRunwayIndex(): Map<string, RwyInfo> {
           if (!/wat/i.test(r[2] || '') && r[1] > maxFt) maxFt = r[1];
           if (r[3] === 1) anyLit = true;
         }
-        m.set(icao, { hasHard, hasGrass, hasData: true, maxLenM: Math.round(maxFt * 0.3048), anyLit });
+        m.set(icao, { hasHard, hasGrass, hasData: true, maxLenM: Math.round(maxFt * 0.3048), anyLit, surfaces });
       }
     }
     _index = m;
