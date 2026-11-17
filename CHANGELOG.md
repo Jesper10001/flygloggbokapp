@@ -14,6 +14,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: The Add media button on the drone dashboard looks the same as in pilot mode.
 - Improved: A new, lower airport card: name, weather and the key facts at a glance, with runway length and all frequencies.
 - Improved: Runways on the Global map are drawn as outlines, so the real runway in the satellite photo shows through.
+- New: Play the latest flight to an airport on the Visited airports map, the way Best week plays a week.
 
 ### Alla ändringar
 
@@ -22,6 +23,8 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Inställningar: länken "Preview the onboarding" borttagen (följde med i bygge 18/19); IS_PREVIEW_BUILD borttagen.
 - Flygplatskortet (components/AirportInfoCard) omgjort: lågt, halvgenomskinligt (50 %) på kartorna, tätt i Find airport och Fly to (prop solid): rad 1 ICAO · namn · stjärna · stäng, rad 2 IATA · storlek (· land) · väder (tryck → METAR), remsa ELEV · bana/banor + längsta (runway-geo) · första frekvensen, tunna rader för övriga frekvenser och egna landningar. freqStats borttaget; Global map skickar landet.
 - Global map: banorna ritas som konturer (RunwayOverlays outline): nästan genomskinlig yta, vit kant 1,5, svagare mittlinje. Weather, Closest to me och Find airport oförändrade.
+- Flygplatskortet på kartorna 40 % genomskinligt (var 50 %). ESCF TWR 129.805 (OurAirports har 129.8); rättningar ligger i OVERRIDES i scripts/build-frequencies.mjs så att de överlever en ny körning.
+- Visited airports: Play i flygplatskortets landningsrad spelar upp senaste flygningen som landade där (getLastArrivalFlight), bara när den kom från en annan flygplats. Kortet glider upp i periodväljarens plats, väljaren/X/länderlistan/satellitknappen döljs, kartan ramar in båda flygplatserna mellan korten (GlobalAirportMap fitTo, glider tillbaka efteråt), rutt + spår + farkost + landningsringar från Best week (ReplayKit), avskalat flygkort längst ner (LatestFlightCard bare, 40 % genomskinligt, förloppslinje). Stop avbryter; slutar av sig själv efter 7 s.
 
 ## 1.0.2 – byggs 2026-11-16
 

@@ -67,6 +67,13 @@ for (const x of parsed) {                                                       
   for (const [key, re] of PATTERNS) if (re.test(x.type) && data[x.apt]?.[key] == null) put(x.apt, key, x.mhz);
 }
 
+// Rättningar som vi vet stämmer bättre än OurAirports (t.ex. 8,33 kHz-kanaler som där står avrundade).
+// Läggs på sist så att de överlever en ny körning av skriptet.
+const OVERRIDES = {
+  ESCF: { twr: 129.805 },   // Malmen TWR (användarens uppgift 2026-11-17; OurAirports har 129.8)
+};
+for (const [apt, f] of Object.entries(OVERRIDES)) data[apt] = { ...(data[apt] || {}), ...f };
+
 fs.writeFileSync(OUT, JSON.stringify(data));
 const bytes = fs.statSync(OUT).size;
 const counts = { twr: 0, gnd: 0, atis: 0, app: 0 };

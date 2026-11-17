@@ -6,7 +6,7 @@
 //
 // 34k flygplatser kan inte renderas samtidigt — därför aggregat + viewport-cap.
 
-import { useMemo, useRef, useState, useEffect } from 'react';
+import { useMemo, useRef, useState, useEffect, type ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, InteractionManager } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polygon, type Region, type MapType } from 'react-native-maps';
@@ -37,7 +37,12 @@ const INITIAL: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longit
 // land-flaggor oavsett zoom (för den stora 34k-databasen → byter aldrig till pins, kraschar ej).
 export type RegionMarker = { key: string; label: string; count: number; lat: number; lon: number };
 
-export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, pinCategory, hulls, regionShapes, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborShapes, neighborMarkers, onSelectNeighbor, clustering, clusterKey, onRegionChange }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; pinCategory?: Map<string, FlightCat | null>; hulls?: { latitude: number; longitude: number }[][]; regionShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void; clustering?: boolean; clusterKey?: string; onRegionChange?: (r: Region) => void }) {
+export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, pinCategory, hulls, regionShapes, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborShapes, neighborMarkers, onSelectNeighbor, clustering, clusterKey, onRegionChange, fitTo, children }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; pinCategory?: Map<string, FlightCat | null>; hulls?: { latitude: number; longitude: number }[][]; regionShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void; clustering?: boolean; clusterKey?: string; onRegionChange?: (r: Region) => void;
+  // Rama in punkter med marginaler (Visited airports: uppspelningen av senaste flygningen, mellan korten). Sätts den
+  // till null igen glider kartan tillbaka till vyn den hade innan.
+  fitTo?: { key: string; pts: { lat: number; lon: number }[]; padding: { top: number; right: number; bottom: number; left: number } } | null;
+  children?: ReactNode; // extra lager inuti kartan (uppspelningens rutt, farkost, ringar)
+}) {
   const mapRef = useRef<MapView>(null);
   const [region, setRegion] = useState<Region>(initialRegion ?? INITIAL);
   const [layer, setLayer] = useState<MapType>(mapType);
@@ -195,6 +200,22 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
     for (const sh of neighborShapes ?? []) for (const ring of sh.rings) if (ring.length >= 3) { out.push({ key: sh.key, ring }); if (out.length >= 70) return out; }
     return out;
   }, [neighborShapes]);
+
+  // fitTo: spara vyn före inramningen och lämna tillbaka den efteråt.
+  const beforeFitRef = useRef<Region | null>(null);
+  const regionRef = useRef<Region>(region);
+  regionRef.current = region;
+  const fitKey = fitTo?.key ?? null;
+  useEffect(() => {
+    if (fitTo) {
+      if (!beforeFitRef.current) beforeFitRef.current = regionRef.current;
+      mapRef.current?.fitToCoordinates(fitTo.pts.map((p) => ({ latitude: p.lat, longitude: p.lon })), { edgePadding: fitTo.padding, animated: true });
+    } else if (beforeFitRef.current) {
+      mapRef.current?.animateToRegion(beforeFitRef.current, 650);
+      beforeFitRef.current = null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitKey]);
 
   const zoomTo = (lat: number, lon: number, d: number) =>
     mapRef.current?.animateToRegion({ latitude: lat, longitude: lon, latitudeDelta: d, longitudeDelta: d }, 450);
@@ -444,6 +465,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           <View style={[s.icaoPin, s.icaoPinSel]}><Text style={s.icaoPinTxt}>{focus[0]}</Text></View>
         </Marker>
       )}
+      {children}
     </MapView>
 
     {/* Kompassros — uppe till höger (under X-knappen i modalen). Alltid synlig på interaktiv karta;

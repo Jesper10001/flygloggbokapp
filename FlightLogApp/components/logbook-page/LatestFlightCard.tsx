@@ -13,12 +13,14 @@ import { roleLabel, isPicFlight, arrUtc, parseDate } from './flightDisplay';
 import { NightRoute } from './NightRoute';
 import { useNightFraction } from './useNightFraction';
 
-export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAddPhoto, onShare, onShareFile, showLabel = true }: {
+export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAddPhoto, onShare, onShareFile, showLabel = true, bare = false, progress }: {
   flight: Flight; accent: string; placeNames: Record<string, string>; onPress: () => void;
   onAddPhoto?: (flight: Flight) => void; // snabbknapp för att lägga till media (visas bara utan befintligt media)
   onShare?: (flight: Flight) => void;     // dela flygningen med sin second pilot (rund ikon i headern); visas bara när den är satt
   onShareFile?: (flight: Flight) => void; // långt tryck på delaknappen: spara flygningen som fil
   showLabel?: boolean; // false på icke-senaste kort i karusellen → datumet står till vänster i stället för rubriken
+  bare?: boolean;      // avskalat (uppspelningen i Visited airports): ingen rubrikrad med datum och knappar, 40 % genomskinligt
+  progress?: number;   // 0–1: tunn förloppslinje längst ner (uppspelningen)
 }) {
   const { formatTime, timeFormat } = useTimeFormat();
   const { nightFrac, darkOnsetUtc } = useNightFraction(f);
@@ -54,8 +56,10 @@ export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAdd
   return (
     <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 }}>
       <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={{ borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: accent + '55' }}>
-        <LinearGradient colors={[accent + '22', Colors.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: '100%', height: '100%', position: 'absolute' }} />
+        <LinearGradient colors={bare ? ['rgba(18,48,74,0.6)', 'rgba(15,30,58,0.6)'] : [accent + '22', Colors.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: '100%', height: '100%', position: 'absolute' }} />
+        {bare && <View style={{ height: 12 }} />}
         {/* header */}
+        {!bare && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8 }}>
           {/* Senaste kortet: rubriken till vänster och datumet till höger. Övriga kort har ingen rubrik,
               där står datumet till vänster i rubrikens ställe. */}
@@ -103,6 +107,7 @@ export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAdd
           )}
           </View>
         </View>
+        )}
         {/* route + block */}
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingBottom: 6 }}>
           {/* ICAO→ICAO alltid vit (ingen silver-tint efter night-andel); natt visas i captionen nedan */}
@@ -135,6 +140,11 @@ export function LatestFlightCard({ flight: f, accent, placeNames, onPress, onAdd
             </View>
           ))}
         </View>
+        {progress != null && (
+          <View style={{ height: 3, backgroundColor: 'rgba(255,255,255,0.10)' }}>
+            <View style={{ height: 3, width: `${Math.round(Math.max(0, Math.min(1, progress)) * 100)}%`, backgroundColor: accent }} />
+          </View>
+        )}
       </TouchableOpacity>
     </View>
   );

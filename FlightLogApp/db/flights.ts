@@ -352,6 +352,16 @@ export async function getFlightById(id: number): Promise<Flight | null> {
   return await db.getFirstAsync<Flight>('SELECT * FROM flights WHERE id=?', [id]);
 }
 
+/** Senaste riktiga flygningen som landade på flygplatsen (Visited airports: Play). Inte simulator eller summeringsrader. */
+export async function getLastArrivalFlight(icao: string): Promise<Flight | null> {
+  const db = await getDatabase();
+  return await db.getFirstAsync<Flight>(
+    `SELECT * FROM flights WHERE upper(trim(arr_place))=? AND flight_type NOT IN ('sim','summary')
+       AND remarks NOT IN ('[BACKFILL]','Blades previous experience') ORDER BY date DESC, id DESC LIMIT 1`,
+    [(icao || '').trim().toUpperCase()],
+  );
+}
+
 export async function getFlightCount(): Promise<number> {
   const db = await getDatabase();
   const r = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM flights');

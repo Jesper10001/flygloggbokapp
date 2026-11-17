@@ -1,5 +1,5 @@
 // Delat flygplats-infokort (Global map, Visited airports, Find airport, "Fly to"). Samma stil som dashboardens
-// flygkort men lågt och halvgenomskinligt (kartan syns igenom):
+// flygkort men lågt och 40 % genomskinligt (kartan syns igenom):
 //   rad 1: ICAO · namn · stjärna · stäng
 //   rad 2: IATA · storlek (· land) · väder (VFR-märke + kort METAR, tryck → METAR-rutan), annars "No weather"
 //   remsa: ELEV · bana (en: RUNWAY + LENGTH, flera: RUNWAYS + LONGEST) · första frekvensen
@@ -32,7 +32,7 @@ const TYPE_LABEL: Record<string, string> = {
 const fmtFreq = (v: number) => v.toFixed(3);
 const fmtM = (m: number) => `${Math.round(m).toLocaleString('en-US')} m`;
 
-export function AirportInfoCard({ icao, name, iata, alt, type, country, accent = Colors.info, landingCount, lastText, onLastPress, onClose, isFavorite, onToggleFavorite, onMetar, onOpenMetar, solid = false }: {
+export function AirportInfoCard({ icao, name, iata, alt, type, country, accent = Colors.info, landingCount, lastText, onLastPress, onClose, isFavorite, onToggleFavorite, onMetar, onOpenMetar, solid = false, onPlay, playing = false }: {
   icao: string;
   name?: string;
   country?: string | null;    // ISO alpha-2 landskod → landets namn på rad 2
@@ -48,6 +48,8 @@ export function AirportInfoCard({ icao, name, iata, alt, type, country, accent =
   onToggleFavorite?: () => void;
   onMetar?: (m: AirportMetar | null) => void; // rapporterar hämtad METAR uppåt (t.ex. vind → aktiv bana i snippeten)
   onOpenMetar?: (m: AirportMetar) => void;    // satt → föräldern visar METAR-rutan (MetarPopup) i stället för en egen Modal
+  onPlay?: () => void;        // satt → Play i landningsraden (Visited airports: spela upp senaste flygningen hit)
+  playing?: boolean;          // uppspelningen pågår → knappen blir Stop (samma onPlay växlar)
   solid?: boolean;            // tät bakgrund (Find airport: kortet ligger inte på en karta utan bredvid täta paneler)
 }) {
   const freq = getAirportFreq(icao);
@@ -99,7 +101,7 @@ export function AirportInfoCard({ icao, name, iata, alt, type, country, accent =
 
   return (
     <View style={{ borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: accent + '55' }}>
-      <LinearGradient colors={solid ? ['rgba(18,48,74,0.97)', 'rgba(15,30,58,0.97)'] : ['rgba(18,48,74,0.5)', 'rgba(15,30,58,0.5)']} locations={[0, 0.55]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={solid ? ['rgba(18,48,74,0.97)', 'rgba(15,30,58,0.97)'] : ['rgba(18,48,74,0.6)', 'rgba(15,30,58,0.6)']} locations={[0, 0.55]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
 
       {/* Rad 1: ICAO · namn · stjärna · stäng */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 14, paddingRight: 10, paddingTop: 10, paddingBottom: 2 }}>
@@ -171,6 +173,15 @@ export function AirportInfoCard({ icao, name, iata, alt, type, country, accent =
             {landingCount === 1 ? ' landing' : ' landings'}
             {lastText ? <>{' · last '}<Text style={{ fontFamily: MONO, fontWeight: '700' }}>{lastText}</Text></> : null}
           </Text>
+          {onPlay && (
+            <TouchableOpacity onPress={onPlay} hitSlop={8} activeOpacity={0.8} accessibilityRole="button"
+              accessibilityLabel={playing ? 'Stop' : 'Play the latest flight here'}
+              style={{ height: 28, flexDirection: 'row', alignItems: 'center', gap: 5, paddingLeft: 9, paddingRight: 11, borderRadius: 14,
+                backgroundColor: playing ? accent + '1F' : accent, borderWidth: 1, borderColor: accent }}>
+              <Ionicons name={playing ? 'stop' : 'play'} size={11} color={playing ? accent : Colors.textInverse} />
+              <Text style={{ fontSize: 12.5, fontWeight: '800', color: playing ? accent : Colors.textInverse }}>{playing ? 'Stop' : 'Play'}</Text>
+            </TouchableOpacity>
+          )}
           {onLastPress && <Text style={{ fontSize: 12.5, fontWeight: '700', color: accent }}>Open flight ›</Text>}
         </TouchableOpacity>
       )}

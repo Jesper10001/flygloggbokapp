@@ -1,16 +1,20 @@
 import { useHoldPopups } from '../store/mapScreenStore';
-import { useState, useEffect, useMemo, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import {
-  View, Text, TouchableOpacity, Modal, StyleSheet, FlatList, ScrollView,
+  View, Text, TouchableOpacity, Modal, StyleSheet, FlatList, ScrollView, Animated,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { continentForCountry } from '../constants/continents';
 import { CountryFlag } from './CountryFlag';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { getVisitedAirportIcaos, getVisitedAirportDates, getAirportLandingCounts, getAirportLastFlight } from '../db/flights';
+import { getVisitedAirportIcaos, getVisitedAirportDates, getAirportLandingCounts, getAirportLastFlight, getLastArrivalFlight, getAircraftCategory } from '../db/flights';
+import type { Flight } from '../types/flight';
+import { LatestFlightCard } from './logbook-page/LatestFlightCard';
+import { useReplay, ReplayAircraft, RippleMarker, gcPoint, gcPath, gcCourse, ease, clamp } from './milestones/ReplayKit';
+import { toLatLng, type GeoPt } from './milestones/MilestoneMap';
 import { getAirportCoordinates, getAllTemporaryPlaces, getSeedAirports } from '../db/icao';
 import runwayData from '../assets/runways.json';
 import { getRunways } from '../utils/runways';
@@ -236,6 +240,67 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
   // Thumbnail: centrera över kontinenten man landat mest på + små ICAO-pins där.
   const thumb = useMemo(() => topCountryThumb(visitedSeedRows), [visitedSeedRows]);
 
+  // ── Play: senaste flygningen HIT spelas upp på kartan (som Best week) ──
+  // Bara när den kom från en annan flygplats (inte en lokal flygning) och båda platserna har koordinater.
+  // Under uppspelningen flyttas flygplatskortet upp i periodväljarens ställe, kontrollerna döljs, kartan ramar in
+  // båda flygplatserna mellan korten och ett avskalat flygkort ersätter länderlistan längst ner. Slutar av sig själv.
+  const [replayCand, setReplayCand] = useState<{ flight: Flight; dep: GeoPt; arr: GeoPt; heli: boolean; nm: number } | null>(null);
+  useEffect(() => {
+    setReplayCand(null);
+    if (!selectedAirport) return;
+    let alive = true;
+    (async () => {
+      const f = await getLastArrivalFlight(selectedAirport);
+      if (!f) return;
+      const depIc = (f.dep_place || '').trim().toUpperCase(), arrIc = (f.arr_place || '').trim().toUpperCase();
+      if (!depIc || !arrIc || depIc === arrIc) return;
+      const where = async (ic: string): Promise<GeoPt | null> => {
+        const a = airports.find((x) => x.icao === ic);
+        if (a?.lat && a?.lon) return { lat: a.lat, lon: a.lon };
+        const c = (await getAirportCoordinates([ic]))[0];
+        return c?.lat && c?.lon ? { lat: c.lat, lon: c.lon } : null;
+      };
+      const [dep, arr] = await Promise.all([where(depIc), where(arrIc)]);
+      if (!dep || !arr || !alive) return;
+      const heli = (await getAircraftCategory(f.aircraft_type || '').catch(() => '')) === 'helicopter';
+      const r = Math.PI / 180;
+      const h = Math.sin(((arr.lat - dep.lat) * r) / 2) ** 2 + Math.cos(dep.lat * r) * Math.cos(arr.lat * r) * Math.sin(((arr.lon - dep.lon) * r) / 2) ** 2;
+      const nm = 2 * 3440.065 * Math.asin(Math.sqrt(h));
+      if (alive) setReplayCand({ flight: f, dep, arr, heli, nm });
+    })().catch(() => {});
+    return () => { alive = false; };
+  }, [selectedAirport, airports]);
+
+  const REPLAY_TOTAL = 7; // s: ~1 s inramning, 4,8 s flygning, 1,2 s landning
+  const replay = useReplay(REPLAY_TOTAL);
+  const [replayOn, setReplayOn] = useState(false);
+  const stopReplay = () => { replay.halt(); replay.seek(0); setReplayOn(false); };
+  const startReplay = () => {
+    if (!replayCand) return;
+    setMetarPopup(null);
+    replay.seek(0);
+    setReplayOn(true);
+    replay.play();
+  };
+  // Klar → kortet och kontrollerna tillbaka, kartan glider tillbaka (GlobalAirportMap fitTo = null).
+  useEffect(() => {
+    if (!replayOn || replay.playing || replay.t < REPLAY_TOTAL - 0.01) return;
+    const id = setTimeout(() => { setReplayOn(false); replay.seek(0); }, 600);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replayOn, replay.playing, replay.t]);
+  // Annan flygplats, stängt kort eller stängd karta → avbryt.
+  useEffect(() => { if (replayOn) stopReplay(); }, [selectedAirport, modalVisible]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Flygplatskortet glider upp till periodväljarens plats.
+  const cardShift = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(cardShift, { toValue: replayOn ? -48 : 0, duration: 380, useNativeDriver: true }).start();
+  }, [replayOn, cardShift]);
+  const [cardH, setCardH] = useState(150);
+  const [flightCardH, setFlightCardH] = useState(150);
+  const fly = ease(clamp((replay.t - 1) / 4.8, 0, 1));
+  const landed = replay.t >= 5.8;
+
   if (!allIcaos.length) return null;
 
   // Kompakt header (halv bredd) — bara ikon + antal + etikett.
@@ -373,7 +438,25 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
                 onSelectAirport={setSelectedAirport}
                 selectedIcao={selectedAirport ?? undefined}
                 mapType={satellite ? 'hybridFlyover' : 'standard'}
-              />
+                fitTo={replayOn && replayCand ? {
+                  key: `play-${replayCand.flight.id}`,
+                  pts: [replayCand.dep, replayCand.arr],
+                  padding: { top: insets.top + 8 + cardH + 44, bottom: insets.bottom + 6 + flightCardH + 44, left: 56, right: 56 },
+                } : null}
+              >
+                {replayOn && replayCand && (
+                  <>
+                    <Polyline coordinates={gcPath(replayCand.dep, replayCand.arr, 0, 1, replayCand.nm).map(toLatLng)} strokeColor="rgba(255,255,255,0.45)" strokeWidth={1.5} lineDashPattern={[5, 6]} zIndex={6} />
+                    {fly > 0.002 && (
+                      <Polyline coordinates={gcPath(replayCand.dep, replayCand.arr, 0, fly, replayCand.nm).map(toLatLng)} strokeColor="#67E8F9" strokeWidth={3} lineCap="round" zIndex={7} />
+                    )}
+                    {landed && <RippleMarker key={`rip-${replayCand.flight.id}`} p={replayCand.arr} />}
+                    <ReplayAircraft p={gcPoint(replayCand.dep, replayCand.arr, fly)} heli={replayCand.heli}
+                      heading={gcCourse(replayCand.dep, replayCand.arr, fly)} spinning={replay.playing && replayCand.heli}
+                      lift={Math.sin(Math.PI * fly) * 6} />
+                  </>
+                )}
+              </GlobalAirportMap>
             );
           })()}
 
@@ -384,7 +467,8 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
             const count = landingCounts[ic] ?? 0;
             const lf = lastFlight[ic];
             return (
-              <View style={{ position: 'absolute', top: insets.top + 56, left: 12, right: 12 }}>
+              <Animated.View onLayout={(e) => setCardH(e.nativeEvent.layout.height)}
+                style={{ position: 'absolute', top: insets.top + 56, left: 12, right: 12, transform: [{ translateY: cardShift }] }}>
                 <AirportInfoCard
                   icao={ic}
                   name={ap?.name}
@@ -397,13 +481,23 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
                   } : undefined}
                   onOpenMetar={setMetarPopup}
                   onClose={() => { setSelectedAirport(null); setMetarPopup(null); }}
+                  onPlay={replayCand && replayCand.flight.arr_place.trim().toUpperCase() === ic ? (replayOn ? stopReplay : startReplay) : undefined}
+                  playing={replayOn}
                 />
-              </View>
+              </Animated.View>
             );
           })()}
 
+          {/* Uppspelningen: det avskalade flygkortet i länderlistans ställe */}
+          {replayOn && replayCand && (
+            <View pointerEvents="none" onLayout={(e) => setFlightCardH(e.nativeEvent.layout.height)}
+              style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 6 }}>
+              <LatestFlightCard flight={replayCand.flight} accent={Colors.primary} placeNames={{}} onPress={() => {}} bare progress={fly} />
+            </View>
+          )}
+
           {/* Besökta länder — flest besökta överst, scrollbar (max ~5 synliga) */}
-          {countryStats.length > 0 && (
+          {countryStats.length > 0 && !replayOn && (
             <View style={{
               position: 'absolute', bottom: 24, left: 16, width: 190, maxHeight: 5 * 34 + 8,
               backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 12,
@@ -434,7 +528,7 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
           )}
 
           {/* Period-väljare (All time / This year / Custom) */}
-          <View style={{
+          {!replayOn && <View style={{
             position: 'absolute', top: insets.top + 12, left: 0, right: 64,
             alignItems: 'center', pointerEvents: 'box-none',
           }}>
@@ -457,10 +551,10 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
                 })}
               </View>
             </View>
-          </View>
+          </View>}
 
           {/* Kartläge-växel: standard (default) ↔ satellit (hybrid) */}
-          <TouchableOpacity
+          {!replayOn && <TouchableOpacity
             onPress={() => setSatellite((s) => !s)}
             activeOpacity={0.8}
             style={{
@@ -472,16 +566,16 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
           >
             <Ionicons name={satellite ? 'map' : 'globe'} size={15} color="#fff" />
             <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{satellite ? 'Map' : 'Satellite'}</Text>
-          </TouchableOpacity>
+          </TouchableOpacity>}
 
           {/* Close button */}
-          <TouchableOpacity
+          {!replayOn && <TouchableOpacity
             style={[styles.closeBtn, { top: insets.top + 12 }]}
             onPress={() => { setModalVisible(false); setSelectedCountry(null); setSelectedAirport(null); setMetarPopup(null); }}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <Ionicons name="close" size={20} color="#fff" />
-          </TouchableOpacity>
+          </TouchableOpacity>}
 
           {/* METAR från flygplatskortet: overlay, ingen Modal ovanpå kartan (den slutar annars svara). */}
           {metarPopup && <MetarPopup metar={metarPopup} onClose={() => setMetarPopup(null)} />}
