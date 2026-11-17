@@ -40,4 +40,3 @@ scripts/freq.csv
 flightlog.db
 *.db-wal
 *.db-shm
-scripts/osm-data/
