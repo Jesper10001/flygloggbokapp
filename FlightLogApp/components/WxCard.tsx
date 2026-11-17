@@ -47,11 +47,12 @@ function Cell({ label, cell, first, line }: { label: string; cell: WxCell; first
   );
 }
 
-export function WxCard({ wx, loading, byPosition, onPress }: {
+export function WxCard({ wx, loading, byPosition, onPress, translucent = false }: {
   wx: DecodedWx;
   loading?: boolean;     // en ny hämtning pågår (sidan drogs ner igen): kortet står kvar, åldern byts mot en snurra
   byPosition?: boolean;  // vädret gäller närmaste station från ens position (ingen destination att utgå från)
   onPress: () => void;
+  translucent?: boolean; // ovanpå en karta (WxMapPopup): 20 % genomskinligt
 }) {
   // Åldern räknas om en gång i halvminuten medan kortet visas.
   const [, setTick] = useState(0);
@@ -88,7 +89,7 @@ export function WxCard({ wx, loading, byPosition, onPress }: {
       accessibilityLabel={`Weather for ${station}. Opens the full METAR and TAF.`}
       style={{ borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: accent + '66', marginBottom: 6 }}
     >
-      <LinearGradient colors={[accent + '1F', Colors.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: '100%', height: '100%', position: 'absolute' }} />
+      <LinearGradient colors={[accent + '1F', translucent ? 'rgba(15,30,58,0.8)' : Colors.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: '100%', height: '100%', position: 'absolute' }} />
 
       {/* Rubrik: kategori, station, ålder */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingTop: 11, paddingBottom: note ? 4 : 10 }}>

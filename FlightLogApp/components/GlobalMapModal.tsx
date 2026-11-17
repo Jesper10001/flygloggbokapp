@@ -9,7 +9,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { GlobalAirportMap, type RegionMarker } from './GlobalAirportMap';
-import { AirportInfoCard, MetarPopup } from './AirportInfoCard';
+import { AirportInfoCard } from './AirportInfoCard';
+import { WxMapPopup } from './WxMapPopup';
 import { AirportNavPanel } from './AirportNavPanel';
 import { FlightDetailView } from '../app/flight/detail/[id]';
 import { getSeedAirports } from '../db/icao';
@@ -1063,7 +1064,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
         )}
 
         {/* METAR från flygplatskortet: overlay överst, ingen Modal ovanpå kartan (den slutar annars svara). */}
-        {metarPopup && <MetarPopup metar={metarPopup} accent={flyTo ? Colors.primary : Colors.info} onClose={() => setMetarPopup(null)} />}
+        {metarPopup && <WxMapPopup icao={metarPopup.icao} onClose={() => setMetarPopup(null)} />}
       </View>
     </Modal>
   );

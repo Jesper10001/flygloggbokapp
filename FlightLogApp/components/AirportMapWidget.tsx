@@ -19,7 +19,8 @@ import { getAirportCoordinates, getAllTemporaryPlaces, getSeedAirports } from '.
 import runwayData from '../assets/runways.json';
 import { getRunways } from '../utils/runways';
 import { topCountryThumb } from '../utils/thumbRegion';
-import { AirportInfoCard, MetarPopup } from './AirportInfoCard';
+import { AirportInfoCard } from './AirportInfoCard';
+import { WxMapPopup } from './WxMapPopup';
 import type { AirportMetar } from '../services/weather';
 import { Colors } from '../constants/colors';
 import { useFlightStore } from '../store/flightStore';
@@ -578,7 +579,7 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
           </TouchableOpacity>}
 
           {/* METAR från flygplatskortet: overlay, ingen Modal ovanpå kartan (den slutar annars svara). */}
-          {metarPopup && <MetarPopup metar={metarPopup} onClose={() => setMetarPopup(null)} />}
+          {metarPopup && <WxMapPopup icao={metarPopup.icao} onClose={() => setMetarPopup(null)} />}
         </View>
 
         {/* Datum-väljare för Custom-period (från-datum fram till idag) */}

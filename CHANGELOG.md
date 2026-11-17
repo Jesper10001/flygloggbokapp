@@ -15,6 +15,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: A new, lower airport card: name, weather and the key facts at a glance, with runway length and all frequencies.
 - Improved: Runways on the Global map are drawn as outlines, so the real runway in the satellite photo shows through.
 - New: Play the latest flight to an airport on the Visited airports map, the way Best week plays a week.
+- Improved: Tapping the weather on an airport card on the maps shows the same weather card as the dashboard.
 
 ### Alla ändringar
 
@@ -26,6 +27,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Flygplatskortet på kartorna 40 % genomskinligt (var 50 %). ESCF TWR 129.805 (OurAirports har 129.8); rättningar ligger i OVERRIDES i scripts/build-frequencies.mjs så att de överlever en ny körning.
 - Visited airports: Play i flygplatskortets landningsrad spelar upp senaste flygningen som landade där (getLastArrivalFlight), bara när den kom från en annan flygplats. Kortet glider upp i periodväljarens plats, väljaren/X/länderlistan/satellitknappen döljs, kartan ramar in båda flygplatserna mellan korten (GlobalAirportMap fitTo, glider tillbaka efteråt), rutt + spår + farkost + landningsringar från Best week (ReplayKit), avskalat flygkort längst ner (LatestFlightCard bare, 40 % genomskinligt, förloppslinje). Stop avbryter; slutar av sig själv efter 7 s.
 - Flygplatskortet (Global map, Visited airports) och uppspelningens flygkort 20 % genomskinliga (var 40 %).
+- Kartorna (Global map, Visited airports): vädret från flygplatskortet visas i dashboardens väderkort (WxCard translucent, 20 % genomskinligt) i ett overlay (components/WxMapPopup) i stället för METAR-rutan; tryck på kortet fäller ut hela METAR och TAF (Decoded/Raw). Find airport har kvar METAR-rutan.
 
 ## 1.0.2 – byggs 2026-11-16
 
