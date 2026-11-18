@@ -4,7 +4,7 @@
 // Region = land → region → sektor-drill DIREKT PÅ KARTAN (cyan-gränser + antal, borra ner tills ICAO-
 // pins). Infokort i botten vid val. Öppnas från Manage airports + dashboard.
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Pressable, StyleSheet, Keyboard, Alert, LayoutAnimation, Clipboard, Linking, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Pressable, StyleSheet, Keyboard, Alert, LayoutAnimation, Clipboard, Linking } from 'react-native';
 import { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,7 +37,7 @@ import { useRegulationStandardStore } from '../store/regulationStandardStore';
 import { useFlightStore } from '../store/flightStore';
 import { presentPaywall } from '../services/purchases';
 import { useTourStore } from '../store/tourStore';
-import { IncidentNewsOverlay, NEWS_SHEET_FRACTION } from './IncidentNewsOverlay';
+import { IncidentNewsOverlay } from './IncidentNewsOverlay';
 import { MapControlStack } from './MapControlStack';
 import { useIncidentNewsStore } from '../store/incidentNewsStore';
 import { useHoldPopups } from '../store/mapScreenStore';
@@ -146,7 +146,6 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [meBusy, setMeBusy] = useState(false);
   const [locOff, setLocOff] = useState(false);       // platstjänster nekade → liten ruta med "Open Settings"
   const meGuardRef = useRef(0);                      // kamerans egen flygning räknas inte som att man drog i kartan
-  const { height: winH } = useWindowDimensions();
   const newsIncidents = useIncidentNewsStore((st) => st.incidents);
   const [cameFromNews, setCameFromNews] = useState(false); // kom hit via "Map" i nyhetsrutan → visa "Back to news"
   const [satellite, setSatellite] = useState(true); // satellitläge förvalt
@@ -162,6 +161,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   // Koordinaterna i flygplatsvyn: valt system (sparas, MGRS första gången), rullistan och "Copied".
   const [coordSys, setCoordSys] = useState<CoordSystem>('mgrs');
   const [coordListOpen, setCoordListOpen] = useState(false);
+  const [coordShown, setCoordShown] = useState(false); // koordinaterna syns först när man valt ett system (gäller resten av besöket på kartan)
+  useEffect(() => { if (!visible) { setCoordShown(false); setCoordListOpen(false); } }, [visible]);
   const [coordCopied, setCoordCopied] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -169,7 +170,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     return () => { if (copiedTimer.current) clearTimeout(copiedTimer.current); };
   }, []);
   useEffect(() => { setCoordListOpen(false); setCoordCopied(false); }, [focusAirport]);
-  const pickCoordSys = (id: CoordSystem) => { setCoordSys(id); setCoordListOpen(false); setCoordCopied(false); setSetting('coord_system', id).catch(() => {}); };
+  const pickCoordSys = (id: CoordSystem) => { setCoordSys(id); setCoordShown(true); setCoordListOpen(false); setCoordCopied(false); setSetting('coord_system', id).catch(() => {}); };
   const copyCoord = (text: string) => {
     try { Clipboard.setString(text); } catch { return; }
     setCoordListOpen(false); setCoordCopied(true);
@@ -744,7 +745,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   };
   useEffect(() => { if (!locOff) return; const t = setTimeout(() => setLocOff(false), 6000); return () => clearTimeout(t); }, [locOff]);
 
-  // News: nyheternas flygplatser som prickar på kartan, inramade ovanför arket.
+  // News: nyheternas flygplatser som prickar på kartan. Kartan står kvar där den är (ingen inramning).
   const seedByIcao = useMemo(() => new Map(seedData.map((r) => [r[0], r])), [seedData]);
   const newsPts = useMemo(() => {
     const seen = new Set<string>();
@@ -758,12 +759,6 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     }
     return out;
   }, [newsIncidents, seedByIcao]);
-  const newsFit = newsOpen && newsPts.length ? {
-    key: `news-${newsPts.map((p) => p.icao).join(',')}`,
-    // En enda punkt → en ruta runt den (annars zoomar MapKit in maximalt).
-    pts: newsPts.length > 1 ? newsPts : [{ lat: newsPts[0].lat - 1, lon: newsPts[0].lon - 1.5 }, { lat: newsPts[0].lat + 1, lon: newsPts[0].lon + 1.5 }],
-    padding: { top: insets.top + 80, bottom: winH * NEWS_SHEET_FRACTION + 30, left: 40, right: 40 },
-  } : null;
   const hideCountries = !!focusAirport || mapSearch.trim().length >= 2 || drillStack.length > 0;
   const showBack = !!focusAirport || drillStack.length > 0;
   const wxLegendShown = !!wxCat && !focusAirport; // väder-legend visas i väderläget (ej vid enskilt flygplatsfokus)
@@ -823,7 +818,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
               key: `play-${playCand.flight.id}`,
               pts: [playCand.dep, playCand.arr],
               padding: { top: insets.top + 8 + playCardH + 44, bottom: insets.bottom + 6 + playFlightH + 44, left: 56, right: 56 },
-            } : newsFit}
+            } : null}
             ownCompass
             onHeading={(h) => setMapHeading(Math.round(h))}
             camCmd={camCmd}
@@ -955,51 +950,34 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
           </TouchableOpacity>
         )}
 
-        {/* Flygplatsvyn: överst Back · Fly to · Map/Satellite (ingen X; Back tar en ut), under dem koordinaterna:
-            systemväljaren (rullista) och koordinaterna (tryck = kopiera). Samma stil som flygplatskortet. */}
+        {/* Flygplatsvyn: överst Back · Fly to · Coordinates i en rad (lika breda, vit text). Coordinates öppnar
+            systemlistan; när man valt ett system visas koordinaterna centrerade under knapparna (tryck = kopiera).
+            Ingen Map/Satellite-knapp här (2026-11-18, användarens val). */}
         {focusAirport && !flyTo && !playOn && (() => {
           const coord = formatCoord(focusAirport[4], focusAirport[5], coordSys);
           const sysName = COORD_SYSTEMS.find((c) => c.id === coordSys)?.name ?? 'MGRS';
           return (
             <View style={{ position: 'absolute', zIndex: 25, top: insets.top + 12, left: 12, right: 12, gap: 8 }}>
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity onPress={goBack} activeOpacity={0.85} style={styles.focusBtn} accessibilityRole="button">
-                  <Ionicons name="chevron-back" size={16} color={Colors.primary} />
-                  <Text style={styles.focusBtnTxt}>Back</Text>
+                <TouchableOpacity onPress={goBack} activeOpacity={0.85} style={[styles.focusBtn, styles.topBtn]} accessibilityRole="button">
+                  <Ionicons name="chevron-back" size={16} color="#fff" />
+                  <Text style={styles.topBtnTxt} numberOfLines={1}>Back</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={openFlyTo} activeOpacity={0.85} style={styles.focusBtn} accessibilityRole="button">
-                  <Ionicons name="navigate" size={15} color={Colors.primary} />
-                  <Text style={styles.focusBtnTxt}>Fly to {focusAirport[0]}</Text>
+                <TouchableOpacity onPress={openFlyTo} activeOpacity={0.85} style={[styles.focusBtn, styles.topBtn, { flex: 1.25 }]} accessibilityRole="button">
+                  <Ionicons name="navigate" size={15} color="#fff" />
+                  <Text style={styles.topBtnTxt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>Fly to {focusAirport[0]}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setSatellite((v) => !v)} activeOpacity={0.85} style={[styles.focusBtn, { borderColor: 'rgba(255,255,255,0.22)' }]}
-                  accessibilityRole="button" accessibilityLabel={satellite ? 'Show the map' : 'Show satellite'}>
-                  <Ionicons name={satellite ? 'map' : 'globe'} size={15} color="#fff" />
-                  <Text style={[styles.focusBtnTxt, { color: '#fff' }]}>{satellite ? 'Map' : 'Satellite'}</Text>
+                <TouchableOpacity onPress={() => setCoordListOpen((o) => !o)} activeOpacity={0.85} style={[styles.focusBtn, styles.topBtn, { flex: 1.35 }]}
+                  accessibilityRole="button" accessibilityLabel="Coordinates" accessibilityState={{ expanded: coordListOpen }}>
+                  <Ionicons name="locate" size={15} color="#fff" />
+                  <Text style={styles.topBtnTxt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>Coordinates</Text>
+                  <Ionicons name={coordListOpen ? 'chevron-up' : 'chevron-down'} size={12} color="#fff" />
                 </TouchableOpacity>
               </View>
-              {coord && (
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TouchableOpacity onPress={() => setCoordListOpen((o) => !o)} activeOpacity={0.8} style={[styles.coordBox, { width: 92, justifyContent: 'space-between' }]}
-                    accessibilityRole="button" accessibilityLabel={`Coordinate system: ${sysName}`} accessibilityState={{ expanded: coordListOpen }}>
-                    <Text style={[styles.coordTxt, { color: Colors.primary, fontWeight: '800' }]}>{sysName}</Text>
-                    <Ionicons name={coordListOpen ? 'chevron-up' : 'chevron-down'} size={13} color={Colors.primary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => copyCoord(coord)} activeOpacity={0.8} style={[styles.coordBox, { flex: 1, justifyContent: 'space-between', gap: 8 }]}
-                    accessibilityRole="button" accessibilityLabel={`Copy coordinates ${coord}`}>
-                    <Text style={[styles.coordTxt, { flex: 1 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{coord}</Text>
-                    {coordCopied ? (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                        <Ionicons name="checkmark" size={14} color={Colors.success} />
-                        <Text style={{ color: Colors.success, fontSize: 11, fontWeight: '700' }}>Copied</Text>
-                      </View>
-                    ) : <Ionicons name="copy-outline" size={15} color="#8FB0CC" />}
-                  </TouchableOpacity>
-                </View>
-              )}
               {coordListOpen && (
-                <View style={styles.coordList}>
+                <View style={[styles.coordList, { alignSelf: 'flex-end' }]}>
                   {COORD_SYSTEMS.map((c, i) => {
-                    const on = c.id === coordSys;
+                    const on = coordShown && c.id === coordSys;
                     const sample = formatCoord(focusAirport[4], focusAirport[5], c.id);
                     return (
                       <TouchableOpacity key={c.id} onPress={() => pickCoordSys(c.id)} activeOpacity={0.7} disabled={!sample}
@@ -1015,6 +993,19 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                     );
                   })}
                 </View>
+              )}
+              {coordShown && !coordListOpen && coord && (
+                <TouchableOpacity onPress={() => copyCoord(coord)} activeOpacity={0.8} style={[styles.coordBox, { alignSelf: 'center', gap: 10, maxWidth: '100%' }]}
+                  accessibilityRole="button" accessibilityLabel={`Copy coordinates ${coord}`}>
+                  <Text style={[styles.coordTxt, { color: Colors.primary, fontWeight: '800', fontSize: 11 }]}>{sysName}</Text>
+                  <Text style={[styles.coordTxt, { flexShrink: 1 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{coord}</Text>
+                  {coordCopied ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                      <Ionicons name="checkmark" size={14} color={Colors.success} />
+                      <Text style={{ color: Colors.success, fontSize: 11, fontWeight: '700' }}>Copied</Text>
+                    </View>
+                  ) : <Ionicons name="copy-outline" size={15} color="#8FB0CC" />}
+                </TouchableOpacity>
               )}
             </View>
           );
@@ -1323,6 +1314,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
 const styles = StyleSheet.create({
   focusBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 10, paddingHorizontal: 10, height: 36, borderWidth: 1, borderColor: Colors.primary + '66' },
   focusBtnTxt: { color: Colors.primary, fontSize: 13, fontWeight: '700' },
+  topBtn: { flex: 1, justifyContent: 'center', height: 40, paddingHorizontal: 8 },
+  topBtnTxt: { color: '#fff', fontSize: 13, fontWeight: '700', flexShrink: 1 },
   coordBox: { flexDirection: 'row', alignItems: 'center', height: 38, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.primary + '55', backgroundColor: 'rgba(15,30,58,0.8)' },
   coordTxt: { fontFamily: 'JetBrainsMono', fontSize: 13, fontWeight: '700', color: '#fff', letterSpacing: 0.3 },
   coordList: { width: 300, maxWidth: '100%', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: Colors.primary + '55', backgroundColor: 'rgba(15,30,58,0.97)' },
