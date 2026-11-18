@@ -25,8 +25,11 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - New: Global map has Apple Maps-style buttons in the corner: a compass when the map is turned, map layer, and My position, which shows you and the nearest airport.
 - Improved: News opens as a sheet over the map with the airports marked; scroll through every incident, newest first.
 - Improved: Sun route asks which way you flew with a compass keypad under the map, so the map stays clear.
+- New: Zoom in on an airport in Visited airports to see its runways, and Play starts on the runway like on the Global map.
 
 ### Alla ändringar
+
+- Visited airports: knappen Zoom in/Zoom out vänster om Map/Satellite när en flygplats är vald; inzoomat (GlobalAirportMap focus) ritas banorna ut som på Global map och länderlistan döljs, övriga kort och knappar ligger kvar. Knappen döljs under Play. Play tar helst senaste flygningen FRÅN flygplatsen och spelas då som i Global map: zoomar in, farkosten rullar på banan (2,2 s), kartan ramar in båda flygplatserna med flygkortet nere, och slutar inzoomat på ankomstflygplatsen med dess kort. Finns bara flygningar TILL flygplatsen spelas de som förut (utan banstart).
 
 - Sun route, samma flygplats in och ut ("Which way did you fly?"): riktningsknapparna flyttade från kartan till en knappsats 3×3 under den (NW N NE / W Local E / SW S SE, pilar i riktningen, Local i mitten) enligt design A (artifact X4Bt4hnKdL4Lw4Zn1dygdi). Kartan visar bara ringen, vald sektor eller en liten Local-cirkel; sektor och cirkel ligger alltid monterade och tänds med färgen. Kompasskartan 300 → 230 pt hög.
 

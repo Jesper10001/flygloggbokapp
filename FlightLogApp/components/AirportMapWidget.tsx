@@ -253,7 +253,10 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
     if (!selectedAirport) return;
     let alive = true;
     (async () => {
-      const f = await getLastFlightAt(selectedAirport, 'any');
+      // Helst senaste flygningen FRÅN flygplatsen: då startar farkosten på banan som i Global map.
+      // Finns ingen, senaste till eller från (utan banstart).
+      const fromF = await getLastFlightAt(selectedAirport, 'from');
+      const f = fromF ?? await getLastFlightAt(selectedAirport, 'any');
       if (!f) return;
       const where = async (ic: string): Promise<GeoPt | null> => {
         const a = airports.find((x) => x.icao === ic);
@@ -263,19 +266,30 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
       };
       const [dep, arr] = await Promise.all([where(f.dep_place.trim().toUpperCase()), where(f.arr_place.trim().toUpperCase())]);
       if (!dep || !arr || !alive) return;
-      const r = await buildReplay(selectedAirport, f, dep, arr, false);
+      const r = await buildReplay(selectedAirport, f, dep, arr, !!fromF);
       if (alive) setReplayCand(r);
     })().catch(() => {});
     return () => { alive = false; };
   }, [selectedAirport, airports]);
 
-  const REPLAY_TOTAL = replayTotal(0); // s: ~1 s inramning, 4,8 s flygning, 1,2 s landning
+  // Med banstart (roll) som i Global map: 2,2 s på banan (inzoomat) innan kartan ramar in båda flygplatserna.
+  const PLAY_PRE = 2.2;
+  const pre = replayCand?.roll ? PLAY_PRE : 0;
+  const REPLAY_TOTAL = replayTotal(pre); // s: (banan) ~1 s inramning, 4,8 s flygning, 1,2 s landning
   const replay = useReplay(REPLAY_TOTAL);
+  // Zoom: in på vald flygplats med banorna utritade (GlobalAirportMap focus); länderlistan döljs under tiden.
+  const [zoomed, setZoomed] = useState(false);
+  useEffect(() => { if (!selectedAirport) setZoomed(false); }, [selectedAirport]);
+  useEffect(() => { if (!modalVisible) setZoomed(false); }, [modalVisible]);
+  const focusRow = useMemo(() => (zoomed && selectedAirport ? visitedSeedRows.find((r) => r[0] === selectedAirport) ?? null : null),
+    [zoomed, selectedAirport, visitedSeedRows]);
+  const [mapBtnW, setMapBtnW] = useState(96);
   const [replayOn, setReplayOn] = useState(false);
   const stopReplay = () => { replay.halt(); replay.seek(0); setReplayOn(false); };
   const startReplay = () => {
     if (!replayCand) return;
     setMetarPopup(null);
+    if (replayCand.roll) setZoomed(true); // startar på banan → zooma in dit först, som i Global map
     replay.seek(0);
     setReplayOn(true);
     replay.play();
@@ -301,7 +315,7 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
   }, [replayOn, cardShift]);
   const [cardH, setCardH] = useState(150);
   const [flightCardH, setFlightCardH] = useState(150);
-  const fly = replayProgress(replay.t, 0);
+  const fly = replayProgress(replay.t, pre);
 
   if (!allIcaos.length) return null;
 
@@ -442,14 +456,15 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
                 mapType={satellite ? 'hybridFlyover' : 'standard'}
                 // Valt land: konturen i guld (zoomen är densamma som förut, ramad kring besökta flygplatser).
                 goldOutline={selectedCountry ? (() => { const rings = countryOutline(selectedCountry); return rings ? { key: selectedCountry, rings } : null; })() : null}
-                fitTo={replayOn && replayCand ? {
+                focus={focusRow}
+                fitTo={replayOn && replayCand && replay.t >= pre - 0.15 ? {
                   key: `play-${replayCand.flight.id}`,
                   pts: [replayCand.dep, replayCand.arr],
                   padding: { top: insets.top + 8 + cardH + 44, bottom: insets.bottom + 6 + flightCardH + 44, left: 56, right: 56 },
-                  endAt: replayCand.arrIcao !== selectedAirport && airports.some((a) => a.icao === replayCand.arrIcao) ? replayCand.arr : null,
+                  endAt: !zoomed && replayCand.arrIcao !== selectedAirport && airports.some((a) => a.icao === replayCand.arrIcao) ? replayCand.arr : null,
                 } : null}
               >
-                {replayOn && replayCand && <FlightReplayLayer r={replayCand} t={replay.t} pre={0} playing={replay.playing} />}
+                {replayOn && replayCand && <FlightReplayLayer r={replayCand} t={replay.t} pre={pre} playing={replay.playing} />}
               </GlobalAirportMap>
             );
           })()}
@@ -491,7 +506,7 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
           )}
 
           {/* Besökta länder — flest besökta överst, scrollbar (max ~5 synliga) */}
-          {countryStats.length > 0 && !replayOn && (
+          {countryStats.length > 0 && !replayOn && !zoomed && (
             <View style={{
               position: 'absolute', bottom: 24, left: 16, width: 190, maxHeight: 5 * 34 + 8,
               backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 12,
@@ -547,8 +562,25 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
             </View>
           </View>}
 
+          {/* Zoom in/ut på vald flygplats (banorna ritas ut inzoomat), vänster om kartläge-knappen. */}
+          {!replayOn && selectedAirport && <TouchableOpacity
+            onPress={() => setZoomed((z) => !z)}
+            activeOpacity={0.8}
+            accessibilityRole="button" accessibilityLabel={zoomed ? 'Zoom out' : `Zoom in on ${selectedAirport}`}
+            style={{
+              position: 'absolute', bottom: 24, right: 16 + mapBtnW + 8, height: 36,
+              flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12,
+              borderRadius: 18, backgroundColor: 'rgba(15,22,38,0.9)',
+              borderWidth: 0.5, borderColor: zoomed ? Colors.primary + '99' : 'rgba(255,255,255,0.2)',
+            }}
+          >
+            <Ionicons name={zoomed ? 'contract' : 'expand'} size={15} color={zoomed ? Colors.primary : '#fff'} />
+            <Text style={{ color: zoomed ? Colors.primary : '#fff', fontSize: 11, fontWeight: '700' }}>{zoomed ? 'Zoom out' : 'Zoom in'}</Text>
+          </TouchableOpacity>}
+
           {/* Kartläge-växel: standard (default) ↔ satellit (hybrid) */}
           {!replayOn && <TouchableOpacity
+            onLayout={(e) => setMapBtnW(Math.round(e.nativeEvent.layout.width))}
             onPress={() => setSatellite((s) => !s)}
             activeOpacity={0.8}
             style={{
