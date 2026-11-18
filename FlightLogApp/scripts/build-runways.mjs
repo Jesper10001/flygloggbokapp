@@ -105,6 +105,7 @@ if (fs.existsSync(OSM)) {
     if (g.length > 3 && distM(P, Q) < 5) continue;   // sluten yta
     if (t.disused === 'yes' || t.abandoned === 'yes' || /^(water)$/.test(t.surface || '')) continue;
     if (/^(blast_pad|stopway|overrun)$/.test(t.runway || '')) continue;   // förlängningar utan landningsyta
+    const dt = t.runway === 'displaced_threshold';   // förskjuten tröskel: del av banans yta, slås ihop med banan nedan
     const len = distM(P, Q);
     if (len < 100) continue;
     let le = null, he = null;
@@ -120,8 +121,66 @@ if (fs.existsSync(OSM)) {
     }
     // Vilken ände är "le": därifrån pekar banan mot le × 10° (magnetiskt; ±90° räcker).
     const leFirst = angDiff(brg, Number(le.slice(0, 2)) * 10) <= 90;
-    runways.push({ id: w.id, le, he, leP: leFirst ? P : Q, heP: leFirst ? Q : P, axis: brg, len, width: parseWidth(t.width), surface: t.surface || '', mid: { lat: (P.lat + Q.lat) / 2, lon: (P.lon + Q.lon) / 2 }, hasRef: !!(m || single) });
+    runways.push({ id: w.id, le, he, leP: leFirst ? P : Q, heP: leFirst ? Q : P, axis: brg, len, width: parseWidth(t.width), surface: t.surface || '', mid: { lat: (P.lat + Q.lat) / 2, lon: (P.lon + Q.lon) / 2 }, hasRef: !!(m || single) && !dt, dt });
   }
+
+  // Delade banor → en bana från ytterändarna (görs före kopplingen till flygplatser: ytterbitarna kan ligga längre
+  // än 2,5 km från flygplatsens punkt, t.ex. VIDP 11R/29L). OSM delar ofta en bana i flera bitar (förskjutna trösklar, bitar med
+  // olika yta). Bitar slås ihop när de ligger i linje (axel < 8°, högst 30 m i sidled), nuddar varandra (< 150 m) och
+  // inte har olika beteckningar; upprepas tills inget mer går ihop, så ordningen spelar ingen roll. En förskjuten
+  // tröskel som inte hör till någon bana tas bort.
+  const lateral = (p, a, b) => {   // punkt → linjen genom a–b, meter
+    const [px, py] = xy(p.lat, p.lon, a.lat), [ax, ay] = xy(a.lat, a.lon, a.lat), [bx, by] = xy(b.lat, b.lon, a.lat);
+    const dx = bx - ax, dy = by - ay, l = Math.hypot(dx, dy) || 1;
+    return Math.abs((px - ax) * dy - (py - ay) * dx) / l;
+  };
+  const joinable = (a, b) => {
+    if (axisDiff(a.axis, b.axis) >= 8) return false;
+    if (a.hasRef && b.hasRef && `${a.le}/${a.he}` !== `${b.le}/${b.he}`) return false;
+    const touch = Math.min(distM(a.leP, b.leP), distM(a.leP, b.heP), distM(a.heP, b.leP), distM(a.heP, b.heP)) < 150;
+    if (!touch) return false;
+    const [L, S] = a.len >= b.len ? [a, b] : [b, a];
+    return lateral(S.leP, L.leP, L.heP) < 30 && lateral(S.heP, L.leP, L.heP) < 30;
+  };
+  const score = (r) => (r.dt ? 0 : 2) + (r.hasRef ? 1 : 0);
+  const absorb = (keep, drop) => {
+    const pts = [keep.leP, keep.heP, drop.leP, drop.heP];
+    let A = pts[0], B = pts[1], far = 0;
+    for (let x = 0; x < 4; x++) for (let y = x + 1; y < 4; y++) { const d = distM(pts[x], pts[y]); if (d > far) { far = d; A = pts[x]; B = pts[y]; } }
+    if (!keep.hasRef && drop.hasRef) { keep.le = drop.le; keep.he = drop.he; keep.hasRef = true; }
+    const leFirst = angDiff(bearing(A, B), Number(keep.le.slice(0, 2)) * 10) <= 90;
+    keep.leP = leFirst ? A : B; keep.heP = leFirst ? B : A; keep.len = far; keep.axis = bearing(keep.leP, keep.heP);
+    keep.mid = { lat: (A.lat + B.lat) / 2, lon: (A.lon + B.lon) / 2 };
+    keep.width = keep.width || drop.width;
+    keep.surface = keep.surface || drop.surface;
+    keep.dt = keep.dt && drop.dt;
+  };
+  const ECELL = 0.01;
+  for (let merged = true; merged; ) {
+    merged = false;
+    const egrid = new Map();
+    const ek = (p) => `${Math.floor(p.lat / ECELL)}|${Math.floor(p.lon / ECELL)}`;
+    runways.forEach((r, idx) => { if (r.dead) return; for (const p of [r.leP, r.heP]) { const k = ek(p); (egrid.get(k) || egrid.set(k, []).get(k)).push(idx); } });
+    for (let idx = 0; idx < runways.length; idx++) {
+      const a = runways[idx];
+      if (a.dead) continue;
+      const near = new Set();
+      for (const p of [a.leP, a.heP]) {
+        const ci = Math.floor(p.lat / ECELL), cj = Math.floor(p.lon / ECELL);
+        for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) for (const j of egrid.get(`${ci + di}|${cj + dj}`) || []) if (j !== idx) near.add(j);
+      }
+      for (const j of near) {
+        const b = runways[j];
+        if (b.dead || a.dead || !joinable(a, b)) continue;
+        const [keep, drop] = score(a) > score(b) || (score(a) === score(b) && a.len >= b.len) ? [a, b] : [b, a];
+        absorb(keep, drop);
+        drop.dead = true;
+        merged = true;
+      }
+    }
+  }
+  // En lång "tröskel" som inte gick ihop med något är en felmärkt bana (t.ex. LHDC 04R/22L) och behålls.
+  const merged = runways.filter((r) => !r.dead && (!r.dt || r.len >= 800));
 
   // Varje OSM-bana → närmaste flygplats i seeden (avstånd från flygplatsens punkt till banan, max 2,5 km).
   const CELL = 0.1, grid = new Map();
@@ -131,7 +190,7 @@ if (fs.existsSync(OSM)) {
     const k = cellKey(r[4], r[5]); (grid.get(k) || grid.set(k, []).get(k)).push(r);
   }
   const byAirport = new Map();
-  for (const rw of runways) {
+  for (const rw of merged) {
     let best = null, bestD = 2500;
     const ci = Math.floor(rw.mid.lat / CELL), cj = Math.floor(rw.mid.lon / CELL);
     for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
@@ -144,29 +203,6 @@ if (fs.existsSync(OSM)) {
     if (best) (byAirport.get(best) || byAirport.set(best, []).get(best)).push(rw);
   }
 
-  // Delade banor (samma beteckning i flera bitar) → en bana från ytterändarna.
-  for (const [ic, list] of byAirport) {
-    const out = [], seen = new Map();
-    for (const rw of list) {
-      const k = `${rw.le}/${rw.he}`;   // även härledda beteckningar: bitarna måste ändå nudda varandra
-      const prev = k ? seen.get(k) : null;
-      const touch = prev && Math.min(distM(prev.leP, rw.leP), distM(prev.leP, rw.heP), distM(prev.heP, rw.leP), distM(prev.heP, rw.heP)) < 150;
-      if (prev && touch && axisDiff(prev.axis, rw.axis) < 8) {
-        const pts = [prev.leP, prev.heP, rw.leP, rw.heP];
-        let A = pts[0], B = pts[1], far = 0;
-        for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) { const d = distM(pts[i], pts[j]); if (d > far) { far = d; A = pts[i]; B = pts[j]; } }
-        const leFirst = angDiff(bearing(A, B), Number(prev.le.slice(0, 2)) * 10) <= 90;
-        prev.leP = leFirst ? A : B; prev.heP = leFirst ? B : A; prev.len = far;
-        prev.mid = { lat: (A.lat + B.lat) / 2, lon: (A.lon + B.lon) / 2 };
-        prev.width = prev.width || rw.width;
-        continue;
-      }
-      if (k) seen.set(k, rw);
-      out.push(rw);
-    }
-    byAirport.set(ic, out);
-  }
-
   const r5 = (n) => +n.toFixed(5);
   const defaultWidth = (surface) => (/asphalt|concrete|paved/.test(surface) ? 30 : 20);
   let corrected = 0, unchanged = 0, newAirports = 0, newRunways = 0;
@@ -176,7 +212,7 @@ if (fs.existsSync(OSM)) {
     if (oa && oa.length) {
       // OA-banan rättas efter OSM-banan med samma riktning som ligger närmast (högst 600 m från OA-banans mitt).
       // OSM vinner alltid, även när längden skiljer (t.ex. EFIM 09/27: bara den asfalterade biten är kvar) —
-      // längden används bara för att välja mellan flera kandidater.
+      // längden används bara för att välja mellan flera kandidater (UHBB 18: 3 km-banan, inte 1,2 km-banan bredvid).
       const used = new Set();
       for (const t of oa) {
         const leO = { lat: t[2], lon: t[3] }, heO = { lat: t[4], lon: t[5] };
@@ -185,7 +221,7 @@ if (fs.existsSync(OSM)) {
         const lenO = t[7] || distM(leO, heO);
         for (const rw of list) {
           if (used.has(rw.id) || axisDiff(axisO, rw.axis) > 10) continue;
-          const lenPenalty = lenO > 0 ? Math.min(150, Math.abs(Math.log(rw.len / lenO)) * 100) : 0;
+          const lenPenalty = lenO > 0 ? Math.min(400, Math.abs(Math.log(rw.len / lenO)) * 250) : 0;
           const d = segDist(midO, rw.leP, rw.heP) + (rw.hasRef && rw.le === t[0] ? 0 : 25) + lenPenalty;
           if (d < bestD) { bestD = d; best = rw; }
         }
