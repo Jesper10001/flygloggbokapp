@@ -99,6 +99,11 @@ export function AirportRunwaySnippet({ icao, lat, lon, windDir, windSpeed, style
     else { mapRef.current?.animateToRegion(region, 350); setZoomedIn(true); }
   };
 
+  // Meter per skärmpunkt (kartans höjd + regionens latitudspann) → banorna ritas utzoomat som linje + taggar.
+  const [mapH, setMapH] = useState(0);
+  const [latDelta, setLatDelta] = useState<number | null>(null);
+  const mpp = mapH > 0 ? (((latDelta ?? (showNav && hasUser ? overviewRegion : region).latitudeDelta)) * 111320) / mapH : null;
+
   const [sat, setSat] = useState(false); // mörk standardkarta default; knappen växlar till satellit
 
   // iOS rasteriserar egna markörvyer bara medan tracksViewChanges=true → spåra en kort stund vid start.
@@ -107,9 +112,10 @@ export function AirportRunwaySnippet({ icao, lat, lon, windDir, windSpeed, style
   useEffect(() => { setTracks(true); const id = setTimeout(() => setTracks(false), 2200); return () => clearTimeout(id); }, [icao, windDir, windSpeed]);
 
   return (
-    <View style={[styles.wrap, style]}>
+    <View style={[styles.wrap, style]} onLayout={(e) => setMapH(e.nativeEvent.layout.height)}>
       <MapView
         ref={mapRef}
+        onRegionChangeComplete={(r) => setLatDelta(r.latitudeDelta)}
         style={StyleSheet.absoluteFill}
         initialRegion={showNav && hasUser ? overviewRegion : region}
         mapType={sat ? 'hybrid' : 'standard'} // mörk standardkarta default; satellit (2D hybrid) via knapp
@@ -145,7 +151,7 @@ export function AirportRunwaySnippet({ icao, lat, lon, windDir, windSpeed, style
           </>
         )}
         {/* Banor i verklig bredd och längd, i vädersidans stil; änden vinden gynnar är cyan. Inga måttetiketter. */}
-        {hasRw && <RunwayOverlays runways={rwList} ends={rwList.map(activeEnd)} tracks={!frozen && tracks} id={icao} />}
+        {hasRw && <RunwayOverlays runways={rwList} ends={rwList.map(activeEnd)} tracks={!frozen && tracks} id={icao} mpp={mpp} frozen={frozen} />}
         {/* Utan bangeometri: markera bara fältets läge. */}
         {!hasRw && (
           <Marker coordinate={{ latitude: lat, longitude: lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={!frozen && tracks}>

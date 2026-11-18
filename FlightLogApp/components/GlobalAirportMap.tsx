@@ -49,6 +49,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
   const [region, setRegion] = useState<Region>(initialRegion ?? INITIAL);
   const [layer, setLayer] = useState<MapType>(mapType);
   useEffect(() => { setLayer(mapType); }, [mapType]); // följ extern mapType-prop (t.ex. visited-kartans satellitknapp)
+  const [mapH, setMapH] = useState(0);   // kartans höjd i punkter → meter per punkt för banornas utzoomade läge
   const [heading, setHeading] = useState(0); // kartans rotation (0 = norr uppåt) → styr kompassrosen
   const [pitch, setPitch] = useState(0);     // kartans lutning (0 = platt)
   // Pin-markörerna måste fångas (renderas) medan kartan initieras — i satellit/flyover hinner de
@@ -289,7 +290,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
   }, [frameRegion]);
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1 }} onLayout={(e) => setMapH(e.nativeEvent.layout.height)}>
     <MapView
       ref={mapRef}
       style={{ flex: 1 }}
@@ -329,7 +330,8 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
       {/* Landningsbanor på faktisk plats, i verklig bredd och längd och i vädersidans stil (asfalt, kantlinje,
           tröskelstreck, mittlinje, bannumret innanför tröskeln). Korsande banor bildar en yta. Syns när man
           zoomat in på flygplatsen. Inga måttetiketter (användarens val 2026-11-16). */}
-      {focus && runwayList.length > 0 && <RunwayOverlays runways={runwayList} tracks={tracks} id={focus[0]} outline />}
+      {focus && runwayList.length > 0 && <RunwayOverlays runways={runwayList} tracks={tracks} id={focus[0]} outline
+        mpp={mapH > 0 ? (region.latitudeDelta * 111320) / mapH : null} heading={heading} />}
 
       {level === 'country' && !hideCountries && !showPins && byCountry.map((c) => (
         <Marker
