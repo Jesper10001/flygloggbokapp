@@ -438,10 +438,8 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
 
       {/* Kompakt popup på dashboarden: kort + bank-snippet + avstånd/kurs (ej helskärm) */}
       <Modal visible={!!selected} transparent animationType="fade" onRequestClose={() => (pickerOpen ? setPickerOpen(false) : closeSelected())}>
-        <Pressable
-          onPress={closeSelected}
-          style={[styles.backdrop, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}
-        >
+        {/* Bakgrunden stänger INTE (en zoomning som hamnar utanför rutan kastade ut en) — bara krysset. */}
+        <View style={[styles.backdrop, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
           {selected && (
             <Pressable onPress={() => {}} style={styles.popup}>
               <AirportInfoCard
@@ -474,7 +472,7 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
               />
             </Pressable>
           )}
-        </Pressable>
+        </View>
 
         {/* Farkost-väljare som overlay INUTI samma modal (två separata Modaler visas ej ovanpå varandra på iOS). */}
         {pickerOpen && (

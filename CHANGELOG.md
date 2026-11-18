@@ -25,6 +25,8 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Find airport, Closest to me och Global maps "Fly to": rutan stängs inte längre av tryck utanför den (en snabb utzoomning eller ett finger utanför kastade ut en); bara krysset uppe till höger stänger (och tillbaka-gesten på Android).
+
 - Find airport och Closest to me kraschade när banorna bytte från utzoomat till detaljerat läge vid inzoomning. Banornas kartlager monteras nu en gång och bytet ändrar bara färg/opacity (RunwayOverlays), så inga överlägg eller markörer läggs till eller tas bort mitt i en zoomning.
 
 - Drönarläget: Edit flights öppnas med pennan i loggbokens rubrik (raden "Edit many flights" borta, components/bulk/BulkEditEntry raderad); samma flöde som pilotläget (kolumn → ändring → flygningar → förhandsvisning) med DRONE_COLUMNS: Category, Type, Sight mode, Pilot function, Night, Remarks, Clean up. Nytt för drönare: text i remarks, radera flygningar (går att ångra), dubbletter (samma datum, plats, starttid, flygtid och drönare).

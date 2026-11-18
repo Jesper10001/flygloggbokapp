@@ -1170,9 +1170,10 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
 
         {/* "Fly to XXXX" plan-overlay: flygplatskortet + bank-snippet med min position + rutt/distans/
             förbrukning. OVERLAY (ej nästlad Modal → ingen iOS-kart-frysning); nästan opak botten döljer
-            huvudkartan. Ligger under flight-detaljen (zIndex 70) men över allt annat. */}
+            huvudkartan. Ligger under flight-detaljen (zIndex 70) men över allt annat. Bakgrunden stänger inte
+            (en zoomning utanför rutan kastade ut en) — bara krysset. */}
         {flyTo && focusAirport && (
-          <Pressable onPress={closeFlyTo}
+          <View
             style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(3,8,18,0.94)', zIndex: 66, justifyContent: 'center', paddingHorizontal: 16, paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
             <Pressable onPress={() => {}} style={{ width: '100%', maxWidth: 440, alignSelf: 'center' }}>
               <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 10 }}>
@@ -1199,7 +1200,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                 />
               </ScrollView>
             </Pressable>
-          </Pressable>
+          </View>
         )}
 
         {/* News (AI) — flygincidenter kopplade till flygplatser. Ligger överst; cachas i storen. */}
