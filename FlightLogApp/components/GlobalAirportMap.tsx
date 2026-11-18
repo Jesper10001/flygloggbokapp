@@ -37,13 +37,19 @@ const INITIAL: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longit
 // land-flaggor oavsett zoom (för den stora 34k-databasen → byter aldrig till pins, kraschar ej).
 export type RegionMarker = { key: string; label: string; count: number; lat: number; lon: number };
 
-export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, pinCategory, hulls, regionShapes, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborShapes, neighborMarkers, onSelectNeighbor, clustering, clusterKey, onRegionChange, fitTo, children, goldOutline }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; pinCategory?: Map<string, FlightCat | null>; hulls?: { latitude: number; longitude: number }[][]; regionShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void; clustering?: boolean; clusterKey?: string; onRegionChange?: (r: Region) => void;
+export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, pinCategory, hulls, regionShapes, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborShapes, neighborMarkers, onSelectNeighbor, clustering, clusterKey, onRegionChange, fitTo, children, goldOutline, ownCompass, onHeading, camCmd, showsUser }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; pinCategory?: Map<string, FlightCat | null>; hulls?: { latitude: number; longitude: number }[][]; regionShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void; clustering?: boolean; clusterKey?: string; onRegionChange?: (r: Region) => void;
   // Rama in punkter med marginaler (Visited airports: uppspelningen av senaste flygningen, mellan korten). Sätts den
   // till null igen glider kartan tillbaka till vyn den hade innan.
   // endAt: tillbaka med samma zoom men centrerat där (Visited airports: flygningen slutade på en annan flygplats).
   fitTo?: { key: string; pts: { lat: number; lon: number }[]; padding: { top: number; right: number; bottom: number; left: number }; endAt?: { lat: number; lon: number } | null } | null;
   children?: ReactNode; // extra lager inuti kartan (uppspelningens rutt, farkost, ringar)
   goldOutline?: { key: string; rings: { latitude: number; longitude: number }[][] } | null; // valt land (Visited airports)
+  ownCompass?: boolean;                 // föräldern ritar kompassen själv (Global map) → ingen Apple-kompass/kompassros här
+  onHeading?: (heading: number) => void; // kartans vridning i grader, löpande
+  // Kamerakommando från föräldern (ny key = utför en gång): 'north' = norr uppåt + platt; 'fit' = rama in
+  // punkterna och STANNA där (till skillnad från fitTo, som går tillbaka när den släpps).
+  camCmd?: { key: string; kind: 'north' } | { key: string; kind: 'fit'; pts: { lat: number; lon: number }[]; padding: { top: number; right: number; bottom: number; left: number } } | null;
+  showsUser?: boolean;                  // iOS egen blå prick för din position
 }) {
   const mapRef = useRef<MapView>(null);
   const [region, setRegion] = useState<Region>(initialRegion ?? INITIAL);
@@ -246,11 +252,20 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
   // Läs av rotation/lutning löpande (getCamera är async). Inflight-skydd → ingen anrops-hög vid
   // snabba region-ändringar; körs både under (onRegionChange) och efter (onRegionChangeComplete) gest.
   const camBusy = useRef(false);
+  const onHeadingRef = useRef(onHeading);
+  onHeadingRef.current = onHeading;
+  // Kamerakommandon (Global map: kompassen och Min position).
+  useEffect(() => {
+    if (!camCmd) return;
+    if (camCmd.kind === 'north') { resetNorth(); return; }
+    mapRef.current?.fitToCoordinates(camCmd.pts.map((p) => ({ latitude: p.lat, longitude: p.lon })), { edgePadding: camCmd.padding, animated: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [camCmd?.key]);
   const syncCamera = () => {
     if (camBusy.current) return;
     camBusy.current = true;
     mapRef.current?.getCamera()
-      .then((c) => { camBusy.current = false; if (c) { setHeading(c.heading || 0); setPitch(c.pitch || 0); } })
+      .then((c) => { camBusy.current = false; if (c) { setHeading(c.heading || 0); setPitch(c.pitch || 0); onHeadingRef.current?.(c.heading || 0); } })
       .catch(() => { camBusy.current = false; });
   };
 
@@ -305,7 +320,9 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
       pitchEnabled={interactive}
       showsBuildings
       showsPointsOfInterests={false}
-      showsCompass={interactive && !showCompass}
+      showsCompass={interactive && !showCompass && !ownCompass}
+      showsUserLocation={!!showsUser}
+      showsMyLocationButton={false}
       toolbarEnabled={false}
     >
       {/* Grann-ytor (kringliggande länder/regioner): FYLLD dämpad cyan, HELA ytan klickbar → hoppa dit

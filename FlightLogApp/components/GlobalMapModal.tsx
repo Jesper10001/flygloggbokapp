@@ -4,7 +4,9 @@
 // Region = land → region → sektor-drill DIREKT PÅ KARTAN (cyan-gränser + antal, borra ner tills ICAO-
 // pins). Infokort i botten vid val. Öppnas från Manage airports + dashboard.
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Pressable, StyleSheet, Keyboard, Alert, LayoutAnimation, Clipboard } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Pressable, StyleSheet, Keyboard, Alert, LayoutAnimation, Clipboard, Linking, useWindowDimensions } from 'react-native';
+import { Marker } from 'react-native-maps';
+import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -13,7 +15,7 @@ import { AirportInfoCard } from './AirportInfoCard';
 import { WxMapPopup } from './WxMapPopup';
 import { AirportNavPanel } from './AirportNavPanel';
 import { FlightDetailView } from '../app/flight/detail/[id]';
-import { getSeedAirports } from '../db/icao';
+import { getSeedAirports, getNearbyAirports } from '../db/icao';
 import { getFavoriteIcaos, setFavorite } from '../db/favorites';
 import { RangeBar } from './RangeBar';
 import { getAirportLandingCounts, getAirportLastFlight, getLastFlightAt, getSetting, setSetting } from '../db/flights';
@@ -35,7 +37,9 @@ import { useRegulationStandardStore } from '../store/regulationStandardStore';
 import { useFlightStore } from '../store/flightStore';
 import { presentPaywall } from '../services/purchases';
 import { useTourStore } from '../store/tourStore';
-import { IncidentNewsOverlay } from './IncidentNewsOverlay';
+import { IncidentNewsOverlay, NEWS_SHEET_FRACTION } from './IncidentNewsOverlay';
+import { MapControlStack } from './MapControlStack';
+import { useIncidentNewsStore } from '../store/incidentNewsStore';
 import { useHoldPopups } from '../store/mapScreenStore';
 
 // Väderfilter: min-kategori (lägsta acceptabla). VFR bäst → LIFR sämst. En flygplats "möter" kravet
@@ -133,6 +137,17 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [flyToMetar, setFlyToMetar] = useState<AirportMetar | null>(null); // vind från kortet → aktiv bana i snippeten
   const flyToTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [newsOpen, setNewsOpen] = useState(false);      // Global map → News-rutan
+  const [newsSel, setNewsSel] = useState<string | null>(null); // vald post i News → dess prick lyser
+  // Kartknapparna nere till höger (Apple Kartor-stil, 2026-11-18): kompass, News, kartlager, min position.
+  const [mapHeading, setMapHeading] = useState(0);
+  const [camCmd, setCamCmd] = useState<any>(null);
+  const [userPos, setUserPos] = useState<{ lat: number; lon: number } | null>(null);
+  const [meActive, setMeActive] = useState(false);   // kartan står centrerad på dig (fylld pil)
+  const [meBusy, setMeBusy] = useState(false);
+  const [locOff, setLocOff] = useState(false);       // platstjänster nekade → liten ruta med "Open Settings"
+  const meGuardRef = useRef(0);                      // kamerans egen flygning räknas inte som att man drog i kartan
+  const { height: winH } = useWindowDimensions();
+  const newsIncidents = useIncidentNewsStore((st) => st.incidents);
   const [cameFromNews, setCameFromNews] = useState(false); // kom hit via "Map" i nyhetsrutan → visa "Back to news"
   const [satellite, setSatellite] = useState(true); // satellitläge förvalt
   useEffect(() => { if (visible) setSatellite(true); }, [visible]); // alltid satellit vid öppning
@@ -698,7 +713,57 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     if (wxRunRef.current === token) setWxLoading(false);
   };
 
-  const showMapCtrls = !focusAirport;
+  const showMapCtrls = !focusAirport && !newsOpen;
+
+  // Min position: flyg till dig och zooma bara in så långt att närmaste flygplats fortfarande syns.
+  const goToMe = async () => {
+    if (meBusy) return;
+    setMeBusy(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') { setLocOff(true); return; }
+      const p = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const me = { lat: p.coords.latitude, lon: p.coords.longitude };
+      setUserPos(me);
+      // Närmaste riktiga flygplats (inte heliport/nedlagd); ringar utåt tills en hittas.
+      let near: { lat: number; lon: number } | null = null;
+      for (const deg of [0.5, 1.5, 4, 9, 18, 30]) {
+        const c = (await getNearbyAirports(me.lat, me.lon, 40, deg)).find((a) => ['large', 'medium', 'small'].includes(a.type || ''));
+        if (c) { near = { lat: c.lat, lon: c.lon }; break; }
+      }
+      // Ingen flygplats (eller samma punkt) → en ruta på ca 5 km runt dig.
+      const pts = near && (Math.abs(near.lat - me.lat) + Math.abs(near.lon - me.lon) > 0.002)
+        ? [me, near]
+        : [{ lat: me.lat - 0.025, lon: me.lon - 0.04 }, { lat: me.lat + 0.025, lon: me.lon + 0.04 }];
+      meGuardRef.current = Date.now() + 2000;
+      setMeActive(true);
+      setCamCmd({ key: `me-${Date.now()}`, kind: 'fit', pts, padding: { top: insets.top + 90, bottom: insets.bottom + 70, left: 50, right: 90 } });
+    } catch {
+      setLocOff(true);
+    } finally { setMeBusy(false); }
+  };
+  useEffect(() => { if (!locOff) return; const t = setTimeout(() => setLocOff(false), 6000); return () => clearTimeout(t); }, [locOff]);
+
+  // News: nyheternas flygplatser som prickar på kartan, inramade ovanför arket.
+  const seedByIcao = useMemo(() => new Map(seedData.map((r) => [r[0], r])), [seedData]);
+  const newsPts = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { icao: string; lat: number; lon: number }[] = [];
+    for (const it of newsIncidents) {
+      const icao = it.resolvedIcao;
+      const r = icao ? seedByIcao.get(icao) : undefined;
+      if (!icao || !r || seen.has(icao)) continue;
+      seen.add(icao);
+      out.push({ icao, lat: r[4], lon: r[5] });
+    }
+    return out;
+  }, [newsIncidents, seedByIcao]);
+  const newsFit = newsOpen && newsPts.length ? {
+    key: `news-${newsPts.map((p) => p.icao).join(',')}`,
+    // En enda punkt → en ruta runt den (annars zoomar MapKit in maximalt).
+    pts: newsPts.length > 1 ? newsPts : [{ lat: newsPts[0].lat - 1, lon: newsPts[0].lon - 1.5 }, { lat: newsPts[0].lat + 1, lon: newsPts[0].lon + 1.5 }],
+    padding: { top: insets.top + 80, bottom: winH * NEWS_SHEET_FRACTION + 30, left: 40, right: 40 },
+  } : null;
   const hideCountries = !!focusAirport || mapSearch.trim().length >= 2 || drillStack.length > 0;
   const showBack = !!focusAirport || drillStack.length > 0;
   const wxLegendShown = !!wxCat && !focusAirport; // väder-legend visas i väderläget (ej vid enskilt flygplatsfokus)
@@ -734,6 +799,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
             clusterKey={mapKey}
             onRegionChange={(r) => {
               if (clusterMode) setMapRegion(r);
+              if (Date.now() > meGuardRef.current) setMeActive(false); // man drog i kartan → pilen blir kontur igen
               // Zooma ut tillräckligt → avmarkera flygplatsen automatiskt (flygplatskortet försvinner).
               // (Inte under Play: uppspelningen zoomar ut med flygplatsen vald.)
               if (focusAirport && Date.now() > playGuardRef.current && r.latitudeDelta > 2.5) setFocusAirport(null);
@@ -757,9 +823,26 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
               key: `play-${playCand.flight.id}`,
               pts: [playCand.dep, playCand.arr],
               padding: { top: insets.top + 8 + playCardH + 44, bottom: insets.bottom + 6 + playFlightH + 44, left: 56, right: 56 },
-            } : null}
+            } : newsFit}
+            ownCompass
+            onHeading={(h) => setMapHeading(Math.round(h))}
+            camCmd={camCmd}
+            showsUser={!!userPos}
           >
             {playOn && playCand && <FlightReplayLayer r={playCand} t={play.t} pre={PLAY_PRE} playing={play.playing} labels />}
+            {/* News: platserna i listan; vald post lyser (större prick med gloria). */}
+            {newsOpen && newsPts.map((p) => {
+              const sel = p.icao === newsSel;
+              return (
+                <Marker key={`news-${p.icao}`} coordinate={{ latitude: p.lat, longitude: p.lon }} anchor={{ x: 0.5, y: 0.5 }}
+                  tracksViewChanges={false} zIndex={sel ? 30 : 20} onPress={() => setNewsSel(sel ? null : p.icao)}>
+                  <View style={{ width: 26, height: 26, alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={{ position: 'absolute', width: sel ? 26 : 0, height: sel ? 26 : 0, borderRadius: 13, backgroundColor: 'rgba(255,176,32,0.25)' }} />
+                    <View style={{ width: sel ? 13 : 10, height: sel ? 13 : 10, borderRadius: 7, backgroundColor: '#FFB020', borderWidth: 1.5, borderColor: '#0A1628' }} />
+                  </View>
+                </Marker>
+              );
+            })}
           </GlobalAirportMap>
         )}
 
@@ -1117,19 +1200,22 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
           </View>
         )}
 
-        {/* Kartkontroller — nere till höger: Cluster/Region-växel (vänster) + Map/Satellite (höger, längst ut). */}
+        {/* Kartknapparna nere till höger (Apple Kartor-stil): kompass (bara när kartan är vriden), News,
+            kapsel med kartlager + min position. Döljs när ett flygplatskort eller News är öppet. */}
         {showMapCtrls && (
-          <View style={{ position: 'absolute', bottom: 24, right: 16, flexDirection: 'row', gap: 8 }}>
-            {/* News (AI): flygincidenter kopplade till flygplatser — vänster om Region-knappen. */}
-            <TouchableOpacity onPress={() => setNewsOpen(true)} activeOpacity={0.8} style={styles.mapCtrlBtn}>
-              <Ionicons name="newspaper-outline" size={15} color="#fff" />
-              <Text style={styles.mapCtrlTxt}>News</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setSatellite((s) => !s)} activeOpacity={0.8} style={styles.mapCtrlBtn}>
-              <Ionicons name={satellite ? 'map' : 'globe'} size={15} color="#fff" />
-              <Text style={styles.mapCtrlTxt}>{satellite ? 'Map' : 'Satellite'}</Text>
-            </TouchableOpacity>
-          </View>
+          <MapControlStack
+            style={{ position: 'absolute', right: 16, bottom: insets.bottom + 16 }}
+            heading={mapHeading}
+            onNorth={() => setCamCmd({ key: `north-${Date.now()}`, kind: 'north' })}
+            onNews={() => { setNewsSel(null); setNewsOpen(true); }}
+            satellite={satellite}
+            onToggleLayer={() => setSatellite((v) => !v)}
+            meActive={meActive}
+            meBusy={meBusy}
+            locOff={locOff}
+            onMe={goToMe}
+            onOpenSettings={() => { setLocOff(false); Linking.openSettings(); }}
+          />
         )}
 
         {/* Vald flygplats → infokort i botten */}
@@ -1206,7 +1292,9 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
         {/* News (AI) — flygincidenter kopplade till flygplatser. Ligger överst; cachas i storen. */}
         <IncidentNewsOverlay
           visible={newsOpen}
-          onClose={() => setNewsOpen(false)}
+          onClose={() => { setNewsOpen(false); setNewsSel(null); }}
+          selectedIcao={newsSel}
+          onSelect={setNewsSel}
           onViewOnMap={(icao) => { setNewsOpen(false); setCameFromNews(true); focusByIcao(icao); }}
           canLocate={(icao) => !!icao && seedData.some((r) => r[0] === icao)}
           onUpgrade={() => { setNewsOpen(false); paywallAfterClose('Flight incident news'); }}

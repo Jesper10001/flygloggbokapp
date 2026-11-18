@@ -22,8 +22,13 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - New: The airport card shows the runway surface, such as asphalt, grass or gravel.
 - Improved: Filter the Global map by any runway surface (asphalt, concrete, grass, gravel, dirt, sand, snow and ice, water), several at once.
 - Improved: Zoomed out, runways on the maps are drawn as clean lines with their numbers in small tags at the ends; zoom in for the full markings.
+- New: Global map has Apple Maps-style buttons in the corner: a compass when the map is turned, map layer, and My position, which shows you and the nearest airport.
+- Improved: News opens as a sheet over the map with the airports marked; scroll through every incident, newest first.
 
 ### Alla ändringar
+
+- Global map: kartknapparna nere till höger i Apple Kartor-stil (components/MapControlStack.tsx, design BZeSBM6qZVe53pHAoznFhd): kompass bara när kartan är vriden (tryck = norr uppåt, Apples egen kompass avstängd via ownCompass), News som rund knapp, kapsel med kartlager (grön-cyan jordglob på satellit, gråvit karta på mörkt lager) och Min position (expo-location → zoomar bara in så långt att närmaste large/medium/small-flygplats syns, iOS blå prick, pilen fylld cyan tills man drar i kartan; nekad plats → ruta med Open Settings). GlobalAirportMap: nya props ownCompass, onHeading, camCmd (north/fit som stannar kvar), showsUser.
+- News omgjord till ark nerifrån (IncidentNewsOverlay): täcker 60 % av skärmen, dras upp till nästan helskärm, listan scrollar i båda lägena; tidslinje med dag/månad, This week/Earlier, ICAO-chip, källa som länk, Show on map; nyheternas flygplatser som gula prickar på kartan (inramade ovanför arket via fitTo, vald post lyser); laddning som skelettrader, Nothing new, låst läge med See Premium; stängs bara med krysset.
 
 - Find airport, Closest to me och Global maps "Fly to": rutan stängs inte längre av tryck utanför den (en snabb utzoomning eller ett finger utanför kastade ut en); bara krysset uppe till höger stänger (och tillbaka-gesten på Android).
 
