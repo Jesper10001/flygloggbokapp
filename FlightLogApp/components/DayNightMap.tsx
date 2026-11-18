@@ -63,13 +63,14 @@ export interface DayNightMapProps {
 
 const COMPASS: [string, number, string][] = [['N', 0, 'North'], ['NE', 45, 'North-east'], ['E', 90, 'East'], ['SE', 135, 'South-east'], ['S', 180, 'South'], ['SW', 225, 'South-west'], ['W', 270, 'West'], ['NW', 315, 'North-west']];
 const RAD = Math.PI / 180;
+const PAD = ['NW', 'N', 'NE', 'W', 'C', 'E', 'SW', 'S', 'SE']; // knappsatsens ordning (C = Local i mitten)
 function bearingDeg(aLat: number, aLon: number, bLat: number, bLon: number): number {
   const p1 = aLat * RAD, p2 = bLat * RAD, dl = (bLon - aLon) * RAD;
   const y = Math.sin(dl) * Math.cos(p2);
   const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
   return (Math.atan2(y, x) / RAD + 360) % 360;
 }
-const MAP_H = 220, COMPASS_MAP_H = 300;
+const MAP_H = 220, COMPASS_MAP_H = 230;
 // Kompassens karta visar ringen över RING_SPAN av sin höjd: latitudeDelta = radien × RING_SPAN och en liten
 // longitudeDelta, så att höjden styr inzoomningen och ringen alltid har radien höjd / RING_SPAN på skärmen.
 const RING_SPAN = 2.6;
@@ -136,6 +137,12 @@ function DayNightMapBase(props: DayNightMapProps) {
     if (!compass) return [];
     const out: { latitude: number; longitude: number }[] = [];
     for (let a = 0; a < 360; a += 5) { const p = destPointDeg(cCenter!.lat, cCenter!.lon, a, rDeg); out.push({ latitude: p.lat, longitude: normLon(p.lon) }); }
+    return out;
+  }, [compass, cCenter?.lat, cCenter?.lon, rDeg]); // eslint-disable-line react-hooks/exhaustive-deps
+  const localCoords = useMemo(() => {
+    if (!compass) return [];
+    const out: { latitude: number; longitude: number }[] = [];
+    for (let a = 0; a < 360; a += 10) { const p = destPointDeg(cCenter!.lat, cCenter!.lon, a, rDeg * 0.34); out.push({ latitude: p.lat, longitude: normLon(p.lon) }); }
     return out;
   }, [compass, cCenter?.lat, cCenter?.lon, rDeg]); // eslint-disable-line react-hooks/exhaustive-deps
   const sectorCoords = (bearing: number) => {
@@ -283,7 +290,6 @@ function DayNightMapBase(props: DayNightMapProps) {
 
   const mapH = compass ? COMPASS_MAP_H : MAP_H;
   const ringPx = mapH / RING_SPAN;
-  const btnR = ringPx * 0.78;
   const cx = mapW / 2, cy = mapH / 2;
 
   const storyIcon = story?.icon === 'moon' ? 'weather-night' : story?.icon === 'sunrise' ? 'weather-sunset-up' : story?.icon === 'sunset' ? 'weather-sunset-down' : 'weather-sunny';
@@ -336,8 +342,15 @@ function DayNightMapBase(props: DayNightMapProps) {
           {compass ? (
             <Polygon key="ring" coordinates={ringCoords} fillColor="rgba(10,22,40,0.28)" strokeColor="rgba(0,200,232,0.55)" strokeWidth={1.2} zIndex={2} />
           ) : null}
-          {compass && selectedBearing != null ? (
-            <Polygon key={'sec' + selectedBearing} coordinates={sectorCoords(selectedBearing)} fillColor="rgba(0,200,232,0.16)" strokeColor={Colors.primary} strokeWidth={1.2} zIndex={2} />
+          {/* Vald riktning = sektor; Local = liten cirkel runt fältet. Båda ligger alltid kvar och tänds/släcks med
+              färgen, så att inga kartlager monteras om när man byter val. */}
+          {compass ? (
+            <Polygon key="sec" coordinates={sectorCoords(selectedBearing ?? 0)} fillColor={selectedBearing != null ? 'rgba(0,200,232,0.18)' : 'rgba(0,0,0,0)'}
+              strokeColor={selectedBearing != null ? Colors.primary : 'rgba(0,0,0,0)'} strokeWidth={1.4} zIndex={2} />
+          ) : null}
+          {compass ? (
+            <Polygon key="local" coordinates={localCoords} fillColor={selectedBearing == null ? 'rgba(0,200,232,0.18)' : 'rgba(0,0,0,0)'}
+              strokeColor={selectedBearing == null ? Colors.primary : 'rgba(0,0,0,0)'} strokeWidth={1.4} zIndex={2} />
           ) : null}
           {runs.map((r, i) => (
             <Polyline key={'r' + i} coordinates={r.coordinates} strokeColor={r.color} strokeWidth={3.5} zIndex={3} />
@@ -381,25 +394,32 @@ function DayNightMapBase(props: DayNightMapProps) {
                 <Text style={{ fontFamily: MONO, fontSize: 8, fontWeight: '800', color: SUN.day }}>{sunsetBearing.label}</Text>
               </View>
             ) : null}
-            {COMPASS.map(([lbl, b, name]) => {
-              const on = selectedBearing === b;
-              return (
-                <TouchableOpacity key={lbl} onPress={() => onPickBearing!(b)} activeOpacity={0.8}
-                  accessibilityRole="button" accessibilityLabel={name} accessibilityState={{ selected: on }}
-                  style={[st.dirBtn, { left: cx + btnR * Math.sin(b * RAD) - 22, top: cy - btnR * Math.cos(b * RAD) - 22 }, on && st.dirBtnOn]}>
-                  <Text style={[st.dirTxt, on && { color: '#04121F' }]}>{lbl}</Text>
-                </TouchableOpacity>
-              );
-            })}
-            <TouchableOpacity onPress={() => onPickBearing!(null)} activeOpacity={0.8}
-              accessibilityRole="button" accessibilityLabel="Local, around the airport" accessibilityState={{ selected: selectedBearing == null }}
-              style={[st.localBtn, { left: cx - 36, top: cy - 36 }, selectedBearing == null && st.dirBtnOn]}>
-              <Text style={[st.dirTxt, selectedBearing == null && { color: '#04121F' }]}>LOCAL</Text>
-              <Text style={[st.localSub, selectedBearing == null && { color: '#04121F' }]} numberOfLines={1}>around {legs[0]?.icao ?? 'field'}</Text>
-            </TouchableOpacity>
           </>
         ) : null}
       </View>
+
+      {/* Riktningen väljs i en knappsats 3×3 som ser ut som en kompass (design A, 2026-11-18) — kartan är ren. */}
+      {compass ? (
+        <View accessibilityRole="radiogroup" accessibilityLabel="Main direction" style={st.pad}>
+          {PAD.map((k) => {
+            const c = k === 'C' ? null : COMPASS.find(([lbl]) => lbl === k)!;
+            const b = c ? c[1] : null;
+            const on = selectedBearing === b;
+            return (
+              <TouchableOpacity key={k} onPress={() => onPickBearing!(b)} activeOpacity={0.8}
+                accessibilityRole="radio" accessibilityLabel={c ? c[2] : `Local, around ${legs[0]?.icao ?? 'the field'}`} accessibilityState={{ checked: on }}
+                style={[st.padBtn, !c && st.padLocal, on && st.padOn]}>
+                {c ? (
+                  <Ionicons name="arrow-up" size={13} color={on ? '#04121F' : '#C9D6E8'} style={{ transform: [{ rotate: `${b}deg` }] }} />
+                ) : (
+                  <Ionicons name="locate" size={14} color={on ? '#04121F' : '#8BE3F7'} />
+                )}
+                <Text style={[st.padTxt, !c && { color: '#8BE3F7' }, on && { color: '#04121F' }]}>{c ? k : 'Local'}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ) : null}
 
       {compass ? (
         <View style={{ gap: 4, marginTop: -4 }}>
@@ -495,11 +515,11 @@ const st = StyleSheet.create({
   mapChipTime: { fontFamily: MONO, fontSize: 11, fontWeight: '800', color: '#FFFFFF' },
   mapChipText: { fontSize: 11, color: '#D6E6F3' },
   phaseTag: { fontFamily: MONO, fontSize: 9.5, fontWeight: '800', letterSpacing: 0.6, paddingVertical: 1, paddingHorizontal: 5, borderRadius: 5, borderWidth: 1, overflow: 'hidden' },
-  dirBtn: { position: 'absolute', width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(21,35,56,0.92)', borderWidth: 1, borderColor: Colors.border },
-  dirBtnOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  dirTxt: { fontFamily: MONO, fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
-  localBtn: { position: 'absolute', width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', gap: 1, backgroundColor: 'rgba(21,35,56,0.92)', borderWidth: 1, borderColor: Colors.border },
-  localSub: { fontSize: 9.5, color: Colors.textSecondary },
+  pad: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, padding: 6, borderRadius: 18, backgroundColor: '#0A1324', borderWidth: 1, borderColor: Colors.border },
+  padBtn: { width: '31.6%', flexGrow: 1, height: 48, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#13223D', borderWidth: 1, borderColor: '#1E3150' },
+  padLocal: { borderColor: '#2A6F86' },
+  padOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  padTxt: { fontSize: 14, fontWeight: '700', color: '#C9D6E8' },
   scrubRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   playBtn: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: SUN.day, backgroundColor: SUN.day + '1A', alignItems: 'center', justifyContent: 'center' },
   thumb: { position: 'absolute', top: 4, width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFFFFF', borderWidth: 3, shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },

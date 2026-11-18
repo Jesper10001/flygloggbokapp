@@ -24,8 +24,11 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: Zoomed out, runways on the maps are drawn as clean lines with their numbers in small tags at the ends; zoom in for the full markings.
 - New: Global map has Apple Maps-style buttons in the corner: a compass when the map is turned, map layer, and My position, which shows you and the nearest airport.
 - Improved: News opens as a sheet over the map with the airports marked; scroll through every incident, newest first.
+- Improved: Sun route asks which way you flew with a compass keypad under the map, so the map stays clear.
 
 ### Alla ändringar
+
+- Sun route, samma flygplats in och ut ("Which way did you fly?"): riktningsknapparna flyttade från kartan till en knappsats 3×3 under den (NW N NE / W Local E / SW S SE, pilar i riktningen, Local i mitten) enligt design A (artifact X4Bt4hnKdL4Lw4Zn1dygdi). Kartan visar bara ringen, vald sektor eller en liten Local-cirkel; sektor och cirkel ligger alltid monterade och tänds med färgen. Kompasskartan 300 → 230 pt hög.
 
 - Global map: News flyttar inte längre kartan (inramningen av nyheternas flygplatser borttagen; prickarna ritas kvar). Flygplatsvyns topprad: Back · Fly to · Coordinates i en rad, lika stil med vit text och ikoner; Map/Satellite-knappen borttagen; Coordinates öppnar systemlistan och först när man valt ett system visas koordinaterna centrerade under knapparna (tryck = kopiera), sedan resten av besöket på kartan.
 
