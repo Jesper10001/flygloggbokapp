@@ -48,65 +48,72 @@ export function RunwayOverlays({ runways, ends, tracks, id, outline = false, mpp
   useEffect(() => { setPulse(true); const t = setTimeout(() => setPulse(false), 1200); return () => clearTimeout(t); }, [far, hBucket]);
   const track = !frozen && (tracks || pulse);
   if (!marks.length) return null;
-  if (far) {
-    return (
-      <>
-        {runways.map((rw, i) => {
-          const line = [{ latitude: rw.le.lat, longitude: rw.le.lon }, { latitude: rw.he.lat, longitude: rw.he.lon }];
-          return [
-            <Polyline key={`${id}-fh${i}`} coordinates={line} strokeColor="rgba(8,18,32,0.45)" strokeWidth={6} lineCap="round" zIndex={5} />,
-            <Polyline key={`${id}-fl${i}`} coordinates={line} strokeColor="rgba(255,255,255,0.94)" strokeWidth={2.6} lineCap="round" zIndex={6} />,
-          ];
-        })}
-        {runways.flatMap((rw, i) => (['le', 'he'] as const).map((e) => {
-          // Riktningen utåt från änden, i skärmens koordinater (x höger, y nedåt).
-          const th = ((marks[i].bearing + (e === 'le' ? 180 : 0) - hBucket) * Math.PI) / 180;
-          const dx = Math.sin(th), dy = -Math.cos(th);
-          const label = e === 'le' ? rw.leIdent : rw.heIdent;
-          const halfW = 5 + label.length * 3.1;
-          const off = 7 + Math.abs(dx) * halfW + Math.abs(dy) * (TAG_H / 2);
-          const fav = ends?.[i] === e;
-          const p = e === 'le' ? rw.le : rw.he;
-          return (
-            <Marker key={`${id}-t${i}${e}`} coordinate={{ latitude: p.lat, longitude: p.lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={track} zIndex={8}>
-              <View style={s.tagBox} pointerEvents="none">
-                <View style={[s.tag, { transform: [{ translateX: dx * off }, { translateY: dy * off }] }, fav && { borderColor: FAV }]}>
-                  <Text style={[s.tagTxt, fav && { color: FAV }]}>{label}</Text>
-                </View>
-              </View>
-            </Marker>
-          );
-        }))}
-      </>
-    );
-  }
+  // VIKTIGT: samma barn i båda lägena. Bytet utzoomat ↔ inzoomat ändrar bara färger och opacity — inga lager
+  // monteras eller avmonteras då. Att byta ut överlägg och markörer mitt i en zoomning kraschade iOS-kartan
+  // (Find airport / Closest to me stängdes, 2026-11-18). Dolt = genomskinlig färg / opacity 0.
+  const near = !far;
+  const NONE = 'rgba(0,0,0,0)';
   return (
     <>
+      {/* Utzoomat: en vit linje med mörk kant per bana. */}
+      {runways.map((rw, i) => {
+        const line = [{ latitude: rw.le.lat, longitude: rw.le.lon }, { latitude: rw.he.lat, longitude: rw.he.lon }];
+        return [
+          <Polyline key={`${id}-fh${i}`} coordinates={line} strokeColor={far ? 'rgba(8,18,32,0.45)' : NONE} strokeWidth={6} lineCap="round" zIndex={5} />,
+          <Polyline key={`${id}-fl${i}`} coordinates={line} strokeColor={far ? 'rgba(255,255,255,0.94)' : NONE} strokeWidth={2.6} lineCap="round" zIndex={6} />,
+        ];
+      })}
+      {/* Inzoomat: kantlinje + asfalt, mittlinje, tröskelstreck, pil vid den gynnade änden. */}
       {marks.map((m, i) => (
-        <Polygon key={`${id}-c${i}`} coordinates={m.corners} fillColor={outline ? OUTLINE_FILL : ASPHALT} strokeColor={outline ? OUTLINE_EDGE : EDGE} strokeWidth={outline ? 1.5 : 2.6} zIndex={5} />
+        <Polygon key={`${id}-c${i}`} coordinates={m.corners} fillColor={near ? (outline ? OUTLINE_FILL : ASPHALT) : NONE}
+          strokeColor={near ? (outline ? OUTLINE_EDGE : EDGE) : NONE} strokeWidth={outline ? 1.5 : 2.6} zIndex={5} />
       ))}
       {/* Asfalten en gång till, utan kantlinje: täcker kantlinjernas inre halva och den andra banans kant i korsningen. */}
       {!outline && marks.map((m, i) => (
-        <Polygon key={`${id}-a${i}`} coordinates={m.corners} fillColor={ASPHALT} strokeColor={ASPHALT} strokeWidth={0} zIndex={6} />
+        <Polygon key={`${id}-a${i}`} coordinates={m.corners} fillColor={near ? ASPHALT : NONE} strokeColor={NONE} strokeWidth={0} zIndex={6} />
       ))}
       {marks.flatMap((m, i) => m.centre.map((seg, n) => (
-        <Polyline key={`${id}-l${i}-${n}`} coordinates={seg} strokeColor={outline ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.8)'} strokeWidth={1} lineDashPattern={[5, 4]} zIndex={7} />
+        <Polyline key={`${id}-l${i}-${n}`} coordinates={seg} strokeColor={near ? (outline ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.8)') : NONE}
+          strokeWidth={1} lineDashPattern={[5, 4]} zIndex={7} />
       )))}
       {marks.flatMap((m, i) => (['le', 'he'] as const).flatMap((e) => m.keys[e].map((k, n) => (
-        <Polygon key={`${id}-k${i}${e}${n}`} coordinates={k} fillColor={ends?.[i] === e ? FAV : outline ? OUTLINE_EDGE : MARK} strokeColor="rgba(0,0,0,0)" strokeWidth={0} zIndex={7} />
+        <Polygon key={`${id}-k${i}${e}${n}`} coordinates={k} fillColor={near ? (ends?.[i] === e ? FAV : outline ? OUTLINE_EDGE : MARK) : NONE}
+          strokeColor={NONE} strokeWidth={0} zIndex={7} />
       ))))}
-      {marks.flatMap((m, i) => (['le', 'he'] as const).filter((e) => ends?.[i] === e).map((e) => (
-        <Polyline key={`${id}-v${i}${e}`} coordinates={m.chevron[e]} strokeColor={FAV} strokeWidth={2.4} lineCap="round" lineJoin="round" zIndex={7} />
-      )))}
-      {/* Bannumren: flat → ligger på kartytan och följer kartans vridning. Vinkeln sätts på barnvyn (rotation-
-          propen ignoreras för egna vyer på Apple Maps): numrets topp pekar i landningsriktningen. */}
+      {/* Pilen finns för båda ändarna och syns bara vid den ände vinden gynnar (vinden kommer in efter start). */}
       {marks.flatMap((m, i) => (['le', 'he'] as const).map((e) => (
-        <Marker key={`${id}-n${i}${e}`} coordinate={m.num[e]} anchor={{ x: 0.5, y: 0.5 }} flat tracksViewChanges={track} zIndex={8}>
-          <View style={{ transform: [{ rotate: `${(m.bearing + (e === 'he' ? 180 : 0)) % 360}deg` }] }}>
+        <Polyline key={`${id}-v${i}${e}`} coordinates={m.chevron[e]} strokeColor={near && ends?.[i] === e ? FAV : NONE}
+          strokeWidth={2.4} lineCap="round" lineJoin="round" zIndex={7} />
+      )))}
+      {/* Bannumren inzoomat: flat → ligger på kartytan och följer kartans vridning. Vinkeln sätts på barnvyn
+          (rotation-propen ignoreras för egna vyer på Apple Maps): numrets topp pekar i landningsriktningen. */}
+      {marks.flatMap((m, i) => (['le', 'he'] as const).map((e) => (
+        <Marker key={`${id}-n${i}${e}`} coordinate={m.num[e]} anchor={{ x: 0.5, y: 0.5 }} flat opacity={near ? 1 : 0} tracksViewChanges={track} zIndex={8}>
+          <View style={{ transform: [{ rotate: `${(m.bearing + (e === 'he' ? 180 : 0)) % 360}deg` }] }} pointerEvents="none">
             <Text style={[s.num, ends?.[i] === e && { color: FAV }]}>{e === 'le' ? runways[i].leIdent : runways[i].heIdent}</Text>
           </View>
         </Marker>
       )))}
+      {/* Bannumren utzoomat: upprätta taggar strax utanför ändarna. */}
+      {runways.flatMap((rw, i) => (['le', 'he'] as const).map((e) => {
+        // Riktningen utåt från änden, i skärmens koordinater (x höger, y nedåt).
+        const th = ((marks[i].bearing + (e === 'le' ? 180 : 0) - hBucket) * Math.PI) / 180;
+        const dx = Math.sin(th), dy = -Math.cos(th);
+        const label = e === 'le' ? rw.leIdent : rw.heIdent;
+        const halfW = 5 + label.length * 3.1;
+        const off = 7 + Math.abs(dx) * halfW + Math.abs(dy) * (TAG_H / 2);
+        const fav = ends?.[i] === e;
+        const p = e === 'le' ? rw.le : rw.he;
+        return (
+          <Marker key={`${id}-t${i}${e}`} coordinate={{ latitude: p.lat, longitude: p.lon }} anchor={{ x: 0.5, y: 0.5 }} opacity={far ? 1 : 0} tracksViewChanges={track} zIndex={8}>
+            <View style={s.tagBox} pointerEvents="none">
+              <View style={[s.tag, { transform: [{ translateX: dx * off }, { translateY: dy * off }] }, fav && { borderColor: FAV }]}>
+                <Text style={[s.tagTxt, fav && { color: FAV }]}>{label}</Text>
+              </View>
+            </View>
+          </Marker>
+        );
+      }))}
     </>
   );
 }
