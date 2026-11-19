@@ -1,0 +1,94 @@
+namn,visningskod,kodtyp,kodkalla,koordinater,latitud,longitud,region,land_iso,kommando,forband,flygplanstyper,icao_code,gps_code,local_code,ourairports_ident,ourairports_id
+Kursk-Vostotjnyj (Chalino),UUOK,ICAO,OurAirports icao_code,"51.7506, 36.2956",51.7506,36.2956,Kursk oblast,RU,6:e armén,14:e gardes jaktflygregementet,Su-30SM (MiG-29SMT lagrade),UUOK,UUOK,XUOK,UUOK,26399
+Voronezj-Baltimor,XUOW,Ryskt internt,OurAirports local_code,"51.6200, 39.1400",51.62,39.14,Voronezj oblast,RU,6:e armén,47:e bombflygregementet,Su-34,,,XUOW,RU-8363,35115
+Petrozavodsk-Besovets,ULPB,ICAO,OurAirports icao_code,"61.8852, 34.1547",61.8852,34.1547,Karelen,RU,6:e armén,159:e jaktflygregementet,"Su-35S, Su-27UB",ULPB,ULPB,XLPB,ULPB,6492
+Chotilovo,XUEH,Ryskt internt,OurAirports local_code,"57.6550, 34.1000",57.655,34.1,Tver oblast,RU,6:e armén,790:e jaktflygregementet,"Su-35S, MiG-31BM/BSM",,,XUEH,RU-0015,34955
+Sjatalovo,XUBV,Ryskt internt,OurAirports local_code,"54.3400, 32.4733",54.34,32.4733,Smolensk oblast,RU,6:e armén,4:e självst. spaningsflygskvadronen,"Su-24MR, An-30",,,XUBV,RU-4609,35079
+Tjkalovsk,XMWB,Ryskt internt,OurAirports local_code,"54.7666, 20.3968",54.7666,20.3968,Kaliningrad oblast,RU,6:e armén,689:e jaktflygregementet,"Su-27, Su-30SM2",,,XMWB,RU-0028,42328
+Montjegorsk,XLMG,Ryskt internt,OurAirports local_code,"67.9867, 33.0183",67.9867,33.0183,Murmansk oblast,RU,7:e flygkåren (Norra flottan),98:e självst. blandade flygregementet,"Su-24M/MR, MiG-31BM",,,XLMG,RU-1110,35037
+Savaslejka,XUDE,Ryskt internt,OurAirports local_code,"55.4397, 42.3090",55.4397,42.309,Nizjnij Novgorod oblast,RU,Fjärrflyget (enl. Scramble),Okänt regemente,MiG-31K/I (Kinzjal-bärare),,,XUDE,RU-6878,35072
+Ostrov,XLOS,Ryskt internt,OurAirports local_code,"57.3000, 28.4333",57.3,28.4333,Pskov oblast,RU,6:e armén,15:e arméflygbrigaden,"Ka-52, Mi-8MTV-5, Mi-26, Mi-28N, Mi-35M",,,XLOS,RU-0064,43014
+Pusjkin,ULLP,Inofficiell,OurAirports gps_code,"59.6850, 30.3383",59.685,30.3383,S:t Petersburg,RU,6:e armén,332:a gardes självst. helikopterregementet,"Mi-8MT/MTV-5, Mi-28N, Mi-35M",,ULLP,,ULLP,34932
+Vjazma-Dvojevka,XUMR,Ryskt internt,OurAirports local_code,"55.1483, 34.3829",55.1483,34.3829,Smolensk oblast,RU,6:e armén,440:e självst. helikopterregementet,"Ka-52, Mi-8MTV-5, Mi-24P",,,XUMR,RU-0257,35118
+Pribylovo,XLLY,Ryskt internt,OurAirports local_code,"60.4583, 28.7467",60.4583,28.7467,Leningrad oblast,RU,6:e armén,549:e självst. helikopterregementet,"Mi-8MT/MTV-5, Mi-24PN, Mi-28N, Mi-35M",,,XLLY,RU-0065,43015
+Levasjovo,XLLV,Ryskt internt,OurAirports local_code,"60.0867, 30.1933",60.0867,30.1933,S:t Petersburg,RU,6:e armén,33:e självst. transportflygregementet,"An-12BK, An-26, An-30, An-72, An-148, Il-22, L-410, Mi-8, Mi-26T, Tu-134",,,XLLV,RU-0001,34933
+Vladimir-Semjazino,UUBL,Inofficiell,OurAirports gps_code,"56.1274, 40.3152",56.1274,40.3152,Vladimir oblast,RU,6:e armén,"33:e transportflygreg., detachement","An-26, Mi-8MTV-5",,UUBL,UUBL,RU-10048,35074
+Krymsk,XRKW,Ryskt internt,OurAirports local_code,"44.9629, 37.9991",44.9629,37.9991,Krasnodar kraj,RU,4:e armén,3:e gardes jaktflygregementet,"Su-27/27SM3, Su-30M2",,,XRKW,RU-0089,44301
+Millerovo,XRRI,Ryskt internt,OurAirports local_code,"48.9552, 40.2964",48.9552,40.2964,Rostov oblast,RU,4:e armén,31:a gardes jaktflygregementet,Su-30SM,,,XRRI,RU-0282,45175
+Morozovsk,URRM,Inofficiell,OurAirports gps_code,"48.3130, 41.7910",48.313,41.791,Rostov oblast,RU,4:e armén,559:e bombflygregementet,Su-34,,URRM,XRRM,RU-10078,46088
+Marinovka,XRWM,Ryskt internt,OurAirports local_code,"48.6370, 43.7890",48.637,43.789,Volgograd oblast,RU,4:e armén,11:e blandade flygregementet,"Su-24M/MR, Su-34",,,XRWM,RU-0298,46089
+Budjonnovsk,URMB,Inofficiell,OurAirports gps_code,"44.8300, 44.0130",44.83,44.013,Stavropol kraj,RU,4:e armén,368:e attackflygregementet; 487:e självst. helikopterregementet,"Su-25SM; Mi-8MTV-5, Mi-28N, Mi-35M, UAV Forpost",,URMB,,RU-0128,44380
+Primorsko-Achtarsk,XRKP,Ryskt internt,OurAirports local_code,"46.0590, 38.2400",46.059,38.24,Krasnodar kraj,RU,4:e armén,960:e attackflygregementet,Su-25SM,,,XRKP,RU-0285,45190
+Gvardejskoje,UKFG,Inofficiell,OurAirports gps_code,"45.1162, 33.9766",45.1162,33.9766,Krim (ockuperat),UA,4:e armén,37:e gardes blandade flygregementet,"Su-24M/MR, Su-25SM",,UKFG,XRFG,UKFG,44291
+Belbek (Sevastopol),UKFB,ICAO,OurAirports icao_code,"44.6918, 33.5746",44.6918,33.5746,Krim (ockuperat),UA,4:e armén,38:e jaktflygregementet,"Su-27, Su-30M2 (Su-35S enl. Scramble)",UKFB,UKFB,,UKFB,44293
+Zernograd,XRRG,Ryskt internt,OurAirports local_code,"46.8350, 40.3800",46.835,40.38,Rostov oblast,RU,4:e armén,16:e arméflygbrigaden,"Mi-8AMTSj, Mi-26, Mi-28N, Mi-35M, Ka-52",,,XRRG,RU-0313,46140
+Dzjankoj,UKFY,Inofficiell,OurAirports gps_code,"45.7009, 34.4189",45.7009,34.4189,Krim (ockuperat),UA,4:e armén,39:e gardes självst. helikopterregementet,"Ka-52, Mi-8AMTSj, Mi-28N, Mi-35M",,UKFY,XRFY,UKFY,43680
+Korenovsk,XRKO,Ryskt internt,OurAirports keywords (kyrillisk),"45.4470, 39.4240",45.447,39.424,Krasnodar kraj,RU,4:e armén,55:e självst. helikopterregementet,"Ka-52, Mi-8AMTSj, Mi-28N, Mi-35M",,,,RU-0287,45193
+Rostov-na-Donu Tsentralnyj,XRRO,Ryskt internt,OurAirports local_code,"47.2774, 39.6356",47.2774,39.6356,Rostov oblast,RU,4:e armén,30:e självst. transportflygregementet,"An-12BK, An-26, An-148, Il-20M, Mi-24, Mi-26",,,XRRO,RU-0372,46242
+Mozdok,,Saknas,,"43.7850, 44.6000",43.785,44.6,Nordossetien,RU,6:e armén (enl. Scramble),"485:e helikopterreg., detachement",Ej angivet,,,,RU-0152,44575
+Erebuni,UDYE,Inofficiell,OurAirports gps_code,"40.1221, 44.4650",40.1221,44.465,"Jerevan, Armenien",AM,4:e armén,3624:e flygbasen,"MiG-29, Mi-8, Mi-24P",,UDYE,,UDYE,6445
+Kant,UAFW,Inofficiell,OurAirports gps_code,"42.8532, 74.8465",42.8532,74.8465,Kirgizistan,KG,–,999:e flygbasen,"Su-25SM, Mi-8, An-26, UAV",,UAFW,,UAFW,6428
+Kansk-Dalnij,XNKG,Ryskt internt,OurAirports gps_code,"56.1233, 95.6633",56.1233,95.6633,Krasnojarsk kraj,RU,14:e armén,712:e gardes jaktflygregementet,MiG-31BM/BSM,,XNKG,,RU-3880,34996
+Perm-Bolsjoje Savino,USPP,ICAO,OurAirports icao_code,"57.9145, 56.0212",57.9145,56.0212,Perm kraj,RU,14:e armén,764:e jaktflygregementet,MiG-31BM/BSM,USPP,USPP,,USPP,26375
+Jekaterinburg-Koltsovo,USSS,ICAO,OurAirports icao_code,"56.7431, 60.8027",56.7431,60.8027,Sverdlovsk oblast,RU,14:e armén,32:a självst. transportflygregementet,"An-12, An-26, An-148, Il-22M, L-410, Mi-8MT, Tu-134, Tu-154",USSS,USSS,,USSS,26378
+Novosibirsk-Tolmatjovo,UNNT,ICAO,OurAirports icao_code,"55.0198, 82.6187",55.0198,82.6187,Novosibirsk oblast,RU,14:e armén,"337:e självst. helikopterregementet; 32:a transportflygreg., blandad skvadron","Mi-8AMTSj, Mi-24P; An-12, An-26, Mi-8AMTSj, Tu-134",UNNT,UNNT,,UNNT,6507
+Bratsk,UIBB,ICAO,OurAirports icao_code,"56.3696, 101.7018",56.3696,101.7018,Irkutsk oblast,RU,14:e armén,32:a transportflygreg. + räddningsdetachement,"An-26, Mi-8MT",UIBB,UIBB,,UIBB,6464
+Kyzyl,UNKY,ICAO,OurAirports icao_code,"51.6694, 94.4006",51.6694,94.4006,Tuva,RU,14:e armén,"32:a transportflygreg., blandad skvadron","An-26, Mi-8AMTSj",UNKY,UNKY,,UNKY,31793
+Kamensk-Uralskij,,Saknas,,"56.4367, 61.9867",56.4367,61.9867,Sverdlovsk oblast,RU,14:e armén,17:e gardes arméflygbrigaden,"Mi-8MTV-5, Mi-24P",,,,RU-1071,34995
+Uprun (Troitsk),USCU,Inofficiell,OurAirports gps_code,"54.3750, 61.3533",54.375,61.3533,Tjeljabinsk oblast,RU,14:e armén,"17:e gardes arméflygbrig., flyggrupp","Mi-8MTV-5, Mi-26T",,USCU,,RU-7978,35106
+Domna,XIAD,Ryskt internt,OurAirports local_code,"51.9165, 113.1214",51.9165,113.1214,Zabajkalje kraj,RU,11:e armén,120:e gardes blandade flygregementet,"Su-30SM, Su-25SM",,,XIAD,RU-4111,34979
+Tjita-Tjerjomusjki,UIAI,Inofficiell,OurAirports gps_code,"52.0730, 113.4333",52.073,113.4333,Zabajkalje kraj,RU,11:e armén,112:e självst. helikopterregementet,"Mi-8AMTSj, Mi-24PN, Mi-28NM",,UIAI,,RU-4827,34968
+Komsomolsk-na-Amure (Dzjomgi),UHKD,Inofficiell,OurAirports gps_code,"50.6056, 137.0813",50.6056,137.0813,Chabarovsk kraj,RU,11:e armén,23:e jaktflygregementet,"Su-35S, Su-30M2/SM",,UHKD,XHKD,UHKD,32517
+Churba,UHKK,ICAO,OurAirports icao_code,"50.4090, 136.9340",50.409,136.934,Chabarovsk kraj,RU,11:e armén,277:e gardes bombflygregementet,"Su-34/34M, Su-24M2",UHKK,UHKK,,UHKK,31790
+Tsentralnaja Uglovaja,UHIU,Inofficiell,OurAirports gps_code,"43.3480, 132.0588",43.348,132.0588,Primorje kraj,RU,11:e armén,22:a gardes jaktflygregementet,"MiG-31BSM, Su-35S, Su-30M2, Su-27SM",,UHIU,,RU-0149,44481
+Tjernigovka,UHII,Inofficiell,OurAirports gps_code,"44.3224, 132.5453",44.3224,132.5453,Primorje kraj,RU,11:e armén,18:e gardes attackflygregementet; 319:e självst. helikopterregementet,"Su-25SM; Ka-52, Mi-8AMTSj",,UHII,,RU-0132,44392
+Varfolomejevka,XHIF,Ryskt internt,OurAirports local_code,"44.2618, 133.4117",44.2618,133.4117,Primorje kraj,RU,11:e armén,799:e självst. spaningsflygskvadronen,Su-24MR,,,XHIF,RU-0299,46090
+Chabarovsk-Bolsjoj,UHHA,Enligt Scramble (ej verifierad),Scramble.nl,,,,Chabarovsk kraj,RU,11:e armén,35:e självst. transportflygregementet; 18:e arméflygbrigaden,"An-12, An-26, Il-20M, Tu-134, Tu-154; Ka-52, Mi-8AMTSj, Mi-26",,,,,
+Burevestnik (Iturup),UHSB,ICAO,OurAirports icao_code,"44.9200, 147.6220",44.92,147.622,Sachalin oblast (Kurilerna),RU,11:e armén,"18:e arméflygbrig., detachement",Mi-8AMTSj,UHSB,UHSB,,UHSB,34959
+Kljutji,XHPL,Ryskt internt,OurAirports local_code,"56.3098, 160.8045",56.3098,160.8045,Kamtjatka kraj,RU,11:e armén,"35:e transportflygreg., blandad skvadron","An-12, An-26, Mi-8AMTSj",,,XHPL,RU-4936,35005
+Engels-2,XWSG,Ryskt internt,Wikipedia,"51.4805, 46.2150",51.4805,46.215,Saratov oblast,RU,Fjärrflyget,121:a gardes tunga bombflygregementet; 184:e tunga bombflygregementet,Tu-160/160M; Tu-95MS,,,,RU-8602,34984
+Sjajkovka,XUBJ,Ryskt internt,OurAirports local_code,"54.2267, 34.3717",54.2267,34.3717,Kaluga oblast,RU,Fjärrflyget,52:a gardes tunga bombflygregementet,Tu-22M3,,,XUBJ,RU-9942,35080
+Soltsy-2,XLLL,Ryskt internt,OurAirports gps_code,"58.1395, 30.3304",58.1395,30.3304,Novgorod oblast,RU,Fjärrflyget,Ej namngivet förband,Tu-22M3,,XLLL,XLLL,RU-10049,35085
+Olenja (Olenegorsk),XLMO,Ryskt internt,OurAirports local_code,"68.1518, 33.4639",68.1518,33.4639,Murmansk oblast,RU,Fjärrflyget,40:e blandade flygregementet,"Tu-22M3, Mi-8MT",,,XLMO,RU-4464,35046
+Belaja,UIIB,Inofficiell,OurAirports gps_code,"52.9149, 103.5755",52.9149,103.5755,Irkutsk oblast,RU,Fjärrflyget,200:e gardes tunga bombflygregementet; 181:a självst. blandade flygskvadronen,"Tu-22M3; An-12, An-30",,UIIB,,UIIB,34948
+Ukrainka,XHBU,Ryskt internt,OurAirports local_code,"51.1700, 128.4450",51.17,128.445,Amur oblast,RU,Fjärrflyget,182:a gardes tunga bombflygregementet; 79:e tunga bombflygregementet,Tu-95MS; Tu-95MS,,,XHBU,RU-2244,35102
+Djagilevo (Rjazan),UUBD,Inofficiell,OurAirports gps_code,"54.6423, 39.5690",54.6423,39.569,Rjazan oblast,RU,Fjärrflyget,203:e gardes lufttankningsregementet,Il-78/Il-78M,,UUBD,XUBD,RU-10059,43669
+Tambov,XUOM,Ryskt internt,OurAirports local_code,"52.7006, 41.3742",52.7006,41.3742,Tambov oblast,RU,Fjärrflyget,27:e blandade flygregementet,"An-12, An-26, Tu-134UBL",,,XUOM,RU-4339,35094
+Tiksi,UEST,ICAO,OurAirports icao_code,"71.6977, 128.9030",71.6977,128.903,Sacha (Jakutien),RU,Fjärrflyget,Framskjuten bas,Tu-22M3 (tillfälligt),UEST,UEST,XEST,UEST,6450
+Pskov,ULOO,ICAO,OurAirports icao_code,"57.7813, 28.3938",57.7813,28.3938,Pskov oblast,RU,Transportflyget,334:e transportflygregementet,"Il-76MD/MD-90A, Il-78",ULOO,ULOO,XLOO,ULOO,6491
+Tver-Migalovo,UUEM,ICAO,OurAirports icao_code,"56.8247, 35.7577",56.8247,35.7577,Tver oblast,RU,Transportflyget,8:e transportflygregementet,Il-76 (An-22 enl. äldre uppgift),UUEM,UUEM,,UUEM,26397
+Sesjtja,XUWD,Ryskt internt,OurAirports local_code,"53.7153, 33.3391",53.7153,33.3391,Brjansk oblast,RU,Transportflyget,566:e transportflygregementet,"An-124, Il-76",,,XUWD,RU-0240,44998
+Ivanovo-Severnyj,XUDI,Ryskt internt,OurAirports local_code,"57.0583, 40.9817",57.0583,40.9817,Ivanovo oblast,RU,Transportflyget,144:e luftburna tidig varning-regementet,A-50/A-50U,,,XUDI,RU-5672,34993
+Orenburg-2,XWON,Ryskt internt,OurAirports gps_code,"51.7091, 55.0200",51.7091,55.02,Orenburg oblast,RU,Transportflyget,117:e transportflygregementet,"Il-76MD, Il-22P",,XWON,,RU-6542,35048
+Taganrog-Tsentralnyj,XRRC,Ryskt internt,OurAirports local_code,"47.2465, 38.8403",47.2465,38.8403,Rostov oblast,RU,Transportflyget,708:e transportflygregementet,Il-76MD,,,XRRC,RU-0211,44866
+Uljanovsk-Vostotjnyj,UWLW,ICAO,OurAirports icao_code,"54.4010, 48.8027",54.401,48.8027,Uljanovsk oblast,RU,Transportflyget,235:e transportflygregementet,"An-124, Il-76MD/MD-90A",UWLW,UWLW,,UWLW,26407
+Severomorsk-3,XLMV,Ryskt internt,OurAirports local_code,"68.8667, 33.7167",68.8667,33.7167,Murmansk oblast,RU,Marinflyget (Norra flottan),100:e skeppsburna jaktflygregementet; 279:e skeppsburna jaktflygregementet,"MiG-29KR; Su-33, Su-30SM, Su-25UTG",,,XLMV,RU-10058,43018
+Severomorsk-1,XLMD,Ryskt internt,OurAirports local_code,"69.0317, 33.4183",69.0317,33.4183,Murmansk oblast,RU,Marinflyget (Norra flottan),403:e blandade flygregementet; 830:e ubåtsjakthelikopterregementet,"Il-38, Il-20/22, An-12, An-26; Ka-27/29, Mi-8",,,XLMD,RU-10057,43016
+Kipelovo (Fedotovo),XLWF,Ryskt internt,OurAirports local_code,"59.1904, 39.1235",59.1904,39.1235,Vologda oblast,RU,Marinflyget (Norra flottan),"403:e flygreg., Tu-142-del",Tu-142,,,XLWF,RU-10056,43010
+Tjernjachovsk,XMWH,Ryskt internt,OurAirports local_code,"54.6017, 21.7824",54.6017,21.7824,Kaliningrad oblast,RU,Marinflyget (Östersjöflottan),4:e marina attackflygregementet,"Su-24M/MR, Su-30SM/SM2",,,XMWH,RU-0060,43008
+Donskoje,XMWD,Ryskt internt,OurAirports local_code,"54.9345, 19.9823",54.9345,19.9823,Kaliningrad oblast,RU,Marinflyget (Östersjöflottan),396:e blandade helikopterregementet,"Ka-27/29, Mi-8, Mi-24",,,XMWD,RU-0061,43009
+Saki (Novofedorivka),UKFI,Inofficiell,OurAirports gps_code,"45.0906, 33.5985",45.0906,33.5985,Krim (ockuperat),UA,Marinflyget (Svartahavsflottan),43:e marina attackflygregementet,"Su-24M/MR, Su-30SM",,UKFI,,UKFI,44296
+Katja,UKKA,ICAO,OurAirports icao_code,"44.7798, 33.5722",44.7798,33.5722,Krim (ockuperat),UA,Marinflyget (Svartahavsflottan),318:e blandade flygregementet,"Ka-27/29/31, Mi-8, Be-12, An-26",UKKA,UKKA,,UA-0022,44313
+Jelizovo (Petropavlovsk-Kamtjatskij),UHPP,ICAO,OurAirports icao_code,"53.1687, 158.4511",53.1687,158.4511,Kamtjatka kraj,RU,Marinflyget (Stillahavsflottan),317:e blandade flygregementet,"MiG-31BM, Il-38, Ka-27",UHPP,UHPP,,UHPP,6460
+Kamennyj Rutjej (Mongochto),UHKG,ICAO,OurAirports icao_code,"49.2357, 140.1931",49.2357,140.1931,Chabarovsk kraj,RU,Marinflyget (Stillahavsflottan),Självst. ubåtsjaktskvadron,Tu-142,UHKG,UHKG,XHKG,UHKG,43011
+Nikolajevka,XHWE,Ryskt internt,OurAirports local_code,"43.0856, 133.1905",43.0856,133.1905,Primorje kraj,RU,Marinflyget (Stillahavsflottan),289:e ubåtsjaktregementet,"Il-38, Ka-27, Ka-29",,,XHWE,RU-0538,337878
+Jejsk,URKE,Inofficiell,OurAirports gps_code,"46.6800, 38.2100",46.68,38.21,Krasnodar kraj,RU,Marinflyget,859:e utbildningscentrum,Ej angivet,,URKE,XRKE,RU-10077,45191
+Lipetsk-2,XUWL,Ryskt internt,OurAirports local_code,"52.6350, 39.4450",52.635,39.445,Lipetsk oblast,RU,Flygvapnets HK,968:e instruktörs- och forskningsregementet,"Su-34, Su-35S, Su-30SM, Su-27, Su-24M, Su-25, Yak-130, An-26",,,XUWL,RU-0016,41136
+Kubinka,UUMB,ICAO,OurAirports icao_code,"55.6117, 36.6500",55.6117,36.65,Moskva oblast,RU,Flygvapnets HK,237:e uppvisningscentrum,Ej angivet i källorna,UUMB,XUMB,XUMB,RU-0764,35012
+Achtubinsk,XRWH,Ryskt internt,OurAirports local_code,"48.3085, 46.2365",48.3085,46.2365,Astrachan oblast,RU,Flygvapnets HK,267:e provflygcentrum,"Su-57, Su-35, Su-34, Su-30SM, MiG-31BM, MiG-35, Il-76MD, An-124, Yak-130 m.fl.",,,XRWH,RU-0380,46251
+Bagaj-Baranovka,XWSB,Ryskt internt,OurAirports local_code,"52.1397, 46.9694",52.1397,46.9694,Saratov oblast,RU,Flygvapnets HK,395:e självst. provflygskvadronen,"An-26, An-72, Mi-8, Mi-24",,,XWSB,RU-3709,35075
+Naltjik,URMN,ICAO,OurAirports icao_code,"43.5129, 43.6366",43.5129,43.6366,Kabardino-Balkarien,RU,Flygvapnets HK,Bergsprovcentrum,Från 929:e centrum,URMN,URMN,,URMN,6515
+Tjkalovskij,UUMU,ICAO,OurAirports icao_code,"55.8783, 38.0617",55.8783,38.0617,Moskva oblast,RU,Flygvapnets HK,353:e och 354:e specialflygregementena,Ej angivet i källorna,UUMU,UUMU,,UUMU,34969
+Armavir,URKR,ICAO,OurAirports gps_code,"44.9687, 41.1074",44.9687,41.1074,Krasnodar kraj,RU,Flygvapnets HK,713:e skolflygregementet,"MiG-29, Yak-130",,URKR,,URKR,44330
+Balasjov,XWSW,Ryskt internt,OurAirports local_code,"51.5317, 43.3017",51.5317,43.3017,Saratov oblast,RU,Flygvapnets HK,606:e skolflygregementet,"An-26, DA42",,,XWSW,RU-0010,34945
+Borisoglebsk,XUOB,Ryskt internt,OurAirports local_code,"51.3667, 42.1783",51.3667,42.1783,Voronezj oblast,RU,Flygvapnets HK,160:e skolflygregementet,"Su-25, Yak-130",,,XUOB,RU-0014,34953
+Kotelnikovo,XRRK,Ryskt internt,OurAirports local_code,"47.6350, 43.0950",47.635,43.095,Volgograd oblast,RU,Flygvapnets HK,704:e skolflygregementet,L-39C,,,XRRK,RU-0307,46132
+Kusjtjovskaja,,Saknas,,"46.5370, 39.5480",46.537,39.548,Krasnodar kraj,RU,Flygvapnets HK,797:e skolflygregementet,"MiG-29, Su-25, Su-27",,,,RU-0288,45194
+Majkop-Chanskaja,XRKH,Ryskt internt,OurAirports local_code,"44.6796, 40.0361",44.6796,40.0361,Adygeja,RU,Flygvapnets HK,761:a skolflygregementet,L-39C,,,XRKH,RU-10062,44321
+Mitjurinsk,XUWM,Ryskt internt,OurAirports local_code,"52.9175, 40.3658",52.9175,40.3658,Tambov oblast,RU,Flygvapnets HK,644:e skolflygregementet,L-39C,,,XUWM,RU-6687,35036
+Rtisjtjevo,XWPR,Ryskt internt,OurAirports local_code,"52.2973, 43.7241",52.2973,43.7241,Saratov oblast,RU,Flygvapnets HK,666:e skolflygregementet,L-410UVP-E,,,XWPR,RU-10047,35064
+Tichoretsk,URKT,Inofficiell,OurAirports gps_code,"45.8790, 40.1050",45.879,40.105,Krasnodar kraj,RU,Flygvapnets HK,627:e skolflygregementet,L-39C,,URKT,,RU-0164,44619
+Syzran-Trojekurovka,,Saknas,,"53.2255, 48.5497",53.2255,48.5497,Samara oblast,RU,Flygvapnets HK,484:e skolhelikopterregementet,Mi-24,,,,RU-0095,44318
+Saratov-Sokol,,Saknas,,"51.5409, 45.8485",51.5409,45.8485,Saratov oblast,RU,Flygvapnets HK,131:a skolhelikopterregementet,"Ansat-U, Ka-226, Mi-8T, Mi-28N",,,,RU-5259,35071
+Torzjok,XUET,Ryskt internt,OurAirports local_code,"57.0438, 35.0017",57.0438,35.0017,Tver oblast,RU,Arméflyget,696:e instruktörs- och provhelikopterregementet,Ej angivet i källorna,,,XUET,RU-0186,44653
+Klin,,Saknas,,"56.3667, 36.7383",56.3667,36.7383,Moskva oblast,RU,Arméflyget,92:a instruktörshelikopterskvadronen,"Mi-8AMTSj, Mi-24",,,,RU-5186,35004

@@ -21,6 +21,8 @@ import { categoryColor, type FlightCat } from '../services/weather';
 import { flagEmoji } from '../constants/continents';
 import { getRunways } from '../utils/runways';
 import { displayCode } from '../utils/airportCodes';
+import { RoleTagStack } from './RoleTag';
+import type { RoleKey } from '../utils/ruAirbases';
 
 // icao,name,country,region,lat,lon + berikning (airportmap.de): iata,alt,type,municipality,restriction.
 // Berikningsfälten är optional så äldre 6-elements-konstruktioner (ex AirportMapWidget) fortsätter gälla.
@@ -42,8 +44,9 @@ const INITIAL: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longit
 // land-flaggor oavsett zoom (för den stora 34k-databasen → byter aldrig till pins, kraschar ej).
 export type RegionMarker = { key: string; label: string; count: number; lat: number; lon: number };
 
-export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, pinCategory, hulls, regionShapes, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborShapes, neighborMarkers, onSelectNeighbor, clustering, clusterKey, onRegionChange, onFlagView, fitTo, children, goldOutline, ownCompass, onHeading, camCmd, showsUser }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; pinCategory?: Map<string, FlightCat | null>; hulls?: { latitude: number; longitude: number }[][]; regionShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void; clustering?: boolean; clusterKey?: string; onRegionChange?: (r: Region) => void;
+export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, pinCategory, hulls, regionShapes, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborShapes, neighborMarkers, onSelectNeighbor, clustering, clusterKey, onRegionChange, onFlagView, roleTagFor, fitTo, children, goldOutline, ownCompass, onHeading, camCmd, showsUser }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; pinCategory?: Map<string, FlightCat | null>; hulls?: { latitude: number; longitude: number }[][]; regionShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void; clustering?: boolean; clusterKey?: string; onRegionChange?: (r: Region) => void;
   onFlagView?: (flags: boolean) => void; // kartan visar land-flaggor (true) eller kluster/nålar (false)
+  roleTagFor?: (icao: string) => RoleKey[] | null; // Air Bases → Specific: rollerna för en bas (null = vanlig ICAO-etikett)
   // Rama in punkter med marginaler (Visited airports: uppspelningen av senaste flygningen, mellan korten). Sätts den
   // till null igen glider kartan tillbaka till vyn den hade innan.
   // endAt: tillbaka med samma zoom men centrerat där (Visited airports: flygningen slutade på en annan flygplats).
@@ -409,7 +412,12 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           // träffyta så onPress fyrar tillförlitligt (multi-element labelChip+dot missade tryck i RN-maps 1.27).
           <Marker key={`ca-${icao}`} coordinate={{ latitude: lat, longitude: lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={tracks}
             onPress={onSelectAirport ? () => onSelectAirport(icao) : undefined}>
-            <View style={s.icaoPin}><Text style={s.icaoPinTxt}>{displayCode(icao)}</Text></View>
+            {(() => {
+              // Air Bases → Specific: basens rollsymbol(er) i stället för ICAO-etiketten.
+              const roles = roleTagFor?.(icao);
+              return roles ? <RoleTagStack roles={roles} selected={icao === focus?.[0]} />
+                : <View style={s.icaoPin}><Text style={s.icaoPinTxt}>{displayCode(icao)}</Text></View>;
+            })()}
           </Marker>
         );
       })}

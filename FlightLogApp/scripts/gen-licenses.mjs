@@ -218,6 +218,7 @@ const fonts = [
   { name: 'JetBrains Mono', license: 'OFL-1.1', url: 'https://github.com/JetBrains/JetBrainsMono', copyright: ['Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)'], text: oflId },
   { name: 'Space Grotesk', license: 'OFL-1.1', url: 'https://github.com/floriankarsten/space-grotesk', copyright: ['Copyright 2020 The Space Grotesk Project Authors (https://github.com/floriankarsten/space-grotesk)'], text: oflId },
   { name: 'Chakra Petch', license: 'OFL-1.1', url: 'https://github.com/cadsondemak/chakra-petch', copyright: ['Copyright 2018 The Chakra Petch Project Authors (https://github.com/m4rc1e/Chakra-Petch.git)'], text: oflId },
+  { name: 'Black Ops One', license: 'OFL-1.1', url: 'https://github.com/SorkinType/Black-Ops', copyright: ['Copyright 2022 The Black-Ops Project Authors'], text: oflId },
   { name: 'DSEG7 Classic', license: 'OFL-1.1', url: 'https://www.keshikan.net/fonts-e.html', copyright: dseg.copyright, text: addText(dseg.body) },
   { name: 'Ionicons', license: 'MIT', url: 'https://ionic.io/ionicons', copyright: ['Copyright (c) 2015-present Ionic (http://ionic.io/)'], text: addText(STANDARD.MIT) },
   { name: 'Material Design Icons', license: 'Pictogrammers Free License', url: 'https://pictogrammers.com/docs/general/license/', copyright: ['Copyright (c) Pictogrammers'], text: addText('Icons from the Material Design Icons collection by Pictogrammers, used under the Pictogrammers Free License. See https://pictogrammers.com/docs/general/license/') },

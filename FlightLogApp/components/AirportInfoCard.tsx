@@ -1,6 +1,6 @@
 // Delat flygplats-infokort (Global map, Visited airports, Find airport, "Fly to"). Samma stil som dashboardens
 // flygkort men lågt och 20 % genomskinligt (kartan syns igenom):
-//   rad 1: ICAO · namn · stjärna · stäng
+//   rad 1: ICAO · namn (upp till två rader) · stjärna · stäng
 //   rad 2: IATA · storlek (· land) · väder (VFR-märke + kort METAR, tryck → METAR-rutan), annars "No weather"
 //   remsa: ELEV · bana (en: RUNWAY + LENGTH, flera: RUNWAYS + LONGEST) · SURFACE
 //   tunna rader bara när de finns: frekvenserna (TWR först), egna landningar (tryck → flygningen)
@@ -117,9 +117,10 @@ export function AirportInfoCard({ icao, name, iata, alt, type, sub, country, acc
       <LinearGradient colors={solid ? ['rgba(18,48,74,0.97)', 'rgba(15,30,58,0.97)'] : ['rgba(18,48,74,0.8)', 'rgba(15,30,58,0.8)']} locations={[0, 0.55]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
 
       {/* Rad 1: ICAO · namn · stjärna · stäng */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 14, paddingRight: 10, paddingTop: 10, paddingBottom: 2 }}>
-        <Text style={{ fontFamily: MONO, fontSize: 22, fontWeight: '800', letterSpacing: 1, color: accent }}>{displayCode(icao)}</Text>
-        <Text style={{ flex: 1, fontFamily: SERIF, fontSize: 18, fontWeight: '600', color: '#FFFFFF' }} numberOfLines={1}>{name || ''}</Text>
+      {/* Långa namn (var fjärde flygplats) får två rader bredvid koden i stället för att kapas (alternativ A, 2026-11-19). */}
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingLeft: 14, paddingRight: 10, paddingTop: 10, paddingBottom: 2 }}>
+        <Text style={{ fontFamily: MONO, fontSize: 22, lineHeight: 28, fontWeight: '800', letterSpacing: 1, color: accent }}>{displayCode(icao)}</Text>
+        <Text style={{ flex: 1, fontFamily: SERIF, fontSize: 16, lineHeight: 20, paddingTop: 3, fontWeight: '600', color: '#FFFFFF' }} numberOfLines={2}>{name || ''}</Text>
         {onToggleFavorite && (
           <TouchableOpacity onPress={onToggleFavorite} hitSlop={6} accessibilityRole="button" accessibilityLabel={isFavorite ? 'Remove from favourites' : 'Add to favourites'}
             style={[s.btn, isFavorite && { backgroundColor: Colors.gold + '2e', borderColor: Colors.gold }]}>

@@ -28,7 +28,7 @@ import { countryNameFull } from '../constants/countryNames';
 import { COUNTRY_POPULATION, formatPopulation } from '../constants/countryPopulation';
 import { CountryFlag } from './CountryFlag';
 import {
-  leavesFor, matchLeaves, keysNeedRunway, propsActive, matchProps, FILTER_GROUPS, ACCESS_NODES, type FilterGroup,
+  leavesFor, matchLeaves, keysNeedRunway, propsActive, matchProps, FILTER_GROUPS, ACCESS_NODES, SPECIFIC_NODES, isSpecificKey, type FilterGroup,
   filterCountLabel, EMPTY_PROPS, type MapProps,
 } from '../constants/mapFilters';
 import { fetchMetarsInBbox, categoryColor, type FlightCat, type AirportMetar } from '../services/weather';
@@ -75,6 +75,9 @@ import { countryBorder } from '../utils/borders';
 import { Colors } from '../constants/colors';
 import airportDataMeta from '../assets/airport-data-meta.json';
 import { displayCode } from '../utils/airportCodes';
+import { UnitCard } from './UnitCard';
+import { RoleTag } from './RoleTag';
+import { getRuBase, ruBaseRoles, RU_BASE_COUNT, ROLES } from '../utils/ruAirbases';
 
 // Datum då flygplatsdatan senast hämtades (skrivs av scripts/build-airports.mjs --refresh), t.ex. "26 October 2026".
 const AIRPORT_DATA_UPDATED = new Date(`${airportDataMeta.updated}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -231,6 +234,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [favMode, setFavMode] = useState(false); // Favorites-knappen: visa bara favoriter (filtrerbart)
   // Vilken expander-panel under typ-raden som är öppen (en i taget): Properties / Weather / Access / Closed.
   const [openSection, setOpenSection] = useState<null | string>(null); // 'props' | 'access' | 'closed' | 'g:<grupp>'
+  const [specificPage, setSpecificPage] = useState(false); // Air Bases-panelens andra sida (Specific)
   const [dataInfoOpen, setDataInfoOpen] = useState(false); // info-ruta: datakälla + uppdaterad + friskrivning
   const propsOpen = openSection === 'props';
 
@@ -634,9 +638,19 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     for (const info of getRunwayIndex().values()) for (const s of SURFACE_FILTERS) if (info.surfaces & surfaceBit(s)) out[s]++;
     return out;
   }, [propsOpen]);
-  const toggleSection = (s: string) => setOpenSection((cur) => (cur === s ? null : s));
+  const toggleSection = (s: string) => { setSpecificPage(false); setOpenSection((cur) => (cur === s ? null : s)); };
   // Gruppknapparna (Airports/Air Bases/Airfields/Helicopter/Other): "All" = hela gruppen; en undertyp tar bort All.
-  const groupOn = (g: FilterGroup) => activeKeys.has(g.all.key) || g.subs.some((n) => activeKeys.has(n.key));
+  const groupOn = (g: FilterGroup) => activeKeys.has(g.all.key) || g.subs.some((n) => activeKeys.has(n.key))
+    || (g.key === 'airbases' && [...activeKeys].some(isSpecificKey));
+  // Air Bases → Specific: "All" = alla ryska baser; en roll tar bort All (flera roller går att välja).
+  const specificOn = [...activeKeys].some(isSpecificKey);
+  const specificChosen = SPECIFIC_NODES.filter((n) => activeKeys.has(n.key));
+  const pickSpecific = (key: string) => setActiveKeys((prev) => {
+    const n = new Set(prev);
+    if (key === 'rb:all') { const was = n.has(key); [...n].filter(isSpecificKey).forEach((k) => n.delete(k)); if (!was) n.add(key); }
+    else { n.delete('rb:all'); n.has(key) ? n.delete(key) : n.add(key); }
+    return n;
+  });
   const pickGroupAll = (g: FilterGroup) => setActiveKeys((prev) => {
     const n = new Set(prev);
     if (n.has(g.all.key)) n.delete(g.all.key); else { n.add(g.all.key); g.subs.forEach((x) => n.delete(x.key)); }
@@ -814,6 +828,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
             clustering={directPins ? false : clusterMode}
             clusterKey={mapKey}
             onFlagView={setFlagView}
+            roleTagFor={specificOn ? ruBaseRoles : undefined}
             onRegionChange={(r) => {
               if (clusterMode) setMapRegion(r);
               if (Date.now() > meGuardRef.current) setMeActive(false); // man drog i kartan → pilen blir kontur igen
@@ -1133,7 +1148,38 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                   </TouchableOpacity>
                 </View>
 
-                {openGroup && (
+                {openGroup && openGroup.key === 'airbases' && specificPage && (
+                  /* Air Bases → Specific: nästa sida i samma ruta — välj roll; baserna ritas då med rollsymboler. */
+                  <View style={styles.propsPanel}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                      <TouchableOpacity onPress={() => setSpecificPage(false)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Back to Air Bases"
+                        style={{ width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="chevron-back" size={16} color="#fff" />
+                      </TouchableOpacity>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: '#fff', fontSize: 15, fontWeight: '800' }}>Specific</Text>
+                        <Text style={{ color: '#9DB4CC', fontSize: 11.5 }}>{RU_BASE_COUNT} Russian bases · by aircraft</Text>
+                      </View>
+                    </View>
+                    <View style={styles.groupOpts}>
+                      {SPECIFIC_NODES.map((n) => {
+                        const on = activeKeys.has(n.key);
+                        return (
+                          <TouchableOpacity key={n.key} onPress={() => pickSpecific(n.key)} activeOpacity={0.7}
+                            accessibilityRole="button" accessibilityState={{ selected: on }}
+                            style={[styles.groupOpt, { justifyContent: 'flex-start' }, on && styles.propPillOn]}>
+                            {n.role && <RoleTag role={n.role} />}
+                            <Text style={[styles.propPillTxt, { flex: 1, flexShrink: 1 }, on && { color: Colors.primary }]} numberOfLines={1}>{n.label}</Text>
+                            <Text style={[styles.groupOptCount, on && { color: Colors.primary }]}>{n.count}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                    <Text style={styles.groupInfo}>Each base is marked with the symbol of its aircraft. Tap one to see the unit and the types based there. From open sources; can be out of date.</Text>
+                  </View>
+                )}
+
+                {openGroup && !(openGroup.key === 'airbases' && specificPage) && (
                   <View style={styles.propsPanel}>
                     <View style={styles.groupOpts}>
                       {[openGroup.all, ...openGroup.subs].map((n) => {
@@ -1150,6 +1196,24 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                           </TouchableOpacity>
                         );
                       })}
+                      {openGroup.key === 'airbases' && (
+                        <TouchableOpacity onPress={() => setSpecificPage(true)} activeOpacity={0.7} accessibilityRole="button"
+                          accessibilityLabel="Specific: Russian air bases by aircraft" accessibilityState={{ selected: specificOn }}
+                          style={[styles.groupOpt, { justifyContent: 'flex-start', borderColor: specificOn ? Colors.primary : Colors.primary + '73' }, specificOn && styles.propPillOn]}>
+                          <View style={{ flexDirection: 'row' }}>
+                            {(['fighter', 'bomber', 'heli'] as const).map((r, i) => (
+                              <View key={r} style={{ width: 11, height: 11, borderRadius: 3.5, borderWidth: 1.5, borderColor: ROLES[r].color, backgroundColor: '#0F1A2E', marginLeft: i ? -4 : 0 }} />
+                            ))}
+                          </View>
+                          <Text style={[styles.propPillTxt, { flex: 1 }, specificOn && { color: Colors.primary }]} numberOfLines={1}>Specific</Text>
+                          {specificChosen.length > 0 && (
+                            <Text style={{ color: Colors.primary, fontSize: 10.5, fontWeight: '700', flexShrink: 1 }} numberOfLines={1}>
+                              {specificChosen.length === 1 ? specificChosen[0].label : `${specificChosen.length} roles`}
+                            </Text>
+                          )}
+                          <Ionicons name="chevron-forward" size={13} color={specificOn ? Colors.primary : '#fff'} />
+                        </TouchableOpacity>
+                      )}
                     </View>
                     <Text style={styles.groupInfo}>{openGroup.info}</Text>
                   </View>
@@ -1264,6 +1328,17 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
           return (
             <View onLayout={(e) => setPlayCardH(e.nativeEvent.layout.height)}
               style={[{ position: 'absolute', left: 12, right: 12, zIndex: 15 }, playOn ? { top: insets.top + 8 } : { bottom: insets.bottom + 14 }]}>
+              {specificOn && getRuBase(focusAirport[0]) ? (
+                // Air Bases → Specific: förbandskortet ersätter flygplatskortet för baserna.
+                <UnitCard
+                  icao={focusAirport[0]}
+                  base={getRuBase(focusAirport[0])!}
+                  country={focusAirport[2]}
+                  onClose={() => setFocusAirport(null)}
+                  isFavorite={favorites.has(focusAirport[0])}
+                  onToggleFavorite={() => toggleFavorite(focusAirport[0])}
+                />
+              ) : (
               <AirportInfoCard
                 icao={focusAirport[0]}
                 name={focusAirport[1]}
@@ -1282,6 +1357,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                 onPlay={playCand && playCand.icao === focusAirport[0] ? (playOn ? stopPlay : startPlay) : undefined}
                 playing={playOn}
               />
+              )}
             </View>
           );
         })()}

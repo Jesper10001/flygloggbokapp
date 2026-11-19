@@ -147,6 +147,8 @@ export default function RootLayout() {
           DSEG7Classic: require('../assets/fonts/DSEG7Classic-Bold.ttf'),
           ChakraPetch: require('../assets/fonts/ChakraPetch-SemiBold.ttf'),
           'ChakraPetch-SemiBold': require('../assets/fonts/ChakraPetch-SemiBold.ttf'),
+          // Rollbokstäverna på global map (Air Bases → Specific), components/RoleTag.tsx
+          BlackOpsOne: require('../assets/fonts/Black_Ops_One/BlackOpsOne-Regular.ttf'),
         }).catch(() => { /* fonter ej kritiska – fall back till system */ });
         setFontsLoaded(true);
 

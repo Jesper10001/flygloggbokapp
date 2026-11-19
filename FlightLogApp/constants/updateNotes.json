@@ -2,6 +2,14 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 197,
+      "date": "2026-11-19",
+      "notes": [
+        "New: Air Bases → Specific on the Global map shows 92 Russian air bases by aircraft role, with role symbols on the map and a unit card listing the unit and the aircraft based there.",
+        "Improved: Long airport names wrap to two lines on the airport card instead of being cut off."
+      ]
+    },
+    {
       "id": 196,
       "date": "2026-11-19",
       "notes": [
