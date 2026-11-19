@@ -29,7 +29,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: Global map filters are grouped into Airports, Air Bases, Airfields, Helicopter and Other, each with its own types, such as Helipads on rooftops, Offshore, Gliding, Skydiving and Spaceports.
 - Improved: A narrow filter on the Global map shows its airports without zooming far in, and they stay on the map as you zoom out and move around.
 - Improved: Airports without an ICAO code show their local code (such as ESVE or LF4051) instead of an internal ID like SE-0002, and you can type that code in Log flight.
-- New: Air Bases → Specific on the Global map shows 92 Russian air bases by aircraft role, with role symbols on the map and a unit card listing the unit and the aircraft based there.
+- New: Specific under Air Bases on the Global map shows 92 Russian air bases by aircraft role, with role symbols on the map and a unit card listing the unit and the aircraft based there.
 - Improved: Long airport names wrap to two lines on the airport card instead of being cut off.
 
 ### Alla ändringar
