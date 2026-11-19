@@ -584,12 +584,13 @@ const s = StyleSheet.create({
   flagCount: { color: '#FFFFFF', fontSize: 8.5, fontWeight: '800' },
   // Kluster-plupp: cyan cirkel med antal (tap → zooma in så klustret delas).
   // Kluster-pin i samma stil som ICAO-boxarna (mörk botten, cyan kant, vit text).
+  // 2026-11-19: ~30 % mindre än förut (34×28 → 24×20) så att klustren inte dominerar kartan.
   clusterPin: {
-    minWidth: 34, height: 28, borderRadius: 9, paddingHorizontal: 9,
+    minWidth: 24, height: 20, borderRadius: 6.5, paddingHorizontal: 6,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(15,22,38,0.92)', borderWidth: 1.5, borderColor: Colors.primary,
+    backgroundColor: 'rgba(15,22,38,0.92)', borderWidth: 1.2, borderColor: Colors.primary,
   },
-  clusterCount: { color: '#FFFFFF', fontSize: 12, fontWeight: '800', fontFamily: 'Menlo', letterSpacing: 0.3, fontVariant: ['tabular-nums'] },
+  clusterCount: { color: '#FFFFFF', fontSize: 9, fontWeight: '800', fontFamily: 'Menlo', letterSpacing: 0.2, fontVariant: ['tabular-nums'] },
   dot: {
     width: 12, height: 12, borderRadius: 6,
     backgroundColor: '#4f7cff', borderWidth: 1.5, borderColor: '#FFFFFF',

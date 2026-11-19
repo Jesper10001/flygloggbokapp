@@ -2,6 +2,14 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 201,
+      "date": "2026-11-19",
+      "notes": [
+        "Improved: The air base card stays compact. Long lists of units and aircraft scroll inside the card.",
+        "Improved: The cluster boxes on the Global map are smaller, so the map is easier to read."
+      ]
+    },
+    {
       "id": 200,
       "date": "2026-11-19",
       "notes": [

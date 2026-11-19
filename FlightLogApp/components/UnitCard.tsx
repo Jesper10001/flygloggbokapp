@@ -2,7 +2,9 @@
 // militära baserna (Europa och Ryssland). Samma ram, översta rad och knappar som AirportInfoCard; remsan visar förband och kommando i stället
 // för höjd och banor, och AIRCRAFT flygplanstyperna med rollsymbolen (typerna flyter fritt; symbolen hålls ihop med
 // sin första typ så att den aldrig står ensam sist på en rad). Design 2026-11-19, artifact G3JjRFW2NmM3nEkNPsUkaT.
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+// Kortet hålls lågt: UNIT/COMMAND visar högst tre rader och AIRCRAFT högst tre rader, resten rullas fram (ScrollBox).
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, type StyleProp, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../constants/colors';
@@ -15,6 +17,38 @@ const MONO = 'JetBrainsMono';
 const SERIF = 'Fraunces';
 const SUB = '#A9C3DB';
 const GOLD = '#FFB830';
+const LINE = 16;                    // radhöjden för förband/kommando (s.value)
+const TEXT_MAX = LINE * 3 + 3 * 2;  // tre rader text, sedan rullning
+const ROW = 20;                     // en rad flygfarkoster (rollsymbolens höjd)
+const CHIP_MAX = ROW * 3 + 5 * 2;   // tre rader flygfarkoster, sedan rullning
+
+// Rullista med takhöjd: rullar bara när innehållet inte får plats, och tonar ut nederkanten tills man rullat till slutet
+// (visar att det finns mer). Rullningslisten blinkar till en gång när rutan öppnas med mer innehåll.
+function ScrollBox({ max, children, contentStyle }: { max: number; children: ReactNode; contentStyle?: StyleProp<ViewStyle> }) {
+  const ref = useRef<ScrollView>(null);
+  const [h, setH] = useState(0);
+  const [atEnd, setAtEnd] = useState(false);
+  const over = h > max + 1;
+  useEffect(() => {
+    if (!over) return;
+    const t = setTimeout(() => ref.current?.flashScrollIndicators(), 350);
+    return () => clearTimeout(t);
+  }, [over]);
+  return (
+    <View>
+      <ScrollView ref={ref} style={{ maxHeight: max }} contentContainerStyle={contentStyle} scrollEnabled={over} bounces={false}
+        showsVerticalScrollIndicator={over} nestedScrollEnabled scrollEventThrottle={32}
+        onContentSizeChange={(_, ch) => setH(ch)}
+        onScroll={(e) => { const { contentOffset: o, layoutMeasurement: l, contentSize: c } = e.nativeEvent; setAtEnd(o.y + l.height >= c.height - 3); }}>
+        {children}
+      </ScrollView>
+      {over && !atEnd && (
+        <LinearGradient pointerEvents="none" colors={['rgba(15,30,58,0)', 'rgba(15,30,58,0.96)']}
+          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 14 }} />
+      )}
+    </View>
+  );
+}
 
 export function UnitCard({ icao, base, country, accent = Colors.primary, onClose, isFavorite, onToggleFavorite, onSource }: {
   icao: string;
@@ -61,11 +95,15 @@ export function UnitCard({ icao, base, country, accent = Colors.primary, onClose
       <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: line }}>
         <View style={{ flex: 1.6, minWidth: 0, gap: 3, paddingVertical: 8, paddingLeft: 14, paddingRight: 10 }}>
           <Text style={s.label}>UNIT</Text>
-          {units.map((u) => <Text key={u} style={s.value}>{u}</Text>)}
+          <ScrollBox max={TEXT_MAX} contentStyle={{ gap: 3 }}>
+            {units.map((u) => <Text key={u} style={s.value}>{u}</Text>)}
+          </ScrollBox>
         </View>
         <View style={{ flex: 1, minWidth: 0, gap: 3, paddingVertical: 8, paddingLeft: 10, paddingRight: 12, borderLeftWidth: 1, borderLeftColor: line }}>
           <Text style={s.label}>COMMAND</Text>
-          {commands.length ? commands.map((c) => <Text key={c} style={s.value}>{c}</Text>) : <Text style={s.value}>—</Text>}
+          <ScrollBox max={TEXT_MAX} contentStyle={{ gap: 3 }}>
+            {commands.length ? commands.map((c) => <Text key={c} style={s.value}>{c}</Text>) : <Text style={s.value}>—</Text>}
+          </ScrollBox>
         </View>
       </View>
 
@@ -74,7 +112,7 @@ export function UnitCard({ icao, base, country, accent = Colors.primary, onClose
       <View style={{ flex: 1, minWidth: 0, gap: 7 }}>
         <Text style={s.label}>AIRCRAFT</Text>
         {items.length ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 5 }}>
+          <ScrollBox max={CHIP_MAX} contentStyle={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 5 }}>
             {items.map((it, i) => (
               <View key={`${it.type}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                 accessibilityLabel={it.start ? `${ROLES[it.role].label}: ${it.type}` : it.type}>
@@ -82,7 +120,7 @@ export function UnitCard({ icao, base, country, accent = Colors.primary, onClose
                 <View style={s.chip}><Text style={s.chipTxt}>{it.type}</Text></View>
               </View>
             ))}
-          </View>
+          </ScrollBox>
         ) : (
           <Text style={{ fontSize: 12.5, color: SUB }}>No aircraft listed in the sources.</Text>
         )}
@@ -102,7 +140,7 @@ export function UnitCard({ icao, base, country, accent = Colors.primary, onClose
 const s = StyleSheet.create({
   btn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.10)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' },
   label: { fontFamily: MONO, fontSize: 9, fontWeight: '700', letterSpacing: 1.2, color: GOLD },
-  value: { fontSize: 12.5, lineHeight: 16, fontWeight: '700', color: '#FFFFFF' },
+  value: { fontSize: 12.5, lineHeight: LINE, fontWeight: '700', color: '#FFFFFF' },
   chip: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.08)' },
   chipTxt: { fontFamily: MONO, fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
 });
