@@ -1,3 +1,4 @@
+import { displayCode } from './airportCodes';
 // Formatera decimaltal till "1h 30min" eller "1.5h"
 export function formatHours(hours: number): string {
   if (!hours || isNaN(hours)) return '0.0';
@@ -79,8 +80,9 @@ export function isValidPlace(place: string): boolean {
 
 // Kod som ska VISAS för en dep/arr-plats: den råa inskrivna koden (IATA/GPS/ICAO/okänt) om den
 // finns, annars den kanoniska ICAO. Används i loggbok/uppslag/detalj/export/dashboard.
+// Flygplatser utan ICAO (nyckel RU-8363 m.fl.) visas med sin lokala kod — se utils/airportCodes.
 export function placeCode(place?: string | null, raw?: string | null): string {
-  return raw && raw.trim() ? raw : (place ?? '');
+  return displayCode(raw && raw.trim() ? raw : (place ?? ''));
 }
 
 // Formatera registreringsnummer

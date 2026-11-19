@@ -74,6 +74,7 @@ import { neighborCountries } from '../utils/neighbors';
 import { countryBorder } from '../utils/borders';
 import { Colors } from '../constants/colors';
 import airportDataMeta from '../assets/airport-data-meta.json';
+import { displayCode } from '../utils/airportCodes';
 
 // Datum då flygplatsdatan senast hämtades (skrivs av scripts/build-airports.mjs --refresh), t.ex. "26 October 2026".
 const AIRPORT_DATA_UPDATED = new Date(`${airportDataMeta.updated}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -510,9 +511,10 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     const exact: SeedRow[] = [], iataM: SeedRow[] = [], pre: SeedRow[] = [], nameM: SeedRow[] = [];
     for (const r of seedData) {
       const icao = r[0].toUpperCase();
-      if (icao === q) exact.push(r);
+      const shown = displayCode(r[0]).toUpperCase(); // lokal kod för flygplatser utan ICAO (utils/airportCodes)
+      if (icao === q || shown === q) exact.push(r);
       else if ((r[6] || '').toUpperCase() === q) { if (iataM.length < 10) iataM.push(r); }
-      else if (icao.startsWith(q)) { if (pre.length < 30) pre.push(r); }
+      else if (icao.startsWith(q) || shown.startsWith(q)) { if (pre.length < 30) pre.push(r); }
       else if (r[1].toUpperCase().includes(q) || (r[9] || '').toUpperCase().includes(q)) { if (nameM.length < 30) nameM.push(r); }
     }
     return [...exact, ...iataM, ...pre, ...nameM].slice(0, 20);
@@ -1226,7 +1228,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                   {searchResults.map((r) => (
                     <TouchableOpacity key={r[0]} style={styles.searchResult} activeOpacity={0.7}
                       onPress={() => { setFocusAirport(r); setMapSearch(''); Keyboard.dismiss(); }}>
-                      <Text style={styles.searchResultIcao}>{r[0]}</Text>
+                      <Text style={styles.searchResultIcao}>{displayCode(r[0])}</Text>
                       <Text style={styles.searchResultName} numberOfLines={1}>{r[6] ? `${r[1]} · ${r[6]}` : r[1]}</Text>
                       <Ionicons name="location" size={13} color={Colors.textMuted} />
                     </TouchableOpacity>

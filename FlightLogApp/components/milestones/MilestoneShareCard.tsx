@@ -13,6 +13,7 @@ import { shareFileAsync } from '../../services/shareFile';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants/colors';
 import { useTranslation } from '../../hooks/useTranslation';
+import { displayCode } from '../../utils/airportCodes';
 
 const SERIF = 'Fraunces';
 const ITALIC = 'Fraunces-Italic';
@@ -283,7 +284,7 @@ function RouteStrip({ legs, accent }: { legs: Array<{ icao: string; city: string
           const w = isEnd ? END_W : sc(interSize * 3.6);
           return (
             <View key={p.icao + i} style={{ width: w, height: ROW_H, alignItems: 'center', justifyContent: 'center' }}>
-              <Text numberOfLines={1} style={{ position: 'absolute', bottom: '56%', left: 0, right: 0, textAlign: 'center', fontFamily: MONO, fontWeight: '700', fontSize: sc(size), color: '#fff', letterSpacing: sc(isEnd ? 1.8 : 0.5) }}>{p.icao}</Text>
+              <Text numberOfLines={1} style={{ position: 'absolute', bottom: '56%', left: 0, right: 0, textAlign: 'center', fontFamily: MONO, fontWeight: '700', fontSize: sc(size), color: '#fff', letterSpacing: sc(isEnd ? 1.8 : 0.5) }}>{displayCode(p.icao)}</Text>
               <View style={{ width: sc(ds), height: sc(ds), borderRadius: sc(ds / 2), backgroundColor: accent, borderWidth: sc(2.5), borderColor: '#06101E' }} />
               {cs > 0 && !!p.city && (
                 <Text numberOfLines={1} style={{ position: 'absolute', top: '56%', left: 0, right: 0, textAlign: 'center', fontFamily: ITALIC, fontStyle: 'italic', fontSize: sc(cs), color: white(0.62) }}>{p.city}</Text>

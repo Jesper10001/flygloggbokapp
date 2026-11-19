@@ -14,6 +14,7 @@ import { getFlights, deleteFlights } from '../../db/flights';
 import { getAirportByIcao } from '../../db/icao';
 import { useFlightStore } from '../../store/flightStore';
 import type { Flight } from '../../types/flight';
+import { displayCode } from '../../utils/airportCodes';
 
 type Method = 'manual' | 'ocr' | 'csv';
 type Batch = {
@@ -199,7 +200,7 @@ export default function ImportedDataScreen() {
                         : <View style={{ width: Math.round((14 * 4) / 3), height: 14, borderRadius: 2, backgroundColor: Colors.elevated, alignItems: 'center', justifyContent: 'center' }}>
                             <Ionicons name="help" size={10} color={Colors.textMuted} />
                           </View>}
-                      <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo', width: 52 }}>{ic}</Text>
+                      <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Menlo', width: 52 }}>{displayCode(ic)}</Text>
                       <Text numberOfLines={1} style={{ flex: 1, color: Colors.textMuted, fontSize: 12 }}>{meta.name === ic ? '' : meta.name}</Text>
                     </View>
                   );

@@ -4,6 +4,7 @@ import MapView, { Marker, Polyline, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { displayCode } from '../../utils/airportCodes';
 
 export interface MapPoint { icao: string; name?: string; lat: number; lon: number }
 
@@ -53,7 +54,7 @@ function RouteOverlay({ coords, airports, accent }: {
         </Marker>,
         <Marker key={'l' + i} coordinate={{ latitude: p.lat, longitude: p.lon }} anchor={{ x: 0.5, y: 1 }} tracksViewChanges={false} zIndex={6}>
           <View style={{ alignItems: 'center' }}>
-            <View style={styles.chip}><Text style={styles.chipTxt}>{p.icao}</Text></View>
+            <View style={styles.chip}><Text style={styles.chipTxt}>{displayCode(p.icao)}</Text></View>
             <View style={{ height: 12 }} />
           </View>
         </Marker>,

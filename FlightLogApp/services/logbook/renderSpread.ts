@@ -10,6 +10,7 @@
 
 import type { LogbookTemplate, LogbookColumn } from '../../constants/logbookTemplates';
 import type { LogbookSpread, ColumnTotals } from './paginate';
+import { displayCode } from '../../utils/airportCodes';
 
 export interface RenderSpreadOpts {
   template: LogbookTemplate;
@@ -99,8 +100,8 @@ function cellValue(flight: any, c: LogbookColumn, timeFormat: 'decimal' | 'hhmm'
   if (!c.flightKey) return '';
   // Dep/arr: visa den inskrivna koden (IATA/GPS/ICAO/okänt), inte den kanoniska ICAO.
   let raw = flight[c.flightKey];
-  if (c.flightKey === 'dep_place') raw = flight.dep_place_raw || flight.dep_place;
-  else if (c.flightKey === 'arr_place') raw = flight.arr_place_raw || flight.arr_place;
+  if (c.flightKey === 'dep_place') raw = displayCode(flight.dep_place_raw || flight.dep_place);
+  else if (c.flightKey === 'arr_place') raw = displayCode(flight.arr_place_raw || flight.arr_place);
   if (raw === undefined || raw === null || raw === '') return '';
   switch (c.format) {
     case 'date': return esc(formatDateStr(String(raw), c.date_format));

@@ -16,6 +16,7 @@ import { getStressHours } from '../../db/flights';
 import { getAirportTzInfo } from '../../db/icao';
 import { useFlightStore } from '../../store/flightStore';
 import { buildLocalDaily, type TzInfo } from './localDaily';
+import { displayCode } from '../../utils/airportCodes';
 
 const MONO = 'JetBrainsMono';
 const SERIF = 'Fraunces';
@@ -409,7 +410,7 @@ function IsoMonth({ C, sel, setSel, dailyAll, dayIds, records, onOpenDay }: {
           {dayFlights.slice(0, 6).map((f) => (
             <View key={f.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 2 }}>
               <Text style={{ fontFamily: MONO, fontSize: 10, fontWeight: '700', color: C.primary, width: 48 }}>{f.aircraft_type || '—'}</Text>
-              <Text style={{ flex: 1, fontFamily: MONO, fontSize: 10.5, color: C.text2 }}>{f.dep_place} → {f.arr_place}</Text>
+              <Text style={{ flex: 1, fontFamily: MONO, fontSize: 10.5, color: C.text2 }}>{displayCode(f.dep_place)} → {displayCode(f.arr_place)}</Text>
               <Text style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: '700', color: C.text }}>{(f.total_time || 0).toFixed(1)}h</Text>
             </View>
           ))}

@@ -18,6 +18,7 @@ import { useRouter } from 'expo-router';
 import { AirportInfoCard } from './AirportInfoCard';
 import { RouteStatsCard } from './RouteStatsCard';
 import { AirportRunwaySnippet } from './AirportRunwaySnippet';
+import { displayCode } from '../utils/airportCodes';
 
 // ── Geo (storcirkel) ─────────────────────────────────────────────────────────
 const R_NM = 3440.065; // jordradie i nautiska mil
@@ -396,7 +397,7 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
           <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 234 }}>
             {results.length ? results.map((a) => (
               <TouchableOpacity key={a.icao} activeOpacity={0.7} style={styles.row} onPress={() => pick(a)}>
-                <Text style={styles.rowIcao}>{a.icao}</Text>
+                <Text style={styles.rowIcao}>{displayCode(a.icao)}</Text>
                 <View style={styles.rowMid}>
                   <Text style={styles.rowName} numberOfLines={1}>{a.name}</Text>
                   {(a.municipality || a.country) ? (

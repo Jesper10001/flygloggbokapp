@@ -14,6 +14,7 @@ import { getSetting, setSetting } from '../db/flights';
 
 const TZ_KEY = 'wx_time_zone';
 import type { IcaoAirport } from '../types/flight';
+import { displayCode } from '../utils/airportCodes';
 
 const isIcao = (s?: string) => /^[A-Z]{4}$/.test((s ?? '').toUpperCase());
 
@@ -156,7 +157,7 @@ export function AirportPickerModal({ visible, onClose, initialIcao }: {
                 keyboardDismissMode="on-drag"
                 renderItem={({ item, index }) => (
                   <TouchableOpacity style={[styles.row, index === results.length - 1 && { borderBottomWidth: 0 }]} activeOpacity={0.7} onPress={() => selectAirport(item.icao, item.name)}>
-                    <Text style={styles.rowIcao}>{item.icao}</Text>
+                    <Text style={styles.rowIcao}>{displayCode(item.icao)}</Text>
                     <View style={styles.rowMid}>
                       <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
                       {(item.municipality || item.country) ? (

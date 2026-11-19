@@ -2,6 +2,13 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 196,
+      "date": "2026-11-19",
+      "notes": [
+        "Improved: Airports without an ICAO code show their local code (such as ESVE or LF4051) instead of an internal ID like SE-0002, and you can type that code in Log flight."
+      ]
+    },
+    {
       "id": 195,
       "date": "2026-11-19",
       "notes": [

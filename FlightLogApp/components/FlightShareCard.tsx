@@ -20,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { getAirportCoordinates } from '../db/icao';
 import { getAircraftCruiseSpeed, getFlightNumberOfYear, getAllAircraftTypes } from '../db/flights';
 import type { Flight } from '../types/flight';
+import { displayCode } from '../utils/airportCodes';
 
 let runwayData: Record<string, number[]> = {};
 try { runwayData = require('../assets/runways.json'); } catch {}
@@ -853,7 +854,7 @@ function FloatingLayer({ anchor, dep, arr, date, distance, maxAlt, avgSpeed, tot
           <Text style={[
             { position: 'absolute', left: 0, right: 0, textAlign: 'center', fontFamily: SERIF, fontSize: 21 * tileScale, fontWeight: '600', letterSpacing: -0.4, color: '#fff', textShadowColor: 'rgba(0,0,0,0.9)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
             isTop ? { top: size + 2 } : { bottom: size + 2 },
-          ]}>{icao}</Text>
+          ]}>{displayCode(icao)}</Text>
           {/* Departure/Arrival relativt ICAO-texten: botten-ruta (ICAO ovanför) → nedanför-vänster
               om ICAO; topp-ruta (ICAO under) → ovanför-höger om ICAO. */}
           <Text style={[

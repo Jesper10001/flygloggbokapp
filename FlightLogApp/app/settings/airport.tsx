@@ -18,6 +18,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useFlightStore } from '../../store/flightStore';
 import { PremiumModal } from '../../components/PremiumModal';
 import type { IcaoAirport } from '../../types/flight';
+import { displayCode } from '../../utils/airportCodes';
 
 
 // ── Mini-karta ────────────────────────────────────────────────────────────────
@@ -217,7 +218,7 @@ function AirportDetailModal({
             <Ionicons name="chevron-down" size={22} color={Colors.textPrimary} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={detailStyles.icao}>{airport.icao}</Text>
+            <Text style={detailStyles.icao}>{displayCode(airport.icao)}</Text>
             <Text style={detailStyles.name} numberOfLines={1}>{airport.name}</Text>
           </View>
           <View style={detailStyles.badges}>
@@ -604,7 +605,7 @@ export default function AirportScreen() {
                     {preview.sample.map(([icao, name, , region, lat, lon]) => (
                       <View key={icao} style={styles.airportRow}>
                         <View style={styles.airportLeft}>
-                          <Text style={styles.airportIcao}>{icao}</Text>
+                          <Text style={styles.airportIcao}>{displayCode(icao)}</Text>
                           <Text style={styles.airportName}>{name}</Text>
                           <Text style={styles.airportCountry}>{lat.toFixed(2)}, {lon.toFixed(2)}</Text>
                         </View>
@@ -698,7 +699,7 @@ export default function AirportScreen() {
             activeOpacity={0.75}
           >
             <View style={styles.airportLeft}>
-              <Text style={styles.airportIcao}>{a.icao}</Text>
+              <Text style={styles.airportIcao}>{displayCode(a.icao)}</Text>
               <Text style={styles.airportName}>{a.name}</Text>
               <Text style={styles.airportCountry}>{a.country} · {a.region}</Text>
             </View>

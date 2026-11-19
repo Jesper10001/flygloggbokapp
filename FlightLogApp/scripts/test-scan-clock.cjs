@@ -14,7 +14,7 @@ function load(file) {
   cache.set(file, mod);
   const req = (p) => {
     if (p.startsWith('../db/')) return {};
-    if (p.startsWith('.')) return load(path.join(path.dirname(file), p) + '.ts');
+    if (p.startsWith('.')) { const full = path.join(path.dirname(file), p); return full.endsWith('.json') ? require(full) : load(full + '.ts'); }
     return require(p);
   };
   new Function('module', 'exports', 'require', js)(mod, mod.exports, req);

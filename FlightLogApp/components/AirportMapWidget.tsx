@@ -28,6 +28,7 @@ import { GlobalAirportMap } from './GlobalAirportMap';
 import { RunwayDiagram } from './FlightShareCard';
 import { usePlacedPlaces } from './PlacesToPinNotice';
 import { countryOutline } from '../utils/countryOutline';
+import { displayCode } from '../utils/airportCodes';
 
 // Region som ramar in en uppsättning punkter (för Apple-kartan).
 function fitRegion(pts: { lat: number; lon: number }[]) {
@@ -333,7 +334,7 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
         >
           {thumb.rows.slice(0, 18).map((r) => (
             <Marker key={r[0]} coordinate={{ latitude: r[4], longitude: r[5] }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
-              <View style={styles.thumbPin}><Text style={styles.thumbPinTxt}>{r[0]}</Text></View>
+              <View style={styles.thumbPin}><Text style={styles.thumbPinTxt}>{displayCode(r[0])}</Text></View>
             </Marker>
           ))}
         </MapView>
@@ -404,7 +405,7 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
                   <Text style={{
                     fontSize: 10, fontWeight: '700', color: Colors.textPrimary,
                     fontFamily: 'Menlo', letterSpacing: 0.4,
-                  }}>{icao}</Text>
+                  }}>{displayCode(icao)}</Text>
                 </View>
               ))}
               {allIcaos.length > 6 && (

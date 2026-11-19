@@ -16,6 +16,7 @@ import { getRunwayGeo } from '../constants/runwayGeo';
 import { getRunways } from '../utils/runways';
 import { COUNTRY_NAMES } from '../constants/countryNames';
 import { fetchAirportMetar, categoryColor, type AirportMetar } from '../services/weather';
+import { displayCode } from '../utils/airportCodes';
 
 // Kortet är alltid mörkt (ligger på kartor), oavsett tema.
 const MONO = 'JetBrainsMono';
@@ -117,7 +118,7 @@ export function AirportInfoCard({ icao, name, iata, alt, type, sub, country, acc
 
       {/* Rad 1: ICAO · namn · stjärna · stäng */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 14, paddingRight: 10, paddingTop: 10, paddingBottom: 2 }}>
-        <Text style={{ fontFamily: MONO, fontSize: 22, fontWeight: '800', letterSpacing: 1, color: accent }}>{icao}</Text>
+        <Text style={{ fontFamily: MONO, fontSize: 22, fontWeight: '800', letterSpacing: 1, color: accent }}>{displayCode(icao)}</Text>
         <Text style={{ flex: 1, fontFamily: SERIF, fontSize: 18, fontWeight: '600', color: '#FFFFFF' }} numberOfLines={1}>{name || ''}</Text>
         {onToggleFavorite && (
           <TouchableOpacity onPress={onToggleFavorite} hitSlop={6} accessibilityRole="button" accessibilityLabel={isFavorite ? 'Remove from favourites' : 'Add to favourites'}

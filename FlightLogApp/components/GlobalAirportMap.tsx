@@ -20,6 +20,7 @@ import { Colors } from '../constants/colors';
 import { categoryColor, type FlightCat } from '../services/weather';
 import { flagEmoji } from '../constants/continents';
 import { getRunways } from '../utils/runways';
+import { displayCode } from '../utils/airportCodes';
 
 // icao,name,country,region,lat,lon + berikning (airportmap.de): iata,alt,type,municipality,restriction.
 // Berikningsfälten är optional så äldre 6-elements-konstruktioner (ex AirportMapWidget) fortsätter gälla.
@@ -408,7 +409,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           // träffyta så onPress fyrar tillförlitligt (multi-element labelChip+dot missade tryck i RN-maps 1.27).
           <Marker key={`ca-${icao}`} coordinate={{ latitude: lat, longitude: lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={tracks}
             onPress={onSelectAirport ? () => onSelectAirport(icao) : undefined}>
-            <View style={s.icaoPin}><Text style={s.icaoPinTxt}>{icao}</Text></View>
+            <View style={s.icaoPin}><Text style={s.icaoPinTxt}>{displayCode(icao)}</Text></View>
           </Marker>
         );
       })}
@@ -440,7 +441,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           onPress={onSelectAirport ? () => onSelectAirport(a[0]) : undefined}
         >
           {/* Oval-ICAO-pin (samma som region-drill + kluster) → enhetlig look + pålitlig träffyta. */}
-          <View style={s.icaoPin}><Text style={s.icaoPinTxt}>{a[0]}</Text></View>
+          <View style={s.icaoPin}><Text style={s.icaoPinTxt}>{displayCode(a[0])}</Text></View>
         </Marker>
         )
       ))}
@@ -457,7 +458,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           zIndex={1000}
           onPress={onSelectAirport ? () => onSelectAirport(selRow[0]) : undefined}
         >
-          <View style={[s.icaoPin, s.icaoPinSel]}><Text style={s.icaoPinTxt}>{selRow[0]}</Text></View>
+          <View style={[s.icaoPin, s.icaoPinSel]}><Text style={s.icaoPinTxt}>{displayCode(selRow[0])}</Text></View>
         </Marker>
       )}
 
@@ -476,7 +477,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           {pinCategory
             // Väderläge: färgkodad prick per kategori (grön/blå/röd/lila), ingen ICAO-etikett.
             ? <View style={[s.wxPin, { backgroundColor: categoryColor((pinCategory.get(a[0]) ?? 'VFR')) }]} />
-            : <View style={s.icaoPin}><Text style={s.icaoPinTxt}>{a[0]}</Text></View>}
+            : <View style={s.icaoPin}><Text style={s.icaoPinTxt}>{displayCode(a[0])}</Text></View>}
         </Marker>
         )
       ))}

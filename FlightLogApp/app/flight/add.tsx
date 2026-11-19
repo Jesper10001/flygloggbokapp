@@ -72,6 +72,7 @@ import { decimalToHHMM, hhmmToDecimal } from '../../hooks/useTimeFormat';
 import type { Flight, FlightFormData, ValidationIssue } from '../../types/flight';
 import runwayData from '../../assets/runways.json';
 import { isEssential } from '../../services/essentialFleet';
+import { displayCode } from '../../utils/airportCodes';
 
 const today = new Date().toISOString().split('T')[0];
 
@@ -3351,7 +3352,7 @@ export default function AddFlightScreen() {
                 {routeStops.map((s, i) => (
                   <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 6, paddingLeft: 8, paddingRight: 2, paddingVertical: 4 }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: Colors.textPrimary, fontSize: 12, fontWeight: '700' }}>{s.icao} <Text style={{ color: Colors.primary, fontSize: 10 }}>{KIND_TOKEN[s.kind]}</Text></Text>
+                      <Text style={{ color: Colors.textPrimary, fontSize: 12, fontWeight: '700' }}>{displayCode(s.icao)} <Text style={{ color: Colors.primary, fontSize: 10 }}>{KIND_TOKEN[s.kind]}</Text></Text>
                       {(s.navaid || s.appType) && s.runway != null && (
                         <Text style={{ color: Colors.textMuted, fontSize: 9, fontFamily: 'JetBrainsMono' }}>{s.navaid || s.appType?.toUpperCase()} rwy {rwy2(s.runway)}</Text>
                       )}

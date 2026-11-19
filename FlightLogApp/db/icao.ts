@@ -2,6 +2,7 @@ import { getDatabase } from './database';
 import type { IcaoAirport } from '../types/flight';
 import type { SeedRow } from '../components/GlobalAirportMap';
 import { loadJsonAsset } from '../utils/loadJsonAsset';
+import { keyForDisplayCode } from '../utils/airportCodes';
 
 // Off-airport placeholder codes: ICAO-standard "no location indicator assigned" (ZZZZ, ICAO Doc 4444).
 // These are NOT real places — the same code is reused for any off-airport site, so we never link them
@@ -182,7 +183,13 @@ export async function searchAirports(query: string, nameMinLen = 5): Promise<Ica
        name ASC
      LIMIT 20`,
     [...whereParams, upper, upper, upper, pre, pre, pre]
-  );
+  ).then(async (rows) => {
+    // Lokal kod för en flygplats utan ICAO ("LF4051") → lägg den först om den inte redan kom med.
+    const viaLocal = keyForDisplayCode(upper);
+    if (!viaLocal || rows.some((r) => r.icao === viaLocal)) return rows;
+    const hit = await getAirportByIcao(viaLocal);
+    return hit ? [hit, ...rows].slice(0, 20) : rows;
+  });
 }
 
 export async function getTempPlaceByName(name: string): Promise<IcaoAirport | null> {
@@ -252,6 +259,9 @@ export async function getAirportByAnyCode(code: string): Promise<IcaoAirport | n
     [c, c, c, c, c]
   );
   if (exact) return exact;
+  // 1b) Entydig lokal kod för en flygplats utan ICAO ("SP0385" → nyckeln BR-0417), se utils/airportCodes.
+  const viaLocal = keyForDisplayCode(c);
+  if (viaLocal) { const hit = await getAirportByIcao(viaLocal); if (hit) return hit; }
   // 2) Fallback: normalisera bort skiljetecken (bindestreck/mellanslag/./ /) på BÅDA sidor, så att
   //    användaren slipper skriva "-" (t.ex. "RU0626" ↔ lagrad "RU-0626"). Körs bara när exakt missar.
   const cn = c.replace(/[^A-Z0-9]/g, '');

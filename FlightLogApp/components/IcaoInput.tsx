@@ -12,6 +12,7 @@ import type { IcaoAirport } from '../types/flight';
 import { useTourStore } from '../store/tourStore';
 import { TourPress } from './TourPress';
 import { TourCaptionBar } from './TourCaptionBar';
+import { displayCode as shownCode, safeCode } from '../utils/airportCodes';
 
 export type RecentPlace = { icao: string; temporary: boolean };
 
@@ -222,7 +223,8 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
   const commitAirportCode = (icao: string, rawCode?: string, nm?: string, silent = false) => {
     freeSeq.current++;
     if (unknownTimer.current) { clearTimeout(unknownTimer.current); unknownTimer.current = null; }
-    const raw = (rawCode ?? icao).toUpperCase();
+    // Flygplats utan ICAO: spara den lokala koden (om den är entydig) som text, nyckeln som flygplats.
+    const raw = (rawCode ?? safeCode(icao)).toUpperCase();
     setDismissed(true);
     setInputText(raw);
     setSuggestions([]); setPlaceSuggestions([]); setShowDropdown(false);
@@ -278,10 +280,10 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
   const searchCode = (a: IcaoAirport) => {
     const q = sQuery.trim().toUpperCase();
     const g = (a.gps || '').toUpperCase(), k = a.icao.toUpperCase();
-    return q && /^[A-Z]{4}$/.test(g) && g !== k && g.startsWith(q) && !k.startsWith(q) ? g : a.icao;
+    return q && /^[A-Z]{4}$/.test(g) && g !== k && g.startsWith(q) && !k.startsWith(q) ? g : safeCode(a.icao);
   };
   const pickFromSearch = (airport: IcaoAirport, useIata: boolean, code?: string) => {
-    const chosen = useIata && airport.iata ? airport.iata.toUpperCase() : (code ?? airport.icao).toUpperCase();
+    const chosen = useIata && airport.iata ? airport.iata.toUpperCase() : (code ?? safeCode(airport.icao)).toUpperCase();
     setSearchOpen(false); setSQuery(''); setSResults([]); setSChoice(null);
     commitAirportCode(airport.icao, chosen, airport.name);
   };
@@ -338,7 +340,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
   // Vilken kod som visas i listan: skriver man en IATA-kod (prefixmatchar iata) → visa IATA, annars ICAO.
   const displayCode = (a: IcaoAirport) => {
     const q = inputText.trim().toUpperCase();
-    return q && a.iata && a.iata.toUpperCase().startsWith(q) ? a.iata : a.icao;
+    return q && a.iata && a.iata.toUpperCase().startsWith(q) ? a.iata : shownCode(a.icao);
   };
 
   useEffect(() => {
@@ -489,7 +491,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
     searchSeq.current++; // ogiltigförklara ev. pågående sökning så listan inte åter-dyker upp
     setDismissed(true);
     onChangeText(airport.icao); // lagra alltid kanonisk ICAO-ident
-    setInputText(airport.temporary ? airport.name : airport.icao);
+    setInputText(airport.temporary ? airport.name : safeCode(airport.icao));
     setSuggestions([]);
     setPlaceSuggestions([]);
     setShowDropdown(false);
@@ -911,7 +913,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
                     }}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.nearbyIcao, { fontWeight: '800', fontSize: 14, color: Colors.primary }]}>{p.icao}</Text>
+                    <Text style={[styles.nearbyIcao, { fontWeight: '800', fontSize: 14, color: Colors.primary }]}>{shownCode(p.icao)}</Text>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.nearbyName}>{p.name}</Text>
                       <Text style={styles.nearbyIcao}>{p.country}</Text>
@@ -938,7 +940,7 @@ export const IcaoInput = forwardRef<IcaoInputHandle, Props>(function IcaoInput(
                         <Ionicons name="navigate-circle-outline" size={16} color={Colors.primary} />
                         <View style={{ flex: 1 }}>
                           <Text style={styles.nearbyName}>{p.name}</Text>
-                          <Text style={styles.nearbyIcao}>{p.icao}</Text>
+                          <Text style={styles.nearbyIcao}>{shownCode(p.icao)}</Text>
                         </View>
                         <Ionicons name="arrow-forward-circle" size={20} color={Colors.primary} />
                       </TouchableOpacity>

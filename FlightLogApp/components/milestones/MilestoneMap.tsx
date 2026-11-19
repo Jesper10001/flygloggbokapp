@@ -6,6 +6,7 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { View, Text, Animated, Easing, StyleSheet, type ViewStyle, type StyleProp } from 'react-native';
 import MapView, { Marker, Polyline, type Region } from 'react-native-maps';
 import Svg, { Path, Circle, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import { displayCode } from '../../utils/airportCodes';
 
 const MONO = 'JetBrainsMono';
 export const MAP_CYAN = '#00C8E8';
@@ -108,7 +109,7 @@ export function AirportMarker({ p, icao }: { p: GeoPt; icao: string }) {
     <Marker coordinate={toLatLng(p)} tracksViewChanges={false} zIndex={4}>
       <View style={{ flexDirection: 'row', alignItems: 'center', width: LABEL_W * 2 }}>
         <View style={{ width: LABEL_W }} />
-        <Text numberOfLines={1} style={m.icao}>{icao}</Text>
+        <Text numberOfLines={1} style={m.icao}>{displayCode(icao)}</Text>
       </View>
     </Marker>
   );

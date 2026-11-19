@@ -7,6 +7,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { FONT_MONO } from '../logbook-page/tokens';
 import { TourPress } from '../TourPress';
+import { displayCode } from '../../utils/airportCodes';
 
 export type ApproachVal = { dim?: '2d' | '3d'; cat?: string; app?: string; rwy?: string };
 
@@ -94,7 +95,7 @@ export function ApproachFlow({ icaos, value, onChange, ifr, runwaysFor }: {
         return (
           <View key={icao} style={{ backgroundColor: Colors.elevated, borderWidth: 1, borderColor: Colors.border, borderRadius: 11, paddingHorizontal: 11, paddingVertical: 9 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <Text style={{ fontFamily: FONT_MONO, fontSize: 14, fontWeight: '800', letterSpacing: 0.5, color: Colors.textPrimary }}>{icao}</Text>
+              <Text style={{ fontFamily: FONT_MONO, fontSize: 14, fontWeight: '800', letterSpacing: 0.5, color: Colors.textPrimary }}>{displayCode(icao)}</Text>
               {v.app ? (
                 <Text style={{ fontFamily: FONT_MONO, fontSize: 13, fontWeight: '700', color: Colors.primary }}>{v.app}{v.rwy ? ` ${v.rwy}` : ''}</Text>
               ) : v.cat ? (

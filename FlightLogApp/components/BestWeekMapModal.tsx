@@ -11,6 +11,7 @@ import { Colors } from '../constants/colors';
 import { useTranslation } from '../hooks/useTranslation';
 import { decimalToHHMM } from '../hooks/useTimeFormat';
 import type { Flight } from '../types/flight';
+import { displayCode } from '../utils/airportCodes';
 
 interface Props {
   visible: boolean;
@@ -107,7 +108,7 @@ export function BestWeekMapModal({ visible, onClose, weekStart, weekLabel, hours
                     <Text style={s.flightDay}>{f.date?.split('-')[2] ?? ''}</Text>
                   </View>
                   <View style={{ flex: 1, marginLeft: 10 }}>
-                    <Text style={s.flightRoute}>{f.dep_place} → {f.arr_place}</Text>
+                    <Text style={s.flightRoute}>{displayCode(f.dep_place)} → {displayCode(f.arr_place)}</Text>
                     <Text style={s.flightMeta}>{f.aircraft_type} · {f.registration}</Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
