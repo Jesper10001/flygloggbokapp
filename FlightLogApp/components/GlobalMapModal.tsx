@@ -78,7 +78,7 @@ import { displayCode } from '../utils/airportCodes';
 import { UnitCard } from './UnitCard';
 import { UnitSourcesPopup } from './UnitSources';
 import { RoleTag } from './RoleTag';
-import { getRuBase, ruBaseTag, RU_BASE_COUNT, ROLES } from '../utils/ruAirbases';
+import { getMilBase, baseRoles, MIL_BASE_COUNT, ROLES } from '../utils/milAirbases';
 
 // Datum då flygplatsdatan senast hämtades (skrivs av scripts/build-airports.mjs --refresh), t.ex. "26 October 2026".
 const AIRPORT_DATA_UPDATED = new Date(`${airportDataMeta.updated}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -830,7 +830,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
             clustering={directPins ? false : clusterMode}
             clusterKey={mapKey}
             onFlagView={setFlagView}
-            baseTagFor={specificOn ? ruBaseTag : undefined}
+            roleTagFor={specificOn ? baseRoles : undefined}
             onRegionChange={(r) => {
               if (clusterMode) setMapRegion(r);
               if (Date.now() > meGuardRef.current) setMeActive(false); // man drog i kartan → pilen blir kontur igen
@@ -1160,7 +1160,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                       </TouchableOpacity>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: '#fff', fontSize: 15, fontWeight: '800' }}>Specific</Text>
-                        <Text style={{ color: '#9DB4CC', fontSize: 11.5 }}>{RU_BASE_COUNT} Russian bases · by aircraft</Text>
+                        <Text style={{ color: '#9DB4CC', fontSize: 11.5 }}>{MIL_BASE_COUNT} bases in Europe and Russia · by aircraft</Text>
                       </View>
                     </View>
                     <View style={styles.groupOpts}>
@@ -1177,7 +1177,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                         );
                       })}
                     </View>
-                    <Text style={styles.groupInfo}>Each base is marked with the symbol of its aircraft. Tap one to see the unit and the types based there. From open sources; can be out of date.</Text>
+                    <Text style={styles.groupInfo}>Each base is marked with the symbol of its aircraft. Tap one to see the units and the types based there. From open sources; can be out of date.</Text>
                   </View>
                 )}
 
@@ -1200,7 +1200,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                       })}
                       {openGroup.key === 'airbases' && (
                         <TouchableOpacity onPress={() => setSpecificPage(true)} activeOpacity={0.7} accessibilityRole="button"
-                          accessibilityLabel="Specific: Russian air bases by aircraft" accessibilityState={{ selected: specificOn }}
+                          accessibilityLabel="Specific: military air bases by aircraft" accessibilityState={{ selected: specificOn }}
                           style={[styles.groupOpt, { justifyContent: 'flex-start', borderColor: specificOn ? Colors.primary : Colors.primary + '73' }, specificOn && styles.propPillOn]}>
                           <View style={{ flexDirection: 'row' }}>
                             {(['fighter', 'bomber', 'heli'] as const).map((r, i) => (
@@ -1330,11 +1330,11 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
           return (
             <View onLayout={(e) => setPlayCardH(e.nativeEvent.layout.height)}
               style={[{ position: 'absolute', left: 12, right: 12, zIndex: 15 }, playOn ? { top: insets.top + 8 } : { bottom: insets.bottom + 14 }]}>
-              {specificOn && getRuBase(focusAirport[0]) ? (
+              {specificOn && getMilBase(focusAirport[0]) ? (
                 // Air Bases → Specific: förbandskortet ersätter flygplatskortet för baserna.
                 <UnitCard
                   icao={focusAirport[0]}
-                  base={getRuBase(focusAirport[0])!}
+                  base={getMilBase(focusAirport[0])!}
                   country={focusAirport[2]}
                   onClose={() => setFocusAirport(null)}
                   isFavorite={favorites.has(focusAirport[0])}
@@ -1410,7 +1410,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
         )}
 
         {/* Förbandskortets Source-ruta: lager ovanpå kartan (ingen nästlad Modal). */}
-        {unitSourceOpen && focusAirport && <UnitSourcesPopup topInset={insets.top} onClose={() => setUnitSourceOpen(false)} />}
+        {unitSourceOpen && focusAirport && <UnitSourcesPopup dataset={getMilBase(focusAirport[0])?.s ?? 'eu'} topInset={insets.top} onClose={() => setUnitSourceOpen(false)} />}
 
         {/* News (AI) — flygincidenter kopplade till flygplatser. Ligger överst; cachas i storen. */}
         <IncidentNewsOverlay

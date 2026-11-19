@@ -1,15 +1,19 @@
-// Ryska flygbaser med förband och flygplanstyper (assets/ru-airbases.json, byggd av scripts/build-ru-airbases.mjs ur
-// användarens fil). Används av filtret Air Bases → Specific och förbandskortet (components/UnitCard.tsx).
+// Militära flygbaser med förband och flygplanstyper för Air Bases → Specific på global map och förbandskortet
+// (components/UnitCard.tsx). Två datamängder i samma form: Ryssland (assets/ru-airbases.json, användarens fil,
+// scripts/build-ru-airbases.mjs) och Europa (assets/eu-airbases.json, scripts/build-eu-airbases.mjs; Ukraina ej med).
+// En bas kan ha flera länders förband (ops), t.ex. tyska och franska i Évreux. Flaggan visar förbandets land.
 // Rollerna: symbol (siluett ovanifrån, viewBox 24), bokstav och färg (Blades palett; bara etikettens kant färgas).
-import data from '../assets/ru-airbases.json';
+import ru from '../assets/ru-airbases.json';
+import eu from '../assets/eu-airbases.json';
 import { flagEmoji } from '../constants/continents';
 
 export type RoleKey = 'fighter' | 'bomber' | 'attack' | 'heli' | 'transport' | 'special' | 'training';
-export type RuBase = { o: string; n: string; r: string; c: string; u: string[]; g: [RoleKey, string[]][] };
+export type BaseOp = { o: string; c: string; u: string[]; g: [RoleKey, string[]][] };
+export type MilBase = { n: string; r: string; s: 'ru' | 'eu'; ops: BaseOp[] };
+const D: Record<string, MilBase> = { ...(eu as unknown as Record<string, MilBase>), ...(ru as unknown as Record<string, MilBase>) };
 
-/** När användarens fil sammanställdes (visas i Source-rutan). */
-export const RU_DATA_COMPILED = '19 November 2026';
-const D = data as unknown as Record<string, RuBase>;
+/** När datamängderna sammanställdes (visas i Source-rutan). */
+export const DATA_COMPILED = '19 November 2026';
 
 export const ROLE_ORDER: RoleKey[] = ['fighter', 'bomber', 'attack', 'heli', 'transport', 'special', 'training'];
 export const ROLES: Record<RoleKey | 'unknown', { label: string; letter: string; color: string; glyph: string }> = {
@@ -24,24 +28,30 @@ export const ROLES: Record<RoleKey | 'unknown', { label: string; letter: string;
   unknown: { label: 'Not listed', letter: '?', color: '#6F89A6', glyph: 'M11 1.5h2l.5 7.3 9 .7v2.3l-9-.3-.3 7.5 3.8 1V22H7v-2l3.8-1-.3-7.5-9 .3V9.5l9-.7z' },
 };
 
-export function getRuBase(key?: string | null): RuBase | null {
+export function getMilBase(key?: string | null): MilBase | null {
   return key ? D[key] ?? null : null;
 }
-/** Basens roller i ordning (huvudrollen först), eller null om flygplatsen inte är en av baserna. */
-export function ruBaseRoles(key?: string | null): RoleKey[] | null {
-  const b = getRuBase(key);
-  return b ? b.g.map((g) => g[0]) : null;
+/** Basens flygplan per roll, alla länders förband ihop (rollerna i den ordning de först förekommer). */
+export function baseGroups(b: MilBase): [RoleKey, string[]][] {
+  const out: [RoleKey, string[]][] = [];
+  for (const op of b.ops) for (const [role, types] of op.g) {
+    const g = out.find((x) => x[0] === role);
+    if (g) types.forEach((t) => g[1].includes(t) || g[1].push(t)); else out.push([role, [...types]]);
+  }
+  return out;
 }
-export const RU_BASE_COUNT = Object.keys(D).length;
-export const RU_ROLE_COUNTS: Record<RoleKey, number> = (() => {
+/** Basens roller (huvudrollen först), eller null om flygplatsen inte är en av baserna. */
+export function baseRoles(key?: string | null): RoleKey[] | null {
+  const b = getMilBase(key);
+  return b ? baseGroups(b).map((g) => g[0]) : null;
+}
+/** Förbandets land som flagga (ISO-2), annars namnet (NATO, SAC). */
+export function operatorLabel(o: string): string {
+  return /^[A-Z]{2}$/.test(o) ? flagEmoji(o) : o;
+}
+export const MIL_BASE_COUNT = Object.keys(D).length;
+export const MIL_ROLE_COUNTS: Record<RoleKey, number> = (() => {
   const c = Object.fromEntries(ROLE_ORDER.map((r) => [r, 0])) as Record<RoleKey, number>;
-  for (const b of Object.values(D)) for (const [r] of b.g) c[r]++;
+  for (const b of Object.values(D)) for (const [r] of baseGroups(b)) c[r]++;
   return c;
 })();
-
-/** Kartetiketten för en bas: förbandets flagga + rollbokstäverna, huvudrollen först ("🇷🇺 B, H"). null = ingen bas. */
-export function ruBaseTag(key: string): string | null {
-  const b = D[key];
-  if (!b) return null;
-  return `${flagEmoji(b.o || 'RU')} ${b.g.length ? b.g.map((g) => ROLES[g[0]].letter).join(', ') : '?'}`;
-}

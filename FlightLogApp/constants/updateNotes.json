@@ -2,6 +2,14 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 200,
+      "date": "2026-11-19",
+      "notes": [
+        "New: Specific under Air Bases now covers 294 military air bases across Europe as well as Russia, with the units and aircraft at each base.",
+        "Improved: Air bases on the map show smaller role symbols and group into clusters like airports, so the map stays clear."
+      ]
+    },
+    {
       "id": 199,
       "date": "2026-11-19",
       "notes": [

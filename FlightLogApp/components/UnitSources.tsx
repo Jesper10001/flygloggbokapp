@@ -1,22 +1,33 @@
-// Source-rutan för förbandskortet (Air Bases → Specific): var uppgifterna om de ryska baserna kommer från och när de
-// sammanställdes. Lager ovanpå kartan (ingen native Modal — en Modal ovanpå kartans Modal låser Apple-kartan på iOS).
+// Source-rutan för förbandskortet (Air Bases → Specific): var uppgifterna kommer från (Ryssland eller Europa) och när
+// de sammanställdes. Lager ovanpå kartan (ingen native Modal — en Modal ovanpå kartans Modal låser Apple-kartan på iOS).
 // Stängs bara med krysset. Källorna enligt användarens beskrivning av sin sammanställning (2026-11-19).
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
-import { RU_DATA_COMPILED } from '../utils/ruAirbases';
+import { DATA_COMPILED } from '../utils/milAirbases';
 
-const UNITS: [string, string][] = [
+// Ryssland: användarens sammanställning (källorna enligt användarens beskrivning).
+const RU_UNITS: [string, string][] = [
   ['Scramble.nl', 'Order of battle of the Russian Aerospace Forces: units, bases and aircraft. The main source; undated and partly older.'],
   ['Militarnyi', '“Know Your Enemy”, January 2026: European Russia, Crimea and naval aviation. Used where it differs from Scramble.'],
   ['Wikipedia', '“List of military airbases in Russia” (CC BY-SA 4.0): units per base.'],
   ['Other reporting', 'GlobalMilitary.net, Migflug.com, Janes, Aviation Week and The War Zone, for single bases.'],
 ];
-const CODES: [string, string][] = [
+const RU_CODES: [string, string][] = [
   ['OurAirports', 'Codes and positions (public domain). Engels-2 from Wikipedia; Korenovsk from OurAirports keywords.'],
 ];
+// Europa: sammanställd 2026-11-19 (scripts/eu-airbases, källa per rad i filen).
+const EU_UNITS: [string, string][] = [
+  ['Wikipedia', 'Articles on bases and units in English and national languages (CC BY-SA 4.0).'],
+  ['Air forces and defence ministries', 'Official pages, for example Försvarsmakten, Bundeswehr, Armée de l’Air et de l’Espace, USAFE and NATO.'],
+  ['Migflug.com and aviation press', 'For single bases and recent changes.'],
+];
+const EU_CODES: [string, string][] = [
+  ['OurAirports', 'Codes and positions (public domain).'],
+];
 
-export function UnitSourcesPopup({ onClose, topInset = 0 }: { onClose: () => void; topInset?: number }) {
+export function UnitSourcesPopup({ onClose, dataset, topInset = 0 }: { onClose: () => void; dataset: 'ru' | 'eu'; topInset?: number }) {
+  const ru = dataset === 'ru';
   return (
     <View style={[StyleSheet.absoluteFill, { zIndex: 80, backgroundColor: 'rgba(3,8,18,0.6)', alignItems: 'center', justifyContent: 'center', padding: 20, paddingTop: topInset + 20 }]}>
       <View style={s.card}>
@@ -27,11 +38,13 @@ export function UnitSourcesPopup({ onClose, topInset = 0 }: { onClose: () => voi
           </TouchableOpacity>
         </View>
         <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: 14, paddingTop: 12 }} showsVerticalScrollIndicator={false}>
-          <Section title="Units and aircraft" rows={UNITS} />
-          <Section title="Codes and positions" rows={CODES} />
+          <Section title="Units and aircraft" rows={ru ? RU_UNITS : EU_UNITS} />
+          <Section title="Codes and positions" rows={ru ? RU_CODES : EU_CODES} />
           <View style={s.note}>
-            <Text style={s.noteTitle}>Compiled {RU_DATA_COMPILED}</Text>
-            <Text style={s.noteTxt}>Units move. Entries from before 2022 can be out of date, and the aircraft at Dyagilevo are inferred from the unit's role.</Text>
+            <Text style={s.noteTitle}>Compiled {DATA_COMPILED}</Text>
+            <Text style={s.noteTxt}>{ru
+              ? 'Units move. Entries from before 2022 can be out of date, and the aircraft at Dyagilevo are inferred from the unit’s role.'
+              : 'Units move and fleets change. Ukraine is not included.'}</Text>
           </View>
         </ScrollView>
       </View>

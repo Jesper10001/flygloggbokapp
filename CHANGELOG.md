@@ -29,12 +29,17 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: Global map filters are grouped into Airports, Air Bases, Airfields, Helicopter and Other, each with its own types, such as Helipads on rooftops, Offshore, Gliding, Skydiving and Spaceports.
 - Improved: A narrow filter on the Global map shows its airports without zooming far in, and they stay on the map as you zoom out and move around.
 - Improved: Airports without an ICAO code show their local code (such as ESVE or LF4051) instead of an internal ID like SE-0002, and you can type that code in Log flight.
-- New: Specific under Air Bases on the Global map shows 92 Russian air bases by aircraft role, with role symbols on the map and a unit card listing the unit and the aircraft based there.
+- New: Specific under Air Bases on the Global map shows military air bases in Europe and Russia by aircraft role, with role symbols on the map and a unit card listing the units and the aircraft based there.
 - Improved: Long airport names wrap to two lines on the airport card instead of being cut off.
 - Fixed: Zooming in past the country flags on the Global map could show no airports until a filter was changed.
-- Improved: Russian air bases on the Global map use the normal airport tag with the unit's flag and role letters, and the unit card has a Source button that shows where the data comes from.
+- Improved: Air bases on the Global map show smaller role symbols that group into clusters like airports, and the unit card has a Source button that shows where the data comes from.
 
 ### Alla ändringar
+
+- Air Bases → Specific omfattar nu även Europa: 294 baser (assets/eu-airbases.json, scripts/build-eu-airbases.mjs ur scripts/eu-airbases/flygbaser_europa.csv; 311 rader från sex parallella sökningar i Wikipedia, flygvapnens/försvarsministeriernas sidor, Migflug och press; Scramble.nl spärrade automatisk hämtning; Ukraina ej med; 8 baser utan position utelämnade). Flera länders förband på samma bas (ops), t.ex. Évreux DE+FR, Sigonella IT+NATO+US. Rollerna för västerländska typer via mönster (0 typer utan roll). utils/ruAirbases → utils/milAirbases (gemensam form, baseGroups/baseRoles/operatorLabel). Förbandskortet visar förbandets flagga när förbandet är utländskt eller flera länder delar basen. Source-rutan visar källorna för rätt datamängd.
+- Global map, klustring: genvägen som visade ≤ 80 flygplatser i vyn som enskilda nålar är borttagen (de överlappade, särskilt Specific-symbolerna); nu vanliga kluster som delas vid inzoomning, flaggor bara när vyn är full.
+
+- Air Bases → Specific, kartan: tillbaka till rollsymbolerna (användarens val, i stället för flaggetiketten), 20 % mindre än den tidigare kartetiketten (19 px hög, RoleTagStack i components/RoleTag), staplade vid flera roller; vald bas får guldsken.
 
 - Air Bases → Specific: kartetiketten = vanliga ICAO-etiketten med förbandets flagga + rollbokstäverna ("🇷🇺 B, H", utils/ruAirbases ruBaseTag; flaggan visar förbandet, inte platsen, fältet o i ru-airbases.json), inga staplade etiketter. Black Ops One borttaget (fil, inläsning, licenslistan); rollbokstäverna i JetBrains Mono. Förbandskortet har en Source-knapp nere till höger → ruta (components/UnitSources, lager ovanpå kartan, stängs med krysset) med källorna och sammanställningsdatum 19 November 2026. Fokusetiketten för en vald flygplats utan bana visade nyckeln (SE-0002) i stället för visningskoden — rättat.
 

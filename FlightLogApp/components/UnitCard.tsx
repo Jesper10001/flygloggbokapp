@@ -1,5 +1,5 @@
 // Förbandskortet: ersätter flygplatskortet på global map när Air Bases → Specific är på och flygplatsen är en av de
-// ryska baserna. Samma ram, översta rad och knappar som AirportInfoCard; remsan visar förband och kommando i stället
+// militära baserna (Europa och Ryssland). Samma ram, översta rad och knappar som AirportInfoCard; remsan visar förband och kommando i stället
 // för höjd och banor, och AIRCRAFT flygplanstyperna med rollsymbolen (typerna flyter fritt; symbolen hålls ihop med
 // sin första typ så att den aldrig står ensam sist på en rad). Design 2026-11-19, artifact G3JjRFW2NmM3nEkNPsUkaT.
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../constants/colors';
 import { COUNTRY_NAMES } from '../constants/countryNames';
 import { displayCode } from '../utils/airportCodes';
-import { ROLES, type RuBase } from '../utils/ruAirbases';
+import { ROLES, baseGroups, operatorLabel, type MilBase } from '../utils/milAirbases';
 import { RoleTag } from './RoleTag';
 
 const MONO = 'JetBrainsMono';
@@ -18,7 +18,7 @@ const GOLD = '#FFB830';
 
 export function UnitCard({ icao, base, country, accent = Colors.primary, onClose, isFavorite, onToggleFavorite, onSource }: {
   icao: string;
-  base: RuBase;
+  base: MilBase;
   country?: string | null;
   accent?: string;
   onClose: () => void;
@@ -29,8 +29,13 @@ export function UnitCard({ icao, base, country, accent = Colors.primary, onClose
   const countryName = country ? (COUNTRY_NAMES[country.toUpperCase()] ?? country.toUpperCase()) : '';
   const meta = ['Air base', base.r || null, countryName || null].filter(Boolean).join(' · ');
   const line = accent + '33';
-  const items: { start: boolean; role: (typeof base.g)[number][0]; type: string }[] = [];
-  for (const [role, types] of base.g) types.forEach((t, i) => items.push({ start: i === 0, role, type: t }));
+  const groups = baseGroups(base);
+  const items: { start: boolean; role: (typeof groups)[number][0]; type: string }[] = [];
+  for (const [role, types] of groups) types.forEach((t, i) => items.push({ start: i === 0, role, type: t }));
+  // Förbandets flagga framför när förbandet är utländskt (t.ex. USAF på Lakenheath) eller när flera länder delar basen.
+  const flagged = base.ops.length > 1 || base.ops.some((op) => op.o !== (country || '').toUpperCase());
+  const units = base.ops.flatMap((op) => op.u.map((u) => (flagged ? `${operatorLabel(op.o)} ${u}` : u)));
+  const commands = [...new Set(base.ops.map((op) => (op.c ? (flagged && base.ops.length > 1 ? `${operatorLabel(op.o)} ${op.c}` : op.c) : '')).filter(Boolean))];
 
   return (
     <View style={{ borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: accent + '55' }}>
@@ -56,11 +61,11 @@ export function UnitCard({ icao, base, country, accent = Colors.primary, onClose
       <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: line }}>
         <View style={{ flex: 1.6, minWidth: 0, gap: 3, paddingVertical: 8, paddingLeft: 14, paddingRight: 10 }}>
           <Text style={s.label}>UNIT</Text>
-          {base.u.map((u) => <Text key={u} style={s.value}>{u}</Text>)}
+          {units.map((u) => <Text key={u} style={s.value}>{u}</Text>)}
         </View>
         <View style={{ flex: 1, minWidth: 0, gap: 3, paddingVertical: 8, paddingLeft: 10, paddingRight: 12, borderLeftWidth: 1, borderLeftColor: line }}>
           <Text style={s.label}>COMMAND</Text>
-          <Text style={s.value}>{base.c || '—'}</Text>
+          {commands.length ? commands.map((c) => <Text key={c} style={s.value}>{c}</Text>) : <Text style={s.value}>—</Text>}
         </View>
       </View>
 

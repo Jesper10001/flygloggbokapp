@@ -4,7 +4,7 @@
 // SeedRow[10]. "Properties" (banlängd/yta/lit) och closed-läget hanteras separat i GlobalMapModal.
 import type { SeedRow } from '../components/GlobalAirportMap';
 import { surfaceBit, type RwyInfo } from '../utils/runways';
-import { getRuBase, ROLE_ORDER, ROLES, RU_BASE_COUNT, RU_ROLE_COUNTS, type RoleKey } from '../utils/ruAirbases';
+import { getMilBase, baseRoles, ROLE_ORDER, ROLES, MIL_BASE_COUNT, MIL_ROLE_COUNTS, type RoleKey } from '../utils/milAirbases';
 
 export type FilterNode = {
   key: string;                                        // unik nyckel (används i activeKeys-Set)
@@ -91,14 +91,14 @@ export const FILTER_GROUPS: FilterGroup[] = [
   },
 ];
 
-// Air Bases → Specific: ryska flygbaser per roll (utils/ruAirbases). Egen sida i Air Bases-panelen; ELLER mot de
+// Air Bases → Specific: militära flygbaser i Europa och Ryssland per roll (utils/milAirbases). Egen sida i Air Bases-panelen; ELLER mot de
 // andra typvalen som vanligt. När något här är valt ritas baserna med rollsymboler och förbandskortet ersätter
 // flygplatskortet (GlobalMapModal).
 export type SpecificNode = FilterNode & { role: RoleKey | null; count: number };
 export const SPECIFIC_NODES: SpecificNode[] = [
-  { key: 'rb:all', label: 'All', role: null, count: RU_BASE_COUNT, match: (r) => !!getRuBase(r[0]) },
-  ...ROLE_ORDER.map((role) => ({ key: `rb:${role}`, label: ROLES[role].label, role, count: RU_ROLE_COUNTS[role],
-    match: (r: SeedRow) => !!getRuBase(r[0])?.g.some((g) => g[0] === role) })),
+  { key: 'rb:all', label: 'All', role: null, count: MIL_BASE_COUNT, match: (r) => !!getMilBase(r[0]) },
+  ...ROLE_ORDER.map((role) => ({ key: `rb:${role}`, label: ROLES[role].label, role, count: MIL_ROLE_COUNTS[role],
+    match: (r: SeedRow) => !!baseRoles(r[0])?.includes(role) })),
 ];
 export const isSpecificKey = (k: string) => k.startsWith('rb:');
 
@@ -117,7 +117,7 @@ for (const g of FILTER_GROUPS) {
   for (const n of g.subs) LEAVES.set(n.key, { key: n.key, label: n.label, access: false, match: n.match! });
 }
 for (const n of ACCESS_NODES) LEAVES.set(n.key, { key: n.key, label: n.label, access: true, match: n.match! });
-for (const n of SPECIFIC_NODES) LEAVES.set(n.key, { key: n.key, label: n.role ? `${n.label} (Russia)` : 'Russian air bases', access: false, match: n.match! });
+for (const n of SPECIFIC_NODES) LEAVES.set(n.key, { key: n.key, label: n.role ? `${n.label} bases` : 'Military air bases', access: false, match: n.match! });
 
 /** Aktiva lövs predikat (i valfri ordning). */
 export function leavesFor(activeKeys: Set<string>): FilterLeaf[] {
@@ -147,7 +147,7 @@ export function filterCountLabel(activeKeys: Set<string>): string {
     'Air Force': 'Air Force bases', 'Navy & Marines': 'Navy bases', Army: 'Army airfields', 'Other military': 'Air Bases',
     'General aviation': 'Airfields', Gliding: 'Gliding sites', Ultralight: 'Ultralight fields', 'Farm & ranch strips': 'Farm strips',
     Agricultural: 'Ag strips', Skydiving: 'Skydiving fields', 'Ice & snow': 'Ice & snow runways', 'Military heliports': 'Military heliports',
-    'Joint use': 'Joint-use airports', 'Russian air bases': 'Russian air bases', 'Lodges & camps': 'Lodge & camp strips', 'Island strips': 'Island strips', 'Beach landings': 'Beach strips',
+    'Joint use': 'Joint-use airports', 'Military air bases': 'Military air bases', 'Lodges & camps': 'Lodge & camp strips', 'Island strips': 'Island strips', 'Beach landings': 'Beach strips',
   };
   const l = leaves[0].label;
   return special[l] ?? (l.endsWith('s') ? l : `${l}s`);

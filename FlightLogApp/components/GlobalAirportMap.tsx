@@ -21,15 +21,17 @@ import { categoryColor, type FlightCat } from '../services/weather';
 import { flagEmoji } from '../constants/continents';
 import { getRunways } from '../utils/runways';
 import { displayCode } from '../utils/airportCodes';
+import { RoleTagStack } from './RoleTag';
+import type { RoleKey } from '../utils/milAirbases';
 
 // icao,name,country,region,lat,lon + berikning (airportmap.de): iata,alt,type,municipality,restriction.
 // Berikningsfälten är optional så äldre 6-elements-konstruktioner (ex AirportMapWidget) fortsätter gälla.
 // [icao, name, country, region, lat, lon, iata, alt, type, municipality, restriction, gps, undertyper (kommaseparerade koder)]
 export type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?, string?, string?];
 
-// Dynamisk klustring (se inView): ≤ PIN_ALL flygplatser i vyn → enskilda nålar; > FLAG_MIN i en utzoomad vy
-// (delta > 16) → land-flaggor; däremellan kluster. MARKER_CAP = högsta antal kluster/nålar som ritas samtidigt.
-const PIN_ALL = 80, FLAG_MIN = 300, MARKER_CAP = 150;
+// Dynamisk klustring (se inView): > FLAG_MIN flygplatser i en utzoomad vy (delta > 16) → land-flaggor; annars kluster
+// som delas när man zoomar in (ensamma flygplatser visas enskilt). MARKER_CAP = högsta antal kluster/nålar som ritas samtidigt.
+const FLAG_MIN = 300, MARKER_CAP = 150;
 const INITIAL: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longitudeDelta: 110 };
 // Markör-tak sätts per nivå nedan: pluppar = lätta native-nålar (tål många),
 // ICAO-etiketter = egna vyer (tunga) → bara få på närmsta zoomen.
@@ -42,9 +44,9 @@ const INITIAL: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longit
 // land-flaggor oavsett zoom (för den stora 34k-databasen → byter aldrig till pins, kraschar ej).
 export type RegionMarker = { key: string; label: string; count: number; lat: number; lon: number };
 
-export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, pinCategory, hulls, regionShapes, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborShapes, neighborMarkers, onSelectNeighbor, clustering, clusterKey, onRegionChange, onFlagView, baseTagFor, fitTo, children, goldOutline, ownCompass, onHeading, camCmd, showsUser }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; pinCategory?: Map<string, FlightCat | null>; hulls?: { latitude: number; longitude: number }[][]; regionShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void; clustering?: boolean; clusterKey?: string; onRegionChange?: (r: Region) => void;
+export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, pinCategory, hulls, regionShapes, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborShapes, neighborMarkers, onSelectNeighbor, clustering, clusterKey, onRegionChange, onFlagView, roleTagFor, fitTo, children, goldOutline, ownCompass, onHeading, camCmd, showsUser }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; pinCategory?: Map<string, FlightCat | null>; hulls?: { latitude: number; longitude: number }[][]; regionShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void; clustering?: boolean; clusterKey?: string; onRegionChange?: (r: Region) => void;
   onFlagView?: (flags: boolean) => void; // kartan visar land-flaggor (true) eller kluster/nålar (false)
-  baseTagFor?: (icao: string) => string | null; // Air Bases → Specific: etikettens text för en bas ("🇷🇺 B, H"), annars null
+  roleTagFor?: (icao: string) => RoleKey[] | null; // Air Bases → Specific: basens roller (rollsymbolerna), annars null
   // Rama in punkter med marginaler (Visited airports: uppspelningen av senaste flygningen, mellan korten). Sätts den
   // till null igen glider kartan tillbaka till vyn den hade innan.
   // endAt: tillbaka med samma zoom men centrerat där (Visited airports: flygningen slutade på en annan flygplats).
@@ -87,10 +89,10 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
   }, [airports]);
 
   const delta = region.latitudeDelta;
-  // Klustringsläget är DYNAMISKT (2026-11-18): det är antalet flygplatser i vyn (efter filtret) som avgör, inte en
-  // fast zoomgrad. Få i vyn (≤ PIN_ALL) → alla som enskilda nålar, oavsett zoom; många → kluster; riktigt många i
-  // en utzoomad vy → land-flaggor. Ett snävt filter (t.ex. Seaplane i Ryssland) syns alltså redan utzoomat och
-  // man kastas inte tillbaka till flaggorna när man zoomar ut lite. Markörtaket (MARKER_CAP) skyddar mot krasch.
+  // Klustringsläget är DYNAMISKT (2026-11-18): det är antalet flygplatser i vyn (efter filtret) som avgör om land-
+  // flaggorna visas, inte en fast zoomgrad: riktigt många i en utzoomad vy → flaggor, annars kluster som delas när man
+  // zoomar in. Ett snävt filter (t.ex. Seaplane i Ryssland) syns alltså redan utzoomat som kluster/nålar och man kastas
+  // inte tillbaka till flaggorna när man zoomar ut lite. Markörtaket (MARKER_CAP) skyddar mot krasch.
   const inView = useMemo(() => {
     if (!clustering) return 0;
     const [w, , e] = regionToBbox(region);
@@ -164,8 +166,9 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
     // för varje delsteg → pluppar mount/unmount:as i snabb följd (markör-churn) → Apple Maps kraschar,
     // särskilt vid snabb utzoomning. Vänta tills vyn lugnat sig (140 ms) och beräkna EN gång.
     const id = setTimeout(() => {
-      // Få flygplatser i vyn → zooma "förbi" klustringen (maxZoom 10) så att alla visas som enskilda nålar.
-      const z = inView <= PIN_ALL ? 11 : regionToZoom(region);
+      // Vanliga kluster även när filtret är snävt: nålar som skulle ligga ovanpå varandra slås ihop (2026-11-19; förut
+      // visades ≤ 80 flygplatser i vyn alltid enskilt, och Specific-symbolerna överlappade). Ensamma visas ändå enskilt.
+      const z = regionToZoom(region);
       try { setClusters(clusterIdx.current.getClusters(regionToBbox(region), z) as ClusterFeature[]); }
       catch { setClusters([]); }
     }, 140);
@@ -415,8 +418,9 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           // träffyta så onPress fyrar tillförlitligt (multi-element labelChip+dot missade tryck i RN-maps 1.27).
           <Marker key={`ca-${icao}`} coordinate={{ latitude: lat, longitude: lon }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={tracks}
             onPress={onSelectAirport ? () => onSelectAirport(icao) : undefined}>
-            {/* Air Bases → Specific: förbandets flagga + rollbokstäverna i stället för koden, i samma etikett. */}
-            <View style={s.icaoPin}><Text style={s.icaoPinTxt}>{baseTagFor?.(icao) ?? displayCode(icao)}</Text></View>
+            {/* Air Bases → Specific: basens rollsymboler (staplade vid flera roller) i stället för ICAO-etiketten. */}
+            {(() => { const roles = roleTagFor?.(icao); return roles ? <RoleTagStack roles={roles} selected={icao === focus?.[0]} />
+              : <View style={s.icaoPin}><Text style={s.icaoPinTxt}>{displayCode(icao)}</Text></View>; })()}
           </Marker>
         );
       })}
@@ -531,7 +535,8 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
           zIndex={1000}
           onPress={onSelectAirport ? () => onSelectAirport(focus[0]) : undefined}
         >
-          <View style={[s.icaoPin, s.icaoPinSel]}><Text style={s.icaoPinTxt}>{baseTagFor?.(focus[0]) ?? displayCode(focus[0])}</Text></View>
+          {(() => { const roles = roleTagFor?.(focus[0]); return roles ? <RoleTagStack roles={roles} selected />
+            : <View style={[s.icaoPin, s.icaoPinSel]}><Text style={s.icaoPinTxt}>{displayCode(focus[0])}</Text></View>; })()}
         </Marker>
       )}
       {/* Valt land: guldkontur med ett svagt sken under (rundade hörn och fogar). */}
