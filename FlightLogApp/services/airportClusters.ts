@@ -16,8 +16,9 @@ type Index = Supercluster<AirportProps, { point_count: number }>;
 // InteractionManager.runAfterInteractions så JS-tråden inte fryser vid öppning.
 let cacheSig: string | null = null;
 let cacheIdx: Index | null = null;
+let cacheLen = -1; // samma filter men annat antal (t.ex. datan laddad efter att kartan öppnats) → bygg om
 export function clusterIndexFor(airports: SeedRow[], signature: string): Index {
-  if (cacheSig === signature && cacheIdx) return cacheIdx;
+  if (cacheSig === signature && cacheIdx && cacheLen === airports.length) return cacheIdx;
   const points: GeoJSON.Feature<GeoJSON.Point, AirportProps>[] = [];
   for (const a of airports) {
     const lat = a[4], lon = a[5];
@@ -34,7 +35,7 @@ export function clusterIndexFor(airports: SeedRow[], signature: string): Index {
     minZoom: 0,
   });
   index.load(points);
-  cacheSig = signature; cacheIdx = index;
+  cacheSig = signature; cacheIdx = index; cacheLen = airports.length;
   return index;
 }
 

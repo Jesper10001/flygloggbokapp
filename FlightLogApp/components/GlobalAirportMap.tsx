@@ -106,7 +106,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
     }
     return n;
   }, [clustering, airports, region]);
-  const flagView = clustering ? delta > 16 && inView > FLAG_MIN : delta > 3.5;
+  const flagView = clustering ? airports.length === 0 || (delta > 16 && inView > FLAG_MIN) : delta > 3.5;
   const level: 'country' | 'dots' | 'labels' =
     mode === 'country' ? 'country'
       : mode === 'pins' ? 'labels'
@@ -139,6 +139,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
   // successivt i mindre kluster → till slut enskilda flygplatser. Bara zoom behövs för att navigera.
   const clusterIdx = useRef<any>(null);
   const [clusterReady, setClusterReady] = useState(false);
+  const [clusterTick, setClusterTick] = useState(0); // ökar när indexet byggts (om) → klustren räknas om
   const [clusters, setClusters] = useState<ClusterFeature[]>([]);
   const clusterZoom = !!clustering && level !== 'country'; // klustring aktiv (inte i land-översikten)
   // Bygg klusterindexet LAT — först när man faktiskt zoomat in till klusternivå. Vid öppning står man på
@@ -146,15 +147,19 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
   // Körs efter interaktionerna (runAfterInteractions) och bara EN gång per montering (ref-guard). Byggs
   // från `airports` (redan filtrerat i modalen) → klustren RESPEKTERAR filtret; clusterKey = filter-
   // signatur → clusterIndexFor cachar så att samma filter inte byggs om i onödan.
+  // Ny flygplatslista (t.ex. när datan laddats klart efter att kartan öppnats) → indexet byggs om. Utan detta
+  // fastnade ett index byggt på en tom lista, och inzoomat förbi flaggorna var kartan tom (fixat 2026-11-19).
+  const builtFor = useRef(-1); // antal flygplatser indexet byggdes av (samma filter + samma antal = samma lista)
   useEffect(() => {
-    if (!clustering || !clusterZoom || clusterIdx.current) return;
+    if (!clustering || !clusterZoom || !airports.length) return;
+    if (clusterIdx.current && builtFor.current === airports.length) return;
     let alive = true;
     const task = InteractionManager.runAfterInteractions(() => {
       if (!alive) return;
-      try { clusterIdx.current = clusterIndexFor(airports, clusterKey ?? ''); setClusterReady(true); } catch {}
+      try { clusterIdx.current = clusterIndexFor(airports, clusterKey ?? ''); builtFor.current = airports.length; setClusterReady(true); setClusterTick((t) => t + 1); } catch {}
     });
     return () => { alive = false; task.cancel(); };
-  }, [clustering, clusterZoom]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [clustering, clusterZoom, airports.length]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!clusterZoom || !clusterIdx.current) { setClusters([]); return; } // lämna klusternivån → töm direkt
     // DEBOUNCE: vid SNABB zoom/panorering avfyras region-ändringar tätt. Utan detta beräknas klustren om
@@ -167,7 +172,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
       catch { setClusters([]); }
     }, 140);
     return () => clearTimeout(id);
-  }, [clusterZoom, region, clusterReady, inView]);
+  }, [clusterZoom, region, clusterReady, inView, clusterTick]);
   // iOS rasteriserar egna markörvyer bara medan tracksViewChanges=true → tick när klustren ändras.
   useEffect(() => {
     if (!clusterZoom || !clusters.length) return;
