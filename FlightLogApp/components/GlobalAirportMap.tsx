@@ -23,8 +23,12 @@ import { getRunways } from '../utils/runways';
 
 // icao,name,country,region,lat,lon + berikning (airportmap.de): iata,alt,type,municipality,restriction.
 // Berikningsfälten är optional så äldre 6-elements-konstruktioner (ex AirportMapWidget) fortsätter gälla.
-export type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?, string?];
+// [icao, name, country, region, lat, lon, iata, alt, type, municipality, restriction, gps, undertyper (kommaseparerade koder)]
+export type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?, string?, string?];
 
+// Dynamisk klustring (se inView): ≤ PIN_ALL flygplatser i vyn → enskilda nålar; > FLAG_MIN i en utzoomad vy
+// (delta > 16) → land-flaggor; däremellan kluster. MARKER_CAP = högsta antal kluster/nålar som ritas samtidigt.
+const PIN_ALL = 80, FLAG_MIN = 300, MARKER_CAP = 150;
 const INITIAL: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longitudeDelta: 110 };
 // Markör-tak sätts per nivå nedan: pluppar = lätta native-nålar (tål många),
 // ICAO-etiketter = egna vyer (tunga) → bara få på närmsta zoomen.
@@ -37,7 +41,8 @@ const INITIAL: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longit
 // land-flaggor oavsett zoom (för den stora 34k-databasen → byter aldrig till pins, kraschar ej).
 export type RegionMarker = { key: string; label: string; count: number; lat: number; lon: number };
 
-export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, pinCategory, hulls, regionShapes, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborShapes, neighborMarkers, onSelectNeighbor, clustering, clusterKey, onRegionChange, fitTo, children, goldOutline, ownCompass, onHeading, camCmd, showsUser }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; pinCategory?: Map<string, FlightCat | null>; hulls?: { latitude: number; longitude: number }[][]; regionShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void; clustering?: boolean; clusterKey?: string; onRegionChange?: (r: Region) => void;
+export function GlobalAirportMap({ airports, initialRegion, interactive = true, mode = 'auto', onSelectAirport, onSelectCountry, selectedIcao, mapType = 'standard', focus, hideCountries, showLayerToggle, pins, pinCategory, hulls, regionShapes, regionMarkers, onSelectRegion, frameRegion, showCompass, compassTop, neighborShapes, neighborMarkers, onSelectNeighbor, clustering, clusterKey, onRegionChange, onFlagView, fitTo, children, goldOutline, ownCompass, onHeading, camCmd, showsUser }: { airports: SeedRow[]; initialRegion?: Region; interactive?: boolean; mode?: 'auto' | 'pins' | 'country'; onSelectAirport?: (icao: string) => void; onSelectCountry?: (cc: string) => void; selectedIcao?: string; mapType?: MapType; focus?: SeedRow | null; hideCountries?: boolean; showLayerToggle?: boolean; pins?: SeedRow[]; pinCategory?: Map<string, FlightCat | null>; hulls?: { latitude: number; longitude: number }[][]; regionShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; regionMarkers?: RegionMarker[]; onSelectRegion?: (key: string) => void; frameRegion?: Region; showCompass?: boolean; compassTop?: number; neighborShapes?: { key: string; rings: { latitude: number; longitude: number }[][] }[]; neighborMarkers?: RegionMarker[]; onSelectNeighbor?: (key: string) => void; clustering?: boolean; clusterKey?: string; onRegionChange?: (r: Region) => void;
+  onFlagView?: (flags: boolean) => void; // kartan visar land-flaggor (true) eller kluster/nålar (false)
   // Rama in punkter med marginaler (Visited airports: uppspelningen av senaste flygningen, mellan korten). Sätts den
   // till null igen glider kartan tillbaka till vyn den hade innan.
   // endAt: tillbaka med samma zoom men centrerat där (Visited airports: flygningen slutade på en annan flygplats).
@@ -80,13 +85,31 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
   }, [airports]);
 
   const delta = region.latitudeDelta;
-  // Land-flaggor vid utzoomad vy; klustring/pluppar tar över när man zoomat in tillräckligt.
-  // I klustringsläge skiftar vi tidigare (större delta) → man slipper zooma in så långt för att få kluster.
-  const countryMax = clustering ? 16 : 3.5;
+  // Klustringsläget är DYNAMISKT (2026-11-18): det är antalet flygplatser i vyn (efter filtret) som avgör, inte en
+  // fast zoomgrad. Få i vyn (≤ PIN_ALL) → alla som enskilda nålar, oavsett zoom; många → kluster; riktigt många i
+  // en utzoomad vy → land-flaggor. Ett snävt filter (t.ex. Seaplane i Ryssland) syns alltså redan utzoomat och
+  // man kastas inte tillbaka till flaggorna när man zoomar ut lite. Markörtaket (MARKER_CAP) skyddar mot krasch.
+  const inView = useMemo(() => {
+    if (!clustering) return 0;
+    const [w, , e] = regionToBbox(region);
+    const latMin = region.latitude - region.latitudeDelta / 2, latMax = region.latitude + region.latitudeDelta / 2;
+    const span = e - w;
+    let n = 0;
+    for (const a of airports) {
+      if (a[4] < latMin || a[4] > latMax) continue;
+      if (span < 360 && ((((a[5] - w) % 360) + 360) % 360) > span) continue;
+      if (++n > FLAG_MIN) break;   // räcker att veta att det är "många"
+    }
+    return n;
+  }, [clustering, airports, region]);
+  const flagView = clustering ? delta > 16 && inView > FLAG_MIN : delta > 3.5;
   const level: 'country' | 'dots' | 'labels' =
     mode === 'country' ? 'country'
       : mode === 'pins' ? 'labels'
-      : delta > countryMax ? 'country' : delta > 0.8 ? 'dots' : 'labels';
+      : flagView ? 'country' : delta > 0.8 ? 'dots' : 'labels';
+  const onFlagViewRef = useRef(onFlagView);
+  onFlagViewRef.current = onFlagView;
+  useEffect(() => { onFlagViewRef.current?.(level === 'country'); }, [level]);
 
   // Viewport-filtrerade enskilda flygplatser (bara på plupp-nivåerna).
   const dots = useMemo(() => {
@@ -134,11 +157,13 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
     // för varje delsteg → pluppar mount/unmount:as i snabb följd (markör-churn) → Apple Maps kraschar,
     // särskilt vid snabb utzoomning. Vänta tills vyn lugnat sig (140 ms) och beräkna EN gång.
     const id = setTimeout(() => {
-      try { setClusters(clusterIdx.current.getClusters(regionToBbox(region), regionToZoom(region)) as ClusterFeature[]); }
+      // Få flygplatser i vyn → zooma "förbi" klustringen (maxZoom 10) så att alla visas som enskilda nålar.
+      const z = inView <= PIN_ALL ? 11 : regionToZoom(region);
+      try { setClusters(clusterIdx.current.getClusters(regionToBbox(region), z) as ClusterFeature[]); }
       catch { setClusters([]); }
     }, 140);
     return () => clearTimeout(id);
-  }, [clusterZoom, region, clusterReady]);
+  }, [clusterZoom, region, clusterReady, inView]);
   // iOS rasteriserar egna markörvyer bara medan tracksViewChanges=true → tick när klustren ändras.
   useEffect(() => {
     if (!clusterZoom || !clusters.length) return;
@@ -367,7 +392,7 @@ export function GlobalAirportMap({ airports, initialRegion, interactive = true, 
 
       {/* ── Geografiska kluster (klustringsläge) ── kluster-plupp med antal (tap = zooma in så det delas)
           + enskilda flygplatser när klustret är litet nog. Bara zoom behövs för att navigera. */}
-      {clusterZoom && clusters.slice(0, 150).map((c) => {
+      {clusterZoom && clusters.slice(0, MARKER_CAP).map((c) => {
         const [lon, lat] = c.geometry.coordinates;
         if (c.properties?.cluster) {
           return (

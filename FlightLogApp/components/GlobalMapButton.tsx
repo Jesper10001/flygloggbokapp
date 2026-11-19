@@ -12,7 +12,7 @@ import { getSeedAirports } from '../db/icao';
 import { topContinentThumb, type ThumbRegion } from '../utils/thumbRegion';
 import { GlobalMapModal } from './GlobalMapModal';
 
-type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?, string?];
+type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?, string?, string?];
 // Hela globen (utzoomat) → satelliteFlyover renderar 3D-jordklotet.
 const WORLD: ThumbRegion = { latitude: 20, longitude: 10, latitudeDelta: 150, longitudeDelta: 150 };
 

@@ -28,7 +28,7 @@ import { countryNameFull } from '../constants/countryNames';
 import { COUNTRY_POPULATION, formatPopulation } from '../constants/countryPopulation';
 import { CountryFlag } from './CountryFlag';
 import {
-  leavesFor, keysNeedRunway, propsActive, matchProps,
+  leavesFor, matchLeaves, keysNeedRunway, propsActive, matchProps, FILTER_GROUPS, ACCESS_NODES, type FilterGroup,
   filterCountLabel, EMPTY_PROPS, type MapProps,
 } from '../constants/mapFilters';
 import { fetchMetarsInBbox, categoryColor, type FlightCat, type AirportMetar } from '../services/weather';
@@ -63,17 +63,7 @@ function wxLegendRowsFor(sm: boolean): { cat: FlightCat; vis: string; ceil: stri
   return WX_CATS.map((cat) => ({ cat, vis: vis[cat], ceil: ceil[cat] }));
 }
 
-// Snabb-typfilter (swipebar rad bredvid Favorites). "Airports L/M" togglar large+medium ihop.
-const TYPE_CHIPS: { label: string; keys: string[] }[] = [
-  { label: 'Airports L/M', keys: ['t:large', 't:medium'] },
-  { label: 'Air Bases', keys: ['r:military'] },
-  { label: 'Airfields', keys: ['t:small'] },
-  { label: 'Heliports', keys: ['t:heliport'] },
-  { label: 'Seaplane', keys: ['t:seaplane'] },
-  { label: 'Altiports', keys: ['t:altiport'] },
-  { label: 'Balloonports', keys: ['t:balloonport'] },
-];
-// Access-val (samma nycklar som Access-noden i FILTER_TREE) → snabbknapp uppe vid sök-raden.
+// Access-val (samma nycklar som ACCESS_NODES i constants/mapFilters) → Access-panelen.
 const ACCESS_CHIPS: { label: string; key: string }[] = [
   { label: 'Public', key: 'r:public' },
   { label: 'Private', key: 'r:private' },
@@ -88,7 +78,7 @@ import airportDataMeta from '../assets/airport-data-meta.json';
 // Datum då flygplatsdatan senast hämtades (skrivs av scripts/build-airports.mjs --refresh), t.ex. "26 October 2026".
 const AIRPORT_DATA_UPDATED = new Date(`${airportDataMeta.updated}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
-type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?, string?];
+type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?, string?, string?];
 type Region = { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number };
 const WORLD: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longitudeDelta: 110 };
 const MAX_LEN = 4000; // slider-tak för banlängd (m)
@@ -239,7 +229,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [favMode, setFavMode] = useState(false); // Favorites-knappen: visa bara favoriter (filtrerbart)
   // Vilken expander-panel under typ-raden som är öppen (en i taget): Properties / Weather / Access / Closed.
-  const [openSection, setOpenSection] = useState<null | 'props' | 'weather' | 'access' | 'closed'>(null);
+  const [openSection, setOpenSection] = useState<null | string>(null); // 'props' | 'access' | 'closed' | 'g:<grupp>'
   const [dataInfoOpen, setDataInfoOpen] = useState(false); // info-ruta: datakälla + uppdaterad + friskrivning
   const propsOpen = openSection === 'props';
 
@@ -304,7 +294,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
       const idx = (runwayActive || keysNeedRunway(activeKeys)) ? getRunwayIndex() : null;
       result = base.filter((r) => {
         const rwy = idx?.get(r[0]);
-        if (leaves.length && !leaves.some((l) => l.match(r, rwy))) return false;
+        if (!matchLeaves(leaves, r, rwy)) return false;
         if (runwayActive && !matchProps(rwy, mapProps)) return false;
         if (altActive) {
           const a = r[7];
@@ -334,7 +324,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     let mn = Infinity, mx = 0;
     for (const r of base) {
       const rwy = idx.get(r[0]);
-      if (leaves.length && !leaves.some((l) => l.match(r, rwy))) continue;
+      if (!matchLeaves(leaves, r, rwy)) continue;
       if (!rwy || !rwy.hasData || rwy.maxLenM <= 0) continue;
       if (rwy.maxLenM < mn) mn = rwy.maxLenM;
       if (rwy.maxLenM > mx) mx = rwy.maxLenM;
@@ -352,7 +342,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     const base = closedMode === 'include' ? favBase : closedMode === 'only' ? favBase.filter((r) => r[8] === 'closed') : favBase.filter((r) => r[8] !== 'closed');
     let mn = Infinity, mx = -Infinity;
     for (const r of base) {
-      if (leaves.length && !leaves.some((l) => l.match(r, undefined))) continue;
+      if (!matchLeaves(leaves, r, undefined)) continue;
       const a = r[7];
       if (a == null) continue;
       if (a < mn) mn = a; if (a > mx) mx = a;
@@ -374,7 +364,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     const bins = new Array(NBINS).fill(0);
     for (const r of base) {
       const rwy = idx.get(r[0]);
-      if (leaves.length && !leaves.some((l) => l.match(r, rwy))) continue;
+      if (!matchLeaves(leaves, r, rwy)) continue;
       if (!rwy || !rwy.hasData || rwy.maxLenM <= 0) continue; // saknar banlängd → räknas ej
       if (r[7] == null) continue;                              // saknar höjddata → räknas ej (samma urval i båda kurvorna)
       let b = Math.floor(((rwy.maxLenM - min) / span) * NBINS);
@@ -394,7 +384,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     const bins = new Array(NBINS).fill(0);
     for (const r of base) {
       const rwy = idx.get(r[0]);
-      if (leaves.length && !leaves.some((l) => l.match(r, rwy))) continue;
+      if (!matchLeaves(leaves, r, rwy)) continue;
       const a = r[7];
       if (a == null) continue;                                 // saknar höjddata → räknas ej
       if (!rwy || !rwy.hasData || rwy.maxLenM <= 0) continue;   // saknar banlängd → räknas ej (samma urval som runway-kurvan)
@@ -453,7 +443,10 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   // = countryMax) → krockar inte med sökrutan som ligger kvar på flagg-nivån.
   // Metod: landet för NÄRMASTE flygplats till kartans mitt (robust även vid kuster, där landsgräns-
   // polygonerna är för grova för punkt-i-polygon). null om ingen flygplats inom ~3° (öppet hav).
-  const atFlagLevel = mapRegion.latitudeDelta > 16;
+  // Flaggnivån rapporteras av kartan (dynamisk: beror på hur många flygplatser filtret visar i vyn). Landrutan
+  // visas när kartan visar kluster/nålar, men inte i världsvyn.
+  const [flagView, setFlagView] = useState(true);
+  const atFlagLevel = flagView || mapRegion.latitudeDelta > 40;
   const centerCountry = useMemo(() => {
     if (!clusterMode || focusAirport || atFlagLevel) return null;
     const lat = mapRegion.latitude, lon = mapRegion.longitude, R = 3; // sökruta ±3° (~330 km)
@@ -639,7 +632,33 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     for (const info of getRunwayIndex().values()) for (const s of SURFACE_FILTERS) if (info.surfaces & surfaceBit(s)) out[s]++;
     return out;
   }, [propsOpen]);
-  const toggleSection = (s: 'props' | 'weather' | 'access' | 'closed') => setOpenSection((cur) => (cur === s ? null : s));
+  const toggleSection = (s: string) => setOpenSection((cur) => (cur === s ? null : s));
+  // Gruppknapparna (Airports/Air Bases/Airfields/Helicopter/Other): "All" = hela gruppen; en undertyp tar bort All.
+  const groupOn = (g: FilterGroup) => activeKeys.has(g.all.key) || g.subs.some((n) => activeKeys.has(n.key));
+  const pickGroupAll = (g: FilterGroup) => setActiveKeys((prev) => {
+    const n = new Set(prev);
+    if (n.has(g.all.key)) n.delete(g.all.key); else { n.add(g.all.key); g.subs.forEach((x) => n.delete(x.key)); }
+    return n;
+  });
+  const pickGroupSub = (g: FilterGroup, key: string) => setActiveKeys((prev) => {
+    const n = new Set(prev);
+    n.delete(g.all.key);
+    n.has(key) ? n.delete(key) : n.add(key);
+    return n;
+  });
+  // Antal (öppna flygplatser i hela databasen) under varje val i den öppna gruppanelen.
+  const openGroup = openSection?.startsWith('g:') ? FILTER_GROUPS.find((g) => `g:${g.key}` === openSection) ?? null : null;
+  const groupCounts = useMemo(() => {
+    if (!openGroup) return null;
+    const nodes = [openGroup.all, ...openGroup.subs];
+    const out: Record<string, number> = {};
+    nodes.forEach((n) => { out[n.key] = 0; });
+    for (const r of seedData) {
+      if (r[8] === 'closed') continue;
+      for (const n of nodes) if (n.match!(r)) out[n.key]++;
+    }
+    return out;
+  }, [openGroup, seedData]);
   const accessOn = ACCESS_CHIPS.some((c) => activeKeys.has(c.key));
 
   // ── Väderfilter-hjälpare ──────────────────────────────────────────────────────
@@ -792,6 +811,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
             mode={directPins ? 'pins' : clusterMode ? 'auto' : 'country'}
             clustering={directPins ? false : clusterMode}
             clusterKey={mapKey}
+            onFlagView={setFlagView}
             onRegionChange={(r) => {
               if (clusterMode) setMapRegion(r);
               if (Date.now() > meGuardRef.current) setMeActive(false); // man drog i kartan → pilen blir kontur igen
@@ -1062,18 +1082,18 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                 resten, inget statiskt). Full bredd (kompassrosen borttagen) → mer plats åt Closed-knappen. */}
             {searchResults.length === 0 && (
               <View style={{ marginTop: 8 }}>
+                {/* Gruppknapparna: ett tryck öppnar gruppens panel (All + undertyper); knappen lyser när något är valt. */}
+                {/* Swipebar rad (som förut): varje knapp är lika bred som sitt namn, så hela namnet syns. */}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
-                  contentContainerStyle={{ gap: 6, paddingRight: 4, alignItems: 'center' }}>
-                  <TouchableOpacity onPress={toggleFavMode} activeOpacity={0.85} style={[styles.favBtn, favMode && styles.favBtnOn]}>
-                    <Ionicons name={favMode ? 'star' : 'star-outline'} size={10} color={favMode ? '#062024' : Colors.gold} />
-                    <Text style={[styles.favBtnTxt, favMode && { color: '#062024' }]}>Favorites{favorites.size ? ` · ${favorites.size}` : ''}</Text>
-                  </TouchableOpacity>
-                  {TYPE_CHIPS.map((chip) => {
-                    const on = chip.keys.every((k) => activeKeys.has(k));
+                  contentContainerStyle={styles.groupRow}>
+                  {FILTER_GROUPS.map((g) => {
+                    const on = groupOn(g), open = openSection === `g:${g.key}`;
                     return (
-                      <TouchableOpacity key={chip.label} onPress={() => toggleKeys(chip.keys)} activeOpacity={0.85}
-                        style={[styles.typeChip, on && styles.typeChipOn]}>
-                        <Text style={[styles.typeChipTxt, on && styles.typeChipTxtOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{chip.label}</Text>
+                      <TouchableOpacity key={g.key} onPress={() => toggleSection(`g:${g.key}`)} activeOpacity={0.85}
+                        accessibilityRole="button" accessibilityState={{ selected: on, expanded: open }}
+                        style={[styles.typeChip, on && styles.typeChipOn, open && !on && styles.propsToggleActive]}>
+                        <Text style={[styles.typeChipTxt, on && styles.typeChipTxtOn]} numberOfLines={1}>{g.label}</Text>
+                        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={9} color={on ? '#062024' : '#fff'} />
                       </TouchableOpacity>
                     );
                   })}
@@ -1100,12 +1120,38 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                     <Text style={[styles.propsToggleTxt, closedMode !== 'hide' && { color: Colors.primary }]}>Closed</Text>
                     <Ionicons name={openSection === 'closed' ? 'chevron-up' : 'chevron-down'} size={12} color="#fff" />
                   </TouchableOpacity>
+                  <TouchableOpacity onPress={toggleFavMode} activeOpacity={0.85} style={[styles.favBtn, favMode && styles.favBtnOn]}>
+                    <Ionicons name={favMode ? 'star' : 'star-outline'} size={10} color={favMode ? '#062024' : Colors.gold} />
+                    <Text style={[styles.favBtnTxt, favMode && { color: '#062024' }]}>Favorites{favorites.size ? ` · ${favorites.size}` : ''}</Text>
+                  </TouchableOpacity>
                   {/* Info om datakälla + senast uppdaterad + friskrivning */}
                   <TouchableOpacity onPress={() => setDataInfoOpen(true)} activeOpacity={0.7} hitSlop={8}
                     style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
                     <Ionicons name="information-circle-outline" size={18} color={Colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
+
+                {openGroup && (
+                  <View style={styles.propsPanel}>
+                    <View style={styles.groupOpts}>
+                      {[openGroup.all, ...openGroup.subs].map((n) => {
+                        const isAll = n.key === openGroup.all.key;
+                        const on = activeKeys.has(n.key);
+                        const cnt = groupCounts?.[n.key] ?? 0;
+                        if (!isAll && cnt === 0) return null; // tomma undertyper visas inte
+                        return (
+                          <TouchableOpacity key={n.key} onPress={() => (isAll ? pickGroupAll(openGroup) : pickGroupSub(openGroup, n.key))} activeOpacity={0.7}
+                            accessibilityRole="button" accessibilityState={{ selected: on }}
+                            style={[styles.groupOpt, on && styles.propPillOn]}>
+                            <Text style={[styles.propPillTxt, { flexShrink: 1 }, on && { color: Colors.primary }]} numberOfLines={1}>{n.label}</Text>
+                            <Text style={[styles.groupOptCount, on && { color: Colors.primary }]}>{cnt.toLocaleString('en-US')}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                    <Text style={styles.groupInfo}>{openGroup.info}</Text>
+                  </View>
+                )}
 
                 {/* Datakälla/friskrivning visas som overlay på rot-nivå (längre ned) — ej nästlad Modal. */}
 
@@ -1223,6 +1269,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                 iata={focusAirport[6]}
                 alt={focusAirport[7]}
                 type={focusAirport[8]}
+                sub={focusAirport[12]}
                 landingCount={lc > 0 ? lc : undefined}
                 lastText={lf ? fmtVisit(lf.date) : undefined}
                 onLastPress={lf ? () => setDetailFlightId(lf.id) : undefined}
@@ -1261,6 +1308,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                   iata={focusAirport[6]}
                   alt={focusAirport[7]}
                   type={focusAirport[8]}
+                  sub={focusAirport[12]}
                   accent={Colors.primary}
                   onClose={closeFlyTo}
                   onMetar={setFlyToMetar}
@@ -1335,9 +1383,16 @@ const styles = StyleSheet.create({
   favBtnOn: { backgroundColor: Colors.gold, borderColor: Colors.gold },
   favBtnTxt: { color: Colors.gold, fontSize: 9, fontWeight: '800', letterSpacing: 0.2 },
   // Swipebara typ-filterknappar (lika breda, ~30% mindre). Aktiv = cyan (skild från Favorites guld).
-  typeChip: { width: 68, alignItems: 'center', justifyContent: 'center', paddingVertical: 6, paddingHorizontal: 5, borderRadius: 7, backgroundColor: 'rgba(15,22,38,0.95)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  // Gruppknapparna + deras paneler (design 2026-11-19, artifact 6vxEJM7EKGBVrJi8vH8e3n): två kolumner, namn + antal.
+  groupRow: { flexDirection: 'row', gap: 6, paddingRight: 4 },
+  groupOpts: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 6 },
+  groupOpt: { width: '49%', height: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 10, borderRadius: 9,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', backgroundColor: 'rgba(255,255,255,0.05)' },
+  groupOptCount: { fontFamily: 'JetBrainsMono', fontSize: 10.5, fontWeight: '600', color: Colors.textSecondary },
+  groupInfo: { color: '#8FB0CC', fontSize: 11.5, lineHeight: 16, marginTop: 10 },
+  typeChip: { height: 32, flexDirection: 'row', gap: 4, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderRadius: 7, backgroundColor: 'rgba(15,22,38,0.95)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
   typeChipOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  typeChipTxt: { color: '#fff', fontSize: 8.5, fontWeight: '800', letterSpacing: 0.2, textAlign: 'center' },
+  typeChipTxt: { color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.2, textAlign: 'center' },
   typeChipTxtOn: { color: '#062024' },
   // Properties-expander + panel (under swipe-raden). Full bredd (kompassrosen borttagen).
   expRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 6 },

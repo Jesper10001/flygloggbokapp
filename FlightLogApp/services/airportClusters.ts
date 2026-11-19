@@ -25,7 +25,9 @@ export function clusterIndexFor(airports: SeedRow[], signature: string): Index {
     points.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties: { icao: a[0], row: a } });
   }
   const index: Index = new Supercluster<AirportProps, { point_count: number }>({
-    radius: 100,  // klusterradie i px — stor → FÄRRE/större kluster (fler flygplatser per plupp) → mindre kraschrisk
+    // klusterradie i px — stor → FÄRRE/större kluster → mindre kraschrisk. Ett snävt filter (få flygplatser) får en
+    // mindre radie, så att klustren delas upp i enskilda flygplatser tidigare när man zoomar in.
+    radius: points.length <= 3000 ? 55 : 100,
     maxZoom: 10,  // slutar klustra över zoom 10 → enskilda flygplatser. Lågt tak = ~4× snabbare bygge
                   // (färre trädnivåer). Verifierat: täta områden (London/LA/NYC) expanderar ändå fullt
                   // vid appens högsta zoom (~13) → inga kluster fastnar.

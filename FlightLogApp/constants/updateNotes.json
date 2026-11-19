@@ -2,6 +2,14 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 195,
+      "date": "2026-11-19",
+      "notes": [
+        "Improved: Global map filters are grouped into Airports, Air Bases, Airfields, Helicopter and Other, each with its own types, such as Helipads on rooftops, Offshore, Gliding, Skydiving and Spaceports.",
+        "Improved: A narrow filter on the Global map shows its airports without zooming far in, and they stay on the map as you zoom out and move around."
+      ]
+    },
+    {
       "id": 194,
       "date": "2026-11-18",
       "notes": [

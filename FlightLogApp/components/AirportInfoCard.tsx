@@ -30,13 +30,22 @@ const TYPE_LABEL: Record<string, string> = {
   seaplane: 'Seaplane', altiport: 'Altiport', balloonport: 'Balloonport', closed: 'Closed',
 };
 
+// Undertyp (SeedRow[12], se constants/mapFilters) → tydligare etikett än bara typen.
+const SUB_LABEL: Record<string, string> = {
+  hp: 'Helipad', os: 'Offshore helideck', gl: 'Gliding site', ul: 'Ultralight field', fr: 'Farm strip',
+  ap: 'Airpark', ag: 'Ag strip', sk: 'Skydiving field', ic: 'Ice & snow runway', sp: 'Spaceport',
+  bh: 'Beach landing', lc: 'Lodge strip', is: 'Island strip',
+};
+const subLabel = (sub?: string) => (sub ? sub.split(',').map((c) => SUB_LABEL[c]).find(Boolean) : undefined);
+
 const fmtFreq = (v: number) => v.toFixed(3);
 const fmtM = (m: number) => `${Math.round(m).toLocaleString('en-US')} m`;
 
-export function AirportInfoCard({ icao, name, iata, alt, type, country, accent = Colors.info, landingCount, lastText, onLastPress, onClose, isFavorite, onToggleFavorite, onMetar, onOpenMetar, solid = false, onPlay, playing = false }: {
+export function AirportInfoCard({ icao, name, iata, alt, type, sub, country, accent = Colors.info, landingCount, lastText, onLastPress, onClose, isFavorite, onToggleFavorite, onMetar, onOpenMetar, solid = false, onPlay, playing = false }: {
   icao: string;
   name?: string;
   country?: string | null;    // ISO alpha-2 landskod → landets namn på rad 2
+  sub?: string;               // undertyper (SeedRow[12]), t.ex. 'hp' → "Helipad"
   iata?: string;              // IATA-kod (airportmap.de)
   alt?: number | null;        // elevation (ft)
   type?: string;              // airportmap.de-kategori
@@ -82,7 +91,7 @@ export function AirportInfoCard({ icao, name, iata, alt, type, country, accent =
   }, [icao]);
 
   // Rad 2: med väder får vädret platsen (landet utelämnas), annars står landet med.
-  const meta = [iata || null, type ? (TYPE_LABEL[type] || type) : null, !metar ? countryName || null : null].filter(Boolean).join(' · ');
+  const meta = [iata || null, type ? (subLabel(sub) || TYPE_LABEL[type] || type) : null, !metar ? countryName || null : null].filter(Boolean).join(' · ');
 
   // Remsan: högst fyra celler, bara det som finns.
   const cells: { label: string; value: string; freq?: boolean }[] = [];
