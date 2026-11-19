@@ -16,7 +16,7 @@ const SERIF = 'Fraunces';
 const SUB = '#A9C3DB';
 const GOLD = '#FFB830';
 
-export function UnitCard({ icao, base, country, accent = Colors.primary, onClose, isFavorite, onToggleFavorite }: {
+export function UnitCard({ icao, base, country, accent = Colors.primary, onClose, isFavorite, onToggleFavorite, onSource }: {
   icao: string;
   base: RuBase;
   country?: string | null;
@@ -24,6 +24,7 @@ export function UnitCard({ icao, base, country, accent = Colors.primary, onClose
   onClose: () => void;
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
+  onSource?: () => void;        // Source-knappen nere till höger → var datan kommer från
 }) {
   const countryName = country ? (COUNTRY_NAMES[country.toUpperCase()] ?? country.toUpperCase()) : '';
   const meta = ['Air base', base.r || null, countryName || null].filter(Boolean).join(' · ');
@@ -63,8 +64,9 @@ export function UnitCard({ icao, base, country, accent = Colors.primary, onClose
         </View>
       </View>
 
-      {/* Flygfarkosterna */}
-      <View style={{ gap: 7, paddingTop: 8, paddingBottom: 12, paddingHorizontal: 14, borderTopWidth: 1, borderTopColor: line }}>
+      {/* Flygfarkosterna + Source nere till höger */}
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 10, paddingTop: 8, paddingBottom: 12, paddingHorizontal: 14, borderTopWidth: 1, borderTopColor: line }}>
+      <View style={{ flex: 1, minWidth: 0, gap: 7 }}>
         <Text style={s.label}>AIRCRAFT</Text>
         {items.length ? (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 5 }}>
@@ -79,6 +81,14 @@ export function UnitCard({ icao, base, country, accent = Colors.primary, onClose
         ) : (
           <Text style={{ fontSize: 12.5, color: SUB }}>No aircraft listed in the sources.</Text>
         )}
+      </View>
+      {onSource && (
+        <TouchableOpacity onPress={onSource} hitSlop={10} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="Where this data comes from"
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 3 }}>
+          <Ionicons name="information-circle-outline" size={14} color={accent} />
+          <Text style={{ fontSize: 12, fontWeight: '700', color: accent }}>Source</Text>
+        </TouchableOpacity>
+      )}
       </View>
     </View>
   );

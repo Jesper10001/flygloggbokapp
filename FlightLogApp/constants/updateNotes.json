@@ -2,6 +2,13 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 199,
+      "date": "2026-11-19",
+      "notes": [
+        "Improved: Russian air bases on the Global map use the normal airport tag with the unit's flag and role letters, and the unit card has a Source button that shows where the data comes from."
+      ]
+    },
+    {
       "id": 198,
       "date": "2026-11-19",
       "notes": [

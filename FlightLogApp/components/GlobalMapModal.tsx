@@ -76,8 +76,9 @@ import { Colors } from '../constants/colors';
 import airportDataMeta from '../assets/airport-data-meta.json';
 import { displayCode } from '../utils/airportCodes';
 import { UnitCard } from './UnitCard';
+import { UnitSourcesPopup } from './UnitSources';
 import { RoleTag } from './RoleTag';
-import { getRuBase, ruBaseRoles, RU_BASE_COUNT, ROLES } from '../utils/ruAirbases';
+import { getRuBase, ruBaseTag, RU_BASE_COUNT, ROLES } from '../utils/ruAirbases';
 
 // Datum då flygplatsdatan senast hämtades (skrivs av scripts/build-airports.mjs --refresh), t.ex. "26 October 2026".
 const AIRPORT_DATA_UPDATED = new Date(`${airportDataMeta.updated}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -235,6 +236,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   // Vilken expander-panel under typ-raden som är öppen (en i taget): Properties / Weather / Access / Closed.
   const [openSection, setOpenSection] = useState<null | string>(null); // 'props' | 'access' | 'closed' | 'g:<grupp>'
   const [specificPage, setSpecificPage] = useState(false); // Air Bases-panelens andra sida (Specific)
+  const [unitSourceOpen, setUnitSourceOpen] = useState(false); // förbandskortets Source-ruta
   const [dataInfoOpen, setDataInfoOpen] = useState(false); // info-ruta: datakälla + uppdaterad + friskrivning
   const propsOpen = openSection === 'props';
 
@@ -525,7 +527,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   }, [mapSearch, seedData]);
 
   const closeMap = () => {
-    setFlyTo(false); setFlyToFrozen(false);
+    setFlyTo(false); setFlyToFrozen(false); setUnitSourceOpen(false);
     setDrillStack([]); setFocusAirport(null); setMapSearch(''); setMapRegion(WORLD);
     setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); setSatellite(false); setClosedMode('hide'); setFavMode(false);
     clearWeather();
@@ -828,7 +830,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
             clustering={directPins ? false : clusterMode}
             clusterKey={mapKey}
             onFlagView={setFlagView}
-            roleTagFor={specificOn ? ruBaseRoles : undefined}
+            baseTagFor={specificOn ? ruBaseTag : undefined}
             onRegionChange={(r) => {
               if (clusterMode) setMapRegion(r);
               if (Date.now() > meGuardRef.current) setMeActive(false); // man drog i kartan → pilen blir kontur igen
@@ -1337,6 +1339,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                   onClose={() => setFocusAirport(null)}
                   isFavorite={favorites.has(focusAirport[0])}
                   onToggleFavorite={() => toggleFavorite(focusAirport[0])}
+                  onSource={() => setUnitSourceOpen(true)}
                 />
               ) : (
               <AirportInfoCard
@@ -1405,6 +1408,9 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
             </Pressable>
           </View>
         )}
+
+        {/* Förbandskortets Source-ruta: lager ovanpå kartan (ingen nästlad Modal). */}
+        {unitSourceOpen && focusAirport && <UnitSourcesPopup topInset={insets.top} onClose={() => setUnitSourceOpen(false)} />}
 
         {/* News (AI) — flygincidenter kopplade till flygplatser. Ligger överst; cachas i storen. */}
         <IncidentNewsOverlay

@@ -32,8 +32,11 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - New: Specific under Air Bases on the Global map shows 92 Russian air bases by aircraft role, with role symbols on the map and a unit card listing the unit and the aircraft based there.
 - Improved: Long airport names wrap to two lines on the airport card instead of being cut off.
 - Fixed: Zooming in past the country flags on the Global map could show no airports until a filter was changed.
+- Improved: Russian air bases on the Global map use the normal airport tag with the unit's flag and role letters, and the unit card has a Source button that shows where the data comes from.
 
 ### Alla ändringar
+
+- Air Bases → Specific: kartetiketten = vanliga ICAO-etiketten med förbandets flagga + rollbokstäverna ("🇷🇺 B, H", utils/ruAirbases ruBaseTag; flaggan visar förbandet, inte platsen, fältet o i ru-airbases.json), inga staplade etiketter. Black Ops One borttaget (fil, inläsning, licenslistan); rollbokstäverna i JetBrains Mono. Förbandskortet har en Source-knapp nere till höger → ruta (components/UnitSources, lager ovanpå kartan, stängs med krysset) med källorna och sammanställningsdatum 19 November 2026. Fokusetiketten för en vald flygplats utan bana visade nyckeln (SE-0002) i stället för visningskoden — rättat.
 
 - Global map, tom karta inzoomat (regression från den dynamiska klustringen 2026-11-18): kartan öppnas innan flygplatsdatan laddats; med tom lista räknades vyn som "få flygplatser" → klusterindexet byggdes på en tom lista, cachades på filtersignaturen och byggdes aldrig om. Nu: tom lista = flaggvy, indexet byggs om när antalet flygplatser ändras (GlobalAirportMap builtFor + clusterTick), och cachen i services/airportClusters jämför även antalet.
 

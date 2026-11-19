@@ -141,7 +141,8 @@ for (const r of body) {
   }
   const region = REGION[r[ix.region]], command = COMMAND[r[ix.kommando]];
   if (region === undefined || command === undefined) throw new Error(`Saknar översättning: ${r[ix.region]} / ${r[ix.kommando]}`);
-  out[key] = { n: NAME[name] || name, r: region, c: command, u: r[ix.forband].split(';').map((s) => unit(s)).filter(Boolean), g: groups };
+  // o = förbandets land: flaggan på kartan visar förbandet, inte var basen ligger (Krim, Armenien, Kirgizistan → RU).
+  out[key] = { o: 'RU', n: NAME[name] || name, r: region, c: command, u: r[ix.forband].split(';').map((s) => unit(s)).filter(Boolean), g: groups };
 }
 const left = Object.values(out).flatMap((b) => [b.n, ...b.u]).filter((s) => /[åäö]|reg\.|ena\b|sj|tj|emente/.test(s));
 fs.writeFileSync(path.join(__dirname, '..', 'assets', 'ru-airbases.json'), JSON.stringify(out));

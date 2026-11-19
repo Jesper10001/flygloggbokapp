@@ -2,9 +2,13 @@
 // användarens fil). Används av filtret Air Bases → Specific och förbandskortet (components/UnitCard.tsx).
 // Rollerna: symbol (siluett ovanifrån, viewBox 24), bokstav och färg (Blades palett; bara etikettens kant färgas).
 import data from '../assets/ru-airbases.json';
+import { flagEmoji } from '../constants/continents';
 
 export type RoleKey = 'fighter' | 'bomber' | 'attack' | 'heli' | 'transport' | 'special' | 'training';
-export type RuBase = { n: string; r: string; c: string; u: string[]; g: [RoleKey, string[]][] };
+export type RuBase = { o: string; n: string; r: string; c: string; u: string[]; g: [RoleKey, string[]][] };
+
+/** När användarens fil sammanställdes (visas i Source-rutan). */
+export const RU_DATA_COMPILED = '19 November 2026';
 const D = data as unknown as Record<string, RuBase>;
 
 export const ROLE_ORDER: RoleKey[] = ['fighter', 'bomber', 'attack', 'heli', 'transport', 'special', 'training'];
@@ -34,3 +38,10 @@ export const RU_ROLE_COUNTS: Record<RoleKey, number> = (() => {
   for (const b of Object.values(D)) for (const [r] of b.g) c[r]++;
   return c;
 })();
+
+/** Kartetiketten för en bas: förbandets flagga + rollbokstäverna, huvudrollen först ("🇷🇺 B, H"). null = ingen bas. */
+export function ruBaseTag(key: string): string | null {
+  const b = D[key];
+  if (!b) return null;
+  return `${flagEmoji(b.o || 'RU')} ${b.g.length ? b.g.map((g) => ROLES[g[0]].letter).join(', ') : '?'}`;
+}
