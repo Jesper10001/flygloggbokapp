@@ -2,7 +2,7 @@
 // flygplatskortet — rubriker i guld, värden i vitt. En rad med PPR | FUEL | FEES (FEES bara när avgifter finns);
 // ett tryck på en ruta fäller ut detaljerna under raden. Öppettiderna ur AIP visas inte (de styrs av NOTAM):
 // "Fetch NOTAMs" hämtar LFV:s PIB (gratis) och öppettids-NOTAM blir veckorader (UTC/Local), övriga NOTAM i
-// klartext med originalet ett tryck bort (utils/notamDecode.ts, regelbaserat). ⓘ = källor, ↻ = hämta om (3 coins).
+// klartext med originalet ett tryck bort (utils/notamDecode.ts, regelbaserat). källan alltid synlig under rubriken, ↻ = hämta om (3 coins).
 // Ligger över kartornas Modal → inga native Alert/Modal här, allt visas inline.
 import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Linking, ActivityIndicator } from 'react-native';
@@ -55,8 +55,6 @@ const feeShort = (landing: string) => {
   if (m) return m[0].replace(/\s+/g, ' ');
   return /\b(no landing fee|free)\b/i.test(landing) ? 'Free' : 'See details';
 };
-/** Kontaktetikett utan parentes och kort nog för en knapp */
-const shortLabel = (l: string) => l.replace(/\s*\(.*$/, '').trim();
 
 type NotamState = { s: 'idle' } | { s: 'loading' } | { s: 'error' } | { s: 'ok'; r: NotamResult; all: boolean };
 type RefreshState = 'closed' | 'confirm' | 'working' | { done: string } | { err: string };
@@ -73,7 +71,6 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
   solid?: boolean;      // tät bakgrund som flygplatskortet i Find airport; på kartan samma 80 % som flygplatskortet
 }) {
   const saveLocal = useAirportInfoStore((st) => st.saveLocal);
-  const [srcOpen, setSrcOpen] = useState(false);
   const [sel, setSel] = useState<Cell | null>(null);
   // NOTAM hämtas automatiskt när AD info öppnas; inom en timme visas det sparade (↻ i NOTAM-raden hämtar nytt)
   const [notam, setNotam] = useState<NotamState>(() => {
@@ -82,7 +79,7 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
   });
   const [refresh, setRefresh] = useState<RefreshState>('closed');
   const [local, setLocal] = useState(false);
-  const [origOpen, setOrigOpen] = useState<Record<string, boolean>>({});
+  const [raw, setRaw] = useState(false);   // "Original NOTAM": alla NOTAM i originaltext i stället för klartext
   const line = accent + '33';
   const swedish = /^ES[A-Z]{2}$/.test(infoKey);
   const fees = info.fees?.landing ? { ...info.fees, parking: info.fees.parking?.replace(/^parking:?\s*/i, '') } : null;
@@ -96,7 +93,6 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
     const c = cachedNotams(infoKey);
     if (c) setNotam({ s: 'ok', r: c, all: false });
     else loadNotams();
-    setOrigOpen({});
   }, [infoKey]);   // eslint-disable-line react-hooks/exhaustive-deps
   const doRefresh = async () => {
     setRefresh('working');
@@ -126,7 +122,12 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
       else items.push({ key: `n${i}`, text: decodeNotamText(n.text), orig: n.text + (n.sched ? `  SCHEDULE: ${n.sched}` : ''), when: validity(n) + (n.sched ? ` · ${n.sched}` : '') });
     });
   }
+  const rawList = notam.s === 'ok' ? [
+    ...(notam.r.snowtam ? [{ key: 'snow', orig: notam.r.snowtam.text, when: `SNOWTAM ${dayMon(notam.r.snowtam.issued)} ${notam.r.snowtam.issued.slice(-5)}Z` }] : []),
+    ...notam.r.notams.map((n, i) => ({ key: `r${i}`, orig: n.text + (n.sched ? `  SCHEDULE: ${n.sched}` : ''), when: validity(n) })),
+  ] : [];
   const shown = notam.s === 'ok' && !notam.all ? items.slice(0, 2) : items;
+  const rawShown = notam.s === 'ok' && !notam.all ? rawList.slice(0, 3) : rawList;
 
   const cells: { k: Cell; label: string; value: string }[] = [
     { k: 'ppr', label: 'PPR', value: info.ppr ? PPR_SHORT[info.ppr.s] ?? 'Not stated' : 'Not stated' },
@@ -146,15 +147,6 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
     <TouchableOpacity onPress={onPress} hitSlop={6} accessibilityRole="button" accessibilityLabel={a11y}
       style={[s.round, { borderColor: accent + '73' }, on && { backgroundColor: accent + '2E' }]}>{child}</TouchableOpacity>
   );
-  const origToggle = (key: string, orig: string, label = 'Original NOTAM') => (
-    <>
-      <TouchableOpacity onPress={() => setOrigOpen((o) => ({ ...o, [key]: !o[key] }))} hitSlop={6} accessibilityRole="button"
-        accessibilityState={{ expanded: !!origOpen[key] }} style={{ alignSelf: 'flex-start' }}>
-        <Text style={{ color: accent, fontSize: 11.5, fontWeight: '700' }}>{origOpen[key] ? 'Hide original' : label}</Text>
-      </TouchableOpacity>
-      {origOpen[key] && <Text style={s.orig}>{orig}</Text>}
-    </>
-  );
   const link = (label: string, onPress: () => void) => (
     <TouchableOpacity onPress={onPress} hitSlop={8} accessibilityRole="link"><Text style={[s.link, { color: accent }]}>{label}</Text></TouchableOpacity>
   );
@@ -165,7 +157,6 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
       <View style={[s.head, { borderBottomColor: line }]}>
         <Text style={[s.headTxt, { color: accent }]} numberOfLines={1}>AIRPORT INFO</Text>
         {!!info.v && <Text style={s.verified} numberOfLines={1}>Verified {shortDate(info.v)}</Text>}
-        {!!info.src?.length && round(<Text style={{ color: accent, fontSize: 13, fontWeight: '800' }}>ⓘ</Text>, () => setSrcOpen((o) => !o), 'Sources', srcOpen)}
         {swedish && round(<Ionicons name="refresh" size={14} color={accent} />, () => setRefresh((r) => (r === 'confirm' ? 'closed' : r === 'working' ? r : 'confirm')), "Update this airport's info", refresh === 'confirm')}
         {onMap && (
           <TouchableOpacity onPress={onMap} activeOpacity={0.8} style={s.mapBtn} accessibilityRole="button" accessibilityLabel="Show map">
@@ -196,7 +187,8 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
           )}
         </View>
       )}
-      {srcOpen && !!info.src?.length && (
+      {/* Källan syns alltid (ingen ⓘ-knapp) */}
+      {!!info.src?.length && (
         <View style={[s.srcBox, { borderBottomColor: line }]}>
           {info.src.map((x, i) => (
             <TouchableOpacity key={i} onPress={() => open(x.url)} accessibilityRole="link">
@@ -265,18 +257,11 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
                   <Text style={[s.fetchTxt, { color: accent }]}>Try again</Text>
                 </TouchableOpacity>
               )}
-              {notam.s === 'ok' && hours.length > 0 && (
-                <View style={[s.seg, { borderColor: accent + '73' }]} accessibilityRole="radiogroup">
-                  {(['UTC', 'Local'] as const).map((z) => {
-                    const on = (z === 'Local') === local;
-                    return (
-                      <TouchableOpacity key={z} onPress={() => setLocal(z === 'Local')} accessibilityRole="radio" accessibilityState={{ selected: on }}
-                        style={[s.segBtn, on && { backgroundColor: accent + '40' }]}>
-                        <Text style={[s.segTxt, { color: on ? WHITE : DIM }]}>{z}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+              {notam.s === 'ok' && rawList.length > 0 && (
+                <TouchableOpacity onPress={() => setRaw((r) => !r)} activeOpacity={0.8} accessibilityRole="button" accessibilityState={{ selected: raw }}
+                  style={[s.rawBtn, { borderColor: accent + '73' }, raw && { backgroundColor: accent + '40' }]}>
+                  <Text style={[s.segTxt, { color: raw ? WHITE : accent }]}>{raw ? 'Plain text' : 'Original NOTAM'}</Text>
+                </TouchableOpacity>
               )}
               {notam.s === 'ok' && (
                 <TouchableOpacity onPress={() => loadNotams(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Load the latest NOTAM"
@@ -295,11 +280,26 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
             {notam.s === 'ok' && !notam.r.covered && (
               <Text style={s.sub}>This aerodrome is not in LFV's VFR bulletin. Check NOTAM with the aerodrome or in the AIS.</Text>
             )}
-            {hours.map((h, i) => {
+            {!raw && hours.map((h, i) => {
               const off = local ? seOffsetHours(h.at) : 0;
               return (
                 <View key={i} style={{ gap: 4 }}>
-                  <Text style={s.hoursTitle}>{h.title} <Text style={{ color: DIM, fontWeight: '500' }}>· {h.when}</Text></Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={[s.hoursTitle, { flex: 1 }]}>{h.title} <Text style={{ color: DIM, fontWeight: '500' }}>· {h.when}</Text></Text>
+                    {i === 0 && (
+                <View style={[s.seg, { borderColor: accent + '73' }]} accessibilityRole="radiogroup">
+                  {(['UTC', 'Local'] as const).map((z) => {
+                    const on = (z === 'Local') === local;
+                    return (
+                      <TouchableOpacity key={z} onPress={() => setLocal(z === 'Local')} accessibilityRole="radio" accessibilityState={{ selected: on }}
+                        style={[s.segBtn, on && { backgroundColor: accent + '40' }]}>
+                        <Text style={[s.segTxt, { color: on ? WHITE : DIM }]}>{z}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                    )}
+                  </View>
                   {h.grid ? (
                   <View style={{ flexDirection: 'row', gap: 3 }}>
                     {h.grid.map((d) => (
@@ -327,12 +327,17 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
                     </View>
                   )}
                   {!!h.note && <Text style={s.sub}>{h.note}</Text>}
-                  {origToggle(`h${i}`, h.orig)}
                 </View>
               );
             })}
             {notam.s === 'ok' && notam.r.covered && !items.length && !hours.length && <Text style={s.sub}>No NOTAM in the current bulletin.</Text>}
-            {shown.map((n) => (
+            {raw && rawShown.map((n) => (
+              <View key={n.key} style={{ gap: 3 }}>
+                <Text style={s.sub}>{n.when}</Text>
+                <Text style={s.orig}>{n.orig}</Text>
+              </View>
+            ))}
+            {!raw && shown.map((n) => (
               <View key={n.key} style={{ flexDirection: 'row', gap: 8 }}>
                 <View style={s.dot} />
                 <View style={{ flex: 1, gap: 3 }}>
@@ -350,13 +355,12 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
                   ) : (
                     <Text style={s.value}>{n.text} <Text style={{ color: DIM }}>{n.when}</Text></Text>
                   )}
-                  {origToggle(n.key, n.orig, n.lines ? 'Original SNOWTAM' : 'Original NOTAM')}
                 </View>
               </View>
             ))}
             {notam.s === 'ok' && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                {items.length > 2 && link(notam.all ? 'Show less' : `+${items.length - 2} more ›`, () => setNotam({ ...notam, all: !notam.all }))}
+                {(raw ? rawList.length > 3 : items.length > 2) && link(notam.all ? 'Show less' : `+${raw ? rawList.length - 3 : items.length - 2} more ›`, () => setNotam({ ...notam, all: !notam.all }))}
                 {link('Full PIB ↗', () => open(notam.r.covered ? notam.r.pibUrl : notam.r.listUrl))}
               </View>
             )}
@@ -365,7 +369,14 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
 
         {(!!info.contacts?.length || !!info.web) && (
           <View style={[s.chips, { borderTopColor: line }]}>
-            {info.contacts?.map((c, i) => <View key={i} style={{ maxWidth: 170 }}>{chip('call-outline', shortLabel(c.l), () => tel(c.ph), `Call ${c.l}, ${c.ph}`)}</View>)}
+            {/* Hela etiketten syns alltid (ingen avkortning, radbryts), så man ser vem man ringer */}
+            {info.contacts?.map((c, i) => (
+              <TouchableOpacity key={i} onPress={() => tel(c.ph)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Call ${c.l}, ${c.ph}`}
+                style={[s.callChip, { borderColor: accent + '80', backgroundColor: accent + '24' }]}>
+                <Ionicons name="call-outline" size={13} color={accent} style={{ marginTop: 2 }} />
+                <Text style={[s.pillTxt, { color: accent }]}>{c.l}</Text>
+              </TouchableOpacity>
+            ))}
             {!!info.web && chip('globe-outline', 'Website', () => open(info.web!))}
           </View>
         )}
@@ -400,6 +411,7 @@ const s = StyleSheet.create({
   seg: { flexDirection: 'row', borderRadius: 13, borderWidth: 1, overflow: 'hidden' },
   segBtn: { height: 26, paddingHorizontal: 10, justifyContent: 'center' },
   segTxt: { fontSize: 11, fontWeight: '800' },
+  rawBtn: { height: 28, paddingHorizontal: 10, borderRadius: 14, borderWidth: 1, justifyContent: 'center' },
   hoursTitle: { color: WHITE, fontSize: 11, fontWeight: '700' },
   rows: { gap: 4, paddingVertical: 2 },
   hRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
@@ -419,5 +431,6 @@ const s = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1 },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 11, borderRadius: 16, borderWidth: 1 },
   pillTxt: { fontSize: 12.5, fontWeight: '800', flexShrink: 1 },
+  callChip: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, maxWidth: '100%', minHeight: 32, paddingVertical: 7, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1 },
   disclaimer: { color: DIM, fontSize: 10, lineHeight: 13, paddingHorizontal: 14, paddingBottom: 10 },
 });

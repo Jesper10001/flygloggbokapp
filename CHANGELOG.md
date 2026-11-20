@@ -42,6 +42,9 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- AD info: källänken (t.ex. AIP Sweden AD 2 ESSA) syns alltid under rubriken; ⓘ-knappen borttagen.
+- AD info NOTAM: en gemensam knapp "Original NOTAM"/"Plain text" i NOTAM-raden växlar alla NOTAM (och SNOWTAM) till originaltext; knapparna under varje NOTAM borta; UTC/Local flyttad till första öppettidsraden.
+- AD info: kontaktknapparna visar hela etiketten (ingen avkortning, radbryts); shortLabel borttagen.
 - NOTAM i AD info: hämtas automatiskt när kortet öppnas ("Loading current NOTAM…"), sparas en timme per flygplats i minnet (services/airportInfo.ts cachedNotams), ↻ i NOTAM-raden hämtar nytt. utils/notamDecode.ts tränad på LFV:s VFR/IFR/99 days-bulletiner 2026-11-20 (256 NOTAM, 40 SNOWTAM): SNOWTAM (GRF) → rad per bana (beläggning, täckning, djup, bromsverkan ur RWYCC) + anmärkningar; öppettider med flera pass per dag och per datum → rader (Mon–Fri …), anmärkning efter tiderna; ortnamn med stor bokstav, waypoints/fyrar/ICAO i versaler, taxiway-beteckningar, LGTD F R, väderstreck, "due to", hopklistrade PDF-ord; test-notam-decode.cjs utökat.
 - AD info-kortet: vita chevron-ikoner utan cyan ring; på global map samma 80 % transparens som flygplatskortet (prop solid = 97 % i Find airport, som flygplatskortet där).
 - Info-knappen på global map och i Find airport heter "AD info" (aerodrome info).
