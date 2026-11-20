@@ -41,6 +41,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Airport Info: kortet rullar igen i Find airport (ScrollView flexShrink: 1 inom fast höjd/maxhöjd); Verified-datumet på två rader så att AIRPORT INFO inte kortas.
 - Airport Info ↻ (proxy 2835eaff): ett telefonnummer per fält ("070… / 070…" → första), avgiftstexten självbeskrivande ("Landing 300 SEK"); kortet tar bort dubbelt "Parking".
 - Airport Info v1-design (artifact TUS8mTBNxgCYYuEfCCpQGe): rubrikrad AIRPORT INFO + Verified-datum + ⓘ (källorna fälls ut) + ↻ med bekräftelserad ("Uses 3 coins") och inline-resultat; PPR/FUEL i två kolumner; FEES-rad (fällbar) BARA när avgifter finns; öppettider med veckorad när H24; NOTAM-block (Fetch NOTAMs, 2 första + "+N more", Full PIB ↗, SNOWTAM överst, "LFV PIB · updated HH:MMZ") ersätter Good to know; Contact + Website. Inga native Alert över kartan.
 - Proxyn: GET /notam?icao= läser LFV:s PIB-PDF (ESAA FIR VFR 24hr) med unpdf, parser i proxy/src/notamParse.mjs (139 fält, sidhuvuden bort, FROM/TO/EST/SCHEDULE/SNOWTAM), delad KV-cache 15 min, senaste bulletinen om LFV är nere. POST /airport-info/refresh: 3 coins (dras bara vid lyckat svar), hämtar gällande AIRAC-sida (default_offline.html) eller fältets egna sidor, Sonnet 5.5 läser ut med ordagranna citat, servern kontrollerar citat + telefonnummer och behåller tidigare granskat värde annars.

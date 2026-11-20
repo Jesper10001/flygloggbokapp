@@ -110,7 +110,13 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
       <LinearGradient colors={['rgba(18,48,74,0.97)', 'rgba(15,30,58,0.97)']} locations={[0, 0.55]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
       <View style={[s.head, { borderBottomColor: line }]}>
         <Text style={[s.headTxt, { color: accent }]} numberOfLines={1}>AIRPORT INFO</Text>
-        {!!info.v && <Text style={s.verified} numberOfLines={1}>Verified {fmtDate(info.v)}</Text>}
+        {!!info.v && (
+          // Två rader så att AIRPORT INFO inte kortas när Map-knappen också får plats (Find airport)
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={s.verLbl}>VERIFIED</Text>
+            <Text style={s.verified} numberOfLines={1}>{fmtDate(info.v)}</Text>
+          </View>
+        )}
         {!!info.src?.length && round(<Text style={{ color: accent, fontSize: 13, fontWeight: '800' }}>ⓘ</Text>, () => setSrcOpen((o) => !o), 'Sources', srcOpen)}
         {swedish && round(<Ionicons name="refresh" size={14} color={accent} />, () => setRefresh((r) => (r === 'confirm' ? 'closed' : r === 'working' ? r : 'confirm')), "Update this airport's info", refresh === 'confirm')}
         {onMap && (
@@ -151,7 +157,7 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
           ))}
         </View>
       )}
-      <ScrollView showsVerticalScrollIndicator nestedScrollEnabled bounces={false}>
+      <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator nestedScrollEnabled bounces={false}>
         {(ppr || info.fuel) && (
           <View style={[s.row2, { borderBottomColor: line }]}>
             <View style={s.cell}>
@@ -303,7 +309,8 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
 const s = StyleSheet.create({
   card: { borderRadius: 16, overflow: 'hidden', borderWidth: 1 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 14, paddingRight: 10, paddingVertical: 8, borderBottomWidth: 1 },
-  headTxt: { flex: 1, fontFamily: MONO, fontSize: 11, fontWeight: '800', letterSpacing: 1.6 },
+  headTxt: { flex: 1, minWidth: 100, fontFamily: MONO, fontSize: 11, fontWeight: '800', letterSpacing: 1.6 },
+  verLbl: { fontFamily: MONO, fontSize: 8, fontWeight: '700', letterSpacing: 1, color: DIM },
   verified: { color: DIM, fontSize: 10.5 },
   round: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   mapBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', backgroundColor: 'rgba(10,22,40,0.9)' },
