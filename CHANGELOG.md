@@ -44,6 +44,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Global map → Fly to: AirportNavPanel har Weather (MapWxPanel, tidszon via land/region) och AD info (AirportInfoPanel) över kartrutan som Find airport, kartan 345 pt, flygplatskortets väderrad dold (hideWxRow); popupens Pressable → View så AD info-kortet rullar fritt.
 - Väderkortet på kartan: när METAR kommer från en annan flygplats står dess ICAO-kod i liten text under kategoribrickan (i stället för i METAR-raden).
 - Väderkortet på kartan: växel UTC / GMT±N (flygplatsens zon via utils/timezone localOffsetMinutes: land, region för länder med flera zoner, sommartid) för METAR-tid, TAF-etiketter och ändringsrader (tafTicks/tafChanges tar ett tidsformat); åldern ("36 min ago") borttagen, METAR-tiden färgas fortfarande orange/röd när den är gammal.
 - Find airport: Weather-knapp uppe till vänster på kartan (prick i flygkategorins färg) öppnar components/MapWxPanel.tsx över kartrutan (design artifact Fcsm4ESifWgX5PVu9ptoGM): kategori + METAR-tid/ålder + Map, fyra värden som dashboardens WxCard, TAF med giltighet, tidslinje per flygkategori (nu-markör) och upp till tre ändringar (utils/tafTimeline.ts: tafBar/tafTicks/tafChanges, test-taf-timeline.cjs med riktiga TAF:ar). Samma färger som dashboarden. AD info-knappen ~30 % mindre (28 pt). Flygplatskortets rad 2 (IATA · typ · väder) dold i Find airport (AirportInfoCard hideWxRow), kartrutan 315 → 345 pt (MAP_H). weather.ts exporterar hourZ och tafPeriodBrief.

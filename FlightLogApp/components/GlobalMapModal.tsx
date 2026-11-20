@@ -1497,7 +1497,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
         {flyTo && focusAirport && (
           <View
             style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(3,8,18,0.94)', zIndex: 66, justifyContent: 'center', paddingHorizontal: 16, paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
-            <Pressable onPress={() => {}} style={{ width: '100%', maxWidth: 440, alignSelf: 'center' }}>
+            {/* View, inte Pressable: en Pressable tar beröringen före AD info-kortets rullista */}
+            <View style={{ width: '100%', maxWidth: 440, alignSelf: 'center' }}>
               <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 10 }}>
                 <AirportInfoCard
                   icao={focusAirport[0]}
@@ -1512,6 +1513,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                   onMetar={setFlyToMetar}
                   onOpenMetar={setMetarPopup}
                   solid
+                  hideWxRow
                 />
                 <AirportNavPanel
                   icao={focusAirport[0]}
@@ -1520,9 +1522,11 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                   accent={Colors.primary}
                   frozen={flyToFrozen}
                   metar={flyToMetar}
+                  country={focusAirport[2]}
+                  region={focusAirport[3]}
                 />
               </ScrollView>
-            </Pressable>
+            </View>
           </View>
         )}
 

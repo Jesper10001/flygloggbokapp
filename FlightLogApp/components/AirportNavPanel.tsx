@@ -8,9 +8,15 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { Colors } from '../constants/colors';
 import { getLastFlownAircraftType, getAircraftPerf, getAllAircraftTypes } from '../db/flights';
-import type { AirportMetar } from '../services/weather';
+import { categoryColor, type AirportMetar } from '../services/weather';
 import { AirportRunwaySnippet } from './AirportRunwaySnippet';
 import { RouteStatsCard } from './RouteStatsCard';
+import { AirportInfoPanel } from './AirportInfoPanel';
+import { MapWxPanel } from './MapWxPanel';
+import { useAirportInfo } from '../store/airportInfoStore';
+
+// Kartrutans höjd (samma som Find airport: flygplatskortets väderrad är borta → kartan fick ~30 pt till)
+const MAP_H = 345;
 
 // ── Geo (storcirkel) — samma matematik som AirportQuickSearch ─────────────────
 const R_NM = 3440.065; // jordradie i nautiska mil
@@ -53,14 +59,22 @@ async function readDeclination(): Promise<number | null> {
 
 type Perf = { type: string; cruiseKts: number; fuelBurn: number; fuelUnit: string };
 
-export function AirportNavPanel({ icao, lat, lon, accent, frozen = false, metar = null }: {
+export function AirportNavPanel({ icao, lat, lon, accent, frozen = false, metar = null, country, region }: {
   icao: string;
   lat: number;
   lon: number;
   accent: string;
   frozen?: boolean;
   metar?: AirportMetar | null;
+  country?: string;   // för väderkortets tidszon (UTC/GMT±N)
+  region?: string;
 }) {
+  // Weather och AD info över kartrutan, som i Find airport (components/AirportQuickSearch.tsx)
+  const info = useAirportInfo(icao);
+  const [showWx, setShowWx] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
+  useEffect(() => { setShowWx(false); setShowInfo(false); }, [icao]);
+  const wxColor = metar?.category ? categoryColor(metar.category) : accent;
   const [pos, setPos] = useState<{ lat: number; lon: number } | null>(null);
   const [decl, setDecl] = useState<number | null>(null);
   const [locState, setLocState] = useState<'loading' | 'denied' | 'ready'>('loading');
@@ -138,13 +152,34 @@ export function AirportNavPanel({ icao, lat, lon, accent, frozen = false, metar 
 
   return (
     <View style={{ gap: 10 }}>
-      <AirportRunwaySnippet
-        icao={icao} lat={lat} lon={lon}
-        windDir={metar?.windDir ?? null} windSpeed={metar?.windSpeed ?? null}
-        frozen={frozen}
-        userLat={pos?.lat ?? null} userLon={pos?.lon ?? null}
-        fitUser
-      />
+      {showInfo && info ? (
+        <AirportInfoPanel info={info} infoKey={icao} accent={accent} height={MAP_H} onMap={() => setShowInfo(false)} solid />
+      ) : showWx ? (
+        <MapWxPanel icao={icao} height={MAP_H} onMap={() => setShowWx(false)} country={country} region={region} lon={lon} />
+      ) : (
+        <View>
+          <AirportRunwaySnippet
+            icao={icao} lat={lat} lon={lon}
+            windDir={metar?.windDir ?? null} windSpeed={metar?.windSpeed ?? null}
+            frozen={frozen}
+            userLat={pos?.lat ?? null} userLon={pos?.lon ?? null}
+            fitUser
+            style={{ height: MAP_H }}
+          />
+          <TouchableOpacity onPress={() => setShowWx(true)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Weather"
+            style={[styles.mapPill, { left: 10, borderColor: wxColor + '99' }]}>
+            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: wxColor }} />
+            <Text style={styles.mapPillTxt}>Weather</Text>
+          </TouchableOpacity>
+          {info && (
+            <TouchableOpacity onPress={() => setShowInfo(true)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Aerodrome info"
+              style={[styles.mapPill, { right: 10, borderColor: accent + '99' }]}>
+              <Ionicons name="information-circle-outline" size={12} color={accent} />
+              <Text style={styles.mapPillTxt}>AD info</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
       <RouteStatsCard
         accent={accent} locState={locState} hasPos={!!pos}
         distanceNm={nav ? nav.d : null} course={course} ete={nav?.ete ?? null} fuel={fuel}
@@ -185,6 +220,8 @@ export function AirportNavPanel({ icao, lat, lon, accent, frozen = false, metar 
 }
 
 const styles = StyleSheet.create({
+  mapPill: { position: 'absolute', top: 10, flexDirection: 'row', alignItems: 'center', gap: 5, height: 28, paddingHorizontal: 11, borderRadius: 14, borderWidth: 1, backgroundColor: 'rgba(10,22,40,0.92)' },
+  mapPillTxt: { color: '#fff', fontSize: 11.5, fontWeight: '800' },
   navCard: { backgroundColor: 'rgba(15,22,38,0.96)', borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, paddingHorizontal: 16, paddingVertical: 14 },
   navCol: { flex: 1, paddingRight: 6 },
   navLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
