@@ -1,27 +1,34 @@
 // Militära flygbaser med förband och flygplanstyper för Air Bases → Specific på global map och förbandskortet
-// (components/UnitCard.tsx). Två datamängder i samma form: Ryssland (assets/ru-airbases.json, användarens fil,
-// scripts/build-ru-airbases.mjs), Europa (assets/eu-airbases.json, scripts/build-eu-airbases.mjs; Ukraina ej med) och
-// resten av världen (assets/world-airbases.json, build-eu-airbases.mjs --world ur scripts/world-airbases, varje rad
-// kontrollerad mot sina källsidor med verify.py; aldrig Scramble). Vid samma flygplats vinner Ryssland, sedan Europa.
-// En bas kan ha flera länders förband (ops), t.ex. tyska och franska i Évreux. Flaggan visar förbandets land.
-// Rollerna: symbol (siluett ovanifrån, viewBox 24), bokstav och färg (Blades palett; bara etikettens kant färgas).
-import ru from '../assets/ru-airbases.json';
-import eu from '../assets/eu-airbases.json';
-import world from '../assets/world-airbases.json';
+// (components/UnitCard.tsx). Lagret ligger INTE i appen (2026-11-20): proxyn filtrerar det enligt användarens regler
+// (inga baser i Natoländer, Schweiz, Österrike eller Ukraina utom ryska på ockuperat område, inga Natoförband
+// utomlands) och spärrar vissa länder; store/osintStore.ts hämtar GET /osint/airbases och lägger det här via setLayer.
+// Data byggs med scripts/build-*-airbases.mjs → scripts/build-osint-layer.mjs → proxy/data. En bas kan ha flera
+// länders förband (ops). Rollerna: symbol (siluett ovanifrån, viewBox 24), bokstav och färg.
 import { flagEmoji } from '../constants/continents';
 
 export type RoleKey = 'fighter' | 'bomber' | 'attack' | 'heli' | 'transport' | 'special' | 'training';
 export type BaseOp = { o: string; c: string; u: string[]; g: [RoleKey, string[]][] };
 export type Dataset = 'ru' | 'eu' | 'world';
-export type MilBase = { n: string; r: string; s: Dataset; ops: BaseOp[] };
-const D: Record<string, MilBase> = {
-  ...(world as unknown as Record<string, MilBase>),
-  ...(eu as unknown as Record<string, MilBase>),
-  ...(ru as unknown as Record<string, MilBase>),
-};
+export type MilBase = { n: string; r: string; s: Dataset; c?: string; ops: BaseOp[] };
+export type OsintLayer = { v: string; compiled: Record<Dataset, string>; bases: Record<string, MilBase> };
+
+let D: Record<string, MilBase> = {};
+let COMPILED: Record<Dataset, string> = { ru: '', eu: '', world: '' };
+let VERSION = '';
+let counts: { all: number; roles: Record<RoleKey, number> } | null = null;
+
+/** Lägger in lagret från proxyn (eller tömmer det: null). Anropas bara av osintStore. */
+export function setLayer(layer: OsintLayer | null) {
+  D = layer?.bases ?? {};
+  COMPILED = layer?.compiled ?? { ru: '', eu: '', world: '' };
+  VERSION = layer?.v ?? '';
+  counts = null;
+}
+/** Lagrets version ('' = inget lager) — ingår i kartans filtersignatur så att kartan ritas om när det kommer. */
+export function layerVersion(): string { return VERSION; }
 
 /** När varje datamängd sammanställdes (visas i Source-rutan). */
-export const DATA_COMPILED: Record<Dataset, string> = { ru: '19 November 2026', eu: '19 November 2026', world: '20 November 2026' };
+export function compiledDate(ds: Dataset): string { return COMPILED[ds] ?? ''; }
 
 export const ROLE_ORDER: RoleKey[] = ['fighter', 'bomber', 'attack', 'heli', 'transport', 'special', 'training'];
 export const ROLES: Record<RoleKey | 'unknown', { label: string; letter: string; color: string; glyph: string }> = {
@@ -57,9 +64,11 @@ export function baseRoles(key?: string | null): RoleKey[] | null {
 export function operatorLabel(o: string): string {
   return /^[A-Z]{2}$/.test(o) ? flagEmoji(o) : o;
 }
-export const MIL_BASE_COUNT = Object.keys(D).length;
-export const MIL_ROLE_COUNTS: Record<RoleKey, number> = (() => {
-  const c = Object.fromEntries(ROLE_ORDER.map((r) => [r, 0])) as Record<RoleKey, number>;
-  for (const b of Object.values(D)) for (const [r] of baseGroups(b)) c[r]++;
-  return c;
-})();
+/** Antal baser totalt och per roll i det inlästa lagret. */
+export function milCounts(): { all: number; roles: Record<RoleKey, number> } {
+  if (counts) return counts;
+  const roles = Object.fromEntries(ROLE_ORDER.map((r) => [r, 0])) as Record<RoleKey, number>;
+  for (const b of Object.values(D)) for (const [r] of baseGroups(b)) roles[r]++;
+  counts = { all: Object.keys(D).length, roles };
+  return counts;
+}

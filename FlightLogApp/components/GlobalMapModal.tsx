@@ -78,7 +78,8 @@ import { displayCode } from '../utils/airportCodes';
 import { UnitCard } from './UnitCard';
 import { UnitSourcesPopup } from './UnitSources';
 import { RoleTag } from './RoleTag';
-import { getMilBase, baseRoles, MIL_BASE_COUNT, ROLES } from '../utils/milAirbases';
+import { getMilBase, baseRoles, milCounts, ROLES } from '../utils/milAirbases';
+import { useOsintStore } from '../store/osintStore';
 
 // Datum då flygplatsdatan senast hämtades (skrivs av scripts/build-airports.mjs --refresh), t.ex. "26 October 2026".
 const AIRPORT_DATA_UPDATED = new Date(`${airportDataMeta.updated}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -119,6 +120,10 @@ function boundsRegion(rows: SeedRow[]): Region {
   };
 }
 
+// ⓘ-texten för OSINT-lagret (INSTRUKTION_osint_lager.md avsnitt 6), anpassad efter användarens beslut 2026-11-20:
+// även Schweiz och Österrike är borta, och Ryssland visas som förut (inga rapporterade placeringar).
+const LAYER_INFO = 'Military air bases and the units based there, compiled from open sources (OSINT). NATO member states, Switzerland, Austria and Ukraine are not included, nor are NATO units deployed abroad. In conflict areas, only long-standing home bases are shown. Open-source information can be incomplete or out of date. Tap Source on any base to check it.';
+
 export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -145,6 +150,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [cameFromNews, setCameFromNews] = useState(false); // kom hit via "Map" i nyhetsrutan → visa "Back to news"
   const [satellite, setSatellite] = useState(true); // satellitläge förvalt
   useEffect(() => { if (visible) setSatellite(true); }, [visible]); // alltid satellit vid öppning
+  useEffect(() => { if (visible) useOsintStore.getState().load(); }, [visible]);
   const [landingCounts, setLandingCounts] = useState<Record<string, number>>({});
   const [lastFlightMap, setLastFlightMap] = useState<Record<string, { id: number; date: string; reg: string }>>({});
   const [detailFlightId, setDetailFlightId] = useState<number | null>(null); // flight-detalj som overlay ovanpå kartan
@@ -237,17 +243,11 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [openSection, setOpenSection] = useState<null | string>(null); // 'props' | 'access' | 'closed' | 'g:<grupp>'
   const [specificPage, setSpecificPage] = useState(false); // Air Bases-panelens andra sida (Specific)
   const [unitSourceOpen, setUnitSourceOpen] = useState(false); // förbandskortets Source-ruta
-  // Specific är dold (2026-11-20): rutan i Air Bases-panelen är osynlig men ligger kvar; håll den i 5 s → lösenord
-  // ("Nerd") → Specific-sidan. Upplåst gäller tills kartan stängs (då räcker ett vanligt tryck på den dolda rutan).
-  const [specUnlocked, setSpecUnlocked] = useState(false);
-  const [pwOpen, setPwOpen] = useState(false);
-  const [pw, setPw] = useState('');
-  const [pwErr, setPwErr] = useState(false);
-  const tryUnlock = () => {
-    if (pw.trim().toLowerCase() === 'nerd') {
-      Keyboard.dismiss(); setPwOpen(false); setPw(''); setSpecUnlocked(true); setSpecificPage(true);
-    } else setPwErr(true);
-  };
+  // OSINT-lagret (Air Bases → Specific) hämtas från proxyn när kartan öppnas (store/osintStore.ts). Versionen ingår i
+  // filtren och kartnyckeln så att baserna ritas när lagret kommit (eller försvinner vid 451).
+  const osintStatus = useOsintStore((st) => st.status);
+  const osintVersion = useOsintStore((st) => st.version);
+  const [layerInfoOpen, setLayerInfoOpen] = useState(false); // ⓘ på Specific-sidan: om lagret
   const [dataInfoOpen, setDataInfoOpen] = useState(false); // info-ruta: datakälla + uppdaterad + friskrivning
   const propsOpen = openSection === 'props';
 
@@ -329,7 +329,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
         : result.filter((r) => r[2] === wxCountry && meetsWx(wxResults.get(r[0]), wxCat));
     }
     return result;
-  }, [seedData, activeKeys, mapProps, closedMode, favMode, favorites, wxCat, wxCountry, wxResults]);
+  }, [seedData, activeKeys, mapProps, closedMode, favMode, favorites, wxCat, wxCountry, wxResults, osintVersion]);
 
   // Runway-längdintervall för nuvarande urval (kategori/closed/fav — EJ längdfiltret självt) → sätter
   // slidrarnas gränser + default (kortaste/längsta bana som finns). Beräknas bara när Properties är öppet.
@@ -418,8 +418,9 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   // NAVIGERING (drill/back) ändrar inte nyckeln → ingen remount → frameRegion-effekten sköter mjuk
   // zoom. Efter remount monteras kartan på currentNode via initialRegion={frameRegion} (ingen världshopp).
   const mapKey = useMemo(
-    () => (clusterMode ? 'C' : 'R') + '|' + [...activeKeys].sort().join(',') + `|${mapProps.minLenM}_${mapProps.maxLenM}_${mapProps.surface.join('+')}|${closedMode}` + (favMode ? `|F${favorites.size}` : '') + (wxCat && wxCountry ? `|W${wxCat}_${wxCountry}_${wxResults.size}` : ''),
-    [clusterMode, activeKeys, mapProps, closedMode, favMode, favorites, wxCat, wxCountry, wxResults],
+    () => (clusterMode ? 'C' : 'R') + '|' + [...activeKeys].sort().join(',') + `|${mapProps.minLenM}_${mapProps.maxLenM}_${mapProps.surface.join('+')}|${closedMode}` + (favMode ? `|F${favorites.size}` : '') + (wxCat && wxCountry ? `|W${wxCat}_${wxCountry}_${wxResults.size}` : '')
+      + ([...activeKeys].some(isSpecificKey) ? `|O${osintVersion}` : ''),
+    [clusterMode, activeKeys, mapProps, closedMode, favMode, favorites, wxCat, wxCountry, wxResults, osintVersion],
   );
 
   // ── Aktuell drill-nod → flygplatser härleds LIVE ur typedSeed (stanna kvar vid filterändring) ──
@@ -538,7 +539,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   }, [mapSearch, seedData]);
 
   const closeMap = () => {
-    setFlyTo(false); setFlyToFrozen(false); setUnitSourceOpen(false); setSpecUnlocked(false); setPwOpen(false); setPw('');
+    setFlyTo(false); setFlyToFrozen(false); setUnitSourceOpen(false); setLayerInfoOpen(false);
     setDrillStack([]); setFocusAirport(null); setMapSearch(''); setMapRegion(WORLD);
     setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); setSatellite(false); setClosedMode('hide'); setFavMode(false);
     clearWeather();
@@ -1171,11 +1172,18 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                       </TouchableOpacity>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: '#fff', fontSize: 15, fontWeight: '800' }}>Specific</Text>
-                        <Text style={{ color: '#9DB4CC', fontSize: 11.5 }}>{MIL_BASE_COUNT.toLocaleString('en-US')} bases worldwide · by aircraft</Text>
+                        <Text style={{ color: '#9DB4CC', fontSize: 11.5 }}>
+                          {osintStatus === 'unavailable' ? 'Not available in your region'
+                            : !osintVersion ? (osintStatus === 'error' ? 'Could not load the bases. Check your connection.' : 'Loading bases…')
+                            : `${milCounts().all.toLocaleString('en-US')} bases · by aircraft`}
+                        </Text>
                       </View>
+                      <TouchableOpacity onPress={() => setLayerInfoOpen(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel="About this layer">
+                        <Ionicons name="information-circle-outline" size={20} color={Colors.textSecondary} />
+                      </TouchableOpacity>
                     </View>
                     <View style={styles.groupOpts}>
-                      {SPECIFIC_NODES.map((n) => {
+                      {!!osintVersion && SPECIFIC_NODES.map((n) => {
                         const on = activeKeys.has(n.key);
                         return (
                           <TouchableOpacity key={n.key} onPress={() => pickSpecific(n.key)} activeOpacity={0.7}
@@ -1183,7 +1191,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                             style={[styles.groupOpt, { justifyContent: 'flex-start' }, on && styles.propPillOn]}>
                             {n.role && <RoleTag role={n.role} />}
                             <Text style={[styles.propPillTxt, { flex: 1, flexShrink: 1 }, on && { color: Colors.primary }]} numberOfLines={1}>{n.label}</Text>
-                            <Text style={[styles.groupOptCount, on && { color: Colors.primary }]}>{n.count}</Text>
+                            <Text style={[styles.groupOptCount, on && { color: Colors.primary }]}>{(n.role ? milCounts().roles[n.role] : milCounts().all).toLocaleString('en-US')}</Text>
                           </TouchableOpacity>
                         );
                       })}
@@ -1210,22 +1218,9 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                         );
                       })}
                       {openGroup.key === 'airbases' && (
-                        // Dold ruta: osynlig (men på sin plats) tills Specific är på. Håll 5 s → lösenordsrutan; efter
-                        // upplåsning, eller när filtret redan är på, öppnar ett vanligt tryck sidan. Pressable i stället
-                        // för TouchableOpacity, som annars blinkar fram rutan med sin tryckopacitet.
-                        <Pressable
-                          onPress={specificOn || specUnlocked ? () => setSpecificPage(true) : undefined}
-                          onLongPress={() => { if (specificOn || specUnlocked) { setSpecificPage(true); return; } setPw(''); setPwErr(false); setPwOpen(true); }}
-                          delayLongPress={5000}
-                          accessible={specificOn}
-                          accessibilityElementsHidden={!specificOn}
-                          importantForAccessibility={specificOn ? 'auto' : 'no-hide-descendants'}
-                          accessibilityRole="button"
+                        <TouchableOpacity onPress={() => setSpecificPage(true)} activeOpacity={0.7} accessibilityRole="button"
                           accessibilityLabel="Specific: military air bases by aircraft" accessibilityState={{ selected: specificOn }}
-                          style={[styles.groupOpt, { justifyContent: 'flex-start', borderColor: specificOn ? Colors.primary : Colors.primary + '73' }, specificOn && styles.propPillOn, !specificOn && { borderColor: 'transparent', backgroundColor: 'transparent' }]}>
-                          {/* Dolt läge: bara innehållet är osynligt. Själva rutan får INTE opacity 0 — iOS skickar inga tryck
-                              till en vy med alfa < 0,01, så 5-sekunderstrycket nådde den aldrig (2026-11-20). */}
-                          <View style={[{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }, !specificOn && { opacity: 0 }]}>
+                          style={[styles.groupOpt, { justifyContent: 'flex-start', borderColor: specificOn ? Colors.primary : Colors.primary + '73' }, specificOn && styles.propPillOn]}>
                           <View style={{ flexDirection: 'row' }}>
                             {(['fighter', 'bomber', 'heli'] as const).map((r, i) => (
                               <View key={r} style={{ width: 11, height: 11, borderRadius: 3.5, borderWidth: 1.5, borderColor: ROLES[r].color, backgroundColor: '#0F1A2E', marginLeft: i ? -4 : 0 }} />
@@ -1238,8 +1233,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                             </Text>
                           )}
                           <Ionicons name="chevron-forward" size={13} color={specificOn ? Colors.primary : '#fff'} />
-                          </View>
-                        </Pressable>
+                        </TouchableOpacity>
                       )}
                     </View>
                     <Text style={styles.groupInfo}>{openGroup.info}</Text>
@@ -1435,25 +1429,17 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
         )}
 
         {/* Förbandskortets Source-ruta: lager ovanpå kartan (ingen nästlad Modal). */}
-        {pwOpen && (
-          // Lösenordsrutan för Specific: lager inne i kartvyn (ingen native Modal/Alert ovanpå kartan), högt upp så att
-          // tangentbordet inte täcker den; stängs bara med krysset.
-          <View style={[StyleSheet.absoluteFill, { zIndex: 85, backgroundColor: 'rgba(3,8,18,0.6)', alignItems: 'center', paddingTop: insets.top + 90, paddingHorizontal: 24 }]}>
-            <View style={styles.pwCard}>
+        {layerInfoOpen && (
+          // ⓘ för OSINT-lagret: texten ur användarens instruktion (avsnitt 6). Lager inne i kartvyn; stängs med krysset.
+          <View style={[StyleSheet.absoluteFill, { zIndex: 85, backgroundColor: 'rgba(3,8,18,0.6)', alignItems: 'center', justifyContent: 'center', padding: 24 }]}>
+            <View style={styles.layerInfoCard}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Ionicons name="lock-closed" size={15} color={Colors.primary} />
-                <Text style={{ flex: 1, color: '#fff', fontSize: 16, fontWeight: '800' }}>Password</Text>
-                <TouchableOpacity onPress={() => { Keyboard.dismiss(); setPwOpen(false); setPw(''); }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close" style={styles.pwClose}>
+                <Text style={{ flex: 1, color: '#fff', fontSize: 16, fontWeight: '800' }}>About this layer</Text>
+                <TouchableOpacity onPress={() => setLayerInfoOpen(false)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close" style={styles.layerInfoClose}>
                   <Ionicons name="close" size={17} color="#fff" />
                 </TouchableOpacity>
               </View>
-              <TextInput value={pw} onChangeText={(t) => { setPw(t); setPwErr(false); }} placeholder="Password" placeholderTextColor="#6F89A6"
-                secureTextEntry autoFocus autoCapitalize="none" autoCorrect={false} returnKeyType="done" onSubmitEditing={tryUnlock}
-                style={[styles.pwInput, pwErr && { borderColor: '#FF6B4A' }]} accessibilityLabel="Password" />
-              {pwErr && <Text style={{ color: '#FF6B4A', fontSize: 12.5, fontWeight: '600' }}>Wrong password</Text>}
-              <TouchableOpacity onPress={tryUnlock} activeOpacity={0.8} accessibilityRole="button" style={styles.pwBtn}>
-                <Text style={{ color: '#0A1628', fontSize: 14, fontWeight: '800' }}>Unlock</Text>
-              </TouchableOpacity>
+              <Text style={{ color: '#C9D6E6', fontSize: 13.5, lineHeight: 20 }}>{LAYER_INFO}</Text>
             </View>
           </View>
         )}
@@ -1491,10 +1477,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
 }
 
 const styles = StyleSheet.create({
-  pwCard: { width: '100%', maxWidth: 340, gap: 12, borderRadius: 16, padding: 16, backgroundColor: 'rgba(15,30,58,0.98)', borderWidth: 1, borderColor: Colors.primary + '55' },
-  pwClose: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.10)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' },
-  pwInput: { height: 44, borderRadius: 10, paddingHorizontal: 12, color: '#fff', fontSize: 15, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },
-  pwBtn: { height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary },
+  layerInfoCard: { width: '100%', maxWidth: 360, gap: 12, borderRadius: 16, padding: 16, backgroundColor: 'rgba(15,30,58,0.98)', borderWidth: 1, borderColor: Colors.primary + '55' },
+  layerInfoClose: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.10)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' },
   focusBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 10, paddingHorizontal: 10, height: 36, borderWidth: 1, borderColor: Colors.primary + '66' },
   focusBtnTxt: { color: Colors.primary, fontSize: 13, fontWeight: '700' },
   topBtn: { flex: 1, justifyContent: 'center', height: 40, paddingHorizontal: 8 },

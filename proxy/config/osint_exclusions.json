@@ -1,0 +1,14 @@
+{
+  "_doc": "OSINT-lagret (GET /osint/airbases). Regler: INSTRUKTION_osint_lager.md (användaren, 2026-11-20). Ändra här om Nato får nya medlemmar; deploya sedan proxyn.",
+  "nato": ["AL","BE","BG","CA","HR","CZ","DK","EE","FI","FR","DE","GR","HU","IS","IT","LV","LT","LU","ME","NL","MK","NO","PL","PT","RO","SK","SI","ES","SE","TR","GB","US"],
+  "nato_operator_labels": ["NATO"],
+  "nato_territories": ["GL","FO","SJ","AX","GU","PR","VI","AS","MP","UM","GI","FK","IO","SH","GS","PN","BM","KY","VG","TC","MS","AI","AW","CW","SX","BQ","PF","NC","RE","GP","MQ","GF","YT","PM","BL","MF","WF","TF"],
+  "_extra_doc": "Användarens tillägg 2026-11-20: Schweiz och Österrike visas inte heller.",
+  "extra_excluded_countries": ["CH","AT"],
+  "_keys_doc": "Brittiska suveräna basområden på Cypern (OurAirports anger CY): Akrotiri.",
+  "excluded_keys": ["LCRA"],
+  "ukraine": "UA",
+  "occupied_ukraine_allowed_operator": "RU",
+  "conflict_countries": ["IL","LB","SY","IR","YE","TW","IN","PK","SD","MM"],
+  "blocked_countries": ["RU","BY","CN","KP"]
+}

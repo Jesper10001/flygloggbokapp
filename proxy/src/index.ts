@@ -7,6 +7,11 @@ import { quotaTokens } from './quotaWeight';
 import { scanReach, passSize, grantScanPass, scanPassCovers, noteScanRead } from './scanPass';
 import { getCredits, grantPurchase, revokePurchase, splitCharge, hasAllowance, COIN_PACKS } from './credits';
 import { redeemCode, promoTierOf } from './promo';
+import { makeOsintHandler } from './osint.mjs';
+import OSINT_LAYER from '../data/osint-airbases.json';
+import OSINT_CFG from '../config/osint_exclusions.json';
+// OSINT-lagret (Global map → Air Bases → Specific): filtreras här, spärras för blocked_countries (src/osint.mjs).
+const handleOsint = makeOsintHandler(OSINT_LAYER as any, OSINT_CFG as any);
 
 // OpsEnv: driftsidan /ops och supportmejlen (src/ops.ts) — nycklar för Sentry, RevenueCat, App Store Connect m.m.
 interface Env extends OpsEnv {
@@ -1131,6 +1136,9 @@ export default {
     }
 
     // ── Version / app news endpoint ──
+    // ── OSINT-lagret med militära flygbaser: GET /osint/airbases (filtrerat, 451 för spärrade länder) ──
+    if (url.pathname === '/osint/airbases' && request.method === 'GET') return handleOsint(request);
+
     if (url.pathname === '/version') {
       const versionData = {
         min_version: '1.0.0',

@@ -4,7 +4,7 @@
 // SeedRow[10]. "Properties" (banlängd/yta/lit) och closed-läget hanteras separat i GlobalMapModal.
 import type { SeedRow } from '../components/GlobalAirportMap';
 import { surfaceBit, type RwyInfo } from '../utils/runways';
-import { getMilBase, baseRoles, ROLE_ORDER, ROLES, MIL_BASE_COUNT, MIL_ROLE_COUNTS, type RoleKey } from '../utils/milAirbases';
+import { getMilBase, baseRoles, ROLE_ORDER, ROLES, type RoleKey } from '../utils/milAirbases';
 
 export type FilterNode = {
   key: string;                                        // unik nyckel (används i activeKeys-Set)
@@ -91,13 +91,13 @@ export const FILTER_GROUPS: FilterGroup[] = [
   },
 ];
 
-// Air Bases → Specific: militära flygbaser i Europa och Ryssland per roll (utils/milAirbases). Egen sida i Air Bases-panelen; ELLER mot de
+// Air Bases → Specific: militära flygbaser per roll (OSINT-lagret från proxyn, utils/milAirbases; antalen = milCounts()). Egen sida i Air Bases-panelen; ELLER mot de
 // andra typvalen som vanligt. När något här är valt ritas baserna med rollsymboler och förbandskortet ersätter
 // flygplatskortet (GlobalMapModal).
-export type SpecificNode = FilterNode & { role: RoleKey | null; count: number };
+export type SpecificNode = FilterNode & { role: RoleKey | null };
 export const SPECIFIC_NODES: SpecificNode[] = [
-  { key: 'rb:all', label: 'All', role: null, count: MIL_BASE_COUNT, match: (r) => !!getMilBase(r[0]) },
-  ...ROLE_ORDER.map((role) => ({ key: `rb:${role}`, label: ROLES[role].label, role, count: MIL_ROLE_COUNTS[role],
+  { key: 'rb:all', label: 'All', role: null, match: (r) => !!getMilBase(r[0]) },
+  ...ROLE_ORDER.map((role) => ({ key: `rb:${role}`, label: ROLES[role].label, role,
     match: (r: SeedRow) => !!baseRoles(r[0])?.includes(role) })),
 ];
 export const isSpecificKey = (k: string) => k.startsWith('rb:');

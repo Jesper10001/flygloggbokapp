@@ -1,4 +1,4 @@
-// Bygger assets/ru-airbases.json ur användarens fil scripts/ru-airbases/flygbaser_ryssland.csv (ryska flygbaser med
+// Bygger scripts/osint-data/ru-airbases.json (sedan build-osint-layer.mjs → proxyn) ur användarens fil scripts/ru-airbases/flygbaser_ryssland.csv (ryska flygbaser med
 // förband och flygplanstyper, sammanställt ur OurAirports, Scramble.nl och Wikipedia). Används av filtret
 // Air Bases → Specific på global map och av förbandskortet (components/UnitCard.tsx).
 // Filen är på svenska; appen är på engelska → namn, förband, kommandon och regioner översätts här.
@@ -146,6 +146,6 @@ for (const r of body) {
   out[key] = { n: NAME[name] || name, r: region, s: 'ru', ops: [{ o: 'RU', c: command, u: r[ix.forband].split(';').map((s) => unit(s)).filter(Boolean), g: groups }] };
 }
 const left = Object.values(out).flatMap((b) => [b.n, ...b.ops[0].u]).filter((s) => /[åäö]|reg\.|ena\b|sj|tj|emente/.test(s));
-fs.writeFileSync(path.join(__dirname, '..', 'assets', 'ru-airbases.json'), JSON.stringify(out));
+fs.writeFileSync(path.join(__dirname, 'osint-data', 'ru-airbases.json'), JSON.stringify(out));
 console.log(`Skrev ${Object.keys(out).length} baser. Hoppade över: ${skipped.join(', ') || '–'}. Typer utan roll: ${unmatched.join(' | ') || '–'}`);
 if (left.length) console.log('KONTROLLERA (ser oöversatt ut):', left);

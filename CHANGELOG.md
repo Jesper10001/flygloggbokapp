@@ -32,8 +32,16 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: Long airport names wrap to two lines on the airport card instead of being cut off.
 - Fixed: Zooming in past the country flags on the Global map could show no airports until a filter was changed.
 - Improved: The cluster boxes on the Global map are smaller.
+- New: Specific under Air Bases on the Global map shows military air bases outside NATO by aircraft type, with the units based there and where the information comes from.
 
 ### Alla ändringar
+
+- OSINT-lagret (Air Bases → Specific) enligt användarens INSTRUKTION_osint_lager.md, med användarens beslut 2026-11-20: synligt utan lösenord, Ryssland som förut (inga rapporterade placeringar), dagens källstruktur, även Schweiz och Österrike borta.
+  - Datan ligger inte längre i appen: scripts/osint-data/{ru,eu,world}-airbases.json → scripts/build-osint-layer.mjs → proxy/data/osint-airbases.json (land per bas ur seeden).
+  - Proxyn: GET /osint/airbases (proxy/src/osint.mjs) filtrerar på servern enligt proxy/config/osint_exclusions.json — inga baser i Natoländer, Natoterritorier, Schweiz, Österrike, Akrotiri; Ukraina bara ryska förband (Krim); Nato-/Ukrainaförband utomlands döljs (t.ex. USA i Japan). 451 utan data för RU, BY, CN, KP (request.cf.country). ETag → 304. 676 av 1 153 baser. Tester: proxy/scripts/test-osint.mjs (16 gröna). Deployad (version e243a487).
+  - Appen: store/osintStore.ts hämtar lagret när kartan öppnas, sparar det i telefonen (fungerar utan nät), frågar med ETag; 451 tar bort lagret. utils/milAirbases.ts tar emot lagret (setLayer, milCounts, compiledDate). Specific-sidan visar Loading/Not available in your region/fel, ⓘ "About this layer" (instruktionens text, anpassad: Schweiz och Österrike med, ingen mening om ryska placeringar).
+  - Förbandskortet visar "–" i stället för OurAirports ident (layerCode i utils/airportCodes.ts).
+  - Lösenordet och den osynliga rutan borttagna.
 
 - Dolda Specific-rutan tog inte emot 5-sekunderstrycket: iOS skickar inga tryck till en vy med opacity 0. Nu är rutans ram/bakgrund genomskinliga och bara innehållet osynligt.
 

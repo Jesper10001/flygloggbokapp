@@ -1,10 +1,10 @@
-// Bygger assets/eu-airbases.json ur scripts/eu-airbases/flygbaser_europa.csv (Europas flygbaser med förband och
+// Bygger scripts/osint-data/eu-airbases.json (sedan build-osint-layer.mjs → proxyn) ur scripts/eu-airbases/flygbaser_europa.csv (Europas flygbaser med förband och
 // flygplanstyper, sammanställd 2026-11-19 ur Wikipedia, flygvapnens/försvarsministeriernas sidor m.fl.; Ukraina ej med).
 // Samma form som ru-airbases.json: { nyckel: { n, r, s: 'eu', ops: [{ o, c, u, g }] } } — flera länders förband på
 // samma bas blir flera ops. Nyckel = flygplatsens nyckel i icao-airports.dat (OurAirports-ident, kod eller närmast ≤ 1,5 km).
-// Kör: node scripts/build-eu-airbases.mjs            (Europa → assets/eu-airbases.json, s: 'eu')
+// Kör: node scripts/build-eu-airbases.mjs            (Europa → scripts/osint-data/eu-airbases.json)
 //      node scripts/build-eu-airbases.mjs --world    (övriga världen ur scripts/world-airbases/flygbaser_varlden.csv,
-//                                                     kontrollerad mot källsidorna med verify.py → assets/world-airbases.json, s: 'world')
+//                                                     kontrollerad mot källsidorna med verify.py → scripts/osint-data/world-airbases.json)
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -30,7 +30,7 @@ function parseCSV(text) {
 }
 const WORLD = process.argv.includes('--world');
 const SRC = WORLD ? path.join(__dirname, 'world-airbases', 'flygbaser_varlden.csv') : path.join(__dirname, 'eu-airbases', 'flygbaser_europa.csv');
-const OUT = path.join(__dirname, '..', 'assets', WORLD ? 'world-airbases.json' : 'eu-airbases.json');
+const OUT = path.join(__dirname, 'osint-data', WORLD ? 'world-airbases.json' : 'eu-airbases.json');
 const [head, ...body] = parseCSV(fs.readFileSync(SRC, 'utf8'));
 const ix = Object.fromEntries(head.map((h, i) => [h, i]));
 

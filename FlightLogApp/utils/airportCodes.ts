@@ -29,3 +29,9 @@ export function keyForDisplayCode(code?: string | null): string | null {
   }
   return reverse.get(String(code ?? '').trim().toUpperCase()) ?? null;
 }
+
+/** Koden i OSINT-lagret (förbandskortet): visningskoden, men aldrig OurAirports egna ident (RU-8363) — då "–". */
+export function layerCode(code?: string | null): string {
+  const d = displayCode(code);
+  return !d || /^[A-Z]{2}-\d+$/.test(d) ? '–' : d;
+}

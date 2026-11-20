@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../constants/colors';
 import { COUNTRY_NAMES } from '../constants/countryNames';
-import { displayCode } from '../utils/airportCodes';
+import { layerCode } from '../utils/airportCodes';
 import { ROLES, baseGroups, operatorLabel, type MilBase } from '../utils/milAirbases';
 import { RoleTag } from './RoleTag';
 
@@ -77,7 +77,7 @@ export function UnitCard({ icao, base, country, accent = Colors.primary, onClose
 
       {/* Rad 1: kod · namn (upp till två rader) · stjärna · stäng */}
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingLeft: 14, paddingRight: 10, paddingTop: 10, paddingBottom: 2 }}>
-        <Text style={{ fontFamily: MONO, fontSize: 22, lineHeight: 28, fontWeight: '800', letterSpacing: 1, color: accent }}>{displayCode(icao)}</Text>
+        <Text style={{ fontFamily: MONO, fontSize: 22, lineHeight: 28, fontWeight: '800', letterSpacing: 1, color: accent }}>{layerCode(icao)}</Text>
         <Text style={{ flex: 1, fontFamily: SERIF, fontSize: 16, lineHeight: 20, paddingTop: 3, fontWeight: '600', color: '#FFFFFF' }} numberOfLines={2}>{base.n}</Text>
         {onToggleFavorite && (
           <TouchableOpacity onPress={onToggleFavorite} hitSlop={6} accessibilityRole="button" accessibilityLabel={isFavorite ? 'Remove from favourites' : 'Add to favourites'}

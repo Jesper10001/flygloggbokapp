@@ -5,7 +5,7 @@
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
-import { DATA_COMPILED, type Dataset } from '../utils/milAirbases';
+import { compiledDate, type Dataset } from '../utils/milAirbases';
 
 // Ryssland: användarens sammanställning (källorna enligt användarens beskrivning).
 const RU_UNITS: [string, string][] = [
@@ -20,7 +20,7 @@ const RU_CODES: [string, string][] = [
 // Europa: sammanställd 2026-11-19 (scripts/eu-airbases, källa per rad i filen).
 const EU_UNITS: [string, string][] = [
   ['Wikipedia', 'Articles on bases and units in English and national languages (CC BY-SA 4.0).'],
-  ['Air forces and defence ministries', 'Official pages, for example Försvarsmakten, Bundeswehr, Armée de l’Air et de l’Espace, USAFE and NATO.'],
+  ['Air forces and defence ministries', 'Official pages of the air forces and defence ministries.'],
   ['Migflug.com and aviation press', 'For single bases and recent changes.'],
 ];
 const EU_CODES: [string, string][] = [
@@ -29,7 +29,7 @@ const EU_CODES: [string, string][] = [
 // Resten av världen: sammanställd 2026-11-20 (scripts/world-airbases); varje rad kontrollerad mot sina källsidor.
 const WORLD_UNITS: [string, string][] = [
   ['Wikipedia', 'Articles on air forces, bases and units in English and national languages (CC BY-SA 4.0). Every entry was checked against the pages it cites.'],
-  ['Air forces and defence ministries', 'Official pages, for example the RAAF, RSAF, NZDF and US Air Force.'],
+  ['Air forces and defence ministries', 'Official pages, for example the RAAF, RSAF and NZDF.'],
   ['Open aviation sites', 'J-Hangar Space (Japan) and Migflug.com, for single countries and bases.'],
 ];
 const TEXT: Record<Dataset, { units: [string, string][]; codes: [string, string][]; note: string }> = {
@@ -53,7 +53,7 @@ export function UnitSourcesPopup({ onClose, dataset, topInset = 0 }: { onClose: 
           <Section title="Units and aircraft" rows={t.units} />
           <Section title="Codes and positions" rows={t.codes} />
           <View style={s.note}>
-            <Text style={s.noteTitle}>Compiled {DATA_COMPILED[dataset]}</Text>
+            <Text style={s.noteTitle}>Compiled {compiledDate(dataset)}</Text>
             <Text style={s.noteTxt}>{t.note}</Text>
           </View>
         </ScrollView>
