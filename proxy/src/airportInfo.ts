@@ -210,8 +210,8 @@ Return ONLY a JSON object:
  "fuel":{"t":["<fuel types e.g. JET A-1, AVGAS 100LL, UL91, MOGAS>"],"n":"<short English note or empty>","h":"<fuel hours or empty>","quote":"…","src":0} | null,
  "hours":{"ad":"<aerodrome operating hours exactly as stated, translated to English>","n":"<short note or empty>","quote":"…","src":0} | null,
  "contacts":[{"l":"<English label, e.g. Aerodrome operator, TWR, Fuel>","ph":"<phone>","quote":"<excerpt containing the number>","src":0}],
- "fees":{"landing":"<landing fee as stated, with currency>","parking":"<parking/overnight fee or empty>","note":"<e.g. per landing, MTOM limit, or empty>","year":"<year the price list applies to, or empty>","quote":"…","src":0} | null}
-Use null when the sources do not state it. Write notes in English. Keep notes under 120 characters.`;
+ "fees":{"landing":"<self-describing, e.g. 'Landing 300 SEK' or 'Take-off 137 SEK/t MTOW (min 750 SEK)'>","parking":"<parking/overnight fee or empty>","note":"<e.g. per landing, MTOM limit, or empty>","year":"<year the price list applies to, or empty>","quote":"…","src":0} | null}
+Each \"ph\" is ONE phone number (pick the first if several). Use null when the sources do not state it. Write notes in English. Keep notes under 120 characters.`;
 
 type Verified = { rec: Rec; changed: string[]; dropped: string[] };
 
@@ -224,6 +224,9 @@ export function verifyRefresh(cur: Rec, ai: Rec, srcs: { t: string; url: string;
     return i.some((j) => ntext[j].includes(norm(x.quote)));
   };
   const phoneIn = (ph: string, quote: string) => !ph || digits(quote).includes(digits(ph));
+  // Ett nummer per fält (annars blir samtalsknappen fel): "070… / 070…" → första
+  const one = (ph: unknown) => String(ph ?? '').split(/\s*(?:\/|,|;|\bor\b|\beller\b)\s*/)[0].trim();
+  for (const x of [ai.ppr, ...(Array.isArray(ai.contacts) ? ai.contacts : [])]) if (x && x.ph) x.ph = one(x.ph);
   const out: Rec = { ...cur }, changed: string[] = [], dropped: string[] = [];
   const set = (k: string, v: Rec) => { if (JSON.stringify(cur[k] ?? null) !== JSON.stringify(v)) changed.push(k); out[k] = v; };
   const s = (v: unknown, n = 300) => str(v, n);

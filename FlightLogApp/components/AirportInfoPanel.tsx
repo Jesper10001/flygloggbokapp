@@ -68,7 +68,8 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
   const h24 = /^H24\b/.test(info.hours?.ad ?? '');
   const utc = info.kind === 'aip';
   const swedish = /^ES[A-Z]{2}$/.test(infoKey);
-  const fees = info.fees?.landing ? info.fees : null;
+  // "Parking …" skrivs av raden själv; ta bort ordet om källtexten redan har det (↻ kan ge "Parking 100 SEK/night")
+  const fees = info.fees?.landing ? { ...info.fees, parking: info.fees.parking?.replace(/^parking:?\s*/i, '') } : null;
 
   const loadNotams = async () => {
     setNotam({ s: 'loading' });
