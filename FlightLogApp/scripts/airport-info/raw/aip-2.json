@@ -1,0 +1,943 @@
+[
+ {
+  "icao": "ESCM",
+  "source": "AIP Sweden AD 2 ESCM",
+  "ppr": {
+   "status": "required",
+   "note": "Military airbase: PPR for all flights",
+   "phone": "",
+   "request_url": "",
+   "quote": "PPR for all flights."
+  },
+  "hours": {
+   "ad": "MON-SUN 0600-1800 (0500-1700)",
+   "note": "ATS: MON-THU 0730-1500 (0630-1400); HOL closed",
+   "quote": "MON-SUN 0600-1800 (0500-1700)"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator (ADO)",
+    "phone": "+46 70 862 52 43",
+    "quote": "TEL: +46 70 862 52 43 (ADO)"
+   },
+   {
+    "label": "Briefing (FPC)",
+    "phone": "+46 8 797 63 40",
+    "quote": "FPC, H24, +46 8 797 63 40"
+   }
+  ],
+  "email": {
+   "value": "uppsala-airport@mil.se",
+   "quote": "E-mail: uppsala-airport@mil.se"
+  },
+  "good_to_know": [
+   {
+    "text": "Military airbase; PPR for all flights.",
+    "quote": "Military Airbase. PPR for all flights."
+   },
+   {
+    "text": "Fuel is Swedish military standard (FF75, NATO F35), not normal civil fuel; payment by invoice only, no credit cards.",
+    "quote": "Payment of airport fees, fuel etc. by invoice only."
+   },
+   {
+    "text": "No airwork, approaches or landings without special permission; generally only flights important to society are granted.",
+    "quote": "Neither airwork, approaches nor landings are permitted without special permission."
+   },
+   {
+    "text": "Operations outside ATS hours only by special permission from the Swedish Armed Forces and the Uppsala Airport Manager.",
+    "quote": "Operations outside ATS operational hours only by special permission from the Swedish Armed Forces and the Uppsala Airport Manager."
+   }
+  ]
+ },
+ {
+  "icao": "ESGJ",
+  "source": "AIP Sweden AD 2 ESGJ",
+  "ppr": {
+   "status": "partial",
+   "note": "PPR outside TWR hours; PPR for commercial traffic and aircraft over 4000 kg MTOM (request in operator hours)",
+   "phone": "+46 36 31 12 11",
+   "request_url": "",
+   "quote": "PPR outside TWR HR of OPS."
+  },
+  "fuel": {
+   "types": [
+    "100LL",
+    "Jet A1"
+   ],
+   "note": "Truck/stationary (Jet A1)",
+   "hours": "As AD operating hours",
+   "quote": "Fuel: 100LL, Jet A1"
+  },
+  "hours": {
+   "ad": "MON-FRI 0730-1530 (0630-1430)",
+   "note": "ATS/AD operating hours: ref AIP SUP/NOTAM; increased charges outside hours",
+   "quote": "MON-FRI 0730-1530 (0630-1430)"
+  },
+  "contacts": [
+   {
+    "label": "PPR / ground handling",
+    "phone": "+46 36 31 12 11",
+    "quote": "TEL: +46 36 31 12 11"
+   },
+   {
+    "label": "Aerodrome operator",
+    "phone": "+46 36 31 12 00",
+    "quote": "TEL: +46 36 31 12 00"
+   }
+  ],
+  "email": {
+   "value": "info@jonkopingairport.se",
+   "quote": "E-mail: info@jonkopingairport.se"
+  },
+  "website": {
+   "value": "www.jonkopingairport.se",
+   "quote": "Website: www.jonkopingairport.se"
+  },
+  "good_to_know": [
+   {
+    "text": "PPR for commercial traffic and aircraft exceeding 4000 kg MTOM.",
+    "quote": "PPR for commercial traffic and aircraft exceeding MTOM 4000 kg."
+   },
+   {
+    "text": "Outside ATS hours blind transmission is mandatory in the CTR; announce intentions on 118.255.",
+    "quote": "blind transmission is mandatory within the geographical area of the established ESGJ CTR"
+   },
+   {
+    "text": "Vehicles without two-way radio may be on the manoeuvring area outside ATS hours.",
+    "quote": "Vehicle traffic without two-way radio communication may occur in the maneuvering area outside ATS operational hours."
+   },
+   {
+    "text": "Increased charges outside AD operating hours; extended hours occur frequently.",
+    "quote": "Increased charges outside AD operating hours."
+   }
+  ]
+ },
+ {
+  "icao": "ESIA",
+  "source": "AIP Sweden AD 2 ESIA",
+  "ppr": {
+   "status": "required",
+   "note": "Military aerodrome: PPR to AD operator by phone or e-mail",
+   "phone": "+46 70 395 56 07",
+   "request_url": "",
+   "quote": "PPR shall be made to AD operator on phone +46 70 395 56 07 or e-mail: f7-airportops@mil.se"
+  },
+  "hours": {
+   "ad": "As ATS",
+   "note": "ATS: MON-THU 0730-1500 (0630-1400); FRI and day before HOL 0730-1100 (0630-1000); HOL closed",
+   "quote": "AD Operating hours"
+  },
+  "contacts": [
+   {
+    "label": "PPR (AD operator)",
+    "phone": "+46 70 395 56 07",
+    "quote": "PPR shall be made to AD operator on phone +46 70 395 56 07"
+   },
+   {
+    "label": "Aerodrome (AD)",
+    "phone": "+46 10 825 10 12",
+    "quote": "TEL: +46 10 825 10 12 (AD)"
+   },
+   {
+    "label": "F7",
+    "phone": "+46 10 827 70 00",
+    "quote": "TEL: +46 10 827 70 00 (F7)"
+   }
+  ],
+  "email": {
+   "value": "f7-airportops@mil.se",
+   "quote": "e-mail: f7-airportops@mil.se"
+  },
+  "good_to_know": [
+   {
+    "text": "Start-up permission required by all traffic due to frequent parachute descents.",
+    "quote": "Start-up permission required by all traffic due to frequent parachute descents."
+   },
+   {
+    "text": "Fuel is Swedish military standard (Jet A1 equivalent NATO F35); payment by invoice only, no credit cards.",
+    "quote": "Payment of airport fees, fuel etc. by invoice only. Credit cards not accepted."
+   },
+   {
+    "text": "Operating hours are frequently extended.",
+    "quote": "Frequent extension of operating HRS"
+   }
+  ]
+ },
+ {
+  "icao": "ESKN",
+  "source": "AIP Sweden AD 2 ESKN",
+  "ppr": {
+   "status": "partial",
+   "note": "PPR required for all school and training flights, and for other flights with TGL and/or airwork in the CTR",
+   "phone": "",
+   "request_url": "",
+   "quote": "PPR required for all school and training flights."
+  },
+  "fuel": {
+   "types": [
+    "100LL",
+    "Jet A1"
+   ],
+   "note": "Supplier YMFAS/Air BP",
+   "hours": "H24, AVBL 1 HR PN 2100-0600 (2000-0500)",
+   "quote": "Fuel: 100LL, Jet A1"
+  },
+  "hours": {
+   "ad": "H24",
+   "note": "Customs H24; Immigration 0500-2100/0500-2300 (0400-2000/0400-2200)",
+   "quote": "AD Operating hours"
+  },
+  "contacts": [
+   {
+    "label": "Fuel supplier (YMFAS/Air BP)",
+    "phone": "+46 733 54 04 41",
+    "quote": "Fuel supplier YMFAS/Air BP TEL +46 733 54 04 41"
+   },
+   {
+    "label": "Aerodrome operator",
+    "phone": "+46 155 28 04 21",
+    "quote": "TEL: +46 155 28 04 21"
+   },
+   {
+    "label": "Stockholm ACC supervisor (training in ÖSTGÖTA TMA)",
+    "phone": "+46 8 585 547 00",
+    "quote": "TEL +46 8 585 547 00"
+   }
+  ],
+  "email": {
+   "value": "dispatch@skavsta.se",
+   "quote": "E-mail: dispatch@skavsta.se"
+  },
+  "website": {
+   "value": "www.skavsta.se",
+   "quote": "Website: www.skavsta.se"
+  },
+  "good_to_know": [
+   {
+    "text": "PPR required for all school and training flights, and for other flights with touch-and-go or airwork in the CTR.",
+    "quote": "PPR required for all school and training flights."
+   },
+   {
+    "text": "Touch-and-go landings only MON-FRI 0500-2000 (0400-1900), SAT 0600-2000 (0500-1900), SUN/HOL 0800-1500 (0700-1400).",
+    "quote": "Flights with touch-and-go landings are only permitted:"
+   },
+   {
+    "text": "Guidance by manual marshalling signals is mandatory when taxiing to stand on Apron 1 and 2.",
+    "quote": "guidance by manual marshalling signals is mandatory"
+   },
+   {
+    "text": "Fuelling and de-icing H24, available with 1 hour prior notice 2100-0600 (2000-0500).",
+    "quote": "H24, AVBL 1 HR PN 2100-0600 (2000-0500)"
+   }
+  ]
+ },
+ {
+  "icao": "ESMQ",
+  "source": "AIP Sweden AD 2 ESMQ",
+  "ppr": {
+   "status": "partial",
+   "note": "PPR for all traffic outside TWR hours; apply via website",
+   "phone": "",
+   "request_url": "kalmarolandairport.se",
+   "quote": "PPR for all traffic outside TWR HR of OPS."
+  },
+  "fuel": {
+   "types": [
+    "91UL",
+    "Jet A1"
+   ],
+   "note": "Self-service station on apron 2; supplier AirBP",
+   "hours": "As ATS",
+   "quote": "Fuel: 91UL, Jet A1"
+  },
+  "hours": {
+   "ad": "H24",
+   "note": "Operator MON-FRI 0700-1600 (0600-1500); increased charges outside TWR hours",
+   "quote": "H24"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator",
+    "phone": "+46 10 357 48 00",
+    "quote": "TEL: +46 10 357 48 00"
+   }
+  ],
+  "email": {
+   "value": "flyget@kalmarairport.se",
+   "quote": "E-mail: flyget@kalmarairport.se"
+  },
+  "website": {
+   "value": "www.kalmarolandairport.se",
+   "quote": "Website: www.kalmarolandairport.se"
+  },
+  "good_to_know": [
+   {
+    "text": "Self-service fuel station with Jet A1 and 91UL is on apron 2.",
+    "quote": "Self-service fuel station with JET A1 and 91UL is located on apron 2."
+   },
+   {
+    "text": "Outside ATS hours blind transmission on 130.805 in the CTR; vehicles without radio may be on the movement area.",
+    "quote": "blind transmission should be made on 130.805"
+   },
+   {
+    "text": "Taxiing outside ATS hours only allowed in visibility above 500 m.",
+    "quote": "Taxiing of aircraft outside ATS hours of operations is only allowed in visibility above 500 m."
+   },
+   {
+    "text": "Fuel payment: VISA, Mastercard and AirBP accepted.",
+    "quote": "For payment of fuel, VISA, Mastercard and AirBP are accepted."
+   }
+  ]
+ },
+ {
+  "icao": "ESMV",
+  "source": "AIP Sweden AD 2 ESMV",
+  "ppr": {
+   "status": "required",
+   "note": "Military aerodrome: PPR for all traffic",
+   "phone": "+46 10 827 10 00",
+   "request_url": "",
+   "quote": "PPR for all traffic."
+  },
+  "hours": {
+   "ad": "PPR",
+   "note": "Established at times announced on NOTAM",
+   "quote": "AD Operating hours"
+  },
+  "contacts": [
+   {
+    "label": "Airport manager / F17",
+    "phone": "+46 10 827 10 00",
+    "quote": "TEL +46 10 827 10 00 exch."
+   }
+  ],
+  "email": {
+   "value": "f17@mil.se",
+   "quote": "E-mail: f17@mil.se"
+  },
+  "good_to_know": [
+   {
+    "text": "Operating hours are established at times announced on NOTAM.",
+    "quote": "Established at times announced on NOTAM."
+   }
+  ]
+ },
+ {
+  "icao": "ESNG",
+  "source": "AIP Sweden AD 2 ESNG",
+  "ppr": {
+   "status": "partial",
+   "note": "PPR for all non-scheduled traffic outside ATS hours; request 72 h before arrival",
+   "phone": "",
+   "request_url": "",
+   "quote": "PPR for all non scheduled traffic outside ATS HR of OPS. Request shall be made 72 hours before ARR to airport@gallivare.se."
+  },
+  "fuel": {
+   "types": [
+    "Jet A1"
+   ],
+   "note": "Hydrant fuelling",
+   "hours": "As AD operating hours or O/R.",
+   "quote": "Fuel: Jet A1"
+  },
+  "hours": {
+   "ad": "As ATS",
+   "note": "Operator MON-FRI 0700-1500 (0600-1400); increased charges outside scheduled-operation hours",
+   "quote": "AD Operating hours"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator",
+    "phone": "+46 970 780 00",
+    "quote": "TEL: +46 970 780 00"
+   }
+  ],
+  "email": {
+   "value": "airport@gallivare.se",
+   "quote": "E-mail: airport@gallivare.se"
+  },
+  "website": {
+   "value": "www.lapair.se",
+   "quote": "Website: www.lapair.se"
+  },
+  "good_to_know": [
+   {
+    "text": "Caution: intermittent motor vehicles on the runway.",
+    "quote": "Caution due intermittent motor vehicles on RWY."
+   },
+   {
+    "text": "An ambulance helicopter is based at the airport; delays may occur.",
+    "quote": "Ambulance helicopter is located at the airport. Delays may occur."
+   },
+   {
+    "text": "Fuel payment only by VISA and Mastercard.",
+    "quote": "For payment of fuel only VISA and Mastercard credit cards are accepted"
+   }
+  ]
+ },
+ {
+  "icao": "ESNN",
+  "source": "AIP Sweden AD 2 ESNN",
+  "ppr": {
+   "status": "partial",
+   "note": "PPR outside TWR hours; apply in operator hours, form on AD website",
+   "phone": "",
+   "request_url": "",
+   "quote": "PPR outside TWR HR of OPS."
+  },
+  "fuel": {
+   "types": [
+    "100LL",
+    "Jet A1"
+   ],
+   "note": "Supplier Air BP; sales only against Air BP Carnet Card or requisition via Air BP Out of Hours Service",
+   "hours": "As AD Operating hours",
+   "quote": "Fuel: 100LL, Jet A1"
+  },
+  "hours": {
+   "ad": "MON-FRI 0700-1500 (0600-1400)",
+   "note": "Increased charges outside TWR hours",
+   "quote": "MON-FRI 0700-1500 (0600-1400)"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator",
+    "phone": "+46 60 658 39 00",
+    "quote": "TEL: +46 60 658 39 00"
+   }
+  ],
+  "website": {
+   "value": "www.sdlairport.se",
+   "quote": "Website: www.sdlairport.se"
+  },
+  "good_to_know": [
+   {
+    "text": "Fuel sales only against Air BP Carnet Card or with requisition via Air BP Out of Hours Service.",
+    "quote": "Fuel sales only against Air BP Carnet Card"
+   },
+   {
+    "text": "Start-up clearance must always be obtained from TWR.",
+    "quote": "Start-up clearance shall be obtained from TWR at all times"
+   },
+   {
+    "text": "When safe, land on RWY 34 when arriving from the south and take off on RWY 16 for southbound departures.",
+    "quote": "landings arriving from the south must be performed on RWY 34 and take-offs for destinations to the south must be performed on RWY 16"
+   }
+  ]
+ },
+ {
+  "icao": "ESNS",
+  "source": "AIP Sweden AD 2 ESNS",
+  "ppr": {
+   "status": "partial",
+   "note": "PPR required for all traffic outside ATS hours (except airport-based businesses); see 2.20",
+   "phone": "+46 910 576 25",
+   "request_url": "",
+   "quote": "PPR is required for all traffic outside ATS hours of operation, except for airportbased businesses in accordance with local safety regulations."
+  },
+  "fuel": {
+   "types": [
+    "91UL",
+    "Jet A1"
+   ],
+   "note": "Supplier Air BP; Jet A1 from 2 fuel trucks",
+   "hours": "As ATS",
+   "quote": "Fuel: 91UL, Jet A1"
+  },
+  "hours": {
+   "ad": "Ref AIP SUP/NOTAM",
+   "note": "Operator MON-FRI 0700-1500 (0600-1400); increased charges outside TWR hours",
+   "quote": "AD Operating hours"
+  },
+  "contacts": [
+   {
+    "label": "PPR (aerodrome)",
+    "phone": "+46 910 576 25",
+    "quote": "For PPR, contact aerodrome TEL +46 910 576 25"
+   },
+   {
+    "label": "Aerodrome operator",
+    "phone": "+46 910 576 00",
+    "quote": "TEL: +46 910 576 00"
+   }
+  ],
+  "email": {
+   "value": "info@skellefteaairport.se",
+   "quote": "E-mail: info@skellefteaairport.se"
+  },
+  "website": {
+   "value": "skellefteaairport.se",
+   "quote": "Website: skellefteaairport.se"
+  },
+  "good_to_know": [
+   {
+    "text": "Engine start requires permission from the start-up supervisor when rescue/ramp service is needed.",
+    "quote": "operator of aircraft requiring such service shall request permission for engine start from the start-up supervisor"
+   },
+   {
+    "text": "ATC clearance is given on request before start-up.",
+    "quote": "ATC clearance will be delivered on request prior to start-up."
+   },
+   {
+    "text": "Use minimum power when taxiing on apron.",
+    "quote": "Engines shall be operated at minimum power required when taxiing on apron."
+   }
+  ]
+ },
+ {
+  "icao": "ESNX",
+  "source": "AIP Sweden AD 2 ESNX",
+  "ppr": {
+   "status": "partial",
+   "note": "PPR for all non-scheduled traffic outside ATS hours, request in operator hours",
+   "phone": "+46 960 173 80",
+   "request_url": "",
+   "quote": "PPR for all non scheduled traffic outside ATS HR of OPS."
+  },
+  "fuel": {
+   "types": [
+    "100LL",
+    "Jet A1"
+   ],
+   "note": "Supplier Air BP; stationary and fuel trucks",
+   "hours": "As ATS and O/R",
+   "quote": "Fuel: 100LL, Jet A1"
+  },
+  "hours": {
+   "ad": "As ATS",
+   "note": "Operator MON-FRI 0700-1500 (0600-1400); increased charges outside TWR/AFIS hours",
+   "quote": "AD Operating hours"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator / PPR",
+    "phone": "+46 960 173 80",
+    "quote": "TEL: +46 960 173 80"
+   },
+   {
+    "label": "PPR school and training flights",
+    "phone": "+46 960 173 85",
+    "quote": "PPR TEL +46 960 173 85"
+   }
+  ],
+  "email": {
+   "value": "info@arvidsjaurairport.se",
+   "quote": "E-mail: info@arvidsjaurairport.se"
+  },
+  "website": {
+   "value": "www.arvidsjaurairport.se",
+   "quote": "Website: www.arvidsjaurairport.se"
+  },
+  "good_to_know": [
+   {
+    "text": "PPR for school and training flights during TWR/AFIS hours.",
+    "quote": "PPR by school and training flights during hours of TWR/AFIS."
+   },
+   {
+    "text": "Right-hand circuit for RWY 30 during take-off and landing exercises outside TWR hours.",
+    "quote": "Right hand traffic circuit applies to RWY 30 during take-off and landing exercises outside hours of TWR."
+   },
+   {
+    "text": "Start-up request with ATS is mandatory for all aircraft.",
+    "quote": "Start-up request with ATS is mandatory for all aircraft."
+   },
+   {
+    "text": "Holding on TWY A not available during AFIS hours or when runway is blocked.",
+    "quote": "Holding on TWY A is not available during AFIS hours"
+   }
+  ]
+ },
+ {
+  "icao": "ESOH",
+  "source": "AIP Sweden AD 2 ESOH",
+  "ppr": {
+   "status": "partial",
+   "note": "PPR for IFR and commercial traffic",
+   "phone": "+46 563 601 75",
+   "request_url": "",
+   "quote": "PPR for IFR and commercial traffic:"
+  },
+  "fuel": {
+   "types": [
+    "100LL",
+    "Jet A1"
+   ],
+   "note": "On request; no pressure refuelling",
+   "hours": "MON-SUN O/R +46 563 603 68",
+   "quote": "Fuel: 100LL, Jet A1"
+  },
+  "hours": {
+   "ad": "H24",
+   "note": "ATS only MON-FRI short periods, weekends O/R; increased charges outside AFIS and operator hours",
+   "quote": "AD Operating hours"
+  },
+  "contacts": [
+   {
+    "label": "ATS / PPR",
+    "phone": "+46 563 601 75",
+    "quote": "TEL: +46 563 601 75 (ATS)"
+   },
+   {
+    "label": "Aerodrome operator / fuel",
+    "phone": "+46 563 603 68",
+    "quote": "TEL: +46 563 603 68"
+   }
+  ],
+  "email": {
+   "value": "flygplats@hagfors.se",
+   "quote": "E-mail: flygplats@hagfors.se"
+  },
+  "website": {
+   "value": "www.hagfors.se/hagforsairport",
+   "quote": "Website: www.hagfors.se/hagforsairport"
+  },
+  "good_to_know": [
+   {
+    "text": "IFR traffic is only allowed when ATS is open.",
+    "quote": "IFR traffic is only allowed when ATS is open."
+   },
+   {
+    "text": "Pressure refuelling is not available.",
+    "quote": "Pressure refueling not available."
+   },
+   {
+    "text": "Outside ATS hours, declare intention to land/start on the Hagfors AFIS channel; landing needs a runway pass at pattern altitude +500 ft.",
+    "quote": "intention to land and time to landing shall be clearly declared on channel for Hagfors AFIS"
+   }
+  ]
+ },
+ {
+  "icao": "ESPA",
+  "source": "AIP Sweden AD 2 ESPA",
+  "ppr": {
+   "status": "partial",
+   "note": "PPR outside TWR hours; 5 days prior for civil and cargo aircraft; 72 h for foreign military transport/helicopters",
+   "phone": "",
+   "request_url": "",
+   "quote": "PPR outside TWR HR of OPS."
+  },
+  "fuel": {
+   "types": [
+    "Jet A1",
+    "UL91"
+   ],
+   "note": "Jet A1 by truck (Shell); UL91 stationary at apron 10 (aero club)",
+   "hours": "MON-FRI 0400-2300 (0300-2200), SAT 0500-1900 (0400-1800), SUN 0600-2300 (0500-2200)",
+   "quote": "Fuel: Jet A1, UL91"
+  },
+  "hours": {
+   "ad": "MON-FRI 0500-2300 (0400-2200), SAT 0600-1900 (0500-1800), SUN 0700-2300 (0600-2200)",
+   "note": "Increased charges outside AD hours",
+   "quote": "MON-FRI 0500-2300 (0400-2200), SAT 0600-1900 (0500-1800), SUN 0700-2300 (0600-2200)"
+  },
+  "contacts": [
+   {
+    "label": "Military base operations (PPR mil)",
+    "phone": "+46 920 23 40 00",
+    "quote": "TEL: +46 920 23 40 00"
+   },
+   {
+    "label": "Swedavia Luleå Airport",
+    "phone": "+46 10 109 48 00",
+    "quote": "TEL: +46 10 109 48 00"
+   },
+   {
+    "label": "Jet A1 fuel supplier (Shell)",
+    "phone": "+46 10 109 49 54",
+    "quote": "phone: +46 10 109 49 54"
+   },
+   {
+    "label": "UL91 fuelling (aero club)",
+    "phone": "+46 76 788 18 64",
+    "quote": "Phone: +46 76 788 18 64"
+   },
+   {
+    "label": "De-icing",
+    "phone": "+46 10 109 49 36",
+    "quote": "phone +46 10 109 49 36"
+   }
+  ],
+  "email": {
+   "value": "luleaairport@swedavia.se",
+   "quote": "E-mail: luleaairport@swedavia.se"
+  },
+  "website": {
+   "value": "www.swedavia.se/sv/lulea",
+   "quote": "Website: www.swedavia.se/sv/lulea"
+  },
+  "good_to_know": [
+   {
+    "text": "PPR for civil and cargo aircraft 5 days before arrival/departure (hospital, state, SAR, scheduled and sanction-agreement operators exempt); send to lla.handlingrequest@swedavia.se.",
+    "quote": "PPR for CIV and CARGO ACFT 5 days prior to planned arrival or departure."
+   },
+   {
+    "text": "72 h PPR for all foreign military transport aircraft and helicopters.",
+    "quote": "72 HR PPR for all foreign military transport aircrafts and foreign military helicopters."
+   },
+   {
+    "text": "Avoid back-track on the runway 15 April - 30 October due to surface damage risk.",
+    "quote": "Avoid back-track on RWY between April 15 and October 30 due to risk of surface damage."
+   },
+   {
+    "text": "UL91 is at the aero club apron 10; request fuelling by e-mail info@lbfk.com.",
+    "quote": "UL91 available at aero club apron 10."
+   }
+  ]
+ },
+ {
+  "icao": "ESSB",
+  "source": "AIP Sweden AD 2 ESSB",
+  "ppr": {
+   "status": "partial",
+   "note": "PPR for all non-scheduled flights; slot mandatory for all arrivals/departures",
+   "phone": "",
+   "request_url": "",
+   "quote": "PPR for all non-scheduled flights."
+  },
+  "fuel": {
+   "types": [
+    "100LL",
+    "Jet A1"
+   ],
+   "note": "100LL stationary (prior arrangement via handling company); Jet A1 by truck",
+   "hours": "MON-FRI 0530-2100 (0430-2000), SAT 0730-1600 (0630-1500), SUN 1030-2100 (0930-2000)",
+   "quote": "Fuel: 100LL, Jet A1"
+  },
+  "hours": {
+   "ad": "MON-FRI 0600-2100 (0500-2000), SAT 0800-1600 (0700-1500), SUN 1100-2100 (1000-2000)",
+   "note": "Aerodrome may be used only within these hours",
+   "quote": "MON–FRI 0600–2100 (0500–2000)"
+  },
+  "contacts": [
+   {
+    "label": "Aircraft Stand Parking (PPR)",
+    "phone": "+46 10 109 10 52",
+    "quote": "Aircraft Stand Parking TEL: +46 10 109 10 52"
+   },
+   {
+    "label": "Airport Coordination Sweden (slots)",
+    "phone": "+46 8 800 700",
+    "quote": "TEL: +46 8 800 700"
+   },
+   {
+    "label": "Bromma Operations Center (towing)",
+    "phone": "+46 10 109 41 40",
+    "quote": "Bromma Operations Center TEL +46 10 109 41 40"
+   }
+  ],
+  "email": {
+   "value": "info.arlanda@swedavia.se",
+   "quote": "E-mail: info.arlanda@swedavia.se"
+  },
+  "website": {
+   "value": "www.swedavia.se/Bromma",
+   "quote": "Website: www.swedavia.se/Bromma"
+  },
+  "good_to_know": [
+   {
+    "text": "Slot request is mandatory for all arrivals and departures; GA can request earliest 28 days ahead.",
+    "quote": "SLOT request is mandatory for all arrivals and departures."
+   },
+   {
+    "text": "PPR possible for non-scheduled flights up to 4000 kg MTOM or helicopters max D 13 m; apply 7 days to 24 h before ETA to rtsamordning@swedavia.se.",
+    "quote": "Prior permission may be granted (PPR) for non-scheduled flights with MTOM max 4000 kg or helicopters max D.13 m."
+   },
+   {
+    "text": "Ground handling company is mandatory for all flights unless PPR is granted.",
+    "quote": "Contracting a ground handling company is mandatory for all flights"
+   },
+   {
+    "text": "No repeated take-off/landing exercises, aerobatics or simulated engine failures.",
+    "quote": "Repeated take-off and landing exercises and aerobatics at or in the vicinity of the airport is not permitted."
+   }
+  ]
+ },
+ {
+  "icao": "ESSP",
+  "source": "AIP Sweden AD 2 ESSP",
+  "ppr": {
+   "status": "required",
+   "note": "Landing/departure not allowed outside ATS hours except airport-based businesses; see 2.20",
+   "phone": "",
+   "request_url": "",
+   "quote": "Departure or landing at the aerodrome is not allowed outside ATS hours of operation"
+  },
+  "fuel": {
+   "types": [
+    "Jet A1"
+   ],
+   "note": "Supplier Shell",
+   "hours": "As ATS",
+   "quote": "Fuel: Jet A1"
+  },
+  "hours": {
+   "ad": "As ATS",
+   "note": "Operator MON-FRI 0800-1600 (0700-1500); increased charges outside TWR hours",
+   "quote": "AD Operating hours"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator",
+    "phone": "+46 11 15 37 22",
+    "quote": "TEL: +46 11 15 37 22"
+   },
+   {
+    "label": "TWR (PPR for training)",
+    "phone": "+46 11 14 02 00",
+    "quote": "TWR TEL +46 11 14 02 00"
+   }
+  ],
+  "email": {
+   "value": "operations@nrkairport.se",
+   "quote": "E-mail: operations@nrkairport.se"
+  },
+  "website": {
+   "value": "www.norrkopingairport.se",
+   "quote": "Website: www.norrkopingairport.se"
+  },
+  "good_to_know": [
+   {
+    "text": "No departures or landings outside ATS hours except airport-based businesses and their visitors; contact aerodrome for extended hours.",
+    "quote": "Departure or landing at the aerodrome is not allowed outside ATS hours of operation"
+   },
+   {
+    "text": "PPR required for IFR school flights and VFR flights planning repeated touch-and-go.",
+    "quote": "PPR is required for IFR school and VFR flights planning to carry out repeated TGL"
+   },
+   {
+    "text": "TWY D only for aircraft with enough wheel base clearance (1.5 m each side).",
+    "quote": "TWY D is intended only for aircraft with a wheel base width"
+   },
+   {
+    "text": "Right-hand circuit for RWY 09 and 29 outside ATS hours.",
+    "quote": "right hand traffic circuit applies during take-off and landings to RWY 09 and RWY 29"
+   }
+  ]
+ },
+ {
+  "icao": "ESSV",
+  "source": "AIP Sweden AD 2 ESSV",
+  "ppr": {
+   "status": "partial",
+   "note": "PPR for civil and military aircraft 5 days prior; scheduled, state, SAR, hospital exempt",
+   "phone": "",
+   "request_url": "",
+   "quote": "PPR for CIV and MIL ACFT 5 days prior to planned ARR or DEP."
+  },
+  "fuel": {
+   "types": [
+    "91UL",
+    "Jet A1"
+   ],
+   "note": "Jet A1 Shell; 91UL Swedavia at apron B in daylight, credit card only",
+   "hours": "As AD Operating hours",
+   "quote": "Fuel: 91UL, Jet A1"
+  },
+  "hours": {
+   "ad": "MON-FRI 0700-1500 (0600-1400)",
+   "note": "TWR opens 30 min before AD hours; increased charges outside hours; hours often extended",
+   "quote": "MON-FRI 0700-1500 (0600-1400)"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator",
+    "phone": "+46 10 109 52 00",
+    "quote": "TEL: +46 10 109 52 00"
+   },
+   {
+    "label": "Apron A parking PPR (ADO)",
+    "phone": "+46 10 109 52 20",
+    "quote": "TEL +46 10 109 52 20"
+   },
+   {
+    "label": "ATS (training permission)",
+    "phone": "+46 498 26 31 42",
+    "quote": "Permission by ATS TEL +46 498 26 31 42"
+   }
+  ],
+  "email": {
+   "value": "info@visbyairport.se",
+   "quote": "E-mail: info@visbyairport.se"
+  },
+  "website": {
+   "value": "www.swedavia.se/visby",
+   "quote": "Website: www.swedavia.se/visby"
+  },
+  "good_to_know": [
+   {
+    "text": "Requests go to vby.groundhandling@swedavia.se.",
+    "quote": "REQ shall be sent to vby.groundhandling@swedavia.se."
+   },
+   {
+    "text": "RWY 10/28 and TWY G are available only MAY-SEP.",
+    "quote": "RWY 10/28 and TWY G are available during MAY–SEP."
+   },
+   {
+    "text": "PPR for non-scheduled parking on apron A; max 60 minutes unless agreed.",
+    "quote": "Maximum parking time is 60 minutes unless otherwise agreed."
+   },
+   {
+    "text": "Permission required for school/training flights and parachuting.",
+    "quote": "For school and training, permission is required."
+   }
+  ]
+ },
+ {
+  "icao": "ESUP",
+  "source": "AIP Sweden AD 2 ESUP",
+  "ppr": {
+   "status": "partial",
+   "note": "PPR for non-scheduled traffic outside ATS hours; request 72 h before arrival",
+   "phone": "+46 978 129 60",
+   "request_url": "",
+   "quote": "PPR for all non scheduled traffic outside ATS HR of OPS. Request shall be made 72 hours before ARR."
+  },
+  "fuel": {
+   "types": [
+    "Jet A1"
+   ],
+   "note": "Stationary unit; supplier Air BP",
+   "hours": "As AD operating hours or O/R",
+   "quote": "Fuel: Jet A1"
+  },
+  "hours": {
+   "ad": "As ATS",
+   "note": "Operator MON-FRI 0700-1400 (0600-1300); increased charges outside scheduled-operation hours",
+   "quote": "AD Operating hours"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome / PPR",
+    "phone": "+46 978 129 60",
+    "quote": "TEL: +46 978 129 60"
+   },
+   {
+    "label": "Airport manager",
+    "phone": "+46 978 129 50",
+    "quote": "Airport Manager TEL +46 978 129 50"
+   }
+  ],
+  "email": {
+   "value": "airport@pajala.se",
+   "quote": "E-mail: airport@pajala.se"
+  },
+  "website": {
+   "value": "www.pajala.se/pajala-airport",
+   "quote": "Website: www.pajala.se/pajala-airport"
+  },
+  "good_to_know": [
+   {
+    "text": "Caution: intermittent motor vehicles on the runway.",
+    "quote": "Caution due to intermittent motor vehicles on RWY."
+   },
+   {
+    "text": "Right-hand circuit when RWY 11 is in use.",
+    "quote": "Right hand traffic circuit when RWY 11 is in use."
+   },
+   {
+    "text": "Fuel payment only VISA and Mastercard.",
+    "quote": "only VISA and Mastercard credit cards are accepted"
+   }
+  ]
+ }
+]

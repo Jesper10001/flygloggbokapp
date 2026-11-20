@@ -1,0 +1,281 @@
+[
+ {
+  "key": "ESFR",
+  "name": "Råda Air Base",
+  "type": "medium",
+  "municipality": "Råda",
+  "lat": 58.4981,
+  "lon": 13.0532,
+  "home_link": ""
+ },
+ {
+  "key": "ESGE",
+  "name": "Borås Airport",
+  "type": "small",
+  "municipality": "Borås",
+  "lat": 57.69594,
+  "lon": 12.845,
+  "home_link": "http://www.borasflygplats.se"
+ },
+ {
+  "key": "ESGL",
+  "name": "Lidköping-Hovby Airport",
+  "type": "small",
+  "municipality": "Lidköping",
+  "lat": 58.4655,
+  "lon": 13.1744,
+  "home_link": "http://www.lidkopingairport.com/"
+ },
+ {
+  "key": "ESGS",
+  "name": "Näsinge Airport",
+  "type": "small",
+  "municipality": "Strömstad",
+  "lat": 59.0168,
+  "lon": 11.3437,
+  "home_link": ""
+ },
+ {
+  "key": "ESKC",
+  "name": "Uppsala-Sundbro Airfield",
+  "type": "small",
+  "municipality": "",
+  "lat": 59.9227,
+  "lon": 17.5368,
+  "home_link": ""
+ },
+ {
+  "key": "ESKO",
+  "name": "Munkfors Airport",
+  "type": "small",
+  "municipality": "Munkfors",
+  "lat": 59.7988,
+  "lon": 13.4907,
+  "home_link": ""
+ },
+ {
+  "key": "ESMC",
+  "name": "Ränneslätt Airport",
+  "type": "small",
+  "municipality": "Eksjö",
+  "lat": 57.6706,
+  "lon": 14.943,
+  "home_link": "http://norrasmalandsfk.se"
+ },
+ {
+  "key": "ESMI",
+  "name": "Sjöbo/Sövde Airport",
+  "type": "small",
+  "municipality": "Sövdeborg",
+  "lat": 55.5982,
+  "lon": 13.6747,
+  "home_link": "http://www.sjoboflyg.se/om-oss/esmi-flygplats/"
+ },
+ {
+  "key": "ESMU",
+  "name": "Möckeln Airport",
+  "type": "small",
+  "municipality": "Älmhult",
+  "lat": 56.5707,
+  "lon": 14.1665,
+  "home_link": ""
+ },
+ {
+  "key": "ESNC",
+  "name": "Hedlanda Airport",
+  "type": "small",
+  "municipality": "Hede",
+  "lat": 62.4089,
+  "lon": 13.7472,
+  "home_link": "https://www.ivc-media.com/hedlanda/index.htm"
+ },
+ {
+  "key": "ESNR",
+  "name": "Orsa Airport",
+  "type": "small",
+  "municipality": "",
+  "lat": 61.19,
+  "lon": 14.7126,
+  "home_link": ""
+ },
+ {
+  "key": "ESSE",
+  "name": "Skå-Edeby Airport",
+  "type": "small",
+  "municipality": "Stockholm",
+  "lat": 59.3451,
+  "lon": 17.7405,
+  "home_link": ""
+ },
+ {
+  "key": "ESSM",
+  "name": "Brattforshede Airport",
+  "type": "small",
+  "municipality": "Lindfors",
+  "lat": 59.6084,
+  "lon": 13.9123,
+  "home_link": ""
+ },
+ {
+  "key": "ESTF",
+  "name": "Fjällbacka Anra Airport",
+  "type": "small",
+  "municipality": "Fjällbacka",
+  "lat": 58.63001,
+  "lon": 11.31446,
+  "home_link": ""
+ },
+ {
+  "key": "ESUG",
+  "name": "Gargnäs Airport",
+  "type": "small",
+  "municipality": "Gargnäs",
+  "lat": 65.3053,
+  "lon": 17.9755,
+  "home_link": ""
+ },
+ {
+  "key": "ESUL",
+  "name": "Ljusdal Airport",
+  "type": "small",
+  "municipality": "Ljusdal",
+  "lat": 61.817,
+  "lon": 16.0043,
+  "home_link": ""
+ },
+ {
+  "key": "ESUV",
+  "name": "Älvsbyn Airport",
+  "type": "small",
+  "municipality": "Älvsbyn",
+  "lat": 65.6457,
+  "lon": 21.0611,
+  "home_link": "https://alvsbyflygklubb.se"
+ },
+ {
+  "key": "ESVH",
+  "name": "Hällefors Airport",
+  "type": "small",
+  "municipality": "Hällefors",
+  "lat": 59.8674,
+  "lon": 14.4239,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0001",
+  "name": "Trosa Troslanda airfield",
+  "type": "small",
+  "municipality": "",
+  "lat": 58.89862,
+  "lon": 17.49847,
+  "home_link": "http://www.trosaflygklubb.se/"
+ },
+ {
+  "key": "SE-0006",
+  "name": "Alvesta Smålanda Airfield",
+  "type": "small",
+  "municipality": "Alvesta",
+  "lat": 56.92582,
+  "lon": 14.54229,
+  "home_link": "http://www.smalanda.se/"
+ },
+ {
+  "key": "SE-0011",
+  "name": "Täby Sjöflygklubb",
+  "type": "seaplane",
+  "municipality": "",
+  "lat": 59.44805,
+  "lon": 18.13621,
+  "home_link": "http://www.tsk.nu"
+ },
+ {
+  "key": "SE-0017",
+  "name": "Frostlanda Airfield",
+  "type": "small",
+  "municipality": "Gäddede",
+  "lat": 64.48205,
+  "lon": 14.1045,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0023",
+  "name": "Baggböle Airstrip",
+  "type": "small",
+  "municipality": "",
+  "lat": 62.19081,
+  "lon": 17.26882,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0028",
+  "name": "Charlottenberg Airstrip",
+  "type": "small",
+  "municipality": "Charlottenberg",
+  "lat": 59.89422,
+  "lon": 12.27225,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0035",
+  "name": "Överlanda Airfield",
+  "type": "small",
+  "municipality": "Överlanda",
+  "lat": 62.95804,
+  "lon": 18.04785,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0045",
+  "name": "Sala flygfält",
+  "type": "small",
+  "municipality": "Sala",
+  "lat": 59.89513,
+  "lon": 16.63015,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0051",
+  "name": "Degerfors Grenlanda Airfield",
+  "type": "small",
+  "municipality": "Degerfors",
+  "lat": 59.10288,
+  "lon": 14.30033,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0058",
+  "name": "Kronobergshed Airfield",
+  "type": "small",
+  "municipality": "",
+  "lat": 56.97478,
+  "lon": 14.56653,
+  "home_link": "https://kronobergshedsflyg.se"
+ },
+ {
+  "key": "SE-0063",
+  "name": "Hedemora Flygfält",
+  "type": "small",
+  "municipality": "",
+  "lat": 60.23955,
+  "lon": 15.98397,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0068",
+  "name": "Pirttivuopio ice runway",
+  "type": "small",
+  "municipality": "",
+  "lat": 67.86756,
+  "lon": 19.22097,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0073",
+  "name": "Väster Private Airstrip",
+  "type": "small",
+  "municipality": "",
+  "lat": 55.52905,
+  "lon": 12.92175,
+  "home_link": ""
+ }
+]

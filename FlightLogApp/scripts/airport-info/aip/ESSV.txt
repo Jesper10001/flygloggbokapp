@@ -1,0 +1,134 @@
+SOURCE: AIP Sweden, AD 2 ESSV VISBY (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESSV%20VISBY%201-en-GB.html
+
+ESSV 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 573946N 0182046E 021° GEO 1000 m from THR 03 
+ 2. 
+ Direction and distance from (city) 
+ NE 2 NM from Visby 
+ 3. 
+ Elevation/Reference temperature 
+ 164 ft/+24.0°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 82 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 7° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Swedavia AB 
+ Visby Airport 
+ SE-621 41 Visby
+ TEL: +46 10 109 52 00 
+ FAX: +46 10 109 52 45 
+ E-mail: info@visbyairport.se 
+ AFS: ESSVZTZX 
+ Website: www.swedavia.se/visby 
+ Website: www.swedavia.net/visby
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 03/21 4C, 10/28 2B 
+ 8. 
+ Remarks 
+ PPR for CIV and MIL ACFT 5 days prior to planned ARR or DEP. 
+ The following TFC is exempted: HOSP, STATE, SAR, SKED TFC, Swedish MIL and operators with sanction agreement. 
+ REQ shall be sent to vby.groundhandling@swedavia.se.
+
+ESSV 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0700-1500 (0600-1400) 
+ AD Operating hours 
+ Ref AIP SUP/NOTAM 
+ 2. 
+ Customs and immigration 
+ O/R. Customs +46 8 456 66 20. Immigration +46 10 569 29 09. 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ TWR opens 30 min prior AD Operating hours. Closes as AD Operating hours. 
+ 8. 
+ Fuelling 
+ As AD Operating hours 
+ 9. 
+ Handling 
+ O/R, e-mail: vby.groundhandling@swedavia.se 
+ 10. 
+ Security 
+ As AD Operating hours 
+ 11. 
+ De-Icing 
+ As AD Operating hours 
+ 12. 
+ Remarks 
+ Increased charges outside AD Operating hours. Frequent extension of operational hours.
+
+ESSV 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ - 
+ 2. 
+ Fuel and oil types 
+ Fuel: 91UL, Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ 91UL: 18,500 l in store. 
+ Jet A1: 30,000 l in fuel truck, 150,000 l in store.
+ 4. 
+ De-icing facilities 
+ Type I and II. Available OCT-APR. 
+ MAY-SEP on request.
+ 5. 
+ Hangar space for visiting ACFT 
+ - 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ Waste originated outside EU/EEA cannot be disposed into Gotland. 
+ Fuel supplier Jet A1 Shell and 91UL Swedavia. 
+ 91UL available at apron B during daylight, payment accepted by credit cards only. 
+ Electric aircraft charging: Type 2, 22 kW at apron A, stand 9 and 10, also at apron B.
+
+ESSV 2.20 LOCAL AERODROME REGULATIONS 
+ 1 Availability 
+ RWY 10/28 and TWY G are available during MAY–SEP.
+ During other period information on runway conditions shall be obtained from ATS for flight planning.
+ 2 Start-up and clearance for IFR traffic 
+ Startup and clearance shall be requested on channel 120.305 not earlier than 30 MIN before EOBT.
+ 3 Start-up and clearance for VFR traffic 
+ Start-up and clearance shall be requested before taxiing from apron B.
+ 4 School and training flights 
+ For school and training, permission is required. Permission by ATS TEL +46 498 26 31 42.
+ 5 Parachuting 
+ For parachuting, permission is required.
+ Permission by ATS.
+ Parachuting landing area – see ESSV Aerodrome Chart.
+ 6 Parking Apron A 
+ Prior permission required (PPR) for non-schedule flights for parking apron A, except ambulance flight. Maximum parking time is 60 minutes unless otherwise agreed. Request shall be addressed to 
+ vby.ado@swedavia.se or TEL +46 10 109 52 20.
+ 7 Ground movement procedures 
+ Engines shall be operated at minimum power required when taxiing on apron A and B. Caution advised when turning around on apron A and B. Watch out for passengers on aprons. Oversteering is required when taxiing from/to south TWY M from/to apron A stand 1, 2 and 3. 
+Code C aircraft are requested to avoid executing 180-degree turns on the runway threshold.
+ 8 Engine ground run 
+ Engine ground run shall take place 0500-2100 (0400-2000). Engine ground run (high power) shall be performed in the manoeuvering area. Engine ground run (idle power) on Apron A.
+ If, for flight-safety reasons, engine ground run must take place 2100–0500 (2000-0400), the following applies:
+ • Engine ground run shall be performed on Apron A.
+ • A report shall be sent to ADO: 
+ vby.ado@swedavia.se . The report must state when the engine ground run started and ended.

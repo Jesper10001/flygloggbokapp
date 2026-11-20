@@ -1,0 +1,281 @@
+[
+ {
+  "key": "ESGC",
+  "name": "Ålleberg Airport",
+  "type": "small",
+  "municipality": "Ålleberg",
+  "lat": 58.1345,
+  "lon": 13.6026,
+  "home_link": ""
+ },
+ {
+  "key": "ESGI",
+  "name": "Alingsås Airfield",
+  "type": "small",
+  "municipality": "Alingsås",
+  "lat": 57.94889,
+  "lon": 12.57583,
+  "home_link": ""
+ },
+ {
+  "key": "ESGO",
+  "name": "Vårgårda Airport",
+  "type": "small",
+  "municipality": "Vårgårda",
+  "lat": 58.0394,
+  "lon": 12.7889,
+  "home_link": ""
+ },
+ {
+  "key": "ESGY",
+  "name": "Säffle Airport",
+  "type": "small",
+  "municipality": "Säffle",
+  "lat": 59.0912,
+  "lon": 12.9586,
+  "home_link": ""
+ },
+ {
+  "key": "ESKH",
+  "name": "Ekshärad Airport",
+  "type": "small",
+  "municipality": "Ekshärad",
+  "lat": 60.1548,
+  "lon": 13.5286,
+  "home_link": ""
+ },
+ {
+  "key": "ESKX",
+  "name": "Björkvik Air Base",
+  "type": "medium",
+  "municipality": "Björkvik",
+  "lat": 58.7908,
+  "lon": 16.5712,
+  "home_link": ""
+ },
+ {
+  "key": "ESMG",
+  "name": "Feringe Airport",
+  "type": "small",
+  "municipality": "Ljungby",
+  "lat": 56.9503,
+  "lon": 13.9217,
+  "home_link": "http://www.feringefk.se/"
+ },
+ {
+  "key": "ESMO",
+  "name": "Oskarshamn Airport",
+  "type": "small",
+  "municipality": "",
+  "lat": 57.3505,
+  "lon": 16.498,
+  "home_link": ""
+ },
+ {
+  "key": "ESNA",
+  "name": "Hallviken Airport",
+  "type": "small",
+  "municipality": "Hallviken",
+  "lat": 63.7383,
+  "lon": 15.4583,
+  "home_link": ""
+ },
+ {
+  "key": "ESNM",
+  "name": "Optand Airport",
+  "type": "small",
+  "municipality": "",
+  "lat": 63.1286,
+  "lon": 14.8028,
+  "home_link": "https://flygklubben.se/fpc-optands-flygfalt/"
+ },
+ {
+  "key": "ESQO",
+  "name": "Arboga Airfield",
+  "type": "small",
+  "municipality": "",
+  "lat": 59.3866,
+  "lon": 15.9241,
+  "home_link": "https://klubbhus.flygsport.se/arboga-flygklubb/flygplatsen-esqo"
+ },
+ {
+  "key": "ESSH",
+  "name": "Laxå Airport",
+  "type": "small",
+  "municipality": "Laxå",
+  "lat": 58.9787,
+  "lon": 14.6662,
+  "home_link": ""
+ },
+ {
+  "key": "ESSX",
+  "name": "Johannisberg Airport",
+  "type": "small",
+  "municipality": "Västerås",
+  "lat": 59.5758,
+  "lon": 16.5032,
+  "home_link": ""
+ },
+ {
+  "key": "ESUD",
+  "name": "Storuman Airport",
+  "type": "medium",
+  "municipality": "Storuman",
+  "lat": 64.9609,
+  "lon": 17.6966,
+  "home_link": ""
+ },
+ {
+  "key": "ESUJ",
+  "name": "Tälje Airport",
+  "type": "small",
+  "municipality": "Ånge",
+  "lat": 62.5653,
+  "lon": 15.8347,
+  "home_link": "http://www.angeflygklubb.se"
+ },
+ {
+  "key": "ESUR",
+  "name": "Ramsele Airfield",
+  "type": "small",
+  "municipality": "Sollefteå",
+  "lat": 63.4903,
+  "lon": 16.4834,
+  "home_link": ""
+ },
+ {
+  "key": "ESVB",
+  "name": "Bunge Private Airport",
+  "type": "small",
+  "municipality": "Bunge",
+  "lat": 57.8497,
+  "lon": 19.035,
+  "home_link": ""
+ },
+ {
+  "key": "ESVQ",
+  "name": "Köping/Gålby flygfält",
+  "type": "small",
+  "municipality": "Köping",
+  "lat": 59.5275,
+  "lon": 15.9697,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0004",
+  "name": "Norberg",
+  "type": "small",
+  "municipality": "",
+  "lat": 60.10716,
+  "lon": 15.9504,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0009",
+  "name": "Flygfältet Långtora",
+  "type": "small",
+  "municipality": "",
+  "lat": 59.74629,
+  "lon": 17.14486,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0015",
+  "name": "Orrlanda Flygfält",
+  "type": "small",
+  "municipality": "",
+  "lat": 63.09283,
+  "lon": 14.44145,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0021",
+  "name": "Finnskoga/Backa flygplats",
+  "type": "small",
+  "municipality": "Backa",
+  "lat": 60.5535,
+  "lon": 13.10279,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0026",
+  "name": "Finspångs flygfält",
+  "type": "small",
+  "municipality": "",
+  "lat": 58.73342,
+  "lon": 15.604,
+  "home_link": "http://gliding.se"
+ },
+ {
+  "key": "SE-0031",
+  "name": "Kolåsens flygfält",
+  "type": "small",
+  "municipality": "Kolåsen",
+  "lat": 63.76423,
+  "lon": 12.90921,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0042",
+  "name": "Pålsträsket Airstrip",
+  "type": "small",
+  "municipality": "Pålsträsk",
+  "lat": 65.63935,
+  "lon": 21.23159,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0048",
+  "name": "Duvhed flygfält UL",
+  "type": "small",
+  "municipality": "",
+  "lat": 57.44345,
+  "lon": 12.16487,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0056",
+  "name": "Stöde / Prästbordet flygfält",
+  "type": "small",
+  "municipality": "Sundsvall",
+  "lat": 62.40812,
+  "lon": 16.5317,
+  "home_link": "http://www.sundsvallssegelflygklubb.se/"
+ },
+ {
+  "key": "SE-0061",
+  "name": "Åkersberga Airfield",
+  "type": "small",
+  "municipality": "Åkersberga",
+  "lat": 59.52011,
+  "lon": 18.23975,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0066",
+  "name": "Motala flygklubb",
+  "type": "small",
+  "municipality": "Skärstad",
+  "lat": 58.49494,
+  "lon": 15.1024,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0071",
+  "name": "Bergby Airstrip",
+  "type": "small",
+  "municipality": "Bergby (Norrtälje)",
+  "lat": 59.76502,
+  "lon": 18.62201,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0080",
+  "name": "Tallåsen Airstrip",
+  "type": "small",
+  "municipality": "",
+  "lat": 62.87396,
+  "lon": 17.35913,
+  "home_link": ""
+ }
+]

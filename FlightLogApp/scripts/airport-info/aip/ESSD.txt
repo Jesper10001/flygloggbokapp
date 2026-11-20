@@ -1,0 +1,116 @@
+SOURCE: AIP Sweden, AD 2 ESSD BORLÄNGE (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESSD%20BORL%C3%84NGE%201-en-GB.html
+
+ESSD 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 602520N 0153054E RWY 1100 m in from THR 14 
+ 2. 
+ Direction and distance from (city) 
+ SSE 4 NM from Borlänge 
+ 3. 
+ Elevation/Reference temperature 
+ 504 ft/+17.4°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 95 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 6° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Dala Airport AB 
+ Överstevägen 50 
+ SE-784 63 Borlänge
+ TEL: +46 243 645 00 
+ E-mail: info@dalaairport.se 
+ AFS: ESSDZTZX 
+ Website: www.dalaairport.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4C 
+ 8. 
+ Remarks 
+ -
+
+ESSD 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0700-1600 (0600-1500) 
+ AD Operating hours 
+ H24 
+ 2. 
+ Customs and immigration 
+ CUST: O/R +46 8 405 02 50 
+ Immigration: MON-FRI 0700-1500 (0600-1400)
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ FPC H24 , +46 (0)8 797 63 40, www.lfv.se/fpc 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ MON-FRI 0700-1600 (0600-1500) 
+ 8. 
+ Fuelling 
+ H24 Self-service 
+ MON-FRI 0700-1530 (0600-1430) 
+ Other hours O/R
+ 9. 
+ Handling 
+ O/R 
+ 10. 
+ Security 
+ O/R 
+ 11. 
+ De-Icing 
+ O/R 
+ 12. 
+ Remarks 
+ Increased charges outside TWR HR of OPS
+
+ESSD 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ - 
+ 2. 
+ Fuel and oil types 
+ Fuel: 100LL, Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ 100LL: Stationary 10,000 l 
+ Jet A1: Stationary 12,000 l, truck 20,000 l, 800 l/min
+ 4. 
+ De-icing facilities 
+ Available, Type I and II. De-icing channel 121.780. 
+ 5. 
+ Hangar space for visiting ACFT 
+ O/R 
+ 6. 
+ Repair facilities for visiting ACFT 
+ O/R 
+ 7. 
+ Remarks 
+ For 100LL and Jet A1, self-service H24 with BP card. 
+ Electrical charging poles, connectors type 2 and 220/380V, 
+ stand 4, 5 and 6.
+
+ESSD 2.20 LOCAL AERODROME REGULATIONS 
+ 1. All aircraft operating to/from Borlänge aerodrome must be equipped with VHF-radio which allows two-way radio communication on channel 127.305 and 121.500. This is mandatory also outside ATS HR of OPS.
+ 2. Clearance at gate
+ ATC clearance for IFR traffic will be delivered on request at start-up. Transponder code will be communicated during taxi.
+ 3. Outside TWR operational hours the traffic circuit shall be flown east of RWY 14/32 when there is activity on the grass strip 12/30 situated west of the beginning RWY 14.
+ 4. Right hand traffic circuit to grass strip 12.
+ 5. No snow clearance of grass strip 12/30. For information about condition of grass strip 12/30 contact Borlänge Flygklubb TEL +46 70 479 36 68.
+ 6. After take-off RWY 14 or 32 light aircraft shall climb straight ahead to MNM 500 ft GND before commencing turn. Noise-sensitive areas shall always be avoided.
+ 7. During ATS operational hours, PPR applies for all IFR school flights. TEL +46 243 645 20.
+ 8. School flights, glider towing and skydiving are only allowed MON-FRI 0600-2100 (0500-2000) and SAT-SUN 0800-1700 (0700-1600).
+ 9. When ATS is closed instrument approach procedures can only be carried out by flight operators who has signed an agreement with the aerodrome. This does not apply to missions of importance to society, for example ambulance and police helicopter.

@@ -35,8 +35,14 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - New: Specific under Air Bases on the Global map shows military air bases outside NATO by aircraft type, with the units based there and where the information comes from.
 - New: Types under Specific lets you show only the bases with a certain aircraft, such as the Su-57, with a short description of each model.
 - Improved: Global map filters are simpler: Properties is one row per setting, Closed airports are under Access, and a Clear button resets all filters.
+- New: Airport Info for Swedish airfields: PPR, fuel, opening hours, contacts and good-to-know, from the AIP or the airfield's own website. Tap Info on the Global map or in Find airport.
 
 ### Alla ändringar
+
+- Airport Info (Sverige): Info-knapp på global map (under Back/Fly to/Coordinates; kortet ovanför flygplatskortet, max 360 pt, rullar) och i Find airport (kortet ersätter kartrutan, 315 pt, "Map" tillbaka). components/AirportInfoPanel.tsx (PPR-status + Request PPR/Call for PPR, bränsletyper och tider, öppettider (H24 → "Open"), Good to know, Call-knappar med etikett, Website, Source + verifieringsdatum, friskrivning), store/airportInfoStore.ts (GET /airport-info, cache i telefonen, ETag).
+  - Data: 85 flygplatser — 48 ur Sveriges AIP (LFV eAIP AMDT 6-2026, AD 2.2/2.3/2.4/2.20) och 37 ur fältens egna hemsidor; varje uppgift har ett ordagrant citat som kontrollerats mot källan (scripts/airport-info: fetch-aip.py, verify-info.py, verify-web.py), sammanfattningarna granskade mot citaten (reviewed/changes*.md). 117 små fält utan egen källa får ingen Info-knapp. Inga gissningar ("unknown" när källan inte säger något).
+  - Proxyn (deployad e7f47524): GET /airport-info och redigering i Blades Ops (/ops/airport-info; ändringar i KV vinner över grunddatan, kräver källa, historik). Grunddata: scripts/airport-info/build-info.mjs → proxy/data/airport-info-se.json.
+  - Öppet före release: LFV:s villkor för återanvändning av AIP-uppgifter.
 
 - Types: förslagslista när man skriver i sökfältet (namn som börjar så först, sedan namn som innehåller det, sedan beskrivningen; antal unika baser; tryck = välj). Kategorierna är fällbara flikar, stängda från början. Rättat: listan var tom — proxyn skickade max-age=3600 och iOS visade ett gammalt lager utan modeller; nu no-cache + ETag (proxy deployad), appen frågar alltid och hämtar om lagret direkt om modellistan saknas.
 

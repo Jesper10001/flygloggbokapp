@@ -1,0 +1,130 @@
+SOURCE: AIP Sweden, AD 2 ESDF RONNEBY (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESDF%20RONNEBY%201-en-GB.html
+
+ESDF 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 561600N 0151554E RWY centre point 
+ 2. 
+ Direction and distance from (city) 
+ N 5 NM from Ronneby 
+ 3. 
+ Elevation/Reference temperature 
+ 191 ft/+18.5°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 109 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 5° E (2020)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ MIL AD: FM/Swedish Armed Forces 
+ F17 Ronneby 
+ SE-372 25 Ronneby
+ TEL: +46 10 827 10 00 
+ TEL: +46 709 14 26 66 (MIL OPS)
+ FAX: +46 10 827 14 23 (MIL OPS) 
+ E-mail: f17-milairporthandling@mil.se (MIL OPS) 
+ CIV OPR: 
+ Swedavia AB 
+ Ronneby Airport 
+ SE-372 92 Ronneby
+ TEL: +46 10 109 54 00 
+ E-mail: ronnebyairport@swedavia.se 
+ AFS: ESDFZTZX 
+ Website: www.ronnebyairport.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4D 
+ 8. 
+ Remarks 
+ CIV apron: 
+ PPR 5 days prior to planned arrival or departure. The following TFC is exempted: HOSP, STATE, SAR, SKED, TFC, SWE MIL and operators with sanction agreement. Request shall be sent to rnb.groundhandling@swedavia.se 
+ All other aprons: 
+ PPR for military transport aircraft. 
+ Other TFC PPR outside TWR HR of OPS. 
+ Request shall be made to F17 mil airport handling TEL: +46 709 14 26 66 
+ E-mail: f17-milairporthandling@mil.se
+
+ESDF 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0600-1430 (0500-1330) 
+ AD Operating hours 
+ Ref AIP SUP/NOTAM. 
+ 2. 
+ Customs and immigration 
+ O/R TEL +46 40 661 32 20 
+ Immigration O/R
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ Ref AIP SUP/NOTAM 
+ 8. 
+ Fuelling 
+ Jet A1 as AD Operating hours. 
+ AVGAS 91UL as agreed with Ronneby Flying Club, RFK.
+ 9. 
+ Handling 
+ As AD Operating hours 
+ Passangerhandling O/R
+ 10. 
+ Security 
+ O/R 5 banking days PN 
+ 11. 
+ De-Icing 
+ As AD Operating hours 
+ 12. 
+ Remarks 
+ Increased charges outside TWR HR of OPS. 
+ CIV apron CLSD outside AD operating hours.
+
+ESDF 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ Available O/R 
+ 2. 
+ Fuel and oil types 
+ Fuel: AVGAS 91UL, Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ AVGAS 91UL: stationary unit at RFK 
+ Jet A1: 37000 l, fuel truck
+ 4. 
+ De-icing facilities 
+ Type I and II, mobile unit 
+ 5. 
+ Hangar space for visiting ACFT 
+ - 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ Passenger handling by Swedavia 
+ rnb.groundhandling@swedavia.se, TEL +46 10 109 54 00. 
+ Handling services and facilities, 5 days PPR 
+ TEL +46 10 109 55 96.
+ AVGAS 91UL, supplier Ronneby Flying Club, RFK. 
+ TEL +46 73 366 93 97, +46 70 815 64 43 
+ Payment: SWISH or cash (SEK/EUR) are accepted. 
+ AVGAS 91UL PPR 3 days ahead. 
+ Jet A1 fuel supplier AirBP Swedavia Ramp Groundhandling 
+ TEL +46 10 109 55 96 
+ AirBP accept only BP-Sterling card or Fuel Release as form of payment. Cash or credit card are not accepted.
+
+ESDF 2.20 LOCAL AERODROME REGULATIONS 
+ Request for start-up, taxi and clearance shall be made on “Ground” channel 121.855 during “Ground” hours of operation. Outside these hours request for start-up, taxi and clearance shall be made on “Tower” channel 119.205.

@@ -1,0 +1,126 @@
+SOURCE: AIP Sweden, AD 2 ESOE ÖREBRO (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESOE%20%C3%96REBRO%201-en-GB.html
+
+ESOE 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 591341N 0150224E RWY 935 m from THR 19 
+ 2. 
+ Direction and distance from (city) 
+ WSW 5.6 NM from Örebro 
+ 3. 
+ Elevation/Reference temperature 
+ 192 ft/+25.4°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 94 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 7° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Örebro Läns Flygplats AB 
+ Örebro Airport 
+ SE-705 94 Örebro
+ TEL: +46 19 30 70 00 
+ FAX: +46 19 24 11 13 
+ E-mail: handling@orebroairport.se 
+ AFS: ESOEZTZX 
+ Website: www.orebroairport.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4E 
+ 8. 
+ Remarks 
+ PPR outside TWR HR of OPS 
+ PPR for commercial traffic and aircraft exceeding MTOM 2000 kg. 
+ Requests shall be made during hours of AD operator to: handling@orebroairport.se or TEL +46 19 30 70 34.
+
+ESOE 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0700-1500 (0600-1400) 
+ AD Operating hours 
+ Ref AIP SUP/NOTAM 
+ 2. 
+ Customs and immigration 
+ O/R TEL +46 40 661 32 20 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ Ref AIP SUP/NOTAM 
+ 8. 
+ Fuelling 
+ As ATS and O/R 
+ 9. 
+ Handling 
+ O/R 
+ 10. 
+ Security 
+ O/R 
+ 11. 
+ De-Icing 
+ O/R 
+ 12. 
+ Remarks 
+ Marshalling available during hours of TWR. No marshall service on GA apron. Increased charges outside TWR HR of OPS.
+
+ESOE 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ Available, all types 
+ 2. 
+ Fuel and oil types 
+ Fuel: Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ Jet A1: 180,000 l stationary, 70,000 l fuel truck 
+ 4. 
+ De-icing facilities 
+ Available, type I and II, mobile units 
+ 5. 
+ Hangar space for visiting ACFT 
+ Limited 
+ 6. 
+ Repair facilities for visiting ACFT 
+ O/R TEL +46 19 24 10 88 (TAM - Täby Air Maintenance AB) 
+ 7. 
+ Remarks 
+ Fuel Supplier Shell. 
+ For payment of fuel Shell Carnet accepted, for Visa and Mastercard assistance is required.
+
+ESOE 2.20 LOCAL AERODROME REGULATIONS 
+ 1 Prior permission required (PPR) 
+ PPR outside aerodrome/ATS hours of operation. Örebro flying club will give permission to VFR traffic with single-engined aeroplanes only. Permission obtainable from flying club, TEL +46 19 24 10 20.
+ 2 Restrictions for school and training flights 
+ PPR for IFR training flights within CTR/TMA. 
+Take-off and landing exercises and repeated instrument approaches accepted only between 0600–2100 (0500–2000).
+ 3 Traffic circuit 
+ Traffic circuit west of RWY 01/19 outside TWR HR of OPS.
+ 4 Routines outside ATS opening hours 
+ Outside ATS hours of operations, blind transmission is mandatory within CTR. 
+For VFR landing outside ATS hours of operation the intention to land and ETA shall be clearly declared on channel 120.280 followed by a “visual fly over check” at 1000 ft AGL or above in order to verify runway availability and alerting any AD personnel and other traffic on the runway. If the runway is not available in its full length and width, the landing shall not be carried out. 
+For take-off outside ATS hours of operation the intention to take-off shall clearly be declared on channel 120.280. If the runway is not available in its full length and width, the take-off shall not be carried out. 
+Vehicle traffic may occur in the manoeuvring area outside ATS opening hours.
+ 5 Malfunctioning stopbar 
+ When a taxiway stopbar is not controllable the following procedure apply:
+ When using taxiway with malfunctioning stopbar manoeuvring, taxiing pass a lighted stopbar is only permitted behind a marshalling car. ATC will inform via clearance.
+ 6 De-icing 
+ De-icing at western part of the apron, see AD-chart.
+ Contact de-icing on channel 121.905 for instructions.
+ 7 Runway guard lights (RGL) 
+ RGL activated during TWR HR of OPS.
+ 8 Start-up permission 
+ Start-up permission required by all IFR-traffic.

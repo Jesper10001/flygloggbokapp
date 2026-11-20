@@ -1,0 +1,293 @@
+{
+ "amdt": "AIRAC AIP AMDT 6-2026_2026_10_29",
+ "aerodromes": {
+  "ESCF": {
+   "name": "LINKÖPING-MALMEN",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESCF%20LINK%C3%96PING-MALMEN%201-en-GB.html",
+   "chars": 2858,
+   "has2_20": true
+  },
+  "ESCM": {
+   "name": "UPPSALA",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESCM%20UPPSALA%201-en-GB.html",
+   "chars": 3349,
+   "has2_20": true
+  },
+  "ESDF": {
+   "name": "RONNEBY",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESDF%20RONNEBY%201-en-GB.html",
+   "chars": 3555,
+   "has2_20": true
+  },
+  "ESGG": {
+   "name": "GÖTEBORG-LANDVETTER",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESGG%20G%C3%96TEBORG-LANDVETTER%201-en-GB.html",
+   "chars": 12303,
+   "has2_20": true
+  },
+  "ESGJ": {
+   "name": "JÖNKÖPING",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESGJ%20J%C3%96NK%C3%96PING%201-en-GB.html",
+   "chars": 3135,
+   "has2_20": true
+  },
+  "ESGP": {
+   "name": "GÖTEBORG-SÄVE",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESGP%20G%C3%96TEBORG-S%C3%84VE%201-en-GB.html",
+   "chars": 2632,
+   "has2_20": true
+  },
+  "ESGT": {
+   "name": "GÖTEBORG-STALLBACKA",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESGT%20G%C3%96TEBORG-STALLBACKA%201-en-GB.html",
+   "chars": 3385,
+   "has2_20": true
+  },
+  "ESIA": {
+   "name": "KARLSBORG",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESIA%20KARLSBORG%201-en-GB.html",
+   "chars": 2311,
+   "has2_20": true
+  },
+  "ESIB": {
+   "name": "SÅTENÄS",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESIB%20S%C3%85TEN%C3%84S%201-en-GB.html",
+   "chars": 2382,
+   "has2_20": true
+  },
+  "ESKM": {
+   "name": "MORA-SILJAN",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESKM%20MORA-SILJAN%201-en-GB.html",
+   "chars": 2672,
+   "has2_20": true
+  },
+  "ESKN": {
+   "name": "STOCKHOLM-SKAVSTA",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESKN%20STOCKHOLM-SKAVSTA%201-en-GB.html",
+   "chars": 3077,
+   "has2_20": true
+  },
+  "ESKS": {
+   "name": "SÄLEN-SCANDINAVIAN MOUNTAINS",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESKS%20S%C3%84LEN-SCANDINAVIAN%20MOUNTAINS%201-en-GB.html",
+   "chars": 2283,
+   "has2_20": true
+  },
+  "ESMK": {
+   "name": "KRISTIANSTAD",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESMK%20KRISTIANSTAD%201-en-GB.html",
+   "chars": 3112,
+   "has2_20": true
+  },
+  "ESMQ": {
+   "name": "KALMAR",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESMQ%20KALMAR%201-en-GB.html",
+   "chars": 2560,
+   "has2_20": true
+  },
+  "ESMS": {
+   "name": "MALMÖ",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESMS%20MALM%C3%96%201-en-GB.html",
+   "chars": 5063,
+   "has2_20": true
+  },
+  "ESMT": {
+   "name": "HALMSTAD",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESMT%20HALMSTAD%201-en-GB.html",
+   "chars": 2706,
+   "has2_20": true
+  },
+  "ESMV": {
+   "name": "HAGSHULT",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESMV%20HAGSHULT%201-en-GB.html",
+   "chars": 1858,
+   "has2_20": true
+  },
+  "ESMX": {
+   "name": "VÄXJÖ-KRONOBERG",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESMX%20V%C3%84XJ%C3%96-KRONOBERG%201-en-GB.html",
+   "chars": 2861,
+   "has2_20": true
+  },
+  "ESND": {
+   "name": "SVEG",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESND%20SVEG%201-en-GB.html",
+   "chars": 2745,
+   "has2_20": true
+  },
+  "ESNG": {
+   "name": "GÄLLIVARE",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESNG%20G%C3%84LLIVARE%201-en-GB.html",
+   "chars": 2407,
+   "has2_20": true
+  },
+  "ESNK": {
+   "name": "KRAMFORS-SOLLEFTEÅ",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESNK%20KRAMFORS-SOLLEFTE%C3%85%201-en-GB.html",
+   "chars": 2496,
+   "has2_20": true
+  },
+  "ESNL": {
+   "name": "LYCKSELE",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESNL%20LYCKSELE%201-en-GB.html",
+   "chars": 2558,
+   "has2_20": true
+  },
+  "ESNN": {
+   "name": "SUNDSVALL-TIMRÅ",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESNN%20SUNDSVALL-TIMR%C3%85%201-en-GB.html",
+   "chars": 2692,
+   "has2_20": true
+  },
+  "ESNO": {
+   "name": "ÖRNSKÖLDSVIK",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESNO%20%C3%96RNSK%C3%96LDSVIK%201-en-GB.html",
+   "chars": 2187,
+   "has2_20": true
+  },
+  "ESNQ": {
+   "name": "KIRUNA",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESNQ%20KIRUNA%201-en-GB.html",
+   "chars": 3636,
+   "has2_20": true
+  },
+  "ESNS": {
+   "name": "SKELLEFTEÅ",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESNS%20SKELLEFTE%C3%85%201-en-GB.html",
+   "chars": 2734,
+   "has2_20": true
+  },
+  "ESNU": {
+   "name": "UMEÅ",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESNU%20UME%C3%85%201-en-GB.html",
+   "chars": 4062,
+   "has2_20": true
+  },
+  "ESNV": {
+   "name": "VILHELMINA",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESNV%20VILHELMINA%201-en-GB.html",
+   "chars": 1940,
+   "has2_20": true
+  },
+  "ESNX": {
+   "name": "ARVIDSJAUR",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESNX%20ARVIDSJAUR%201-en-GB.html",
+   "chars": 2678,
+   "has2_20": true
+  },
+  "ESNZ": {
+   "name": "ÅRE ÖSTERSUND",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESNZ%20%C3%85RE%20%C3%96STERSUND%201-en-GB.html",
+   "chars": 3796,
+   "has2_20": true
+  },
+  "ESOE": {
+   "name": "ÖREBRO",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESOE%20%C3%96REBRO%201-en-GB.html",
+   "chars": 4282,
+   "has2_20": true
+  },
+  "ESOH": {
+   "name": "HAGFORS",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESOH%20HAGFORS%201-en-GB.html",
+   "chars": 2744,
+   "has2_20": true
+  },
+  "ESOK": {
+   "name": "KARLSTAD",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESOK%20KARLSTAD%201-en-GB.html",
+   "chars": 3803,
+   "has2_20": true
+  },
+  "ESOW": {
+   "name": "STOCKHOLM-VÄSTERÅS",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESOW%20STOCKHOLM-V%C3%84STER%C3%85S%201-en-GB.html",
+   "chars": 4524,
+   "has2_20": true
+  },
+  "ESPA": {
+   "name": "LULEÅ-KALLAX",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESPA%20LULE%C3%85-KALLAX%201-en-GB.html",
+   "chars": 5209,
+   "has2_20": true
+  },
+  "ESPE": {
+   "name": "VIDSEL",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESPE%20VIDSEL%201-en-GB.html",
+   "chars": 2013,
+   "has2_20": true
+  },
+  "ESSA": {
+   "name": "STOCKHOLM-ARLANDA",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESSA%20STOCKHOLM-ARLANDA%201-en-GB.html",
+   "chars": 17033,
+   "has2_20": true
+  },
+  "ESSB": {
+   "name": "STOCKHOLM-BROMMA",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESSB%20STOCKHOLM-BROMMA%201-en-GB.html",
+   "chars": 9723,
+   "has2_20": true
+  },
+  "ESSD": {
+   "name": "BORLÄNGE",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESSD%20BORL%C3%84NGE%201-en-GB.html",
+   "chars": 3614,
+   "has2_20": true
+  },
+  "ESSL": {
+   "name": "LINKÖPING-SAAB",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESSL%20LINK%C3%96PING-SAAB%201-en-GB.html",
+   "chars": 4101,
+   "has2_20": true
+  },
+  "ESSP": {
+   "name": "NORRKÖPING-KUNGSÄNGEN",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESSP%20NORRK%C3%96PING-KUNGS%C3%84NGEN%201-en-GB.html",
+   "chars": 3369,
+   "has2_20": true
+  },
+  "ESST": {
+   "name": "TORSBY",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESST%20TORSBY%201-en-GB.html",
+   "chars": 2646,
+   "has2_20": true
+  },
+  "ESSU": {
+   "name": "ESKILSTUNA",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESSU%20ESKILSTUNA%201-en-GB.html",
+   "chars": 3026,
+   "has2_20": true
+  },
+  "ESSV": {
+   "name": "VISBY",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESSV%20VISBY%201-en-GB.html",
+   "chars": 4593,
+   "has2_20": true
+  },
+  "ESTA": {
+   "name": "ÄNGELHOLM",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESTA%20%C3%84NGELHOLM%201-en-GB.html",
+   "chars": 3290,
+   "has2_20": true
+  },
+  "ESTL": {
+   "name": "LJUNGBYHED",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESTL%20LJUNGBYHED%201-en-GB.html",
+   "chars": 2218,
+   "has2_20": true
+  },
+  "ESUP": {
+   "name": "PAJALA",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESUP%20PAJALA%201-en-GB.html",
+   "chars": 2328,
+   "has2_20": true
+  },
+  "ESUT": {
+   "name": "HEMAVAN TÄRNABY",
+   "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESUT%20HEMAVAN%20T%C3%84RNABY%201-en-GB.html",
+   "chars": 2766,
+   "has2_20": true
+  }
+ }
+}

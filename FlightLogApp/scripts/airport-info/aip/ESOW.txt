@@ -1,0 +1,137 @@
+SOURCE: AIP Sweden, AD 2 ESOW STOCKHOLM-VÄSTERÅS (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESOW%20STOCKHOLM-V%C3%84STER%C3%85S%201-en-GB.html
+
+ESOW 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 593522N 0163801E RWY centre point 
+ 2. 
+ Direction and distance from (city) 
+ E 3.0 NM from Västerås 
+ 3. 
+ Elevation/Reference temperature 
+ 21 ft/+18.7°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 84 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 6° E (2020)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Nya Västerås Flygplats AB 
+ SE-721 31 Västerås
+ TEL: +46 21 80 56 00 
+ FAX: +46 21 80 11 20 
+ E-mail: operations@vasterasairport.se 
+ AFS: ESOWZTZX 
+ Website: www.vst.nu 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4C 
+ 8. 
+ Remarks 
+ PPR. See para 2.20.
+
+ESOW 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0700-1600 (0600-1500) 
+ AD Operating hours 
+ H24 
+ 2. 
+ Customs and immigration 
+ O/R 
+ 3. 
+ Health and sanitation 
+ O/R 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ Ref AIP SUP/NOTAM 
+ 8. 
+ Fuelling 
+ Fuel truck Jet A1: Available 30 min after ATS opening until 30 min 
+ before ATS closing. 
+ Self Service: Jet A1, 100LL and UL91, see para 2.4.7.
+ 9. 
+ Handling 
+ O/R 
+ 10. 
+ Security 
+ O/R 
+ 11. 
+ De-Icing 
+ O/R 
+ 12. 
+ Remarks 
+ Increased charges outside TWR HR of OPS
+
+ESOW 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ Available, all types 
+ 2. 
+ Fuel and oil types 
+ Fuel: 100LL, Jet A1, UL91 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ 100LL: 1 stationary x 20,000 l. 
+ Jet A1: 2 trucks x 20,000 l. Fuel tank 100,000 l for fuel trucks on APN 1. 
+ Stationary 10,000 l on APN 4. 
+ UL91: Stationary 20,000 l.
+ 4. 
+ De-icing facilities 
+ Available, Type I and II 
+ 5. 
+ Hangar space for visiting ACFT 
+ O/R operations@vasterasairport.se 
+ 6. 
+ Repair facilities for visiting ACFT 
+ O/R operations@vasterasairport.se 
+ 7. 
+ Remarks 
+ Jet A1 AirBP: self service APN 4 (AirBP carnet) 
+ 100LL AirBP: self service APN 4 (AirBP carnet) 
+ UL91 AirBP: self service APN 4 (AirBP carnet) 
+ For inquiry about self service payment options other than listed above, contact TEL +46 21 41 06 30 MON-FRI 0800-1600 (0700-1500) prior to flight.
+
+ESOW 2.20 LOCAL AERODROME REGULATIONS 
+ 1 Availability 
+ PPR for all TFC in ESOW CTR and in TMA Sector Västerås during ATS HR of OPS. TEL +46 21 80 00 20. SKED TFC, SAR, HOSP, MIL and Police flights exempted. 
+For all takeoffs and landings outside ATS operating hours, Prior Permission Required (PPR). SAR, HOSP, MIL and Police flights are exempted. PPR booking for non-commercial traffic outside ATS opening hours is through webpage 
+ www.vst.nu “Book PPR”. 
+ For more information and PPR for commercial traffic contact e-mail: 
+ flightrequest@vasterasairport.se 
+ 2 Provisions to school and training flights 
+ Repeated touch-and-go landings (TGL) only permitted:
+ 15 MAY–14 JUN MON–FRI 0600–1900 (0500–1800), SAT 0900–1300 (0800–1200).
+ 15 JUN–15 AUG MON–FRI 0800–1700 (0700–1600).
+ 16 AUG–14 MAY MON–FRI 0600–1900 (0500–1800), SAT 0800–1600 (0700–1500). 
+TGL not permitted Good Friday, Easter Eve, Easter Day, Ascension Day, Whitsun Eve, Whitsun Day, National Day, Midsummer Eve, Midsummer Day, All Saints Day, Christmas Eve and Christmas Day.
+ 3 Traffic regulations 
+ Outside ATS HR of OPS: 
+ VFR entry and exit points should be used.
+ Arriving VFR traffic should pass overhead at 1500 ft AMSL
+ before joining traffic circuit and descending at own discretion.
+ Traffic circuit to RWY shall be flown E RWY.
+ Grass RWY closed, may only be used by local operator after special agreement.
+ During ATS HR of OPS: 
+ VFR entry and exit point should be used in accordance with current RWY in use.
+ RWY 01 entry points are Vikhus and Golfbanan.
+ RWY 01 exit points are Romfartuna and Björksta.
+ RWY 19 entry points are Romfartuna and Björksta.
+ RWY 19 exit points are Vikhus and Golfbanan.
+ Deviations may occur according to ATC clearance.
+ 4 Parking General Aviation 
+ General Aviation parking at apron 4 unless otherwise instructed by ATS. Entry and exit to airside through gate at Hässlö Flygförening. For information about access, contact Hässlö Flygförening, se webpage 
+ www.hasslo.org

@@ -1,0 +1,183 @@
+SOURCE: AIP Sweden, AD 2 ESSB STOCKHOLM-BROMMA (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESSB%20STOCKHOLM-BROMMA%201-en-GB.html
+
+ESSB 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 592116N 0175632E 125° GEO 840 m from THR 12 
+ 2. 
+ Direction and distance from (city) 
+ WNW 4 NM from centre of Stockholm 
+ 3. 
+ Elevation/Reference temperature 
+ 47 ft/+24.9°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 77 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 8° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Swedavia AB 
+ SE-168 67 Bromma 
+ TEL: +46 10 109 10 00 
+ FAX: +46 10 109 05 00 
+ E-mail: info.arlanda@swedavia.se 
+ AFS: ESSBZTZX 
+ Website: www.swedavia.se/Bromma 
+ Website: www.swedavia.net/airport/Bromma
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 3C 
+ 8. 
+ Remarks 
+ PPR for all non-scheduled flights. For application and details 
+ see ESSB 2.20
+
+ESSB 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ Ref AIP SUP/NOTAM 
+ AD Operating hours 
+ Ref AIP SUP/NOTAM 
+ 2. 
+ Customs and immigration 
+ O/R 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ MON-FRI 0545-2100 (0445-2000), SAT 0745-1600 (0645-1500), SUN 1045-2100 (0945-2000) 
+ 8. 
+ Fuelling 
+ MON-FRI 0530-2100 (0430-2000), SAT 0730-1600 (0630-1500), SUN 1030-2100 (0930-2000) 
+ 9. 
+ Handling 
+ MON-FRI 0500-2100 (0400-2000), SAT 0700-1600 (0600-1500), SUN 1000-2100 (0900-2000) 
+ 10. 
+ Security 
+ MON-FRI 0500-2100 (0400-2000), SAT 0700-1600 (0600-1500), SUN 1000-2100 (0900-2000) 
+ 11. 
+ De-Icing 
+ MON-FRI 0500-2100 (0400-2000), SAT 0700-1600 (0600-1500), SUN 1000-2100 (0900-2000) 
+ 12. 
+ Remarks 
+ See ESSB 2.20
+
+ESSB 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ Limited/By arrangement 
+ 2. 
+ Fuel and oil types 
+ Fuel: 100LL, Jet A1 
+ Oil: Piston, Turbo, Hydraulic 
+ 3. 
+ Fuelling facilities and capacity 
+ 100LL: Stationary unit 25,000 l, 90 l/min 
+ Jet A1: Fuelling trucks.
+ 4. 
+ De-icing facilities 
+ Available, Type I and II, mobile unit 
+ 5. 
+ Hangar space for visiting ACFT 
+ Limited 
+ 6. 
+ Repair facilities for visiting ACFT 
+ Available, various types 
+ 7. 
+ Remarks 
+ Fuel 100LL prior arrangement required through handling companies. 
+ Oil prior arrangement required.
+
+ESSB 2.20 LOCAL AERODROME REGULATIONS 
+ 1 Availability 
+ 1.1. STOCKHOLM/Bromma AD may be used only:
+ MON–FRI 0600–2100 (0500–2000)
+ SAT 0800–1600 (0700–1500)
+ SUN 1100–2100 (1000–2000)
+ Holiday occuring MON–FRI 0600–2100 (0500–2000) 
+Special conditions may apply, for more information please contact 
+ info@brommaairport.se 
+ 1.2. The aerodrome must not be used as alternate by ambulance and rescue flights outside the operational hours as stated above or in AIP SUP/NOTAM.
+ 1.3. SLOT request is mandatory for all arrivals and departures. SLOT request shall be sent via OCS or via e-mail as a SCR or GCR.
+ Any change or cancellation in the SLOT request shall be reported without delays. The SLOT approval does not replace flight plan, PPR request or handling request.
+ Flights that are exempted from coordination: 
+ State flights not subject to the EU sanctions regulations.
+ Humanitarian flights i.e. medical emergencies, donor flights, search and rescue operations and air ambulance flights where the condition of patient is urgent.
+ Emergency landings.
+ For GA traffic request of SLOT can be made earliest 28 days before estimated departure or arrival and latest in connection with filing the flight plan.
+ Contact information: 
+ Airport Coordination Sweden ACS 
+ Box 202 
+ SE-190 47 Stockholm-Arlanda 
+ E-mail: 
+ slot@acsslot.se 
+ TEL: +46 8 800 700 
+ SCR/GCR: 
+ scr@airportcoordination.com 
+ OCS: 
+ www.online-coordination.com 
+ Online service: H24 
+ For more information: 
+ www.airportcoordination.com 
+ 1.4 Ground handling 
+ Contracting a ground handling company is mandatory for all flights to and from STOCKHOLM/Bromma aerodrome, with the exception of aircraft granted PPR (Prior Permission Required). 
+Operators must ensure that arrangements with a ground handling company are in place prior to arrival and departure. For more information regarding ground handling: 
+ www.swedavia.com .
+ 1.5. Prior permission may be granted (PPR) for non-scheduled flights with MTOM max 4000 kg or helicopters max D.13 m. Application for PPR can at a maximum be granted for one arrival and one departure to each aircraft and traffic day and limited to a maximum of two aircraft parked at the same time.
+ Application via e-mail to 
+ rtsamordning@swedavia.se , earliest 7 days and latest 24 hours prior ETA. Non-scheduled flights will be directed to Apron East by ATC. Parking is limited to 48 hours. For further information contact Aircraft Stand Parking TEL: +46 10 109 10 52.
+ 1.6. Operators wishing to operate the airport with an aircraft with a higher reference code letter than C shall apply for permission to Aircraft Stand Parking for further evaluation by the competent authority according to EASA regulations. Request shall be addressed to rtsamordning@swedavia.se. The request can be handled during office hours only. Information available by TEL +46 10 109 10 52.
+ 2 Transmission of intentions outside ATS hours of operations 
+ Outside ATS hours of operations intentions should be transmitted on channel 118.105 when flying over Stockholm and Stockholm city.
+ 3 Special regulations around opening hours 
+ ATC clearance and start-up must not be requested until 15 minutes prior to the opening time in accordance with para 1. 
+Clearance to taxi in connection with take-off must not be requested until 5 minutes prior to the opening time in accordance with para 1.
+ 4 Special regulations for traffic around closing time 
+ 4.1. Inbound traffic
+ Approach may, however, be carried out by an aircraft operated in accordance with: 
+ IFR, if it by 5 minutes before closing time is within 15 track miles from the aerodrome.
+ VFR, if it by 5 minutes before closing time has entered Bromma CTR.
+ 4.2. Outbound traffic
+ An aircraft will receive take-off clearance only if the taxiing for take-off has been initiated by 5 minutes before closing time.
+ 5 Start-up and clearance 
+ Start-up and ATC clearance shall be requested from »Ground» on channel 121.605. Aircraft position and identification of ATIS broadcast latest received shall be given
+ at initial call. For IFR traffic shall request not be made earlier than 30 min before EOBT.
+ 6 Taxi regulations 
+ 6.1. Taxiing within the movement area is to be commenced during ATS hours of operation.
+ 6.2. Taxi procedures 
+Arriving traffic on RWY 12 shall vacate the runway via TWY Y4, Y5 or G1. When performance conditions permit avoid vacating via TWY Y5, in order to prevent deviations on LOC 12 for following aircraft. 
+Arriving traffic on RWY 30 shall vacate the runway via TWY Y3, Y1 or G1. 
+Arriving traffic on RWY 30 shall use TWY Y to stands 3-6 and TWY T to stands 7-19 (or as cleared by ATC). 
+Departing traffic on RWY 12 shall use TWY Y from stands 3-7, and TWY T from stands 8-19 (or as cleared by ATC). 
+Taxi speed restricted to max 15 kt on aprons and on TWY Y alongside apron 1. 
+Final taxiing to position at stand 3-19 is not allowed without marshalling assistance. Aircraft shall wait on apron taxi line or outside parking stand, whichever applicable, until marshal arrives. 
+Limited visibility for departing traffic from stand 11-14 in respect to arriving traffic to apron 2. First Officer is recommended to carefully watch right/back before and during commencing taxiing to stand. 
+Clearance for crossing of the runway shall always include the phrase 
+ “Cross runway” 
+ . 
+Taxiing to/from apron 4 and 7 via TWY R is expected to taxi shortest route on TWY T to/from TWY Y (i.e. not via apron 2). 
+Taxiing to/from apron 6 via TWY S is expected to taxi shortest route on TWY T to/from TWY Y (i.e. not via apron 2). 
+Taxing to and from remote parking R5 – R9 is not allowed. Towing only. For towing contact Bromma Operations Center TEL +46 10 109 41 40. 
+Aircraft movements within all aprons where daylight marking taxi lines are not present, must be guided by marshalling assistance. Exception is granted only to Aircraft navigating to/from fuelling station on Apron East, where commander is navigating under own supervision and ensuring correct positioning within therefore intended area.
+ 7 School flights, training flights and aerobatics with aircraft and helicopter 
+ Repeated take-off and landing exercises and aerobatics at or in the vicinity of the airport is not permitted. 
+Simulated engine failures are not permitted. 
+Due to noise, hovering for school and training purposes is not allowed. Helicopters are only allowed to hover for airtaxi purposes.
+ 8 Avoidance of jet blast 
+ To avoid jet blast on parked aircraft on apron following procedure applies: Aircraft at any part of in- or outtaxiing having aircraft parked behind, shall not use more than idle thrust. Aircraft for any reason been forced into stop during these circumstances, shall to avoid any use of brake-away thrust, request assistance for pull into position of final stop or position where use of brake-away power no longer constitute danger.
+ 9 Engine test area 
+ Engine test area only available during daylight operation MON-SAT 0800-1500 (0700-1400) and SUN 1100-1500 (1000-1400) with a continuous time of max 30 min. 
+Test running of engines is only allowed after approval from Aircraft Stand Parking, TEL: +46 10 109 10 52.

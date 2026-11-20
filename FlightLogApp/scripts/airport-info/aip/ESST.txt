@@ -1,0 +1,110 @@
+SOURCE: AIP Sweden, AD 2 ESST TORSBY (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESST%20TORSBY%201-en-GB.html
+
+ESST 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 600917N 0125937E RWY 475 m from THR 34 
+ 2. 
+ Direction and distance from (city) 
+ NNW 1.5 NM from Torsby 
+ 3. 
+ Elevation/Reference temperature 
+ 394 ft/+21.5°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 106 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 6° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Torsby flygplats 
+ Vasserudsvägen 3 
+ SE-685 34 Torsby
+ TEL: +46 560 717 24 
+ TEL: +46 560 106 54
+ FAX: +46 560 143 99 
+ E-mail: airport.esst@torsby.se 
+ AFS: ESSTZTZX 
+ Website: www.torsbyflygplats.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 3C 
+ 8. 
+ Remarks 
+ PPR for IFR and commercial traffic: TEL +46 560 717 24, 
+ e-mail: ats.torsby@acr-sweden.se. 
+ IFR traffic is only allowed when ATS is open.
+
+ESST 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ O/R 
+ AD Operating hours 
+ H24 
+ 2. 
+ Customs and immigration 
+ - 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ MON-FRI 0430-0545, 0815-0950, 1500-1615, 1730-1905 
+ (0330-0445, 0715-0850, 1400-1515, 1630-1805) 
+ OTHER HR O/R TEL +46 (0)560 717 24
+ 8. 
+ Fuelling 
+ O/R MON-FRI 0600-1600 (0500-1500) TEL +46 560 717 24 
+ OTHER HR O/R TEL +46 560 106 54
+ 9. 
+ Handling 
+ O/R 
+ 10. 
+ Security 
+ O/R 
+ 11. 
+ De-Icing 
+ HX 
+ 12. 
+ Remarks 
+ -
+
+ESST 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ - 
+ 2. 
+ Fuel and oil types 
+ Fuel: Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ Jet A1: 30,000 l, stationary unit 
+ 4. 
+ De-icing facilities 
+ Available, Type I and II 
+ 5. 
+ Hangar space for visiting ACFT 
+ - 
+ 6. 
+ Repair facilities for visiting ACFT 
+ Limited 
+ 7. 
+ Remarks 
+ For payment of fuel major credit cards accepted.
+
+ESST 2.20 LOCAL AERODROME REGULATIONS 
+ 1. School and training flights with repeated TKOF and LDG not permitted between 2100-0500 (2000-0400).
+ 2. When ATS is closed, a visual check of the runway shall be conducted before take off to ensure that there are no other activities or vehicles occupying the movement area. 
+Before landing, a “visual fly over check” shall be conducted to ensure that there are no other activities or vehicles occupying the movement area.

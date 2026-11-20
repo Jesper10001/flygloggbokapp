@@ -1,0 +1,139 @@
+SOURCE: AIP Sweden, AD 2 ESMS MALMÖ (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESMS%20MALM%C3%96%201-en-GB.html
+
+ESMS 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 553254N 0132112E 271.5° GEO 1291 m from THR 17 
+ 2. 
+ Direction and distance from (city) 
+ ESE 13 NM from Malmö 
+ 3. 
+ Elevation/Reference temperature 
+ 237 ft/+24.3°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 116 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 4° E (2020)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Swedavia AB 
+ Malmö Airport 
+ Box 14 
+ SE-230 32 Malmö-Sturup
+ TEL: +46 10 109 45 00 
+ FAX: +46 10 109 05 00 
+ E-mail: malmoairport@swedavia.se 
+ AFS: ESMSZTZX 
+ Website: www.swedavia.se/malmo 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4E 
+ 8. 
+ Remarks 
+ -
+
+ESMS 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0700-1530 (0600-1430) 
+ AD Operating hours 
+ H24 
+ 2. 
+ Customs and immigration 
+ H24. Direct transit area. TEL +46 40 661 32 20 
+ 3. 
+ Health and sanitation 
+ H24, Designated quarantine AD 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ H24 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ H24 
+ 8. 
+ Fuelling 
+ H24 
+ 9. 
+ Handling 
+ H24 
+ 10. 
+ Security 
+ H24 
+ 11. 
+ De-Icing 
+ H24 
+ 12. 
+ Remarks 
+ -
+
+ESMS 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ All types available 
+ 2. 
+ Fuel and oil types 
+ Fuel: 100LL, 91/96 UL, Jet A1 
+ Oil: Hydraulic, Piston, Turbo 
+ 3. 
+ Fuelling facilities and capacity 
+ 100LL: Only available at apron W 
+ 91/96 UL: Only available at apron JB 
+ Jet A1: No limitations
+ 4. 
+ De-icing facilities 
+ Available, Type I and II, mobile units 
+ 5. 
+ Hangar space for visiting ACFT 
+ Available, limited 
+ 6. 
+ Repair facilities for visiting ACFT 
+ Various types 
+ 7. 
+ Remarks 
+ Aviator 
+ E-mail: operations.mmx@aviator.eu 
+ TEL: +46 40 613 11 08 
+ Allied Aero Services Sweden AB 
+ E-mail: handling.mmx@alliedaero.se 
+ TEL: +46 70 888 21 07
+ Fuel suppliers: 
+ Malmö fuelling, only Jet A1 
+ Shell, AirBP, WFS 
+ Neither cash nor credit cards accepted 
+ Fuel on contract or fuel release 
+ E-mail: mfs.sturup@telia.com 
+ TEL: +46 73 376 16 33 
+ South Sweden Flight Academy. 
+ 100LL: Call or mail 24 hrs in advance for service. 
+ MC/VISA/cash/Swish accepted. 
+ E-mail: avgas@southsweden.se 
+ TEL: +46 70 676 17 59 
+ Sturup Flygklubb. 
+ Avgas 91/96UL, Jet A1. TEL +46 40 50 02 35.
+
+ESMS 2.20 LOCAL AERODROME REGULATIONS 
+ 1 General 
+ Exemptions from the requirement for Two-way radio communication with TWR will only be granted for ferry flight to or from the aerodrome in connection with necessary maintenance on the aircraft. 
+Between 2100–0600 (2000–0500) only idle reverse is permitted. 
+APU shall not be used on parking unless required for engine start or adjustment of cabin heat. On these occasions APU must not be started earlier than 5 min before estimated time for push-back or taxiing. When the outside temperature exceeds 25° C and when air cannot otherwise be circulated in the cabin, APU may be started at a maximum of 20 minutes before estimated time for push-back or taxiing. 
+Arriving non commercial traffic with a take-off mass of 10 tonnes or less shall request transport between stand and terminal. Request shall be made on channel 118.805 or TEL +46 10 109 63 42.
+ 2 Ground movement procedures 
+ Arrival
+ Three-engined aircraft shall shut down the middle engine before entering apron. If the docking guidance system has not been activated, the aircraft shall be stopped immediately, and a Follow-me car or a marshal shall be waited for. Arriving aircraft to stand 22 and 24 shall not use more than idle thrust. Use of brake-away thrust not permitted, under these circumstances towing is mandatory. 
+Departure
+ Start-up, push-back and taxiing is subject to prior permission from ATC. The aircraft position shall be stated in the initial call.
+ 3 Restrictions for school and training flights 
+ School and training flights by prior permission from TWR TEL +46 40 613 15 50.
+ Take-off and landing exercises and repeated instrument approaches are permitted 0600–2100 (0500–2000) only, certain holidays excluded (New Year’s Day, Epiphany, Good Friday, Easter Eve, Easter Day, Easter Monday, Walpurgis Night, May Day, Ascension Day, Whitsun Eve, Whitsun Day, National Day, Midsummer Eve, Midsummer Day, All Saints Day, Christmas Eve, Christmas Day, Boxing Day and New Year’s Eve).
+ For ACFT with MTOM exceeding 5700 kg aerodrome traffic circuits and circling are to be carried out as right hand circuits to RWY 17 and left hand circuits to RWY 35. The traffic circuit shall be flown W of the extended centre line of RWY 17/35.
+ 4 D-ATIS 
+ D-ATIS service available by ACARS for ACFT equipped with ACARS-MU. (AEEC 623 compliant) (Provider is ARINC for datalink com and ESMS airport for ATIS service.)

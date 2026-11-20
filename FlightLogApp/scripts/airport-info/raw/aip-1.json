@@ -1,0 +1,1054 @@
+[
+ {
+  "icao": "ESCF",
+  "source": "AIP Sweden AD 2 ESCF",
+  "ppr": {
+   "status": "partial",
+   "note": "72 h PPR for all foreign military aircraft and helicopters; PPR requests during AD operator hours",
+   "phone": "",
+   "request_url": "",
+   "quote": "72 HRS PPR for all foreign military aircrafts and helicopters."
+  },
+  "fuel": {
+   "types": [
+    "NATO F35 (Jet A1 equivalent)"
+   ],
+   "note": "Swedish military standard, differs from civil",
+   "hours": "As ATS",
+   "quote": "Jet A1 equivalent NATO F35."
+  },
+  "hours": {
+   "ad": "As ATS (ATS: MON-THU 0630-1515 (0530-1415); FRI and day before HOL 0630-1400 (0530-1300); HOL CLSD)",
+   "note": "",
+   "quote": "MON-THU 0630-1515 (0530-1415)"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator (military)",
+    "phone": "+46 10 828 30 00",
+    "quote": "TEL: +46 10 828 30 00"
+   }
+  ],
+  "email": {
+   "value": "flygplatsledning-hkpflj@mil.se",
+   "quote": "E-mail: flygplatsledning-hkpflj@mil.se"
+  },
+  "good_to_know": [
+   {
+    "text": "72 h PPR for all foreign military aircraft and helicopters; diplomatic clearance required.",
+    "quote": "72 HRS PPR for all foreign military aircrafts and helicopters."
+   },
+   {
+    "text": "When ATS is closed, transmit position reports and intentions on 118.805 before using the manoeuvring area or entering the circuit.",
+    "quote": "When ATS is closed position reports and intentions should be transmitted on channel 118.805"
+   },
+   {
+    "text": "Right-hand traffic circuit when RWY 08 and 19 are in use.",
+    "quote": "Right hand traffic circuit when RWY 08 and 19 are in use."
+   },
+   {
+    "text": "Intensive military jet and helicopter training outside Malmen and SAAB CTR.",
+    "quote": "Intensive training activities with military jet aeroplanes and helicopters"
+   }
+  ]
+ },
+ {
+  "icao": "ESGG",
+  "source": "AIP Sweden AD 2 ESGG",
+  "ppr": {
+   "status": "partial",
+   "note": "Slot mandatory for all arrivals/departures; school/training flights need PPR H24 (aircraft over 8 t MTOM only)",
+   "phone": "",
+   "request_url": "",
+   "quote": "PPR H24 shall be requested from air traffic control (LFV) by mail:"
+  },
+  "fuel": {
+   "types": [
+    "JET A-1"
+   ],
+   "note": "Fuel trucks; needs contract, fuel release or fuel card; no private credit cards",
+   "hours": "H24",
+   "quote": "Fuel: Jet A1"
+  },
+  "hours": {
+   "ad": "H24",
+   "note": "",
+   "quote": "H24"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator",
+    "phone": "+46 10 109 31 00",
+    "quote": "TEL: +46 10 109 31 00"
+   },
+   {
+    "label": "Airport Operation Center (out of office hours, slot matters)",
+    "phone": "+46 10 109 36 01",
+    "quote": "TEL: +46 10 109 36 01"
+   },
+   {
+    "label": "Airport Coordination Sweden (slots)",
+    "phone": "+46 8 80 07 00",
+    "quote": "TEL: + 46 8 80 07 00"
+   },
+   {
+    "label": "Briefing (FPC)",
+    "phone": "+46 8 797 63 40",
+    "quote": "FPC, H24, +46 8 797 63 40, www.lfv.se/fpc"
+   }
+  ],
+  "email": {
+   "value": "info@landvetterairport.se",
+   "quote": "E-mail: info@landvetterairport.se"
+  },
+  "website": {
+   "value": "www.swedavia.se/landvetter/",
+   "quote": "Website: www.swedavia.se/landvetter/"
+  },
+  "good_to_know": [
+   {
+    "text": "SLOT request is mandatory for all arrivals and departures.",
+    "quote": "SLOT request is mandatory for all arrivals and departures."
+   },
+   {
+    "text": "All flights are subject to mandatory handling (exceptions: hospital flights, state aircraft, police helicopters).",
+    "quote": "All flights to and from GÖTEBORG/Landvetter are subject to mandatory handling."
+   },
+   {
+    "text": "School and exercise flights with starts, landings or approaches/departures are not allowed; exceptions for aircraft over 8 t MTOM with PPR H24.",
+    "quote": "School and exercise flights with starts, landings or approaches/departures are not allowed."
+   },
+   {
+    "text": "Visual approaches H24 only for propeller aircraft with MTOM 7000 kg or below.",
+    "quote": "Only propeller driven aircraft with MTOM 7000 kg or below is permitted to carry out visual approach H24."
+   }
+  ]
+ },
+ {
+  "icao": "ESGT",
+  "source": "AIP Sweden AD 2 ESGT",
+  "ppr": {
+   "status": "partial",
+   "note": "PPR for school/training with repeated instrument approaches and TGL; PPR for all military aircraft (14 days ahead for non-transport)",
+   "phone": "+46 520 42 93 61",
+   "request_url": "",
+   "quote": "PPR applies for school and training flights with repeated instrument approaches and TGL."
+  },
+  "fuel": {
+   "types": [
+    "91UL",
+    "JET A-1"
+   ],
+   "note": "Supplier: AD operator; pay by VISA/Mastercard credit card, invoice or Swish",
+   "hours": "As ATS",
+   "quote": "Fuel: 91UL, Jet A1"
+  },
+  "hours": {
+   "ad": "As ATS",
+   "note": "ATS hours: ref AIP SUP/NOTAM; increased charges outside TWR hours",
+   "quote": "Increased charges outside TWR HR of OPS"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator",
+    "phone": "+46 520 825 00",
+    "quote": "TEL: +46 520 825 00"
+   },
+   {
+    "label": "ATS (during ATS hours)",
+    "phone": "+46 520 42 93 61",
+    "quote": "TEL: +46 520 42 93 61 during ATS operational hours."
+   },
+   {
+    "label": "Briefing (FPC)",
+    "phone": "+46 8 797 63 40",
+    "quote": "FPC, H24, +46 8 797 63 40, www.lfv.se/fpc"
+   }
+  ],
+  "email": {
+   "value": "info@gsairport.se",
+   "quote": "E-mail: info@gsairport.se"
+  },
+  "website": {
+   "value": "www.gsairport.se",
+   "quote": "Website: www.gsairport.se"
+  },
+  "good_to_know": [
+   {
+    "text": "PPR for all military registered aircraft; for non-transport flights PPR is issued 14 days ahead.",
+    "quote": "PPR for all military registered aircraft, for other than transport flights PPR shall be issued 14 days ahead of flight."
+   },
+   {
+    "text": "Customs and immigration available daily 0600-2000 (0500-1900).",
+    "quote": "MON-SUN 0600-2000 (0500-1900)"
+   },
+   {
+    "text": "Take-off/landing exercises and TGL (MTOM below 2000 kg) and aerobatics only MON-FRI 0600-2100 (0500-2000), SAT/SUN/HOL 0800-1600 (0700-1500).",
+    "quote": "SAT, SUN and HOL 0800-1600 (0700-1500)."
+   },
+   {
+    "text": "Right-hand traffic circuit applies for grass strip 15.",
+    "quote": "Right-hand traffic circuit applies for grass strip 15."
+   }
+  ]
+ },
+ {
+  "icao": "ESKM",
+  "source": "AIP Sweden AD 2 ESKM",
+  "ppr": {
+   "status": "unknown",
+   "note": "IFR traffic requires ATS availability; VFR outside ATS hours at PIC discretion",
+   "phone": "",
+   "request_url": "",
+   "quote": "IFR traffic requires ATS availability."
+  },
+  "fuel": {
+   "types": [
+    "100LL",
+    "JET A-1"
+   ],
+   "note": "Stationary units and truck; self-service after agreement",
+   "hours": "Ref AIP SUP/NOTAM",
+   "quote": "Fuel: 100LL, Jet A1"
+  },
+  "hours": {
+   "ad": "H24",
+   "note": "Increased charges outside AFIS hours",
+   "quote": "Increased charges outside AFIS HR of OPS."
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator",
+    "phone": "+46 250 393 01",
+    "quote": "TEL: +46 250 393 01"
+   },
+   {
+    "label": "Briefing (FPC)",
+    "phone": "+46 8 797 63 40",
+    "quote": "FPC, H24, +46 8 797 63 40, www.lfv.se/fpc"
+   }
+  ],
+  "email": {
+   "value": "mxxinfo@dalaflyget.se",
+   "quote": "E-mail: mxxinfo@dalaflyget.se"
+  },
+  "website": {
+   "value": "www.dalaflyget.se",
+   "quote": "Website: www.dalaflyget.se"
+  },
+  "good_to_know": [
+   {
+    "text": "IFR traffic requires ATS availability; VFR outside ATS hours is at PIC discretion.",
+    "quote": "VFR traffic outside ATS hours upon PIC discretion."
+   },
+   {
+    "text": "Fuel self-service available after agreement.",
+    "quote": "Fuel self-service available after agreement."
+   },
+   {
+    "text": "VFR landing outside ATS hours: declare intention and ETA on 119.055, then make a runway crossing to check availability.",
+    "quote": "followed by a RWY crossing (500 ft + traffic pattern altitude) in order to verify RWY availability"
+   },
+   {
+    "text": "Electric charging poles available in the north apron area.",
+    "quote": "Electrical charging poles, type 2 and 220/380V connectors, available in north apron area."
+   }
+  ]
+ },
+ {
+  "icao": "ESMK",
+  "source": "AIP Sweden AD 2 ESMK",
+  "ppr": {
+   "status": "partial",
+   "note": "PPR for all IFR via AD e-mail during operator hours; PN compulsory for VFR outside TWR hours",
+   "phone": "",
+   "request_url": "www.krfk.se/pn",
+   "quote": "PPR request for all IFR shall be made via AD e-mail during AD operator hours."
+  },
+  "fuel": {
+   "types": [
+    "91 UL",
+    "JET A-1"
+   ],
+   "note": "Fuel truck; supplier Air BP; Air BP Sterlingcard needed for 91 UL",
+   "hours": "As ATS",
+   "quote": "Fuel: 91 UL, Jet A1"
+  },
+  "hours": {
+   "ad": "As ATS",
+   "note": "Increased charges outside TWR hours",
+   "quote": "Increased charges outside TWR HR of OPS"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator",
+    "phone": "+46 44 23 88 00",
+    "quote": "TEL: +46 44 23 88 00"
+   },
+   {
+    "label": "Briefing (FPC)",
+    "phone": "+46 8 797 63 40",
+    "quote": "FPC, H24, +46 8 797 63 40, www.lfv.se/fpc"
+   }
+  ],
+  "email": {
+   "value": "info@kidairport.com",
+   "quote": "E-mail: info@kidairport.com"
+  },
+  "website": {
+   "value": "www.kidairport.com",
+   "quote": "Website: www.kidairport.com"
+  },
+  "good_to_know": [
+   {
+    "text": "PN (prior notice) is compulsory for VFR outside TWR hours; form at www.krfk.se/pn.",
+    "quote": "PN compulsory for VFR outside TWR hours, fill in PN form at www.krfk.se/pn."
+   },
+   {
+    "text": "Parking on the apron outside ATS hours is not allowed (exceptions: SAR, ambulance, police).",
+    "quote": "Parking on apron outside ATS operational hours is not allowed."
+   },
+   {
+    "text": "Outside ATS hours blind transmission is mandatory in the CTR; announce intention to take off or land on 129.355.",
+    "quote": "Outside ATS operational hours, blind transmission is mandatory in ESMK CTR."
+   },
+   {
+    "text": "Aircraft over 5700 kg MTOM departing RWY 19 climb straight ahead to 1500 ft; lighter traffic uses right-hand circuit after departure RWY 19.",
+    "quote": "right hand circuit applies after departure when RWY 19 is in use."
+   }
+  ]
+ },
+ {
+  "icao": "ESMT",
+  "source": "AIP Sweden AD 2 ESMT",
+  "ppr": {
+   "status": "partial",
+   "note": "PPR outside TWR hours (request during AD operator hours); PPR for IFR school/training flights and repeated TGL",
+   "phone": "+46 35 18 26 00",
+   "request_url": "",
+   "quote": "PPR outside TWR HR of OPS. Request shall be made during hours of AD operator TEL +46 35 18 26 00."
+  },
+  "fuel": {
+   "types": [
+    "100LL",
+    "91 UL",
+    "JET A-1"
+   ],
+   "note": "Supplier AirBP",
+   "hours": "As ATS",
+   "quote": "Fuel: 100LL, 91 UL, Jet A1"
+  },
+  "hours": {
+   "ad": "As ATS.",
+   "note": "ATS hours: ref AIP SUP/NOTAM; increased charges outside TWR hours",
+   "quote": "Increased charges outside TWR HR of OPS"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator / PPR outside TWR hours",
+    "phone": "+46 35 18 26 00",
+    "quote": "TEL: +46 35 18 26 00"
+   },
+   {
+    "label": "Tower (PPR for school/training, during TWR hours)",
+    "phone": "+46 35 21 16 82",
+    "quote": "TEL +46 35 21 16 82"
+   },
+   {
+    "label": "Customs (on request)",
+    "phone": "+46 31 63 38 00",
+    "quote": "O/R TEL +46 31 63 38 00"
+   },
+   {
+    "label": "Briefing (FPC)",
+    "phone": "+46 8 797 63 40",
+    "quote": "FPC, H24, +46 8 797 63 40, www.lfv.se/fpc"
+   }
+  ],
+  "email": {
+   "value": "halmstadcityairport@halmstad.se",
+   "quote": "E-mail: halmstadcityairport@halmstad.se"
+  },
+  "website": {
+   "value": "www.halmstadsflygplats.se",
+   "quote": "Website: www.halmstadsflygplats.se"
+  },
+  "good_to_know": [
+   {
+    "text": "PPR for IFR school and training flights at all times; PPR for VFR flights planning repeated TGL.",
+    "quote": "PPR for IFR school and training flights at all times."
+   },
+   {
+    "text": "Right-hand traffic circuit when RWY 19 is in use.",
+    "quote": "Right hand traffic circuit when RWY 19 is in use."
+   },
+   {
+    "text": "APU not to be used on parking unless needed for engine start, and not earlier than 15 min before taxi.",
+    "quote": "APU must not be used on parking unless required for engine start."
+   },
+   {
+    "text": "Latest airborne time for IFR should be no later than 15 min before closing time.",
+    "quote": "Latest airborne time for IFR traffic should not be later than 15 MIN before closing time according to TWR HR of OPS."
+   }
+  ]
+ },
+ {
+  "icao": "ESND",
+  "source": "AIP Sweden AD 2 ESND",
+  "ppr": {
+   "status": "partial",
+   "note": "PPR for IFR traffic and aircraft requiring RWY ref code 3C",
+   "phone": "",
+   "request_url": "",
+   "quote": "PPR for IFR ttraffic and ACFT that requires RWY ref code 3C."
+  },
+  "fuel": {
+   "types": [
+    "100LL",
+    "JET A-1"
+   ],
+   "note": "Stationary unit and fuel truck",
+   "hours": "As AD operator",
+   "quote": "Fuel: 100LL, Jet A1"
+  },
+  "hours": {
+   "ad": "H24",
+   "note": "AFIS for scheduled traffic, other on request from AD operator",
+   "quote": "AFIS for SKED TFC, other O/R from AD operator +46 (0)680 71 13 51"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator",
+    "phone": "+46 680 71 42 50",
+    "quote": "TEL: +46 680 71 42 50"
+   },
+   {
+    "label": "ATS on request (AD operator)",
+    "phone": "+46 680 71 13 51",
+    "quote": "+46 (0)680 71 13 51"
+   },
+   {
+    "label": "Briefing (FPC)",
+    "phone": "+46 8 797 63 40",
+    "quote": "FPC, H24, +46 8 797 63 40, www.lfv.se/fpc"
+   }
+  ],
+  "email": {
+   "value": "info@harjedalenairport.se",
+   "quote": "E-mail: info@harjedalenairport.se"
+  },
+  "website": {
+   "value": "www.harjedalenairport.se",
+   "quote": "Website: www.harjedalenairport.se"
+  },
+  "good_to_know": [
+   {
+    "text": "IFR traffic requires ATS availability; VFR without ATS is at PIC discretion.",
+    "quote": "VFR traffic without ATS upon PIC discretion."
+   },
+   {
+    "text": "VFR landing outside ATS hours: declare intention and ETA on 122.205, then make a runway crossing to check availability.",
+    "quote": "followed by a RWY crossing (500 ft + traffic pattern altitude) in order to verify RWY availability"
+   },
+   {
+    "text": "If runway and strip are not available in full length and width, landing should not be carried out.",
+    "quote": "If the runway and runway strip are not available in their full length and width, the landing should not be carried out."
+   },
+   {
+    "text": "For take-off outside ATS hours declare intention and ETD on 122.205.",
+    "quote": "For take-off outside ATS hours the intention to take-off and ETD shall be clearly declared on channel 122.205."
+   }
+  ]
+ },
+ {
+  "icao": "ESNL",
+  "source": "AIP Sweden AD 2 ESNL",
+  "ppr": {
+   "status": "unknown"
+  },
+  "fuel": {
+   "types": [
+    "100LL",
+    "JET A-1"
+   ],
+   "note": "100LL mobile unit (credit cards or Swish); Jet A1 self-service via Carnet, supplier AIR BP",
+   "hours": "H24 (as AD operating hours)",
+   "quote": "Fuel: 100LL, Jet A1"
+  },
+  "hours": {
+   "ad": "H24",
+   "note": "ATS hours: ref AIP SUP/NOTAM",
+   "quote": "No specific hours"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator",
+    "phone": "+46 950 275 55",
+    "quote": "TEL: +46 950 275 55"
+   },
+   {
+    "label": "Briefing (FPC)",
+    "phone": "+46 8 797 63 40",
+    "quote": "FPC, H24, +46 8 797 63 40, www.lfv.se/fpc"
+   }
+  ],
+  "email": {
+   "value": "info@lyckseleairport.se",
+   "quote": "E-mail: info@lyckseleairport.se"
+  },
+  "website": {
+   "value": "www.lyckseleairport.se",
+   "quote": "Website: www.lyckseleairport.se"
+  },
+  "good_to_know": [
+   {
+    "text": "VHF radio with two-way communication on 122.230 and 121.500 is required, also outside ATS hours.",
+    "quote": "must be equipped with VHF-radio which allows two-way radio communication on channel 122.230 and 121.500."
+   },
+   {
+    "text": "Outside ATS hours, ground personnel monitor 122.230 when aircraft enter the manoeuvring area.",
+    "quote": "VHF channel 122.230 is monitored by ground personnel outside ATS hours of operation"
+   },
+   {
+    "text": "Jet A1 self-service available H24 via Carnet.",
+    "quote": "H24 Self-service Jet A1 via Carnet"
+   },
+   {
+    "text": "100LL paid only by major credit cards or Swish.",
+    "quote": "For payment of 100LL only major credit cards or payment via Swish"
+   }
+  ]
+ },
+ {
+  "icao": "ESNQ",
+  "source": "AIP Sweden AD 2 ESNQ",
+  "ppr": {
+   "status": "required",
+   "note": "PPR for civil and military aircraft 5 days before arrival/departure; exempt: hospital, state, SAR, scheduled, SWE/EU/NATO military, operators with sanction agreement",
+   "phone": "",
+   "request_url": "",
+   "quote": "PPR for CIV and MIL ACFT 5 days prior to planned arrival or departure."
+  },
+  "fuel": {
+   "types": [
+    "JET A-1"
+   ],
+   "note": "Fuel truck/stationary; Shell (fuel and fly or carnet) and major credit cards",
+   "hours": "As AD hours of operation",
+   "quote": "Fuel: Jet A1"
+  },
+  "hours": {
+   "ad": "MON-FRI 0800-1600 (0700-1500) (AD operator)",
+   "note": "AD operating hours ref AIP SUP/NOTAM; PPR with signed agreement for operations outside AD hours",
+   "quote": "MON-FRI 0800-1600 (0700-1500)"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator / ground handling",
+    "phone": "+46 10 109 46 00",
+    "quote": "TEL: +46 10 109 46 00"
+   },
+   {
+    "label": "Airport Duty Officer (engine ground runs)",
+    "phone": "+46 10 109 46 23",
+    "quote": "TEL +46 10 109 46 23"
+   },
+   {
+    "label": "Customs (on request)",
+    "phone": "+46 8 456 66 20",
+    "quote": "O/R +46 8 456 66 20"
+   },
+   {
+    "label": "Briefing (FPC)",
+    "phone": "+46 8 797 63 40",
+    "quote": "FPC, H24, +46 8 797 63 40, www.lfv.se/fpc"
+   }
+  ],
+  "email": {
+   "value": "krn.ppr@swedavia.se (PPR requests)",
+   "quote": "Requests shall be sent to krn.ppr@swedavia.se"
+  },
+  "website": {
+   "value": "www.swedavia.se/kiruna",
+   "quote": "Website: www.swedavia.se/kiruna"
+  },
+  "good_to_know": [
+   {
+    "text": "PPR 5 days ahead for civil and military aircraft; scheduled, hospital, state, SAR and SWE/EU/NATO military traffic exempted.",
+    "quote": "The following TFC is exempted: HOSP, STATE, SAR, SKED TFC, SWE/EU/NATO MIL and operators with sanction agreement."
+   },
+   {
+    "text": "Operations outside AD hours need PPR under a signed agreement; apply to krn.safety@swedavia.se during AD operator hours.",
+    "quote": "PPR required for operations outside AD operational hours (AD CLSD) subject to a signed agreement."
+   },
+   {
+    "text": "Maximum wingspan 36 m for taxiing on TWY Y.",
+    "quote": "Maximum wingspan 36 m for taxiing on TWY Y."
+   },
+   {
+    "text": "Engine ground runs must be coordinated with the Airport Duty Officer.",
+    "quote": "Engine ground runs must be coordinated with the Airport Duty Officer"
+   }
+  ]
+ },
+ {
+  "icao": "ESNV",
+  "source": "AIP Sweden AD 2 ESNV",
+  "ppr": {
+   "status": "unknown"
+  },
+  "fuel": {
+   "types": [
+    "JET A-1"
+   ],
+   "note": "Dual operators required for Jet A1 fuelling; major credit cards accepted",
+   "hours": "As ATS (ATS: ref AIP SUP/NOTAM)",
+   "quote": "Fuel: Jet A1"
+  },
+  "hours": {
+   "ad": "H24",
+   "note": "",
+   "quote": "H24"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator",
+    "phone": "+46 940 398 88",
+    "quote": "TEL: +46 940 398 88"
+   },
+   {
+    "label": "Briefing (FPC)",
+    "phone": "+46 8 797 63 40",
+    "quote": "FPC, H24, +46 8 797 63 40, www.lfv.se/fpc"
+   }
+  ],
+  "email": {
+   "value": "airport@vilhelmina.se",
+   "quote": "E-mail: airport@vilhelmina.se"
+  },
+  "website": {
+   "value": "www.southlaplandairport.com",
+   "quote": "Website: www.southlaplandairport.com"
+  },
+  "good_to_know": [
+   {
+    "text": "Two operators are required to perform Jet A1 fuelling.",
+    "quote": "Dual operators required to perform fuelling Jet A1."
+   },
+   {
+    "text": "Fuel payment by major credit cards.",
+    "quote": "For payment of fuel major credit cards accepted."
+   }
+  ]
+ },
+ {
+  "icao": "ESOE",
+  "source": "AIP Sweden AD 2 ESOE",
+  "ppr": {
+   "status": "partial",
+   "note": "PPR outside TWR hours; PPR for commercial traffic and aircraft over 2000 kg MTOM (request in AD operator hours)",
+   "phone": "+46 19 30 70 34",
+   "request_url": "",
+   "quote": "PPR for commercial traffic and aircraft exceeding MTOM 2000 kg."
+  },
+  "fuel": {
+   "types": [
+    "JET A-1"
+   ],
+   "note": "Supplier Shell; stationary and truck; Shell Carnet accepted, Visa/Mastercard need assistance",
+   "hours": "As ATS and on request",
+   "quote": "Fuel: Jet A1"
+  },
+  "hours": {
+   "ad": "MON-FRI 0700-1500 (0600-1400) (AD operator)",
+   "note": "AD operating hours and ATS: ref AIP SUP/NOTAM",
+   "quote": "MON-FRI 0700-1500 (0600-1400)"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator",
+    "phone": "+46 19 30 70 00",
+    "quote": "TEL: +46 19 30 70 00"
+   },
+   {
+    "label": "PPR / handling",
+    "phone": "+46 19 30 70 34",
+    "quote": "TEL +46 19 30 70 34."
+   },
+   {
+    "label": "Flying club (PPR outside hours, single-engined VFR)",
+    "phone": "+46 19 24 10 20",
+    "quote": "TEL +46 19 24 10 20."
+   },
+   {
+    "label": "Customs (on request)",
+    "phone": "+46 40 661 32 20",
+    "quote": "O/R TEL +46 40 661 32 20"
+   },
+   {
+    "label": "Briefing (FPC)",
+    "phone": "+46 8 797 63 40",
+    "quote": "FPC, H24, +46 8 797 63 40, www.lfv.se/fpc"
+   }
+  ],
+  "email": {
+   "value": "handling@orebroairport.se",
+   "quote": "E-mail: handling@orebroairport.se"
+  },
+  "website": {
+   "value": "www.orebroairport.se",
+   "quote": "Website: www.orebroairport.se"
+  },
+  "good_to_know": [
+   {
+    "text": "PPR outside ATS hours; the flying club may give permission to VFR single-engined aeroplanes only.",
+    "quote": "Örebro flying club will give permission to VFR traffic with single-engined aeroplanes only."
+   },
+   {
+    "text": "Take-off/landing exercises and repeated instrument approaches only 0600-2100 (0500-2000); PPR for IFR training flights within CTR/TMA.",
+    "quote": "Take-off and landing exercises and repeated instrument approaches accepted only between 0600–2100 (0500–2000)."
+   },
+   {
+    "text": "Outside ATS hours blind transmission is mandatory in the CTR; VFR landing needs intention/ETA on 120.280 and a fly-over check at 1000 ft AGL or above.",
+    "quote": "Outside ATS hours of operations, blind transmission is mandatory within CTR."
+   },
+   {
+    "text": "No marshalling service on the GA apron.",
+    "quote": "No marshall service on GA apron."
+   }
+  ]
+ },
+ {
+  "icao": "ESOW",
+  "source": "AIP Sweden AD 2 ESOW",
+  "ppr": {
+   "status": "required",
+   "note": "PPR for all traffic in CTR/TMA Sector Vasteras during ATS hours (scheduled, SAR, hospital, military, police exempt); PPR for all take-offs/landings outside ATS hours; non-commercial booking via www.vst.nu",
+   "phone": "+46 21 80 00 20",
+   "request_url": "www.vst.nu",
+   "quote": "PPR for all TFC in ESOW CTR and in TMA Sector Västerås during ATS HR of OPS."
+  },
+  "fuel": {
+   "types": [
+    "100LL",
+    "JET A-1",
+    "UL91"
+   ],
+   "note": "Jet A1 trucks; self-service on APN 4 with AirBP carnet",
+   "hours": "Jet A1 truck: 30 min after ATS opening until 30 min before ATS closing",
+   "quote": "Fuel: 100LL, Jet A1, UL91"
+  },
+  "hours": {
+   "ad": "H24",
+   "note": "AD operator MON-FRI 0700-1600 (0600-1500); ATS: ref AIP SUP/NOTAM",
+   "quote": "MON-FRI 0700-1600 (0600-1500)"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator",
+    "phone": "+46 21 80 56 00",
+    "quote": "TEL: +46 21 80 56 00"
+   },
+   {
+    "label": "PPR (during ATS hours)",
+    "phone": "+46 21 80 00 20",
+    "quote": "TEL +46 21 80 00 20."
+   },
+   {
+    "label": "Self-service payment inquiries",
+    "phone": "+46 21 41 06 30",
+    "quote": "TEL +46 21 41 06 30"
+   },
+   {
+    "label": "Briefing (FPC)",
+    "phone": "+46 8 797 63 40",
+    "quote": "FPC, H24, +46 8 797 63 40, www.lfv.se/fpc"
+   }
+  ],
+  "email": {
+   "value": "operations@vasterasairport.se",
+   "quote": "E-mail: operations@vasterasairport.se"
+  },
+  "website": {
+   "value": "www.vst.nu",
+   "quote": "Website: www.vst.nu"
+  },
+  "good_to_know": [
+   {
+    "text": "PPR for all take-offs and landings outside ATS hours (SAR, hospital, military, police exempt); non-commercial PPR is booked on www.vst.nu.",
+    "quote": "For all takeoffs and landings outside ATS operating hours, Prior Permission Required (PPR)."
+   },
+   {
+    "text": "Repeated touch-and-go landings only in set periods (e.g. 15 JUN-15 AUG MON-FRI 0800-1700 (0700-1600)); not on public holidays listed.",
+    "quote": "15 JUN–15 AUG MON–FRI 0800–1700 (0700–1600)."
+   },
+   {
+    "text": "Outside ATS hours: arriving VFR passes overhead at 1500 ft AMSL before joining the circuit.",
+    "quote": "Arriving VFR traffic should pass overhead at 1500 ft AMSL"
+   },
+   {
+    "text": "Grass runway closed; may only be used by the local operator by special agreement.",
+    "quote": "Grass RWY closed, may only be used by local operator after special agreement."
+   }
+  ]
+ },
+ {
+  "icao": "ESSA",
+  "source": "AIP Sweden AD 2 ESSA",
+  "ppr": {
+   "status": "partial",
+   "note": "PPR for all VFR traffic",
+   "phone": "+46 8 585 544 50",
+   "request_url": "",
+   "quote": "PPR for all VFR traffic TEL +46 8 585 544 50"
+  },
+  "fuel": {
+   "types": [
+    "JET A-1"
+   ],
+   "note": "Hydrant fuelling and fuel trucks; pay via Shell, BP or World Fuel Service",
+   "hours": "H24",
+   "quote": "Fuel: Jet A1"
+  },
+  "hours": {
+   "ad": "H24",
+   "note": "",
+   "quote": "H24"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator",
+    "phone": "+46 10 109 10 00",
+    "quote": "TEL: +46 10 109 10 00"
+   },
+   {
+    "label": "Arlanda TWR watch supervisor (PPR VFR)",
+    "phone": "+46 8 585 544 50",
+    "quote": "TEL +46 8 585 544 50"
+   },
+   {
+    "label": "Airport Coordination Sweden (slots)",
+    "phone": "08 800 700",
+    "quote": "TEL: 08 800 700"
+   },
+   {
+    "label": "Briefing (FPC)",
+    "phone": "+46 8 797 63 40",
+    "quote": "FPC, H24, +46 8 797 63 40, www.lfv.se/fpc"
+   }
+  ],
+  "email": {
+   "value": "info.arlanda@swedavia.se",
+   "quote": "E-mail: info.arlanda@swedavia.se"
+  },
+  "website": {
+   "value": "www.swedavia.se/arlanda/",
+   "quote": "Website: www.swedavia.se/arlanda/"
+  },
+  "good_to_know": [
+   {
+    "text": "Repeated take-off and landing exercises, solo flights during basic training and aerobatics at or near the airport are not permitted.",
+    "quote": "Repeated take-off and landing exercises, solo flight during basic training and aerobatics at or in the vicinity of the airport, is not permitted."
+   },
+   {
+    "text": "Photo, survey and calibration flights need PPR 30 days in advance from Arlanda TWR.",
+    "quote": "Prior permission required (PPR) 30 days in advance of planned activity."
+   },
+   {
+    "text": "All flights are subject to mandatory handling or self-handling agreements (exceptions: hospital and state aircraft).",
+    "quote": "All flights to and from STOCKHOLM/Arlanda are subject to mandatory handling or self-handling agreements."
+   },
+   {
+    "text": "Airport SLOT coordination applies (ACS); helicopters, state, humanitarian flights and emergency landings are exempted.",
+    "quote": "Flights exempted from coordination in accordance with EU Regulation (EC) No. 793/2004 amending Council Regulation (EEC) No. 95/93:"
+   }
+  ]
+ },
+ {
+  "icao": "ESSL",
+  "source": "AIP Sweden AD 2 ESSL",
+  "ppr": {
+   "status": "required",
+   "note": "PPR H24 for visiting flights; no PPR given for touch-and-go",
+   "phone": "+46 13 26 28 40",
+   "request_url": "",
+   "quote": "Prior Permission Required (PPR) H24 for visiting flights."
+  },
+  "fuel": {
+   "types": [
+    "JET A-1",
+    "100LL",
+    "91/96UL"
+   ],
+   "note": "Jet A1 (Shell) only with contract, carnet card or fuel release; 100LL and 91/96UL self-service at aero club on GAC apron, VISA/Mastercard",
+   "hours": "As ATS",
+   "quote": "Fuel 100LL and 91/96UL available as self service at aero club on GAC apron. Payment VISA/Mastercard."
+  },
+  "hours": {
+   "ad": "See Local Traffic Regulations",
+   "note": "AD operator MON-FRI 0700-1530 (0600-1430); environmental concession permits traffic 0600-2200 local time",
+   "quote": "See Local Traffic Regulations"
+  },
+  "contacts": [
+   {
+    "label": "Linköping City Airport (operator)",
+    "phone": "+46 13 26 28 00",
+    "quote": "TEL: +46 13 26 28 00"
+   },
+   {
+    "label": "PPR",
+    "phone": "+46 13 26 28 40",
+    "quote": "PPR TEL +46 13 26 28 40"
+   },
+   {
+    "label": "Stockholm ACC supervisor (training in Östgöta TMA)",
+    "phone": "+46 8 585 547 02",
+    "quote": "TEL +46 8 585 547 02."
+   },
+   {
+    "label": "Briefing (FPC)",
+    "phone": "+46 8 797 63 40",
+    "quote": "FPC, H24, +46 8 797 63 40, www.lfv.se/fpc"
+   }
+  ],
+  "email": {
+   "value": "op@linkopingcityairport.se",
+   "quote": "E-mail: op@linkopingcityairport.se"
+  },
+  "website": {
+   "value": "www.linkopingcityairport.se",
+   "quote": "Website: www.linkopingcityairport.se"
+  },
+  "good_to_know": [
+   {
+    "text": "PPR H24 for visiting flights; no PPR is given for touch-and-go.",
+    "quote": "No PPR given for touch-and-go."
+   },
+   {
+    "text": "Environmental concession permits daily traffic between 0600 and 2200 local time.",
+    "quote": "The environmental concession permits daily traffic between 0600 and 2200 local time."
+   },
+   {
+    "text": "Right-hand circuit to RWY 29.",
+    "quote": "Right hand circuit to RWY 29."
+   },
+   {
+    "text": "Take-off RWY 29 and landing RWY 11 accepted only when wind or flight safety so require.",
+    "quote": "Take-off RWY 29 and landing RWY 11 accepted only when wind conditions or other flight safety reasons so require."
+   }
+  ]
+ },
+ {
+  "icao": "ESSU",
+  "source": "AIP Sweden AD 2 ESSU",
+  "ppr": {
+   "status": "partial",
+   "note": "PPR for all school flights, TGL during darkness and aerobatics",
+   "phone": "+46 16 940 20",
+   "request_url": "",
+   "quote": "All school flights are subject to PPR, TEL +46 16 940 20 MON–FRI 0700–1600 (0600–1500)."
+  },
+  "fuel": {
+   "types": [
+    "100LL",
+    "91UL",
+    "JET A-1"
+   ],
+   "note": "",
+   "hours": "MON-FRI 0700-1600 (0600-1500)",
+   "quote": "Fuel: 100LL, 91UL, Jet A1"
+  },
+  "hours": {
+   "ad": "H24",
+   "note": "AD operator and ATS (AFIS): MON-FRI 0700-1100, 1200-1600 (0600-1000, 1100-1500)",
+   "quote": "MON-FRI 0700-1100, 1200-1600 (0600-1000, 1100-1500)"
+  },
+  "contacts": [
+   {
+    "label": "Aerodrome operator / PPR",
+    "phone": "+46 16 940 20",
+    "quote": "TEL: +46 16 940 20"
+   },
+   {
+    "label": "Briefing (FPC)",
+    "phone": "+46 8 797 63 40",
+    "quote": "FPC, H24, +46 8 797 63 40, www.lfv.se/fpc"
+   }
+  ],
+  "email": {
+   "value": "ats@eskilstunaairport.se",
+   "quote": "E-mail: ats@eskilstunaairport.se"
+  },
+  "website": {
+   "value": "www.eskilstunaflygplats.se",
+   "quote": "Website: www.eskilstunaflygplats.se"
+  },
+  "good_to_know": [
+   {
+    "text": "All school flights are subject to PPR.",
+    "quote": "All school flights are subject to PPR"
+   },
+   {
+    "text": "When ATS is closed, instrument approaches only for operators with an agreement with the airport (not for ambulance/police etc.).",
+    "quote": "When the ATS is closed, instrument approaches may only be carried out by flight operators who have established an agreement with the airport."
+   },
+   {
+    "text": "Repeated touch-and-go landings during darkness require PPR.",
+    "quote": "Repeated touch-and-go landings, TGL during darkness are subject to PPR"
+   },
+   {
+    "text": "PPR required for aerobatic flight.",
+    "quote": "PPR for aerobatic flight, TEL +46 16 940 20."
+   }
+  ]
+ },
+ {
+  "icao": "ESTL",
+  "source": "AIP Sweden AD 2 ESTL",
+  "ppr": {
+   "status": "required",
+   "note": "PPR for all flights",
+   "phone": "",
+   "request_url": "",
+   "quote": "PPR for all flights."
+  },
+  "hours": {
+   "ad": "As ATS",
+   "note": "ATS: ref AIP SUP/NOTAM; increased charges outside TWR hours",
+   "quote": "Increased charges outside TWR HR of OPS"
+  },
+  "contacts": [
+   {
+    "label": "Briefing (FPC)",
+    "phone": "+46 8 797 63 40",
+    "quote": "FPC, H24, +46 8 797 63 40, www.lfv.se/fpc"
+   }
+  ],
+  "email": {
+   "value": "flygplatsen@estl.eu",
+   "quote": "E-mail: flygplatsen@estl.eu"
+  },
+  "website": {
+   "value": "www.ljungbyhedpark.se",
+   "quote": "Website: www.ljungbyhedpark.se"
+  },
+  "good_to_know": [
+   {
+    "text": "Outside ATS hours aerodrome consent is required for all traffic.",
+    "quote": "Aerodrome consent is required for all traffic."
+   },
+   {
+    "text": "Outside ATS hours take-off/landing only when visibility exceeds 800 m, and none during twilight and darkness.",
+    "quote": "Take-off or landing may only take place when visibility exceeds 800 m."
+   },
+   {
+    "text": "Outside ATS hours all CTR traffic must transmit intentions on 130.705.",
+    "quote": "All traffic within the CTR must transmit their intention on channel 130.705."
+   },
+   {
+    "text": "Right-hand traffic circuit when RWY 29L/R is in use.",
+    "quote": "Right hand traffic circuit when RWY 29L/R is in use."
+   }
+  ]
+ }
+]

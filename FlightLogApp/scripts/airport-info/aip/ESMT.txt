@@ -1,0 +1,109 @@
+SOURCE: AIP Sweden, AD 2 ESMT HALMSTAD (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESMT%20HALMSTAD%201-en-GB.html
+
+ESMT 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 564127N 0124912E RWY centre point 
+ 2. 
+ Direction and distance from (city) 
+ NW 1 NM from Halmstad 
+ 3. 
+ Elevation/Reference temperature 
+ 101 ft/+23.5°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 120 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 5° E (2025)/+0.1 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Halmstad City Airport 
+ Trehjärtansväg 12 
+ SE-302 41 Halmstad
+ TEL: +46 35 18 26 00 
+ FAX: +46 35 18 26 09 
+ E-mail: halmstadcityairport@halmstad.se 
+ AFS: ESMTZTZX 
+ Website: www.halmstadsflygplats.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4D 
+ 8. 
+ Remarks 
+ PPR outside TWR HR of OPS. Request shall be made during hours of AD operator TEL +46 35 18 26 00. 
+ PPR for IFR school and training flights at all times. PPR for VFR flights planning to carry out repeated TGL. Requests shall be made during TWR HR of OPS TEL +46 35 21 16 82.
+
+ESMT 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0600-1500 (0500-1400) 
+ AD Operating hours 
+ As ATS. 
+ 2. 
+ Customs and immigration 
+ O/R TEL +46 31 63 38 00 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ Ref AIP SUP/NOTAM 
+ 8. 
+ Fuelling 
+ As ATS 
+ 9. 
+ Handling 
+ O/R 
+ 10. 
+ Security 
+ O/R 
+ 11. 
+ De-Icing 
+ O/R 
+ 12. 
+ Remarks 
+ Increased charges outside TWR HR of OPS
+
+ESMT 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ O/R 
+ 2. 
+ Fuel and oil types 
+ Fuel: 100LL, 91 UL, Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ 100LL: 20,000 l 
+ 91 UL: 10,000 l 
+ Jet A1: 140,000 l
+ 4. 
+ De-icing facilities 
+ Available, Type I and II, mobile unit 
+ 5. 
+ Hangar space for visiting ACFT 
+ - 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ Fuel supplier AirBP
+
+ESMT 2.20 LOCAL AERODROME REGULATIONS 
+ 1. Right hand traffic circuit when RWY 19 is in use.
+ 2. PPR for repeated instrument approaches
+ 3. APU must not be used on parking unless required for engine start. On these occasions APU must not be started earlier than 15 min before estimated time for taxiing.
+ 4. Special regulations for IFR traffic around closing time 
+Latest airborne time for IFR traffic should not be later than 15 MIN before closing time according to TWR HR of OPS.

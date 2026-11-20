@@ -1,0 +1,281 @@
+[
+ {
+  "key": "ESFS",
+  "name": "Sandvik Airport",
+  "type": "small",
+  "municipality": "Sandvik",
+  "lat": 57.0681,
+  "lon": 16.8613,
+  "home_link": ""
+ },
+ {
+  "key": "ESGF",
+  "name": "Morup Airfield",
+  "type": "small",
+  "municipality": "Falkenberg",
+  "lat": 56.9686,
+  "lon": 12.38744,
+  "home_link": ""
+ },
+ {
+  "key": "ESGM",
+  "name": "Öresten Airfield",
+  "type": "small",
+  "municipality": "Öresten",
+  "lat": 57.4453,
+  "lon": 12.649,
+  "home_link": ""
+ },
+ {
+  "key": "ESGU",
+  "name": "Rörkärr Airport",
+  "type": "small",
+  "municipality": "Uddevalla",
+  "lat": 58.3676,
+  "lon": 11.7754,
+  "home_link": ""
+ },
+ {
+  "key": "ESKD",
+  "name": "Dala Järna Airport",
+  "type": "small",
+  "municipality": "Dala Järna",
+  "lat": 60.5561,
+  "lon": 14.3771,
+  "home_link": ""
+ },
+ {
+  "key": "ESKU",
+  "name": "Sunne Airport",
+  "type": "small",
+  "municipality": "",
+  "lat": 59.8602,
+  "lon": 13.1129,
+  "home_link": ""
+ },
+ {
+  "key": "ESME",
+  "name": "Eslöv Airport",
+  "type": "small",
+  "municipality": "Eslöv",
+  "lat": 55.8483,
+  "lon": 13.3283,
+  "home_link": "https://eslovsflygplats.se/information-for-piloter/"
+ },
+ {
+  "key": "ESMJ",
+  "name": "Kågeröd Simmelsberga Airport",
+  "type": "small",
+  "municipality": "Kågeröd",
+  "lat": 55.9947,
+  "lon": 13.0509,
+  "home_link": ""
+ },
+ {
+  "key": "ESMY",
+  "name": "Smålandsstenar Smålanda Airport",
+  "type": "small",
+  "municipality": "Smålandsstenar",
+  "lat": 57.1686,
+  "lon": 13.4402,
+  "home_link": ""
+ },
+ {
+  "key": "ESNE",
+  "name": "Överkalix Airport",
+  "type": "small",
+  "municipality": "Överkalix",
+  "lat": 66.5287,
+  "lon": 22.35,
+  "home_link": ""
+ },
+ {
+  "key": "ESNY",
+  "name": "Söderhamn Airport",
+  "type": "medium",
+  "municipality": "Söderhamn",
+  "lat": 61.2615,
+  "lon": 17.0991,
+  "home_link": "http://www.flygstaden.se/flygf-ltet"
+ },
+ {
+  "key": "ESSF",
+  "name": "Hultsfred Airport",
+  "type": "small",
+  "municipality": "",
+  "lat": 57.5258,
+  "lon": 15.8233,
+  "home_link": "https://www.hultsfredairport.se"
+ },
+ {
+  "key": "ESSN",
+  "name": "Norrtälje Airport",
+  "type": "small",
+  "municipality": "Norrtälje",
+  "lat": 59.7328,
+  "lon": 18.6964,
+  "home_link": "https://rfk.nu"
+ },
+ {
+  "key": "ESTT",
+  "name": "Vellinge Airfield",
+  "type": "small",
+  "municipality": "Vellinge",
+  "lat": 55.3912,
+  "lon": 13.0221,
+  "home_link": "http://www.estt.se/front/"
+ },
+ {
+  "key": "ESUH",
+  "name": "Myran Airport",
+  "type": "small",
+  "municipality": "Härnösand",
+  "lat": 62.63247,
+  "lon": 17.9817,
+  "home_link": "https://www.harnosandsflygklubb.com"
+ },
+ {
+  "key": "ESUM",
+  "name": "Mohed Airport",
+  "type": "small",
+  "municipality": "Mohed",
+  "lat": 61.2912,
+  "lon": 16.8463,
+  "home_link": ""
+ },
+ {
+  "key": "ESUY",
+  "name": "Edsby Flygplats",
+  "type": "small",
+  "municipality": "Edsbyn",
+  "lat": 61.387,
+  "lon": 15.8334,
+  "home_link": "https://www.facebook.com/EdsbynsFlygklubb"
+ },
+ {
+  "key": "ESVK",
+  "name": "Katrineholm Airfield",
+  "type": "small",
+  "municipality": "Katrineholm",
+  "lat": 59.0223,
+  "lon": 16.2203,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0002",
+  "name": "Stegeborg",
+  "type": "small",
+  "municipality": "",
+  "lat": 58.43551,
+  "lon": 16.60738,
+  "home_link": "https://web.archive.org/web/20080906220902/http://www.stegeborg.se:80/flygfalt.html"
+ },
+ {
+  "key": "SE-0007",
+  "name": "Staffanstorp Bjällerup Field",
+  "type": "small",
+  "municipality": "",
+  "lat": 55.65878,
+  "lon": 13.26496,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0013",
+  "name": "Majfält-Ovansjö",
+  "type": "small",
+  "municipality": "",
+  "lat": 62.23563,
+  "lon": 17.38483,
+  "home_link": "https://www.facebook.com/SundsvallsFlygklubb/"
+ },
+ {
+  "key": "SE-0018",
+  "name": "Frölunda Airfield",
+  "type": "small",
+  "municipality": "",
+  "lat": 59.45837,
+  "lon": 17.71065,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0024",
+  "name": "Älvdalens flygklubb",
+  "type": "small",
+  "municipality": "Älvdalen",
+  "lat": 61.21397,
+  "lon": 14.04319,
+  "home_link": "http://www.alvdalsflyg.se"
+ },
+ {
+  "key": "SE-0029",
+  "name": "Dorotea Airfield",
+  "type": "small",
+  "municipality": "Dorotea",
+  "lat": 64.2654,
+  "lon": 16.49082,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0039",
+  "name": "Tjautjasjaure Airstrip",
+  "type": "small",
+  "municipality": "Tjautjas",
+  "lat": 67.32757,
+  "lon": 20.74398,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0046",
+  "name": "Gimo gräsfält",
+  "type": "small",
+  "municipality": "Gimo",
+  "lat": 60.17702,
+  "lon": 18.19414,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0052",
+  "name": "Bergs Airstrip",
+  "type": "small",
+  "municipality": "Berg",
+  "lat": 62.77889,
+  "lon": 14.40594,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0059",
+  "name": "Ödestugu Glider Field",
+  "type": "small",
+  "municipality": "",
+  "lat": 57.60187,
+  "lon": 14.28645,
+  "home_link": "http://jsfk.com/"
+ },
+ {
+  "key": "SE-0064",
+  "name": "Nyby Private Airstrip",
+  "type": "small",
+  "municipality": "Nyby",
+  "lat": 59.87213,
+  "lon": 16.41971,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0069",
+  "name": "Skeppsdal Airstrip",
+  "type": "small",
+  "municipality": "",
+  "lat": 59.49633,
+  "lon": 18.42299,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0074",
+  "name": "Muskö Airstrip",
+  "type": "small",
+  "municipality": "Muskö",
+  "lat": 59.00512,
+  "lon": 18.11521,
+  "home_link": ""
+ }
+]

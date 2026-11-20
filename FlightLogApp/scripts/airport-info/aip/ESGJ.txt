@@ -1,0 +1,106 @@
+SOURCE: AIP Sweden, AD 2 ESGJ JÖNKÖPING (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESGJ%20J%C3%96NK%C3%96PING%201-en-GB.html
+
+ESGJ 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 574530N 0140409E RWY 1200 m from THR 01 
+ 2. 
+ Direction and distance from (city) 
+ WSW 3.5 NM from Jönköping 
+ 3. 
+ Elevation/Reference temperature 
+ 742 ft/+21.6°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 108 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 7° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Jönköping Airport AB 
+ Jönköping flygplats 
+ SE-555 93 Jönköping
+ TEL: +46 36 31 12 00 
+ E-mail: info@jonkopingairport.se 
+ AFS: ESGJZTZX 
+ Website: www.jonkopingairport.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4E 
+ 8. 
+ Remarks 
+ PPR outside TWR HR of OPS. 
+ PPR for commercial traffic and aircraft exceeding MTOM 4000 kg. 
+ Requests shall be made during hours of AD operator to: groundhandling@jonkopingairport.se or TEL: +46 36 31 12 11.
+
+ESGJ 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0730-1530 (0630-1430) 
+ AD Operating hours 
+ Ref AIP SUP/NOTAM 
+ 2. 
+ Customs and immigration 
+ O/R Customs TEL +46 31 63 38 00, Immigration TEL +46 10 569 42 37 
+ 3. 
+ Health and sanitation 
+ As AD operating hours, Designated quarantine AD 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ Ref AIP SUP/NOTAM 
+ 8. 
+ Fuelling 
+ As AD operating hours 
+ 9. 
+ Handling 
+ As AD operating hours 
+ 10. 
+ Security 
+ As AD operating hours 
+ 11. 
+ De-Icing 
+ As AD operating hours 
+ 12. 
+ Remarks 
+ Increased charges outside AD operating hours. Extended operational hours occurs frequently.
+
+ESGJ 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ All types available 
+ 2. 
+ Fuel and oil types 
+ Fuel: 100LL, Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ 100LL: 20,000l 
+ Jet A1: 40,000l fuel truck/150,000l stationary
+ 4. 
+ De-icing facilities 
+ Type I and II mobile unit 
+ 5. 
+ Hangar space for visiting ACFT 
+ Limited, Heated, O/R: groundhandling@jonkopingairport.se or TEL: +46 36 31 12 11 
+ 6. 
+ Repair facilities for visiting ACFT 
+ Limited, O/R: groundhandling@jonkopingairport.se or TEL +46 36 31 12 11 
+ 7. 
+ Remarks 
+ For payment of fuel AIR BP, VISA, Mastercard and American Express accepted.
+
+ESGJ 2.20 LOCAL AERODROME REGULATIONS 
+ 1. Outside ATS operational hours, flights are conducted in accordance with SERA.
+ 2. Outside ATS operational hours, blind transmission is mandatory within the geographical area of the established ESGJ CTR. The intention to take off or land must be clearly announced on channel 118.255. If the runway is not available in its full length and width, take-off or landing should not be performed.
+ 3. Vehicle traffic without two-way radio communication may occur in the maneuvering area outside ATS operational hours.

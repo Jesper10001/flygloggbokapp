@@ -1,0 +1,110 @@
+SOURCE: AIP Sweden, AD 2 ESOH HAGFORS (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESOH%20HAGFORS%201-en-GB.html
+
+ESOH 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 600116N 0133444E RWY 625 m from THR 18 
+ 2. 
+ Direction and distance from (city) 
+ W 5.4 NM from Hagfors 
+ 3. 
+ Elevation/Reference temperature 
+ 474 ft/+23.2°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 102 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 6° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Hagfors Airport 
+ Flygplatsvägen 13 
+ SE-683 93 Råda
+ TEL: +46 563 603 68 
+ E-mail: flygplats@hagfors.se 
+ AFS: ESOHZTZX 
+ Website: www.hagfors.se/hagforsairport 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 3C 
+ 8. 
+ Remarks 
+ PPR for IFR and commercial traffic: 
+ TEL: +46 563 601 75 (ATS), +46 563 603 68 
+ E-mail: ats.hagfors@acr-sweden.se, flygplats@hagfors.se 
+ IFR traffic is only allowed when ATS is open.
+
+ESOH 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ O/R 
+ AD Operating hours 
+ H24 
+ 2. 
+ Customs and immigration 
+ - 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ MON-FRI 0445-0600, 0815-0935, 1515-1625, 1715-1835 
+ (0345-0500, 0715-0835, 1415-1525, 1615-1735) 
+ SAT-SUN and HOL O/R
+ 8. 
+ Fuelling 
+ MON-SUN O/R +46 563 603 68 
+ 9. 
+ Handling 
+ O/R 
+ 10. 
+ Security 
+ - 
+ 11. 
+ De-Icing 
+ O/R 
+ 12. 
+ Remarks 
+ Increased charges outside AFIS and AD Operator hours
+
+ESOH 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ - 
+ 2. 
+ Fuel and oil types 
+ Fuel: 100LL, Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ 100LL: 10 000 l 
+ Jet A1: 20 000 l
+ 4. 
+ De-icing facilities 
+ Available, Type I 
+ 5. 
+ Hangar space for visiting ACFT 
+ O/R 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ For payment of fuel major credit cards accepted. 
+ Pressure refueling not available.
+
+ESOH 2.20 LOCAL AERODROME REGULATIONS 
+ 1. ESOH IAC: NDB RWY 36 and AB holding is available with prior permission from ESOK ATS.
+ 2. For landing outside ATS operational hours intention to land and time to landing shall be clearly declared on channel for Hagfors AFIS, followed by a RWY crossing at AD traffic pattern altitude +500 ft in order to verify RWY availability and to alert AD personnel of presence.
+ 3. For take-off outside ATS operational hours intention to start and time to start shall be clearly declared on channel for Hagfors AFIS.

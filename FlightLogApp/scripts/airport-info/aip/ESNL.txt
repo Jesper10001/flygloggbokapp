@@ -1,0 +1,108 @@
+SOURCE: AIP Sweden, AD 2 ESNL LYCKSELE (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESNL%20LYCKSELE%201-en-GB.html
+
+ESNL 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 643251N 0184304E RWY 700 m from THR 32 
+ 2. 
+ Direction and distance from (city) 
+ SSE 3.0 NM from Lycksele 
+ 3. 
+ Elevation/Reference temperature 
+ 705 ft/+18.5°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 90 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 8° E (2020)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Lycksele Airport AB 
+ SE-921 81 Lycksele
+ TEL: +46 950 275 55 
+ E-mail: info@lyckseleairport.se 
+ AFS: ESNLZTZX 
+ Website: www.lyckseleairport.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4C 
+ 8. 
+ Remarks 
+ -
+
+ESNL 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ No specific hours 
+ AD Operating hours 
+ H24 
+ 2. 
+ Customs and immigration 
+ - 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ Ref AIP SUP/NOTAM 
+ 8. 
+ Fuelling 
+ As AD Operating hours 
+ 9. 
+ Handling 
+ O/R 
+ 10. 
+ Security 
+ O/R 
+ 11. 
+ De-Icing 
+ O/R 
+ 12. 
+ Remarks 
+ -
+
+ESNL 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ - 
+ 2. 
+ Fuel and oil types 
+ Fuel: 100LL, Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ 100LL: 2400 l mobile unit 
+ Jet A1: 56 000 l pressure fuelling and overwing fuelling
+ 4. 
+ De-icing facilities 
+ Available, Type I and II, mobile unit 
+ 5. 
+ Hangar space for visiting ACFT 
+ Limited 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ Fuel supplier 100LL, Lycksele Airport 
+ For payment of 100LL only major credit cards or payment via Swish 
+ accepted. 
+ Fuel supplier Jet A1, AIR BP 
+ H24 Self-service Jet A1 via Carnet
+
+ESNL 2.20 LOCAL AERODROME REGULATIONS 
+ 1. All aircraft operating to and from Lycksele Aerodrome must be equipped with VHF-radio which allows two-way radio communication on channel 122.230 and 121.500. This is also mandatory outside ATS hours of operation.
+ 2. Clearance at gate
+ ATC clearance for IFR traffic will be delivered on request at start-up. Transponder code will be delivered during taxi.
+ 3. VHF channel 122.230 is monitored by ground personnel outside ATS hours of operation when entering AD manoeuvering area.

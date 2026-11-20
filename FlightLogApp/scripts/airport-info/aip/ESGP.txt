@@ -1,0 +1,104 @@
+SOURCE: AIP Sweden, AD 2 ESGP GÖTEBORG-SÄVE (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESGP%20G%C3%96TEBORG-S%C3%84VE%201-en-GB.html
+
+ESGP 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 574632N 0115214E RWY 275 m from THR 01 
+ 2. 
+ Direction and distance from (city) 
+ NW 5.0 NM from Göteborg 
+ 3. 
+ Elevation/Reference temperature 
+ 59 ft/+18.5°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 118 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 4° E (2020)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Säve Flygplatsdrift AB 
+ Säve Flygplatsväg 28 
+ 423 73 Säve
+ TEL: +46 31 744 09 09 
+ E-mail: op.save@castellum.se 
+ AFS: - 
+ Website: www.saveflygplats.com 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ VFR. Max RWY ref code 2C 
+ 8. 
+ Remarks 
+ AD closed for aircraft not resident at Göteborg/Säve, SAR, HOSP and Police exempted.
+
+ESGP 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0700-1700 (0600-1600) 
+ AD Operating hours 
+ - 
+ 2. 
+ Customs and immigration 
+ - 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ - 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ - 
+ 8. 
+ Fuelling 
+ - 
+ 9. 
+ Handling 
+ - 
+ 10. 
+ Security 
+ - 
+ 11. 
+ De-Icing 
+ - 
+ 12. 
+ Remarks 
+ -
+
+ESGP 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ - 
+ 2. 
+ Fuel and oil types 
+ Fuel: - 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ - 
+ 4. 
+ De-icing facilities 
+ - 
+ 5. 
+ Hangar space for visiting ACFT 
+ - 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ -
+
+ESGP 2.20 LOCAL AERODROME REGULATIONS 
+ 1. The aerodrome is closed for aircraft not resident at Göteborg/Säve AD. SAR, HOSP and police are exempted.
+ 2. For aircraft resident at Göteborg/Säve AD take-off and landing exercises are allowed weekdays 0700-1900 (0600-1800), Saturday, Sunday and holidays 0700-1500 (0600-1400). From May to August take-off and landing exercises are not allowed after 1500 (1400) on Fridays. 
+From 01 JUL - 16 AUG take-off and landing exercises are not allowed on Fridays, Saturdays, Sundays and holidays. Take-off and landing exercises are not allowed on Good Friday, Easter Eve, Easter Day, Ascension Day, Whitsun Eve, Whitsun Day, National Day, Midsummer’s Eve, Boxing day. 
+Take-off and landing exercises with helicopter is limited to one helicopter between 1100-1500 (1000-1400) on Saturdays, Sundays and holidays.

@@ -1,0 +1,116 @@
+SOURCE: AIP Sweden, AD 2 ESCM UPPSALA (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESCM%20UPPSALA%201-en-GB.html
+
+ESCM 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 595401N 0173533E RWY 03/21 centre point 
+ 2. 
+ Direction and distance from (city) 
+ NW 2.5 NM from Uppsala 
+ 3. 
+ Elevation/Reference temperature 
+ 69 ft/+19.0°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 79 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 8° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ MIL AD: FM/Swedish Armed Forces 
+ F16 Upplands flygflottilj 
+ Box 645 
+ SE-751 27 Uppsala
+ TEL: +46 70 862 52 43 (ADO) 
+ E-mail: uppsala-airport@mil.se 
+ AFS: ESCMZTZX 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. RWY ref code 3C. Available for larger ACFT by permission. 
+ 8. 
+ Remarks 
+ Military Airbase. PPR for all flights. By written permission from the Swedish Armed Forces the aerodrome is also available for civil air operations related to public and individual health and safety as well as national and regional crisis management.
+
+ESCM 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-SUN 0600-1800 (0500-1700) 
+ AD Operating hours 
+ As ATS. 
+ 2. 
+ Customs and immigration 
+ Available O/R 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ MON-THU 0730-1500 (0630-1400) 
+ FRI and day before HOL (MON-FRI) 0730-1100 (0630-1000) 
+ During 15 SEP - 01 APR also THU 1500-1600 (1400-1500) 
+ HOL CLSD
+ 8. 
+ Fuelling 
+ As ATS 
+ 9. 
+ Handling 
+ As ATS 
+ 10. 
+ Security 
+ As ATS 
+ 11. 
+ De-Icing 
+ As ATS 
+ 12. 
+ Remarks 
+ Operations outside ATS operational hours only by special permission from the Swedish Armed Forces and the Uppsala Airport Manager.
+
+ESCM 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ Available 
+ 2. 
+ Fuel and oil types 
+ Fuel: - 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ - 
+ 4. 
+ De-icing facilities 
+ Type 1, mobile unit 
+ 5. 
+ Hangar space for visiting ACFT 
+ - 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ Fuel types according to Swedish military standard which differs from normally used by civil aviation. 
+ Military standard FF75 which corresponds to NATO-standard F35. 
+ Payment of airport fees, fuel etc. by invoice only. 
+ Credit cards not accepted.
+
+ESCM 2.20 LOCAL AERODROME REGULATIONS 
+ 1. Right hand traffic circuit to RWY 21 and RWY 26.
+ 2. Outside ATS hours of operation monitoring and intention shall be transmitted on channel 119.205 when flying within the boundaries of Uppsala CTR. Except for traffic in, or in the vicinity of ESKC traffic circuit, where ESKC channel 123.350 shall be used.
+ 3. Neither airwork, approaches nor landings are permitted without special permission. Generally, only flights important to society will be granted such permission.
+ 4. RWY guard lights (RGL) are activated during ATS hours of operation.
+ 5. PPR for RNP school and training flights weekdays 24h prior planned flight. Permission is requested at ATS Uppsala TEL +46 
+ 18 
+ 10 
+ 19 
+ 829 
+ 60 72 during hours of operation.

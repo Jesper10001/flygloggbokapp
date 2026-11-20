@@ -1,0 +1,106 @@
+SOURCE: AIP Sweden, AD 2 ESMX VÄXJÖ-KRONOBERG (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESMX%20V%C3%84XJ%C3%96-KRONOBERG%201-en-GB.html
+
+ESMX 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 565549N 0144344E RWY 1203 m inwards THR 01 
+ 2. 
+ Direction and distance from (city) 
+ NW 3.5 NM from Växjö 
+ 3. 
+ Elevation/Reference temperature 
+ 610 ft/+22.0°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 108 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 6° E (2020)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Växjö Småland Airport AB 
+ SE-355 93 Växjö
+ TEL: +46 470 75 85 00 
+ AFS: ESMXZTZX 
+ Website: www.smalandairport.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4E 
+ 8. 
+ Remarks 
+ PPR for all school and training flights. 
+ PPR for all traffic outside TWR HR of OPS. 
+ Request shall be made during HR of AD operator TEL: +46 470 75 85 30.
+
+ESMX 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ 0700-1530 (0600-1430) 
+ AD Operating hours 
+ As ATS 
+ 2. 
+ Customs and immigration 
+ O/R TEL +46 40 661 32 20 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ Ref AIP SUP/NOTAM 
+ 8. 
+ Fuelling 
+ As ATS 
+ 9. 
+ Handling 
+ O/R 
+ 10. 
+ Security 
+ O/R 
+ 11. 
+ De-Icing 
+ As ATS 
+ 12. 
+ Remarks 
+ Increased charges outside TWR HR of OPS
+
+ESMX 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ O/R 
+ 2. 
+ Fuel and oil types 
+ Fuel: 91UL, Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ 91UL: 10,000 l. Stationary 
+ Jet A1: 2 x 20,000 l. Trucks
+ 4. 
+ De-icing facilities 
+ Available, Type I and II, mobile unit 
+ 5. 
+ Hangar space for visiting ACFT 
+ - 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ Fuel supplier BP
+
+ESMX 2.20 LOCAL AERODROME REGULATIONS 
+ 1. ATC clearance will be delivered on request prior to start-up. Transponder code will be communicated during taxi.
+ 2. For jet aircraft and other aircraft with MTOM exceeding 5700 kg left hand turn must not be initiated until 4.5 DME has been reached after departure RWY 19.
+ 3. Normal procedure is right hand traffic circuit when RWY 19 is in use
+ 4. Outside ATS operational hours, blind transmission is mandatory within the geographical area of the established ESMX CTR. The intention to take-off or land must be clearly announced on channel 118.155. If the runway is not available in its full length and width, take-off or landing should not be performed.
+ 5. Vehicle traffic without two-way radio communication may occur in the manoeuvering area outside ATS operational hours.

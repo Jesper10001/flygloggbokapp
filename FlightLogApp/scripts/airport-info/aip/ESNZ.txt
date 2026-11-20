@@ -1,0 +1,117 @@
+SOURCE: AIP Sweden, AD 2 ESNZ ÅRE ÖSTERSUND (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESNZ%20%C3%85RE%20%C3%96STERSUND%201-en-GB.html
+
+ESNZ 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 631140N 0143001E BRG 115.0° GEO 1156 m from THR 12. 
+ 2. 
+ Direction and distance from (city) 
+ W 4.5 NM from Östersund 
+ 3. 
+ Elevation/Reference temperature 
+ 1234 ft/+21.0°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 105 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 6° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Swedavia AB 
+ Åre Östersund Airport 
+ SE-832 96 Frösön
+ TEL: +46 10 109 56 00 
+ FAX: +46 10 109 56 09 
+ E-mail: info@ostersundairport.se 
+ AFS: ESNZZTZX 
+ Website: www.swedavia.se/ostersund 
+ Website: www.swedavia.net
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4C 
+ 8. 
+ Remarks 
+ PPR for all non-scheduled flights, HOSP flights exempted. 
+ PPR outside AD Operating hours. 
+ Request shall be made to osd.groundhandling@swedavia.se during hours of AD administration.
+
+ESNZ 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0700-1515 (0600-1415) 
+ AD Operating hours 
+ Ref AIP SUP/NOTAM 
+ 2. 
+ Customs and immigration 
+ O/R TEL +46 771 52 05 20 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ FPC H24 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ TWR opens 15 min prior AD Operating hours. Closes as AD Operating hours. 
+ 8. 
+ Fuelling 
+ As AD Operating hours 
+ 9. 
+ Handling 
+ O/R 
+ 10. 
+ Security 
+ As AD Operating hours 
+ 11. 
+ De-Icing 
+ As AD Operating hours 
+ 12. 
+ Remarks 
+ Increased charges outside AD Operating hours. 
+ Handling request shall be made during AD administration hours to 
+ osd.groundhandling@swedavia.se
+
+ESNZ 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ Limited 
+ 2. 
+ Fuel and oil types 
+ Fuel: 100LL, Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ 100LL: 10,000 l stationary 
+ Jet A1: 20,000 l fuel truck
+ 4. 
+ De-icing facilities 
+ Available, Type I and II, mobile unit 
+ 5. 
+ Hangar space for visiting ACFT 
+ - 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ Fuel 100LL self service only. 
+ Fuel supplier AirBP. 
+ For payment of fuel only BP fuel card or BP fuel release.
+
+ESNZ 2.20 LOCAL AERODROME REGULATIONS 
+ 1. All aircraft shall request start-up from ATC. ATC clearance will be delivered on request prior to start-up. Such clearance will be issued for RWY in use, appropriate SID or TMA exit point.
+ 2. Daily between 2100-0500 (2000-0400) the aerodrome must not be used by aircraft certificated in accordance with ICAO Annex 16, Volume I, Part II, Chapter 2.
+ 3. Contact TWR or Marshal on apron before moving aircraft from advised parking.
+ 4. Test running of engines in connection with maintenance requires permission from TWR or Swedavia during AD operating hours, if test running outside AD operating hours aircraft must monitor TWR channel 135.655.
+ 5. Taxi from apron North 
+When taxing from apron North, aircraft should reduce thrust from “Break away” to “Idle” as soon as the aircraft has started rolling. When taxing from stand 1-4, speed < 3 km/h and nose wheel angle 80% applies. When aircraft has reached the taxiway more thust may be used.
+ 6. Contracting a ground handling agent is mandatory for all flights to and from Åre Östersund Airport. Operators must ensure that arrangements with ground handling agents are in place prior to arrival and departure. For further information on ground handling: 
+ Ground handling agents | About Swedavia

@@ -17,6 +17,8 @@ import { presentPaywall } from '../services/purchases';
 import { useRouter } from 'expo-router';
 import { AirportInfoCard } from './AirportInfoCard';
 import { RouteStatsCard } from './RouteStatsCard';
+import { AirportInfoPanel } from './AirportInfoPanel';
+import { useAirportInfo, useAirportInfoStore } from '../store/airportInfoStore';
 import { AirportRunwaySnippet } from './AirportRunwaySnippet';
 import { displayCode } from '../utils/airportCodes';
 
@@ -141,6 +143,10 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
   const [metar, setMetar] = useState<AirportMetar | null>(null); // rapporteras från kortet → vind till snippeten
   const [fleetList, setFleetList] = useState<Perf[]>([]);        // fleet för att byta beräknings-farkost
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [showInfo, setShowInfo] = useState(false); // Airport Info över kartrutan
+  const info = useAirportInfo(selected?.icao);
+  useEffect(() => { useAirportInfoStore.getState().load(); }, []);
+  useEffect(() => { setShowInfo(false); }, [selected]);
   const [showMap, setShowMap] = useState(false); // MapView monteras bara medan popupen är öppen (avmonteras FÖRE stängning)
   const [snippetFrozen, setSnippetFrozen] = useState(false); // fryser marker-tracking strax före avmontering
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -457,8 +463,20 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
               />
               {/* MapView monteras bara medan popupen är öppen; vid stängning avmonteras den FÖRST (placeholder
                   behåller höjden) så native-kartan inte rivs mitt i modalens fade → undviker krasch. */}
-              {showMap ? (
-                <AirportRunwaySnippet icao={selected.icao} lat={selected.lat} lon={selected.lon} windDir={metar?.windDir ?? null} windSpeed={metar?.windSpeed ?? null} frozen={snippetFrozen} userLat={pos?.lat ?? null} userLon={pos?.lon ?? null} fitUser={closestMode} />
+              {showInfo && info ? (
+                // Airport Info lägger sig exakt över kartrutan (samma höjd) → skärmdump med kort, Info och rutt
+                <AirportInfoPanel info={info} accent={accent} height={315} onMap={() => setShowInfo(false)} />
+              ) : showMap ? (
+                <View>
+                  <AirportRunwaySnippet icao={selected.icao} lat={selected.lat} lon={selected.lon} windDir={metar?.windDir ?? null} windSpeed={metar?.windSpeed ?? null} frozen={snippetFrozen} userLat={pos?.lat ?? null} userLon={pos?.lon ?? null} fitUser={closestMode} />
+                  {info && (
+                    <TouchableOpacity onPress={() => setShowInfo(true)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Airport info"
+                      style={{ position: 'absolute', top: 10, right: 10, flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 14, borderRadius: 17, borderWidth: 1, borderColor: accent + '99', backgroundColor: 'rgba(10,22,40,0.92)' }}>
+                      <Ionicons name="information-circle-outline" size={15} color={accent} />
+                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Info</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               ) : (
                 <View style={{ height: 315, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card }} />
               )}

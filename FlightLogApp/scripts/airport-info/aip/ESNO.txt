@@ -1,0 +1,105 @@
+SOURCE: AIP Sweden, AD 2 ESNO ÖRNSKÖLDSVIK (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESNO%20%C3%96RNSK%C3%96LDSVIK%201-en-GB.html
+
+ESNO 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 632428N 0185933E RWY 800 m from THR 30 
+ 2. 
+ Direction and distance from (city) 
+ NE 10 NM from Örnsköldsvik 
+ 3. 
+ Elevation/Reference temperature 
+ 355 ft/+18.5°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 77 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 9° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Örnsköldsvik Airport AB 
+ Västanå 100 
+ SE-896 91 Husum
+ TEL: +46 660 874 00 
+ FAX: +46 660 874 07 
+ E-mail: info@oer.se 
+ AFS: ESNOZTZX 
+ Website: www.oer.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4C 
+ 8. 
+ Remarks 
+ PPR outside TWR HR of OPS. 
+ Request during TWR HR of OPS. TEL +46 60 19 75 05
+
+ESNO 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0700-1500 (0600-1400) 
+ AD Operating hours 
+ Ref AIP SUP/NOTAM 
+ 2. 
+ Customs and immigration 
+ O/R TEL +46 8 405 05 70, FAX +46 8 654 06 11, tuk@tullverket.se 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ Ref AIP SUP/NOTAM 
+ 8. 
+ Fuelling 
+ As AD Operating HRS 
+ 9. 
+ Handling 
+ O/R 
+ 10. 
+ Security 
+ O/R 
+ 11. 
+ De-Icing 
+ O/R 
+ 12. 
+ Remarks 
+ Increased charges outside AD HR of OPS. 
+ For information TEL +46 60 19 75 05
+
+ESNO 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ Available, limited 
+ 2. 
+ Fuel and oil types 
+ Fuel: 91UL, Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ 91UL: 20,000 l stationary 
+ Jet A1: 120,000 l fuel truck
+ 4. 
+ De-icing facilities 
+ Available, Type I and II, mobile unit 
+ 5. 
+ Hangar space for visiting ACFT 
+ Limited O/R 
+ 6. 
+ Repair facilities for visiting ACFT 
+ Limited O/R 
+ 7. 
+ Remarks 
+ Fuel Supplier Air BP
+
+ESNO 2.20 LOCAL AERODROME REGULATIONS 
+ NIL

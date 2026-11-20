@@ -1,0 +1,608 @@
+[
+ {
+  "key": "ESGE",
+  "name": "Borås Airport",
+  "status": "ok",
+  "website": {
+   "value": "https://www.borasflygplats.se/",
+   "url": "https://www.borasflygplats.se/flygande-besokare",
+   "quote": "Här pre­sen­te­ras den infor­ma­tion du behö­ver för att fly­ga till Borås flyg­plats."
+  },
+  "ppr": {
+   "status": "partial",
+   "note": "PPR applies 15 Nov to 15 Apr because of irregular snow clearing and varying runway condition",
+   "url": "https://www.borasflygplats.se/flygande-besokare",
+   "quote": "PPR (Pri­or Per­mis­sion Requi­red) gäl­ler under tiden 15 november–15 april"
+  },
+  "fuel": {
+   "types": [
+    "AVGAS 91/96 UL"
+   ],
+   "note": "Self-service with Visa/Mastercard. AVGAS 100LL and Jet A1 listed as temporarily unavailable",
+   "url": "https://www.borasflygplats.se/flygplatsservice",
+   "quote": "Själv­ser­vice på 91/96 UL, funk­tio­när vid behov."
+  },
+  "hours": {
+   "ad": "Mon-Thu 07-22, Fri 07-20, Sat-Sun/holidays 08-20 (Jun-Aug 08-18) local time",
+   "note": "Flying not allowed on several holidays and the first full weekend in July; see page",
+   "url": "https://www.borasflygplats.se/flygande-besokare",
+   "quote": "måndag–torsdag kl 07.00–22.00 (LT)"
+  },
+  "contacts": [
+   {
+    "label": "Airport manager (Pär Bergqvist)",
+    "phone": "+46 708 12 37 43",
+    "url": "https://www.borasflygplats.se/kontakt",
+    "quote": "tel 0708–12 37 43"
+   },
+   {
+    "label": "Fuel manager (Leif Gustafsson)",
+    "phone": "+46 734 21 30 60",
+    "url": "https://www.borasflygplats.se/kontakt",
+    "quote": "tel 0734–21 30 60"
+   }
+  ],
+  "good_to_know": [
+   {
+    "text": "No landing fee for visiting aircraft at present",
+    "url": "https://www.borasflygplats.se/flygande-besokare",
+    "quote": "För när­va­ran­de tas inte land­nings­av­gift ut av besö­kan­de flygplan."
+   },
+   {
+    "text": "Touch-and-go circuits not allowed for visiting aircraft and helicopters",
+    "url": "https://www.borasflygplats.se/flygande-besokare",
+    "quote": "Upp­re­pade start– och land­nings­öv­ningar, TGL, är ej tillå­tet för besö­kande flyg­plan och helikoptrar."
+   },
+   {
+    "text": "Grass strip is soft after rain",
+    "url": "https://www.borasflygplats.se/flygande-besokare",
+    "quote": "Gräs­strå­ket är mjukt vid neder­börd."
+   },
+   {
+    "text": "Normally unattended except when club members are present",
+    "url": "https://www.borasflygplats.se/flygplatsservice",
+    "quote": "Borås flyg­plats är nor­malt inte beman­nad"
+   }
+  ],
+  "as_of": "2026-06-28"
+ },
+ {
+  "key": "ESGL",
+  "name": "Lidköping-Hovby Airport",
+  "status": "ok",
+  "website": {
+   "value": "https://lidkoping.se/bygga-bo-och-miljo/trafik-gator-och-resande/lidkoping-airport",
+   "url": "https://lidkoping.se/bygga-bo-och-miljo/trafik-gator-och-resande/lidkoping-airport",
+   "quote": "Lidköping/Hovby Flygplats AB"
+  },
+  "ppr": {
+   "status": "partial",
+   "note": "PPR for aircraft over 5700 kg",
+   "phone": "+46 70 968 92 23",
+   "url": "https://lidkoping.se/bygga-bo-och-miljo/trafik-gator-och-resande/lidkoping-airport",
+   "quote": "PPR för flygplan över 5700kg. Ring 070-9689223 eller mejla andre.persson@lidkoping.se"
+  },
+  "fuel": {
+   "types": [
+    "AVGAS 100LL"
+   ],
+   "note": "Jet A1: contact the airport; see source for flying-club contact",
+   "url": "https://lidkoping.se/bygga-bo-och-miljo/trafik-gator-och-resande/lidkoping-airport",
+   "quote": "Bränsle Avgas 100LL BP 91/96 kontakta motorflygklubben för Jet A1 kontakta flygplatsen."
+  },
+  "contacts": [
+   {
+    "label": "Airport manager",
+    "phone": "+46 70 968 92 23",
+    "url": "https://lidkoping.se/bygga-bo-och-miljo/trafik-gator-och-resande/lidkoping-airport",
+    "quote": "Flygplatschef +46709689223"
+   }
+  ],
+  "good_to_know": [
+   {
+    "text": "Touch-and-go practice only 07:00-19:00 local time",
+    "url": "https://lidkoping.se/bygga-bo-och-miljo/trafik-gator-och-resande/lidkoping-airport",
+    "quote": "Start och landningsövningar endast tillåtna mellan 07:00-19:00 LT."
+   },
+   {
+    "text": "Busy glider activity",
+    "url": "https://lidkoping.se/bygga-bo-och-miljo/trafik-gator-och-resande/lidkoping-airport",
+    "quote": "Livlig segelflygverksamhet."
+   },
+   {
+    "text": "Solar panels along the asphalt runway, 30 m from the south edge",
+    "url": "https://lidkoping.se/bygga-bo-och-miljo/trafik-gator-och-resande/lidkoping-airport",
+    "quote": "Solpaneler längs med asfalts banan, 30 meter från södra bankanten."
+   }
+  ]
+ },
+ {
+  "key": "ESMI",
+  "name": "Sjöbo/Sövde Airport",
+  "status": "ok",
+  "website": {
+   "value": "http://www.sjoboflyg.se",
+   "url": "https://www.sjoboflyg.se/om-oss/esmi-flygplats/",
+   "quote": "Sjöbo Flygklubb Website: http://www.sjoboflyg.se"
+  },
+  "good_to_know": [
+   {
+    "text": "Grass runway 12/30, just over 950 m long and 50 m wide",
+    "url": "https://www.sjoboflyg.se/om-oss/esmi-flygplats/",
+    "quote": "Motorflygstråket i riktning 12/30 är gräsbevuxet och drygt 950 meter långt samt 50 meter brett."
+   },
+   {
+    "text": "Approved runway lighting for night flying",
+    "url": "https://www.sjoboflyg.se/om-oss/esmi-flygplats/",
+    "quote": "har godkänd banbelysning för mörkerflyg"
+   },
+   {
+    "text": "Parallel grass strip used by gliders",
+    "url": "https://www.sjoboflyg.se/om-oss/esmi-flygplats/",
+    "quote": "Parallellt med motorflygstråket finns ytterligare ett långt grässtråk som används av segelflygarna."
+   }
+  ]
+ },
+ {
+  "key": "ESMC",
+  "name": "Ränneslätt Airport",
+  "status": "ok",
+  "website": {
+   "value": "https://www.norrasmalandsfk.se/",
+   "url": "https://www.norrasmalandsfk.se/info/",
+   "quote": "Norra Smålands Flygklubb bildades"
+  },
+  "ppr": {
+   "status": "required",
+   "note": "PPR via Eksjö Garnison",
+   "phone": "+46 381 180 00",
+   "url": "https://www.norrasmalandsfk.se/info/",
+   "quote": "PPR, Eksjö Garnison, Tel 0381-180 00"
+  },
+  "fuel": {
+   "types": [
+    "AVGAS 91/96 UL",
+    "AVGAS 100LL"
+   ],
+   "url": "https://www.norrasmalandsfk.se/info/",
+   "quote": "Avgas 91/96 UL, 100 LL"
+  },
+  "good_to_know": [
+   {
+    "text": "Grass strip 800 x 30 m; thresholds displaced (01: 200 m, 19: 120 m)",
+    "url": "https://www.norrasmalandsfk.se/info/",
+    "quote": "Stråk, Gräs 800 x 30 m"
+   },
+   {
+    "text": "Min altitude over built-up areas 1700 ft MSL; right-hand circuit RWY 01",
+    "url": "https://www.norrasmalandsfk.se/info/",
+    "quote": "Min flyghöjd över bebyggelse 1700 ft MSL Högervarv Bana 01"
+   },
+   {
+    "text": "Two beds in the clubhouse, 150 SEK per person",
+    "url": "https://www.norrasmalandsfk.se/info/",
+    "quote": "2 bäddar i klubbstugan 150 kr/pers"
+   }
+  ]
+ },
+ {
+  "key": "ESMU",
+  "name": "Möckeln Airport",
+  "status": "ok",
+  "website": {
+   "value": "https://esmu.se",
+   "url": "https://esmu.se",
+   "quote": "Välkommen till Älmhults flygklubb!"
+  },
+  "ppr": {
+   "status": "required",
+   "note": "PPR for visiting aircraft; call a board member for field check",
+   "url": "https://esmu.se",
+   "quote": "PPR gäller för gästande flygande besökare. Ring då till någon i styrelsen för fältkontroll."
+  },
+  "fuel": {
+   "types": [
+    "AVGAS 91/96 UL"
+   ],
+   "note": "Contact Inge Lindengard or Staffan Lindberg for fuelling; pay by Swish or card",
+   "url": "https://esmu.se",
+   "quote": "Hjelmco Avgas 91/96 UL finns tillgängligt från och med 1 juni 2023"
+  },
+  "contacts": [
+   {
+    "label": "Fuel / flights (Inge Lindengard)",
+    "phone": "+46 72 352 76 02",
+    "url": "https://esmu.se",
+    "quote": "Inge Lindengard (072-352 76 02)"
+   },
+   {
+    "label": "Fuel / flights (Staffan Lindberg)",
+    "phone": "+46 72 886 40 46",
+    "url": "https://esmu.se",
+    "quote": "Staffan Lindberg (072-886 40 46)"
+   }
+  ],
+  "as_of": "2026"
+ },
+ {
+  "key": "ESNC",
+  "name": "Hedlanda Airport",
+  "status": "ok",
+  "website": {
+   "value": "https://www.ivc-media.com/hedlanda/index.htm",
+   "url": "https://www.ivc-media.com/hedlanda/index.htm",
+   "quote": "update 2026-08-04"
+  },
+  "fuel": {
+   "types": [
+    "AVGAS 100LL",
+    "JET A-1"
+   ],
+   "note": "Contact Ragge for fuel",
+   "url": "https://www.ivc-media.com/hedlanda/index.htm",
+   "quote": "Hjelmco 100LL - 30 kr/lit."
+  },
+  "contacts": [
+   {
+    "label": "Fuel (Ragge)",
+    "phone": "+46 70 334 43 25",
+    "url": "https://www.ivc-media.com/hedlanda/index.htm",
+    "quote": "Ragge :070-3344325"
+   }
+  ],
+  "good_to_know": [
+   {
+    "text": "Voluntary landing fee 100 SEK, Swish accepted",
+    "url": "https://www.ivc-media.com/hedlanda/index.htm",
+    "quote": "frivillig landningsavgift 100:-"
+   },
+   {
+    "text": "Restaurant on site, open three days a week (Thu-Sat in summer)",
+    "url": "https://www.ivc-media.com/hedlanda/index.htm",
+    "quote": "Hedlanda har restaurang"
+   }
+  ],
+  "as_of": "2026-08-04"
+ },
+ {
+  "key": "ESUV",
+  "name": "Älvsbyn Airport",
+  "status": "no_source",
+  "website": {
+   "value": "https://alvsbyflygklubb.se",
+   "url": "https://alvsbyflygklubb.se",
+   "quote": "Högheden"
+  }
+ },
+ {
+  "key": "SE-0001",
+  "name": "Trosa Troslanda airfield",
+  "status": "ok",
+  "website": {
+   "value": "https://www.trosaflygklubb.se/",
+   "url": "https://www.trosaflygklubb.se/troslanda/",
+   "quote": "Troslanda flygfält"
+  },
+  "ppr": {
+   "status": "required",
+   "note": "PPR required; considered obtained once you have read the airfield chart and any NOTAM on the page",
+   "url": "https://www.trosaflygklubb.se/troslanda/",
+   "quote": "observera att vi har PPR"
+  },
+  "contacts": [
+   {
+    "label": "Field manager (field status)",
+    "phone": "+46 70 439 76 41",
+    "url": "https://www.trosaflygklubb.se/troslanda/",
+    "quote": "Tel: +46 70-439 76 41"
+   }
+  ],
+  "good_to_know": [
+   {
+    "text": "Field may be closed for snow, thaw, equestrian events, hunting and more",
+    "url": "https://www.trosaflygklubb.se/troslanda/",
+    "quote": "Fältet kan vara stängt vid snö, snösmältning ridtävlingar, jakt, med mera."
+   }
+  ],
+  "as_of": "2026"
+ },
+ {
+  "key": "SE-0011",
+  "name": "Täby Sjöflygklubb",
+  "status": "ok",
+  "website": {
+   "value": "https://www.tsk.nu/",
+   "url": "https://www.tsk.nu/",
+   "quote": "Täby Sjöflygklubb är Stockholms enda flygklubb"
+  },
+  "fuel": {
+   "types": [
+    "AVGAS 100LL"
+   ],
+   "note": "Pay cash, Swish or prepay. 27 SEK/l non-members, 24 SEK/l members (updated 2026-10-01)",
+   "url": "https://www.tsk.nu/bransleforsaljning",
+   "quote": "Klubben säljer flygbränsle Avgas 100 LL Hjelmco."
+  },
+  "contacts": [
+   {
+    "label": "Fuel manager (Jan-Ola Karlsson)",
+    "phone": "+46 735 337458",
+    "url": "https://www.tsk.nu/bransleforsaljning",
+    "quote": "Bränsleansvarig Jan-Ola Karlsson som nås på telefon +46 735 337458"
+   }
+  ],
+  "good_to_know": [
+   {
+    "text": "Visitors welcome by air or by land",
+    "url": "https://www.tsk.nu/flyghamnen",
+    "quote": "Gäster är alltid välkommna oavsett om det är via land eller luften"
+   },
+   {
+    "text": "Seaplane base with room for four aircraft at the dock and one at the ramp",
+    "url": "https://www.tsk.nu/flyghamnen",
+    "quote": "Hamnen har idag plats för fyra flygplan vid brygga samt en vid ramp."
+   },
+   {
+    "text": "Visiting aircraft without their own fuel key must contact the club in advance",
+    "url": "https://www.tsk.nu/bransleforsaljning",
+    "quote": "Gästande flygplan utan egen tanknyckel kontaktar klubben i förväg"
+   }
+  ],
+  "as_of": "2026-10-01"
+ },
+ {
+  "key": "SE-0058",
+  "name": "Kronobergshed Airfield",
+  "status": "ok",
+  "website": {
+   "value": "https://www.kronobergshedsmfk.com/",
+   "url": "https://www.kronobergshedsmfk.com/",
+   "quote": "Välkommen till Kronobergsheds Motorflygklubb"
+  },
+  "good_to_know": [
+   {
+    "text": "Grass strip 600 x 30 m, runway 18/36",
+    "url": "https://www.kronobergshedsmfk.com/",
+    "quote": "Stråket är 600x30 meter och har läge 18-36."
+   },
+   {
+    "text": "Fuel installation, hangar, clubhouse and two overnight cabins on site",
+    "url": "https://www.kronobergshedsmfk.com/",
+    "quote": "Vid fältet finns tankanläggning, hangar, bygglokal, klubbstuga och två övernattningsstugor."
+   }
+  ]
+ },
+ {
+  "key": "ESSM",
+  "name": "Brattforshede Airport",
+  "status": "ok",
+  "website": {
+   "value": "https://www.brattforsheden.se/",
+   "url": "https://www.brattforsheden.se/",
+   "quote": "Välkommen till Brattforshedens Flygfält och Brattforshedens Flygklubb"
+  },
+  "contacts": [
+   {
+    "label": "Club",
+    "phone": "070-832 62 19",
+    "url": "https://www.brattforsheden.se/lokala-foreskrifter/",
+    "quote": "0553-140 11, 070-832 62 19"
+   }
+  ],
+  "good_to_know": [
+   {
+    "text": "No direct approach for landing; join the circuit (left-hand, 1600 ft MSL)",
+    "url": "https://www.brattforsheden.se/lokala-foreskrifter/",
+    "quote": "Direktinflygning för landning är inte tillåten."
+   },
+   {
+    "text": "Radio call on 123.6 MHz before every takeoff and landing",
+    "url": "https://www.brattforsheden.se/lokala-foreskrifter/",
+    "quote": "Radioanrop på Brattforshedens Radio 123,6 MHz"
+   },
+   {
+    "text": "Advanced (aerobatic) flying takes place over the field",
+    "url": "https://www.brattforsheden.se/",
+    "quote": "Det förekommer avancerad flygning över fältet."
+   },
+   {
+    "text": "Fly-in on the first Tuesday each month, May to October",
+    "url": "https://www.brattforsheden.se/",
+    "quote": "Första tisdagen i varje månad har vi motorträff & fly-in"
+   }
+  ]
+ },
+ {
+  "key": "ESTF",
+  "name": "Fjällbacka Anra Airfield",
+  "status": "ok",
+  "website": {
+   "value": "https://www.fjallbackaflygklubb.se/",
+   "url": "https://www.fjallbackaflygklubb.se/",
+   "quote": "Fjällbacka flygklubb"
+  },
+  "ppr": {
+   "status": "required",
+   "note": "PPR via Lars or Roland; field soft after rain",
+   "phone": "+46 70 533 78 16",
+   "url": "https://www.fjallbackaflygklubb.se/faltet/",
+   "quote": "PPR: Lars på 070-5337816"
+  },
+  "fuel": {
+   "types": [],
+   "note": "No fuel available in the 2026 season",
+   "url": "https://www.fjallbackaflygklubb.se/",
+   "quote": "Inget bränsle kommer finnas tillgängligt under säsongen."
+  },
+  "good_to_know": [
+   {
+    "text": "Field closed for all of 2026; only light helicopters",
+    "url": "https://www.fjallbackaflygklubb.se/",
+    "quote": "Fjällbacka flygfält är stängt under hela 2026!"
+   },
+   {
+    "text": "Grass strip 740 x 32 m, runway 06/24",
+    "url": "https://www.fjallbackaflygklubb.se/faltet/",
+    "quote": "Det är 740 x 32 meter och är belagt med gräs."
+   },
+   {
+    "text": "Field is soft after rain",
+    "url": "https://www.fjallbackaflygklubb.se/faltet/",
+    "quote": "fältet mjukt efter regn"
+   }
+  ],
+  "as_of": "2026"
+ },
+ {
+  "key": "ESSE",
+  "name": "Skå-Edeby Airport",
+  "status": "ok",
+  "website": {
+   "value": "https://www.skaedebyflygfalt.se/",
+   "url": "https://www.skaedebyflygfalt.se/",
+   "quote": "Skå-Edeby airfield (ESSE) is located within Ekerö Kommun"
+  },
+  "ppr": {
+   "status": "partial",
+   "note": "No PPR Apr-Oct; PPR required Nov-Mar, local traffic only",
+   "url": "https://www.skaedebyflygfalt.se/",
+   "quote": "During Nov to Mars PPR required due to wet /snow/ muddy condition. Only local traffic."
+  },
+  "fuel": {
+   "types": [
+    "AVGAS 100LL",
+    "AVGAS 91/96 UL"
+   ],
+   "note": "Pay by card or Swish; service may be limited by staffing",
+   "url": "https://www.skaedebyflygfalt.se/",
+   "quote": "Fuel available is 100LL or 91/96 UL. For fuelling, contact / Text Michael Blomqvist +46706991220."
+  },
+  "hours": {
+   "ad": "Daytime (Apr-Oct)",
+   "url": "https://www.skaedebyflygfalt.se/",
+   "quote": "During Apr to Okt the condition is good and the airport is open during daytime."
+  },
+  "contacts": [
+   {
+    "label": "Fuel (Michael Blomqvist)",
+    "phone": "+46 706 99 12 20",
+    "url": "https://www.skaedebyflygfalt.se/",
+    "quote": "Michael Blomqvist +46706991220"
+   }
+  ],
+  "good_to_know": [
+   {
+    "text": "Parking 100 SEK per day (Swish or card); make contact before parking",
+    "url": "https://www.skaedebyflygfalt.se/notam-flight-info/",
+    "quote": "Parking space is available and costs 100 SEK per day, payable through Swish or credit card."
+   },
+   {
+    "text": "Run by an association; no aircraft rental and no hangars to rent",
+    "url": "https://www.skaedebyflygfalt.se/",
+    "quote": "So, we are not a flying club!"
+   }
+  ]
+ },
+ {
+  "key": "ESUL",
+  "name": "Ljusdal Airport",
+  "status": "ok",
+  "website": {
+   "value": "https://ljusdalsflygklubb.se",
+   "url": "https://ljusdalsflygklubb.se/Flygfaltet/Faltinformation",
+   "quote": "Ljusdals Flygklubb"
+  },
+  "fuel": {
+   "types": [
+    "AVGAS 91/96 UL"
+   ],
+   "url": "https://ljusdalsflygklubb.se/Flygfaltet/Faltinformation",
+   "quote": "OBS! Endast Avgas 91/96 UL finns att tillgå."
+  }
+ },
+ {
+  "key": "ESFR",
+  "name": "Råda Air Base",
+  "status": "no_source"
+ },
+ {
+  "key": "ESGS",
+  "name": "Näsinge Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESKC",
+  "name": "Uppsala-Sundbro Airfield",
+  "status": "no_source"
+ },
+ {
+  "key": "ESKO",
+  "name": "Munkfors Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESNR",
+  "name": "Orsa Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESUG",
+  "name": "Gargnäs Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESVH",
+  "name": "Hällefors Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0006",
+  "name": "Alvesta Smålanda Airfield",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0017",
+  "name": "Frostlanda Airfield",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0023",
+  "name": "Baggböle Airstrip",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0028",
+  "name": "Charlottenberg Airstrip",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0035",
+  "name": "Överlanda Airfield",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0045",
+  "name": "Sala flygfält",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0051",
+  "name": "Degerfors Grenlanda Airfield",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0063",
+  "name": "Hedemora Flygfält",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0068",
+  "name": "Pirttivuopio ice runway",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0073",
+  "name": "Väster Private Airstrip",
+  "status": "no_source"
+ }
+]

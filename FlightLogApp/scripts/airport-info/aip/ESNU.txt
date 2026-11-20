@@ -1,0 +1,135 @@
+SOURCE: AIP Sweden, AD 2 ESNU UMEÅ (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESNU%20UME%C3%85%201-en-GB.html
+
+ESNU 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 634735N 0201648E BRG 138.5° GEO 800 m from THR 14 
+ 2. 
+ Direction and distance from (city) 
+ S 2.5 NM from Umeå 
+ 3. 
+ Elevation/Reference temperature 
+ 25 ft/+22.6°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 72 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 8° E (2020)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Swedavia AB 
+ Umeå Airport 
+ SE-904 22 Umeå
+ TEL: +46 10 109 50 00 
+ E-mail: ume.groundhandling@swedavia.se 
+ AFS: ESNUZTZX 
+ Website: www.swedavia.se/umea 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4C 
+ 8. 
+ Remarks 
+ PPR for CIV and MIL ACFT 5 days prior to planned ARR or DEP. The following TFC is exempted: HOSP, STATE, SAR, SKED TFC, Swedish MIL and operators with sanction agreement. REQ shall be sent to nudrift@swedavia.se
+
+ESNU 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0700-1500 (0600-1400) 
+ AD Operating hours 
+ Ref AIP SUP/NOTAM 
+ 2. 
+ Customs and immigration 
+ O/R TEL +46 8 456 66 20, kcgn.op.samord@tullverket.se 
+ 3. 
+ Health and sanitation 
+ As AD operating hours, Designated quarantine AD 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ TWR opens 15 min prior AD operating hours. Closes as AD operating hours. 
+ 8. 
+ Fuelling 
+ H24, +46 70 598 61 43 
+ 9. 
+ Handling 
+ As AD Operating hours 
+ 10. 
+ Security 
+ As AD Operating hours 
+ 11. 
+ De-Icing 
+ As AD Operating hours 
+ 12. 
+ Remarks 
+ Request shall be made on TEL +46 (0)10 109 50 24. Increased charges outside AD Operating hours.
+
+ESNU 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ O/R 
+ 2. 
+ Fuel and oil types 
+ Fuel: 100LL, Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ 100LL: Stationary 
+ Jet A1: 2 trucks, 35,000 l and 20,000 l/700 l/min.
+ 4. 
+ De-icing facilities 
+ Available, Type I and II, mobile unit 
+ 5. 
+ Hangar space for visiting ACFT 
+ Limited 
+ 6. 
+ Repair facilities for visiting ACFT 
+ Limited 
+ 7. 
+ Remarks 
+ Fuel Supplier AIR BP, Payment by BP Card or Fuel 
+ Request to Air BP Out of hours, TEL: +97 150 453 6032, 
+ E-mail: airbpoutofhours@bp.com
+
+ESNU 2.20 LOCAL AERODROME REGULATIONS 
+ 1. Daily between 2100–0600 (2000–0500) the aerodrome must not be used by aircraft certificated in accordance with ICAO Annex 16, Volume I, Part II, Chapter 2.
+ 2. Start-up and clearance for IFR-traffic shall be requested from ATC on channel 119.805. For IFR-traffic shall request not be made earlier than 30 min before EOBT.
+ 3. During the hours 2100–0600 (2000–0500) take-off RWY 32 and landing RWY 14 not permitted unless otherwise required by flight safety reasons.
+ 4. During the hours 2100–0600 (2000–0500) engine reverse should be avoided.
+ 5. Ground movement procedures
+ Engines shall be operated at minimum power required when taxiing on apron. Caution advised when turning around on apron. Watch out for passengers on apron.
+ 6. APU
+ APU shall not be used on parking unless required for engine start or adjustment of cabin heat. On these occasions APU must not be started earlier than 5 min before estimated time for taxiing.
+ When the temperature outside exceeds 25°C and where air cannot otherwise be circulated in the cabin, APU may be started at a maximum of 20 min before estimated time for taxing.
+ 7. Touch-and-go landings and parachute jumping 
+ flights 
+ are 
+ only permitted during MAY–SEP at the following times: 
+ MON - FRI: 09:00-20:00 
+ (08:00-19:00) 
+ SAT, SUN and Public Holidays: 09:00 
+ not 
+ allowed 
+ - 18:00 
+ during: 
+ (08:00-17:00) 
+ MON-FRI 
+ 2000-0900 
+ Week 
+ (1900-0800) 
+ 27-31: 
+ SAT-SUN 
+ MON-SUN: 
+ 1900-0900 
+ 09:00-18:00 
+ (1800-0800) 
+ (08:00-17:00)

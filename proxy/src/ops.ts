@@ -18,6 +18,8 @@ import { ICON_180, ICON_192 } from './opsIcons';
 import { callWithModelFallback } from './modelFallback';
 import { costUsd } from './pricing';
 
+import { handleAirportInfoOps } from './airportInfo';
+
 export interface OpsEnv {
   QUOTA_KV: KVNamespace;
   CF_API_TOKEN?: string;           // Analytics Engine (AI-telemetrin) — samma som /stats
@@ -1172,6 +1174,11 @@ export async function handleOps(request: Request, env: OpsEnv, ctx: ExecutionCon
     try { return json(await sentryIssueDetails(env, String(searchParams.get('id') ?? '').trim())); } catch (e: any) { return json({ error: String(e?.message ?? e) }, 400); }
   }
   if (request.method === 'POST' && !sameOrigin(request, url)) return json({ error: 'forbidden' }, 403);
+  // Airport Info: redigering av Info-kortets data (src/airportInfo.ts)
+  if (pathname === '/ops/airport-info' || pathname.startsWith('/ops/airport-info/')) {
+    const r = await handleAirportInfoOps(request, env, pathname);
+    if (r) return r;
+  }
   if (pathname === '/ops/chat' && request.method === 'POST') return handleChat(request, env, ctx);
 
   if (pathname === '/ops/tasks' || pathname === '/ops/tasks/update') {
@@ -1441,7 +1448,7 @@ a.btn{display:inline-block;color:var(--fg)}
 <a href="https://mail.google.com/" target="_blank" rel="noopener noreferrer">Gmail</a>
 <a href="https://blades-app.com/" target="_blank" rel="noopener noreferrer">blades-app.com</a>
 <a href="https://claude.ai/artifact/HxbZx36SF78Bz1mVZZtCeo" target="_blank" rel="noopener noreferrer">Kontrollrum</a>
-</div><p class="note"><a href="/ops/logout">Logga ut</a></p></section>
+</div><p class="note"><a href="/ops/airport-info">Airport Info (Info-kortet)</a> · <a href="/ops/logout">Logga ut</a></p></section>
 </div></div>
 <script>
 (function () {

@@ -1,0 +1,118 @@
+SOURCE: AIP Sweden, AD 2 ESTA ÄNGELHOLM (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESTA%20%C3%84NGELHOLM%201-en-GB.html
+
+ESTA 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 561728N 0125118E RWY 14/32 centre point 
+ 2. 
+ Direction and distance from (city) 
+ N 4 NM from Ängelholm 
+ 3. 
+ Elevation/Reference temperature 
+ 62 ft/+22.2°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 121 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 5° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Ängelholms flygplats AB 
+ Ängelholm Helsingborg Airport 
+ SE-262 91 Ängelholm
+ TEL: +46 431 48 45 00 
+ FAX: +46 431 48 45 10 
+ E-mail: info@aghairport.se 
+ AFS: ESTAZTZX 
+ Website: www.aghairport.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4C 
+ 8. 
+ Remarks 
+ PPR outside TWR hours. Request shall be made during AD operator hours. Mail: ok@aghairport.se.
+
+ESTA 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0700-1500 (0600-1400) 
+ AD Operating hours 
+ As ATS 
+ 2. 
+ Customs and immigration 
+ O/R TEL +46 40 661 32 20 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ Ref AIP SUP/NOTAM 
+ 8. 
+ Fuelling 
+ As ATS 
+ 9. 
+ Handling 
+ As ATS 
+ 10. 
+ Security 
+ O/R 
+ 11. 
+ De-Icing 
+ As ATS 
+ 12. 
+ Remarks 
+ Increased charges outside AD Operating HR of OPS
+
+ESTA 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ - 
+ 2. 
+ Fuel and oil types 
+ Fuel: Jet A1, UL 91 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ Jet A1: 100,000 l fuel truck 
+ UL 91: 10,000 l stationary
+ 4. 
+ De-icing facilities 
+ Available Type I and II, mobile unit 
+ 5. 
+ Hangar space for visiting ACFT 
+ - 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ Fuel supplier: AirBP
+
+ESTA 2.20 LOCAL AERODROME REGULATIONS 
+ 1. Daily between 2100–0500 (2000–0400) the aerodrome must not be used by aircraft certificated in accordance with ICAO Annex 16, Volume I, Part II, Chapter 2.
+ 2. Repeated instrument approaches and TGL accepted during the following hours:
+ MON–THU 0730–1900 (0630–1800)
+ FRI 0730–1600 (0630–1500)
+ SAT, SUN, HOL 0900–1600 (0800–1500)
+ 3. On parking stand APU shall not be operated unless required for engine start or adjustment of cabin heat. In no case APU may be started earlier than 15 min before estimated time for taxiing.
+ 4. IFR traffic shall be ready to start engines when requesting start-up from ATC.
+ 5. Engines shall be operated at minimum thrust on aprons, due to jet blast.
+ 6. Transponder code will be communicated during outtaxiing.
+ 7. Air traffic outside ATS hours of operation: 
+ Aerodrome consent is required for all air traffic.
+ Take-off or landing may only take place when visibility exceeds 800 m.
+ No traffic may take place during twilight and darkness.
+ All traffic within the CTR must transmit their intention on channel 127.105.
+ Ground vehicles can occur without two-way VHF communication.
+ Right hand traffic circuit applies for take-off and landing RWY 32.

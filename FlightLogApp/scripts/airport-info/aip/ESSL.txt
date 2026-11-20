@@ -1,0 +1,119 @@
+SOURCE: AIP Sweden, AD 2 ESSL LINKÖPING-SAAB (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESSL%20LINK%C3%96PING-SAAB%201-en-GB.html
+
+ESSL 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 582423N 0154047E RWY 11/29 intersection TWY I 
+ 2. 
+ Direction and distance from (city) 
+ E 2 NM from Linköping 
+ 3. 
+ Elevation/Reference temperature 
+ 178 ft/+19.0°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 95 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 7° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Saab Airport AB 
+ SE-581 88 Linköping
+ TEL: +46 13 18 00 00 
+ Linköping City Airport AB 
+ Linköping City Airport 
+ SE-582 54 Linköping
+ TEL: +46 13 26 28 00 
+ E-mail: op@linkopingcityairport.se 
+ AFS: ESSLZTZX 
+ Website: www.linkopingcityairport.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4C 
+ 8. 
+ Remarks 
+ Test AD PPR H24, TEL +46 13 26 28 40 MON-FRI 0700-1530 (0600-1430) 
+ op@linkopingcityairport.se
+
+ESSL 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0700-1530 (0600-1430) 
+ AD Operating hours 
+ See Local Traffic Regulations 
+ 2. 
+ Customs and immigration 
+ O/R, MON-SUN 0800-1400 (0700-1300) 
+ +46 8 456 66 20, FAX +46 8 456 65 96
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ Ref AIP SUP/NOTAM 
+ 8. 
+ Fuelling 
+ As ATS 
+ 9. 
+ Handling 
+ As ATS 
+ 10. 
+ Security 
+ As ATS 
+ 11. 
+ De-Icing 
+ As ATS 
+ 12. 
+ Remarks 
+ -
+
+ESSL 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ - 
+ 2. 
+ Fuel and oil types 
+ Fuel: Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ Jet A1: No limitations 
+ 4. 
+ De-icing facilities 
+ Available, Type I and II 
+ 5. 
+ Hangar space for visiting ACFT 
+ - 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ Fuel Jet A1 supplier Shell. Service only to aircraft with contract, carnet card or fuel release. No private credit cards accepted. 
+ Tel: +44 207 026 32 68. E-mail: aviation-eusa@shell.com. 
+ Fuel 100LL and 91/96UL available as self service at aero club on GAC apron. Payment VISA/Mastercard.
+
+ESSL 2.20 LOCAL AERODROME REGULATIONS 
+ 1. The environmental concession permits daily traffic between 0600 and 2200 local time. In addition, after special permission from the airport manager, scheduled and traffic of public interest may be accepted.
+ 2. Prior Permission Required (PPR) H24 for visiting flights. PPR TEL +46 13 26 28 40 or 
+ op@linkopingcityairport.se for parking at terminal. Access and parking at GAC the PPR can be obtained from Linköping Flygklubb for aircraft with MTOM 4000 kg via LFK.se. No PPR given for touch-and-go.
+ 3. When ÖSTGÖTA APP is not in operation, training flights within ÖSTGÖTA TMA may be carried out only after prior permission from the Supervisor at STOCKHOLM ACC, TEL +46 8 585 547 02. 
+Intensive training activities with military jet aeroplanes and helicopters outside Malmen and SAAB CTR.
+ 4. Right hand circuit to RWY 29.
+ 5. VFR flights with aircraft with MTOM 4000 kg. 
+If ATS not informs differently, right hand turn shall be initiated when reaching 500 ft AMSL after take-off RWY 29. Valid also when ATS is closed.
+ 6. When ATS is closed position reports and intensions should be transmitted on channel 118.805 before using the manoeuvering area or entering the traffic circuit.
+ 7. Take-off RWY 29 and landing RWY 11 accepted only when wind conditions or other flight safety reasons so require.
+ 8. APU shall not be used on parking unless required for engine start or adjustment of cabin heat. On these occasions APU must not be started earlier than 5 minutes before estimated time for taxiing.
+ When the temperature outside exceeds 25°C and when air cannot otherwise be circulated in the cabin, APU may be started at a maximum of 20 minutes before estimated time for taxiing.

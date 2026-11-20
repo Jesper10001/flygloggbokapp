@@ -1,0 +1,238 @@
+SOURCE: AIP Sweden, AD 2 ESGG GÖTEBORG-LANDVETTER (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESGG%20G%C3%96TEBORG-LANDVETTER%201-en-GB.html
+
+ESGG 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 573936N 0121728E 1813 m in BRG 050° GEO from THR 03 
+ 2. 
+ Direction and distance from (city) 
+ ESE 11 NM from Göteborg 
+ 3. 
+ Elevation/Reference temperature 
+ 507 ft/+22.5°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 117 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 4° E (2020)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Swedavia AB 
+ Göteborg Landvetter Airport 
+ SE-438 80 Landvetter
+ TEL: +46 10 109 31 00 
+ FAX: +46 10 109 05 00 
+ E-mail: info@landvetterairport.se 
+ AFS: ESGGZTZX 
+ Website: www.swedavia.se/landvetter/ 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4E 
+ 8. 
+ Remarks 
+ -
+
+ESGG 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0700-1530 (0600-1430) 
+ AD Operating hours 
+ H24 
+ 2. 
+ Customs and immigration 
+ H24 Direct transit area 
+ 3. 
+ Health and sanitation 
+ H24, Designated quarantine AD 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ H24 
+ 8. 
+ Fuelling 
+ H24 
+ 9. 
+ Handling 
+ H24 
+ 10. 
+ Security 
+ H24 
+ 11. 
+ De-Icing 
+ H24 
+ 12. 
+ Remarks 
+ -
+
+ESGG 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ All types available 
+ 2. 
+ Fuel and oil types 
+ Fuel: Jet A1 
+ Oil: Hydraulic, Turbo 
+ 3. 
+ Fuelling facilities and capacity 
+ Jet A1: 3 x 800,000 l, fuel trucks 
+ Discharge capacity: No limitations.
+ 4. 
+ De-icing facilities 
+ Mobile units on apron, Type I and II 
+ 5. 
+ Hangar space for visiting ACFT 
+ Limited, heated 
+ 6. 
+ Repair facilities for visiting ACFT 
+ Available 
+ 7. 
+ Remarks 
+ Fuel suppliers: Shell, BP, WFS 
+ No defuelling available. 
+ Jet A1 fuelling service can only be given to aircraft that provides: 
+ contract, fuel release or fuel card (Shell, BP, WFS). No private credit cards are accepted.
+
+ESGG 2.20 LOCAL AERODROME REGULATIONS 
+ 1. Aerodrome Coordination 
+ SLOT request is mandatory for all arrivals and departures. SLOT request shall be sent via OCS or via e-mail as a SCR or GCR. 
+Slot request for scheduled passenger departures (flight type J, C and G) between 2200 and 0400 (2100-0300) requires approval by airport authority. 
+Any change or cancellation in the request of SLOT shall be reported without delay. The SLOT approval does not replace flight plan or handling request. 
+The parking time is limited to 18 hours for non scheduled cargo flights according to Local Rule TSL 2018-4996. 
+Pushback is normal procedure for aircrafts Code B and larger. Contact handling agent before arrival if pushback is not possible.
+ Flights that are exempted from coordination according to EU Regulation (EC) No. 793/2004 amending Council Regulation (EEC) No. 95/93: 
+ State flights.
+ Humanitarian flights i.e. medical emergencies, donor flights, search and rescue operations and air ambulance flights where the condition of patient is urgent.
+ Emergency landings.
+ Helicopter.
+ Contact information: 
+ Airport Coordination Sweden ACS
+ Box 202
+ SE-190 47 Stockholm-Arlanda
+ E-mail: 
+ slot@acsslot.se 
+TEL: + 46 8 80 07 00 
+SCR/GCR: 
+ scr.se@airportcoordination.com 
+ OCS: 
+ www.online-coordination.com 
+During Out of Office hours contact Airport Operation Center -
+ OPC:
+ TEL: +46 10 109 36 01
+ E-mail: 
+ OPCGOT@swedavia.se 
+For more information: 
+ http://airportcoordination.com 
+ 2. Ground Handling
+ All flights to and from GÖTEBORG/Landvetter are subject to mandatory handling. Exceptions apply for hospital flights (HOSP) and state aircrafts (HEAD or STATE) and police helicopters.
+ Operators shall assure arrangements with ground handling agent prior to arrival and departure. For further information about handling services: 
+ www.swedavia.com .
+ 3. Exemptions from the requirement for two-way radiocommunication with TWR will only be granted for ferry flight to or from the aerodrome in connection with necessary maintenance on the aircraft.
+ 4. Visual approach procedures limited due to environmental law decision.Only propeller driven aircraft with MTOM 7000 kg or below is permitted to carry out visual approach H24.
+ 5. When conditions permit do not use more than IDLE REVERSE or equivalent.
+ 6. Restrictions for school and training flights 
+ School and exercise flights with starts, landings or approaches/departures are not allowed. Exceptions may be granted for aircraft over 8 tonnes MTOM, PPR H24 shall be requested from air traffic control (LFV) by mail: 
+ esggws@lfv.se .
+ Simulation of engine failure on one or more engines is not permitted.
+ Air display within Landvetter CTR is not permitted.
+ The request must state the following:
+ - Aircraft type
+ - Number of start and landing exercises
+ - Time desired for school and exercise
+ Note that the approved PPR does not replace the application for SLOT according to ESGG 2.20 para 1.
+ For approved school and exercise flights according to point a), the following minimum altitudes for departure and traffic circuit shall be used by jet aircraft: after departure climb straight ahead to 1500 ft AMSL before turning, minimum altitude in traffic circuit is 2000 ft AMSL.
+ 7. Ground movement procedures
+ 7.1. Taxiing 
+ ATC is not provided on apron. In order to maintain orderly flow on aprons, a limited traffic information service is provided and all aircraft movements are subject to prior contact with TWR. 
+ TWY Z is limited to aircraft having a max wingspan of 62 m. 
+ TWY D is limited to aircraft having a max wingspan of 52 m. 
+ Engines shall be operated at minimum power required when taxiing on apron. 
+ 7.2. Arrival 
+ TWY D not to be used for exit RWY 03 unless instructed by TWR. 
+ TWY E not to be used for exit RWY 21. Exemptions can be made for HOSP or aircraft category LIGHT. 
+ TWY C not to be used for exit RWY 03. Exemptions can be made for HOSP or aircraft category LIGHT. 
+ Landing aircrafts shall, after landing, completely vacate the runway and hold position on TWY Y until taxi clearance is obtained. 
+ Three-engined aircraft shall shut down the middle engine before entering apron. 
+ When parking on stands not equipped with docking guidance system aircraft shall wait for marshalling. Exception for stands 1-3 where self-manoeuvering procedure will be performed. See ESGG Parking and Docking Chart. 
+ When docking guidance system is not activated or not installed, aircraft shall wait on apron taxiway until docking guidance system has been activated or until signal from a marshall for entering has been received. 
+ Reduced safety distances minimum 3 m will apply between left engine and passenger bridge for A220-100, A319, B737- 600/-700, E170 on all applicable stands. The procedure is assessed according to EASA CS ADR-DSN.E.365. 
+ 7.1. 
+ 7.3. Departure 
+ IFR 
+ Taxiing 
+ ATC is not provided on apron. In order to maintain orderly flow on aprons, a limited traffic information service is provided and all aircraft movements are subject to prior contact with TWR.
+ TWY Z is limited to aircraft having a max wingspan of 62 m.
+ TWY D is limited to aircraft having a max wingspan of 52 m.
+ Engines shall be operated at minimum power required when taxiing on apron.
+ 7.2. Arrival 
+ TWY D not to be used for exit RWY 03 unless instructed by TWR. 
+ TWY E not to be used for exit RWY 21. Exemptions can be made for HOSP or aircraft category LIGHT. 
+ TWY C not to be used for exit RWY 03. Exemptions can be made for HOSP or aircraft category LIGHT. 
+ Landing aircrafts shall, after landing, completely vacate the runway and hold position on TWY Y until taxi clearance is obtained. 
+ Three-engined aircraft shall shut down the middle engine before entering apron. 
+ When parking on stands not equipped with docking guidance system aircraft shall wait for marshalling. Exception for stands 1-3 where self-manoeuvering procedure will be performed. See ESGG Parking and Docking Chart. 
+ When docking guidance system is not activated or not installed, aircraft shall wait on apron taxiway until docking guidance system has been activated or until signal from a marshall for entering has been received. 
+ Reduced safety distances minimum 3 m will apply between left engine and passenger bridge for A220-100, A319, B737- 600/-700, E170 on all applicable stands. The procedure is assessed according to EASA CS ADR-DSN.E.365. 
+ 7.3. 
+ Departure IFR 
+ Departure clearance may be requested by datalink (DCL) or from Clearance Delivery not earlier than 30 min before EOBT. Aircraft position and identification of latest ATIS broadcast received shall be given at initial call. When using the DCL service, monitor Clearance Delivery channel. A departure clearance issued by RTF always supersedes a clearance transmitted via DCL. 
+ Approval for start-up/push-back/taxi must be obtained from Landvetter Ground. Request of such permission shall include stand or position and only be made when aircraft is fully ready to comply. Push-back approval includes permission to start engines during push-back. If push-back not has been commenced within one minute from approval, the push-back permission will automatically expire and a push-back permission must be requested again. 
+ Approval for cross bleed start must be obtained from Landvetter Ground before push-back. 
+ In case of flow restriction, Push-back is approved 15 min prior to CTOT. 
+ When delayed by CTOT, aircraft may be ordered to push and hold to release stand capacity according to instructions from TWR. 
+ Power-back as an alternative to push-back is not allowed. 
+ 7.4. Departure 
+ VFR 
+ Start-up and taxi instructions shall be requested from Landvetter Ground. 
+ 8. 
+ Use 
+ ADS-B 
+ of 
+ data 
+ transponder 
+ required 
+ Göteborg/Landvetter aerodrome is equipped with an advanced surface movement radar (A-SMGCS) communicating with aircraft´s and vehicle´s Mode S transponders to obtain their position and identification code. Aircraft operators should ensure that Mode S transponders are able to operate when the aircraft is on the ground. Flight crew shall: - from commencement of push-back or taxi, whichever comes first: Start transponder and set the assigned Mode A code and if the aircraft is equipped with Mode S transponder the aircraft identification (Item 7 of the ICAO flight plan). - after landing, when the aircraft is fully parked on stand: Set Mode A code 2000 and then turn transponder OFF or SDBY. 
+ 7.4. 
+ 8.1. 
+ Departure 
+ For ADS-B 
+ VFR 
+ Start-up 
+ data used by the AD operator and Eurocontrol, pilots of aircraft equipped with Mode S 
+ and 
+ taxi 
+ ADS-B 
+ instructions 
+ functionality 
+ shall 
+ must, 
+ be 
+ when 
+ requested 
+ operating 
+ from 
+ on 
+ Landvetter 
+ the ground: 
+ Select automatic mode and the assigned Mode A, or
+ If automatic mode is not available, select ON and the assigned Mode A:
+ From the request of push-back.
+ After landing, until the aircraft has stopped on its stand.
+ When the aircraft is fully parked, the pilot shall select STBY.
+ Ground. 
+ 8.2. When the aircraft is capable of communicating its identification (i.e callsign), this must be entered (via the FMS or transponder control panel) at the time of the push-back request or taxi request, whichever comes first. 
+ 8.3. The crew must use the format defined by ICAO to enter the aircraft identification. 
+ 8.4. In order not to compromise the performance of systems based on SSR frequencies (including airborne TCAS and SSR radars), TCAS should not be selected before receiving clearance to line up, and should be deselected after vacating the runway. 
+ 9. APU 
+If APU is running at arrival it must be shut down 5 minutes after On-Block. APU can be started at the earliest 5 minutes prior to estimated time for push-back or taxiing. If APUs are to be used later/earlier than such time, there shall be agreement between the airline and handling company in question.
+ 10. D-ATIS 
+D-ATIS service available by ACARS for ACFT equipped with ACARS-MU. (AEEC 623 compliant) (Provider is ARINC for datalink com and ESGG airport for ATIS service.)

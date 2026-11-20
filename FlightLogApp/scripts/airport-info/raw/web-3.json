@@ -1,0 +1,302 @@
+[
+ {
+  "key": "ESFS",
+  "name": "Sandvik Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESGF",
+  "name": "Morup Airfield",
+  "status": "no_source"
+ },
+ {
+  "key": "ESGM",
+  "name": "Öresten Airfield",
+  "status": "no_source"
+ },
+ {
+  "key": "ESGU",
+  "name": "Rörkärr Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESKD",
+  "name": "Dala Järna Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESKU",
+  "name": "Sunne Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESME",
+  "name": "Eslöv Airport",
+  "status": "ok",
+  "website": {
+   "value": "https://eslovsflygplats.se",
+   "url": "https://eslovsflygplats.se/information-for-piloter/",
+   "quote": "Eslövs Flygplats"
+  },
+  "fuel": {
+   "types": [
+    "AVGAS 100LL",
+    "UL91",
+    "JET A-1"
+   ],
+   "note": "Self-service facility with card machine at the north apron",
+   "url": "https://eslovsflygplats.se/information-for-piloter/",
+   "quote": "AVGAS 100LL, 91/96 UL och JETA1 finns i självbetjäningsanläggning med kortautomat vid norra plattan."
+  },
+  "good_to_know": [
+   {
+    "text": "Event-day instruction: taxi via A towards Flightline and wait for a place assigned by an official",
+    "url": "https://eslovsflygplats.se/information-for-piloter/",
+    "quote": "Taxa via A mot ”Flightline” invänta hänvisad plats från funktionär."
+   }
+  ]
+ },
+ {
+  "key": "ESMJ",
+  "name": "Kågeröd Simmelsberga Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESMY",
+  "name": "Smålandsstenar Smålanda Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESNE",
+  "name": "Överkalix Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESNY",
+  "name": "Söderhamn Airport",
+  "status": "ok",
+  "website": {
+   "value": "https://flygstaden.se/flygfalt/",
+   "url": "https://flygstaden.se/flygfalt/",
+   "quote": "Flygplatsen stängdes i november 2011"
+  },
+  "ppr": {
+   "status": "required",
+   "note": "Airport closed 2011 but landing possible if you ask first (PPR); contact field manager",
+   "phone": "070-632 54 54",
+   "request_url": "",
+   "url": "https://flygstaden.se/flygfalt/",
+   "quote": "För landning, kontakta fälthållningschefen på telefonnummer 070-632 54 54."
+  },
+  "fuel": {
+   "types": [
+    "AVGAS 100",
+    "JET A-1"
+   ],
+   "note": "Fuel station adjoining the field",
+   "url": "https://flygstaden.se/flygfalt/",
+   "quote": "Avgas 100"
+  },
+  "contacts": [
+   {
+    "label": "Field manager (landing)",
+    "phone": "+46 70 632 54 54",
+    "url": "https://flygstaden.se/flygfalt/",
+    "quote": "För landning, kontakta fälthållningschefen på telefonnummer 070-632 54 54."
+   }
+  ],
+  "as_of": "2025-10-28"
+ },
+ {
+  "key": "ESSF",
+  "name": "Hultsfred Airport",
+  "status": "ok",
+  "website": {
+   "value": "https://www.hultsfredairport.se",
+   "url": "https://www.hultsfredairport.se",
+   "quote": "Hultsfred - Vimmerby flygplats"
+  },
+  "fuel": {
+   "types": [
+    "UL91"
+   ],
+   "note": "Via Hultsfred flying club",
+   "url": "https://www.hultsfredairport.se",
+   "quote": "tillgång till flygbränsle,   UL 91/96  via Hultsfreds Flygklubb"
+  },
+  "contacts": [
+   {
+    "label": "Flight questions (email ppr@hultsfredairport.se)",
+    "phone": "",
+    "url": "https://www.hultsfredairport.se",
+    "quote": "Kontakta oss på ppr@hultsfredairport.se för mer information gällande frågor som rör flyg"
+   }
+  ]
+ },
+ {
+  "key": "ESSN",
+  "name": "Norrtälje Airport",
+  "status": "ok",
+  "website": {
+   "value": "https://rfk.nu",
+   "url": "https://rfk.nu/faltinformation/",
+   "quote": "info@rfk.nu"
+  },
+  "ppr": {
+   "status": "partial",
+   "note": "PPR required for night landings (fee 100 SEK)",
+   "phone": "",
+   "request_url": "",
+   "url": "https://rfk.nu/faltinformation/",
+   "quote": "PPR för TGL mörker. Avgift 100 SKr"
+  },
+  "fuel": {
+   "types": [
+    "AVGAS 100LL",
+    "JET A-1"
+   ],
+   "note": "Card payment only at the clubhouse",
+   "hours": "",
+   "url": "https://rfk.nu/faltinformation/",
+   "quote": "Bränsle: AVGAS 100 LL och Jet A1 – OBS! Endast kortbetalning för bränsle i klubbhuset!"
+  },
+  "hours": {
+   "ad": "No landings 22-07 LT weekdays and 19-09 LT weekends",
+   "note": "",
+   "url": "https://rfk.nu/faltinformation/",
+   "quote": "Inga TGL 22-07 LT vardagar och 19-09 LT helger"
+  },
+  "contacts": [
+   {
+    "label": "Club (general)",
+    "phone": "0176-163 08",
+    "url": "https://rfk.nu/faltinformation/",
+    "quote": "Tel: 0176-163 08"
+   }
+  ],
+  "good_to_know": [
+   {
+    "text": "Beware of downdrafts before threshold 25",
+    "url": "https://rfk.nu/faltinformation/",
+    "quote": "Varning för nedsvep före THR 25"
+   },
+   {
+    "text": "Lively helicopter activity incl. ambulance and sea rescue",
+    "url": "https://rfk.nu/faltinformation/",
+    "quote": "Livlig helikopteraktivitet med bl.a. ambulans- och sjöräddningshelikoptrar."
+   },
+   {
+    "text": "Grass strip south of the asphalt runway; runway lights 3 m in from edge, collision risk",
+    "url": "https://rfk.nu/faltinformation/",
+    "quote": "Banljusen sitter 3 meter in från asfaltskanten"
+   },
+   {
+    "text": "Parking next to the fuel station; contact club for >24h",
+    "url": "https://rfk.nu/faltinformation/",
+    "quote": "Kontakta klubben vid parkering >24h."
+   }
+  ]
+ },
+ {
+  "key": "ESTT",
+  "name": "Vellinge Airfield",
+  "status": "no_source"
+ },
+ {
+  "key": "ESUH",
+  "name": "Myran Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESUM",
+  "name": "Mohed Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESUY",
+  "name": "Edsby Flygplats",
+  "status": "no_source"
+ },
+ {
+  "key": "ESVK",
+  "name": "Katrineholm Airfield",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0002",
+  "name": "Stegeborg",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0007",
+  "name": "Staffanstorp Bjällerup Field",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0013",
+  "name": "Majfält-Ovansjö",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0018",
+  "name": "Frölunda Airfield",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0024",
+  "name": "Älvdalens flygklubb",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0029",
+  "name": "Dorotea Airfield",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0039",
+  "name": "Tjautjasjaure Airstrip",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0046",
+  "name": "Gimo gräsfält",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0052",
+  "name": "Bergs Airstrip",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0059",
+  "name": "Ödestugu Glider Field",
+  "status": "ok",
+  "website": {
+   "value": "http://jsfk.com/",
+   "url": "http://jsfk.com/",
+   "quote": "Ödestugu flygfält"
+  },
+  "good_to_know": [
+   {
+    "text": "Activity on most holidays in season, weather permitting; call the field first to check someone is there",
+    "url": "http://jsfk.com/",
+    "quote": "Är du osäker? Ring till fältet och kolla först så att det finns folk på plats."
+   }
+  ]
+ },
+ {
+  "key": "SE-0064",
+  "name": "Nyby Private Airstrip",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0069",
+  "name": "Skeppsdal Airstrip",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0074",
+  "name": "Muskö Airstrip",
+  "status": "no_source"
+ }
+]

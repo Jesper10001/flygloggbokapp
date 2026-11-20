@@ -1,0 +1,296 @@
+[
+ {
+  "key": "ESGC",
+  "name": "Ålleberg Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESGI",
+  "name": "Alingsås Airfield",
+  "status": "no_source"
+ },
+ {
+  "key": "ESGO",
+  "name": "Vårgårda Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESGY",
+  "name": "Säffle Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESKH",
+  "name": "Ekshärad Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESKX",
+  "name": "Björkvik Air Base",
+  "status": "no_source"
+ },
+ {
+  "key": "ESMG",
+  "name": "Feringe Airport",
+  "status": "ok",
+  "website": {
+   "value": "https://www.feringefk.se/",
+   "url": "https://www.feringefk.se/",
+   "quote": "Feringe radio: 123.015"
+  },
+  "fuel": {
+   "types": [
+    "AVGAS 100LL",
+    "JET A-1"
+   ],
+   "note": "Cash payment",
+   "url": "https://www.feringefk.se/flygplatsen/",
+   "quote": "Bränsle – 100LL och Jet-A1 (kontant)."
+  },
+  "contacts": [
+   {
+    "label": "Club chairman",
+    "phone": "+46 70 515 60 33",
+    "url": "https://www.feringefk.se/",
+    "quote": "Telefon: 070-515 60 33 (ordförande)"
+   }
+  ]
+ },
+ {
+  "key": "ESMO",
+  "name": "Oskarshamn Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESNA",
+  "name": "Hallviken Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESNM",
+  "name": "Optand Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESQO",
+  "name": "Arboga Airfield",
+  "status": "ok",
+  "website": {
+   "value": "https://klubbhus.flygsport.se/arboga-flygklubb/flygplatsen-esqo",
+   "url": "https://klubbhus.flygsport.se/arboga-flygklubb/flygplatsen-esqo",
+   "quote": "PPR gäller för all verksamhet på ESQO."
+  },
+  "ppr": {
+   "status": "required",
+   "note": "PPR applies to all activity; request from the Saab AB guard",
+   "phone": "+46 589 81844",
+   "url": "https://klubbhus.flygsport.se/arboga-flygklubb/flygplatsen-esqo",
+   "quote": "PPR begärs alltid hos vakten vid Saab AB: 0589-81844."
+  },
+  "good_to_know": [
+   {
+    "text": "Runway 33 threshold displaced 150 m north of the crossing road",
+    "url": "https://klubbhus.flygsport.se/arboga-flygklubb/flygplatsen-esqo",
+    "quote": "Tröskel bana 33 är inflyttad till 150 m norr om korsande väg."
+   }
+  ]
+ },
+ {
+  "key": "ESSH",
+  "name": "Laxå Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESSX",
+  "name": "Johannisberg Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESUD",
+  "name": "Storuman Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESUJ",
+  "name": "Tälje Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESUR",
+  "name": "Ramsele Airfield",
+  "status": "no_source"
+ },
+ {
+  "key": "ESVB",
+  "name": "Bunge Private Airport",
+  "status": "ok",
+  "website": {
+   "value": "https://www.bungeflygfalt.se",
+   "url": "https://www.bungeflygfalt.se",
+   "quote": "PPR gäller för Bunge Flygfält."
+  },
+  "ppr": {
+   "status": "required",
+   "note": "PPR by SMS or phone to the operators",
+   "phone": "+46 70 496 86 41",
+   "url": "https://www.bungeflygfalt.se",
+   "quote": "Smsa eller ring Inger (+46704968641) eller Claes (+46707711258) för PPR."
+  },
+  "contacts": [
+   {
+    "label": "PPR (Inger)",
+    "phone": "+46 70 496 86 41",
+    "url": "https://www.bungeflygfalt.se",
+    "quote": "Inger (+46704968641)"
+   },
+   {
+    "label": "PPR (Claes)",
+    "phone": "+46 70 771 12 58",
+    "url": "https://www.bungeflygfalt.se",
+    "quote": "Claes (+46707711258)"
+   }
+  ],
+  "good_to_know": [
+   {
+    "text": "Landing fee 300 SEK, parking 100 SEK/night, pay by Swish or cash",
+    "url": "https://www.bungeflygfalt.se",
+    "quote": "Landningsavgift 300 SEK. Parkering 100 SEK/natt. Swish eller kontant."
+   },
+   {
+    "text": "Hangar accommodation available when space allows, 400 SEK/person/night",
+    "url": "https://www.bungeflygfalt.se",
+    "quote": "Det finns möjlighet till boende i hangaren i mån av plats. 400 SEK/person per natt."
+   }
+  ]
+ },
+ {
+  "key": "ESVQ",
+  "name": "Köping/Gålby flygfält",
+  "status": "ok",
+  "website": {
+   "value": "https://www.kopingsfk.se/",
+   "url": "https://www.kopingsfk.se/flygfaltet/information/",
+   "quote": "Radio:"
+  },
+  "ppr": {
+   "status": "not_required",
+   "note": "PPR removed from 2026-07-01",
+   "url": "https://www.kopingsfk.se/flygfaltet/information/",
+   "quote": "borttaget från 2026-07-01"
+  },
+  "fuel": {
+   "types": [
+    "UL91",
+    "AVGAS 100LL"
+   ],
+   "note": "Swish or card by arrangement",
+   "url": "https://www.kopingsfk.se/flygfaltet/information/",
+   "quote": "UL91 och 100LL. Swish eller kortbetalning efter överenskommelse."
+  },
+  "contacts": [
+   {
+    "label": "Field condition check",
+    "phone": "+46 73 629 09 05",
+    "url": "https://www.kopingsfk.se/flygfaltet/information/",
+    "quote": "Tommy Erixon, 073-629 09 05"
+   }
+  ],
+  "good_to_know": [
+   {
+    "text": "Max 3 touch-and-goes for visiting aircraft and helicopters",
+    "url": "https://www.kopingsfk.se/",
+    "quote": "Max 3 TGL allowed for visiting ACFT and HEL."
+   },
+   {
+    "text": "Noise restriction: climb to 700 ft AMSL on track 050 or 230 until turning",
+    "url": "https://www.kopingsfk.se/",
+    "quote": "NOISE RESTRICTIONS: CLIMB TO 700 FT AMSL, TRACK 050 OR 230 UNTIL"
+   }
+  ],
+  "as_of": "2026-07-01"
+ },
+ {
+  "key": "SE-0004",
+  "name": "Norberg",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0009",
+  "name": "Flygfältet Långtora",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0015",
+  "name": "Orrlanda Flygfält",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0021",
+  "name": "Finnskoga/Backa flygplats",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0026",
+  "name": "Finspångs flygfält",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0031",
+  "name": "Kolåsens flygfält",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0042",
+  "name": "Pålsträsket Airstrip",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0048",
+  "name": "Duvhed flygfält UL",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0056",
+  "name": "Stöde / Prästbordet flygfält",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0061",
+  "name": "Åkersberga Airfield",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0066",
+  "name": "Motala flygklubb",
+  "status": "ok",
+  "website": {
+   "value": "https://www.motalaflygklubb.se",
+   "url": "https://www.motalaflygklubb.se/index.php/gaestande-piloter",
+   "quote": "Information till gästande piloter på Skärstad"
+  },
+  "ppr": {
+   "status": "required",
+   "note": "PPR always applies",
+   "url": "https://www.motalaflygklubb.se/index.php/gaestande-piloter",
+   "quote": "PPR, gäller alltid!"
+  },
+  "contacts": [
+   {
+    "label": "Field manager (Lars Westberg)",
+    "phone": "+46 70 537 10 27",
+    "url": "https://www.motalaflygklubb.se/index.php/gaestande-piloter",
+    "quote": "070-537 10 27"
+   }
+  ]
+ },
+ {
+  "key": "SE-0071",
+  "name": "Bergby Airstrip",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0080",
+  "name": "Tallåsen Airstrip",
+  "status": "no_source"
+ }
+]

@@ -1,0 +1,121 @@
+SOURCE: AIP Sweden, AD 2 ESKN STOCKHOLM-SKAVSTA (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESKN%20STOCKHOLM-SKAVSTA%201-en-GB.html
+
+ESKN 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 584719N 0165413E RWY 08/26 centre point 
+ 2. 
+ Direction and distance from (city) 
+ NW 3 NM from Nyköping, SW 48 NM from Stockholm 
+ 3. 
+ Elevation/Reference temperature 
+ 142 ft/+22.8°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 86 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 6° E (2020)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Stockholm Skavsta Flygplats AB 
+ Box 44 
+ SE-611 22 Nyköping
+ TEL: +46 155 28 04 21 
+ FAX: +46 155 28 04 83 
+ E-mail: dispatch@skavsta.se 
+ AFS: ESKNZTZX 
+ Website: www.skavsta.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR 
+ 8. 
+ Remarks 
+ AD reference code; RWY 08/26 code 4E, code F capability available, RWY 16/34 code 3C
+
+ESKN 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ H24 (Reduced outside office hours) 
+ AD Operating hours 
+ H24 
+ 2. 
+ Customs and immigration 
+ Custom H24 
+ Immigration 
+ 0500-2100 
+ 0500-2300 
+ (0400-2000) 
+ (0400-2200) 
+ Other hours O/R
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ H24 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ H24 
+ 8. 
+ Fuelling 
+ H24, AVBL 1 HR PN 2100-0600 (2000-0500) 
+ 9. 
+ Handling 
+ O/R 
+ 10. 
+ Security 
+ H24 
+ 11. 
+ De-Icing 
+ H24, AVBL 1 HR PN 2100-0600 (2000-0500) 
+ 12. 
+ Remarks 
+ Charges and Conditions, see 
+ www.skavsta.se
+
+ESKN 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ Limited O/R 
+ 2. 
+ Fuel and oil types 
+ Fuel: 100LL, Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ 100LL: 20,000 l 
+ Jet A1: 650,000 l
+ 4. 
+ De-icing facilities 
+ Available, Type I and II 
+ 5. 
+ Hangar space for visiting ACFT 
+ Limited 
+ 6. 
+ Repair facilities for visiting ACFT 
+ Available, light aircraft/helicopters 
+ 7. 
+ Remarks 
+ Fuel supplier YMFAS/Air BP TEL +46 733 54 04 41
+
+ESKN 2.20 LOCAL AERODROME REGULATIONS 
+ 1 Restrictions for school and training flights 
+ PPR required for all school and training flights. PPR also required for all other flights involving TGL and/or airwork within ESKN CTR. 
+Flights with touch-and-go landings are only permitted:
+ MON–FRI 0500–2000 (0400–1900)
+ SAT 0600–2000 (0500–1900)
+ SUN and HOL 0800–1500 (0700–1400) 
+When ÖSTGÖTA APP is not in operation, training flights within ÖSTGÖTA TMA may be carried out only after prior permission from the Supervisor at STOCKHOLM ACC,
+ TEL +46 8 585 547 00.
+ 2 Apron 1 and Apron 2: Taxiing to stand position 
+ When taxiing to stand position, guidance by manual marshalling signals is mandatory. In addition to manual marshalling signals, a “Follow-Me car” may be used.
+ 3 Avoidance of jet blast 
+ Use idle thrust due to jet blast risk when taxiing to stands 8, 9 and 10A.

@@ -79,6 +79,8 @@ import { UnitSourcesPopup } from './UnitSources';
 import { RoleTag } from './RoleTag';
 import { getMilBase, baseRoles, milCounts, ROLES, ROLE_ORDER, typeFamilies, baseHasFamily, suggestFamilies, type RoleKey } from '../utils/milAirbases';
 import { useOsintStore } from '../store/osintStore';
+import { useAirportInfoStore } from '../store/airportInfoStore';
+import { AirportInfoPanel } from './AirportInfoPanel';
 
 // Datum då flygplatsdatan senast hämtades (skrivs av scripts/build-airports.mjs --refresh), t.ex. "26 October 2026".
 const AIRPORT_DATA_UPDATED = new Date(`${airportDataMeta.updated}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -156,7 +158,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [cameFromNews, setCameFromNews] = useState(false); // kom hit via "Map" i nyhetsrutan → visa "Back to news"
   const [satellite, setSatellite] = useState(true); // satellitläge förvalt
   useEffect(() => { if (visible) setSatellite(true); }, [visible]); // alltid satellit vid öppning
-  useEffect(() => { if (visible) useOsintStore.getState().load(); }, [visible]);
+  useEffect(() => { if (visible) { useOsintStore.getState().load(); useAirportInfoStore.getState().load(); } }, [visible]);
+  useEffect(() => { setInfoOpen(false); }, [focusAirport]);
   const [landingCounts, setLandingCounts] = useState<Record<string, number>>({});
   const [lastFlightMap, setLastFlightMap] = useState<Record<string, { id: number; date: string; reg: string }>>({});
   const [detailFlightId, setDetailFlightId] = useState<number | null>(null); // flight-detalj som overlay ovanpå kartan
@@ -168,6 +171,9 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   // Koordinaterna i flygplatsvyn: valt system (sparas, MGRS första gången), rullistan och "Copied".
   const [coordSys, setCoordSys] = useState<CoordSystem>('mgrs');
   const [coordListOpen, setCoordListOpen] = useState(false);
+  // Airport Info (Info-knappen på kartan → kortet ovanför flygplatskortet). Stängs när man byter flygplats.
+  const [infoOpen, setInfoOpen] = useState(false);
+  const infoAirports = useAirportInfoStore((st) => st.airports);
   const [coordShown, setCoordShown] = useState(false); // koordinaterna syns först när man valt ett system (gäller resten av besöket på kartan)
   useEffect(() => { if (!visible) { setCoordShown(false); setCoordListOpen(false); } }, [visible]);
   const [coordCopied, setCoordCopied] = useState(false);
@@ -973,6 +979,13 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                   <Ionicons name={coordListOpen ? 'chevron-up' : 'chevron-down'} size={12} color="#fff" />
                 </TouchableOpacity>
               </View>
+              {!coordListOpen && infoAirports[focusAirport[0]] && (
+                <TouchableOpacity onPress={() => setInfoOpen((o) => !o)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Airport info"
+                  accessibilityState={{ selected: infoOpen }} style={[styles.infoBtn, infoOpen && { borderColor: Colors.primary, backgroundColor: Colors.primary + '38' }]}>
+                  <Ionicons name="information-circle-outline" size={15} color={Colors.primary} />
+                  <Text style={styles.topBtnTxt}>Info</Text>
+                </TouchableOpacity>
+              )}
               {coordListOpen && (
                 <View style={[styles.coordList, { alignSelf: 'flex-end' }]}>
                   {COORD_SYSTEMS.map((c, i) => {
@@ -1428,6 +1441,11 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
           return (
             <View onLayout={(e) => setPlayCardH(e.nativeEvent.layout.height)}
               style={[{ position: 'absolute', left: 12, right: 12, zIndex: 15 }, playOn ? { top: insets.top + 8 } : { bottom: insets.bottom + 14 }]}>
+              {infoOpen && !playOn && infoAirports[focusAirport[0]] && (
+                <View style={{ marginBottom: 8 }}>
+                  <AirportInfoPanel info={infoAirports[focusAirport[0]]} maxHeight={360} />
+                </View>
+              )}
               {specificOn && getMilBase(focusAirport[0]) ? (
                 // Air Bases → Specific: förbandskortet ersätter flygplatskortet för baserna.
                 <UnitCard
@@ -1557,6 +1575,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
 }
 
 const styles = StyleSheet.create({
+  infoBtn: { alignSelf: 'flex-end', flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1, borderColor: Colors.primary + '73', backgroundColor: 'rgba(10,22,40,0.92)' },
   suggestBox: { borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,200,232,0.25)', backgroundColor: 'rgba(5,11,22,0.6)', marginTop: 2, overflow: 'hidden' },
   suggestRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
   typesBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, marginTop: 6, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10, borderWidth: 1, borderColor: Colors.primary + '8c', backgroundColor: Colors.primary + '0f' },

@@ -1,0 +1,131 @@
+SOURCE: AIP Sweden, AD 2 ESCF LINKÖPING-MALMEN (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESCF%20LINK%C3%96PING-MALMEN%201-en-GB.html
+
+ESCF 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 582346N 0153119E RWY 01/19 centre point 
+ 2. 
+ Direction and distance from (city) 
+ W 3 NM from Linköping 
+ 3. 
+ Elevation/Reference temperature 
+ 309 ft/+19.0°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 96 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 7° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ MIL AD: FM/Swedish Armed Forces 
+ Helikopterflottiljen 
+ SE-581 98 Linköping
+ TEL: +46 10 828 30 00 
+ FAX: +46 10 828 32 00 
+ E-mail: flygplatsledning-hkpflj@mil.se 
+ AFS: ESCFZTZX 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 2C 
+ 8. 
+ Remarks 
+ CIV 
+ 72 HRS PPR 
+ for 
+ traffic 
+ CIV 
+ is 
+ traffic. 
+ prohibited. 
+ 72 HRS PPR for all foreign military aircrafts and helicopters. 
+ Diplomatic 
+ clearence 
+ clearance 
+ required. 
+ All PPR requests shall be made during hours of AD operator. 
+ FAX +46 10 828 36 83 or E-mail: flygplatsledning-hkpflj@mil.se.
+
+ESCF 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0630-1530 (0530-1430) 
+ AD Operating hours 
+ As ATS 
+ 2. 
+ Customs and immigration 
+ - 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ MON-THU 0630-1515 (0530-1415) 
+ FRI and day before HOL 0630-1400 (0530-1300) 
+ HOL CLSD 
+ During 15 SEP - 1 APR also THU 1515-2100 
+ (1415-2000)
+ 8. 
+ Fuelling 
+ As ATS 
+ 9. 
+ Handling 
+ O/R 
+ 10. 
+ Security 
+ O/R 
+ 11. 
+ De-Icing 
+ O/R 
+ 12. 
+ Remarks 
+ -
+
+ESCF 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ O/R 
+ 2. 
+ Fuel and oil types 
+ Fuel: - 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ - 
+ 4. 
+ De-icing facilities 
+ Type I and II, mobile unit. Available O/R. 
+ 5. 
+ Hangar space for visiting ACFT 
+ - 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ De-icing 
+ is 
+ in 
+ committed 
+ accordance with airport 
+ to 
+ apron 
+ management 
+ 7. 
+ directives. 
+ Fuel/oil types etc according to Swedish military standard which differs from normally used by civil aviation. Jet A1 equivalent NATO F35.
+
+ESCF 2.20 LOCAL AERODROME REGULATIONS 
+ 1. When ATS is closed position reports and intentions should be transmitted on channel 118.805 before using the manoeuvring area or entering the traffic circuit.
+ 2. Right hand traffic circuit when RWY 08 and 19 are in use.
+ 3. Intensive training activities with military jet aeroplanes and helicopters outside Malmen and SAAB CTR.

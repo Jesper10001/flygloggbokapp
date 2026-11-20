@@ -1,0 +1,114 @@
+SOURCE: AIP Sweden, AD 2 ESMK KRISTIANSTAD (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESMK%20KRISTIANSTAD%201-en-GB.html
+
+ESMK 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 555514N 0140507E RWY 950 m inwards THR 01 
+ 2. 
+ Direction and distance from (city) 
+ S 7.5 NM from Kristianstad 
+ 3. 
+ Elevation/Reference temperature 
+ 77 ft/+18.5°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 115 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 6° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Kristianstad Airport AB 
+ SE-297 92 Everöd
+ TEL: +46 44 23 88 00 
+ E-mail: info@kidairport.com 
+ AFS: ESMKZTZX 
+ Website: www.kidairport.com 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4C 
+ 8. 
+ Remarks 
+ PPR request for all IFR shall be made via AD e-mail during AD operator hours. PN compulsory for VFR outside TWR hours, fill in PN form at www.krfk.se/pn.
+
+ESMK 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ As ATS 
+ AD Operating hours 
+ As ATS 
+ 2. 
+ Customs and immigration 
+ O/R 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ Ref AIP SUP/NOTAM 
+ 8. 
+ Fuelling 
+ As ATS 
+ 9. 
+ Handling 
+ As ATS 
+ 10. 
+ Security 
+ As ATS 
+ 11. 
+ De-Icing 
+ As ATS 
+ 12. 
+ Remarks 
+ Increased charges outside TWR HR of OPS
+
+ESMK 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ Available by arrangement 
+ 2. 
+ Fuel and oil types 
+ Fuel: 91 UL, Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ 91 UL: 20,000 l 
+ Jet A1: 150,000 l, fuel truck
+ 4. 
+ De-icing facilities 
+ Available, Type I and II, mobile unit 
+ 5. 
+ Hangar space for visiting ACFT 
+ - 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ Fuel supplier Air BP. For 91 UL Air BP Sterlingcard is necessary. 
+ Handling channel 131.805
+
+ESMK 2.20 LOCAL AERODROME REGULATIONS 
+ 1 General 
+ Aircraft having a MTOM exceeding 5700 kg shall, on take-off RWY 19, climb straight ahead to 1500 ft until turn is initiated. For traffic with MTOM 5700 kg or below, right hand circuit applies after departure when RWY 19 is in use.
+ 2 Use of APU 
+ Arrival
+ APU shall be shut down soonest after parking. 
+Departure
+ APU shall not be started until OK from ground crew. When the outside temperature exceeds 25°C, APU may be started not earlier than 10 min before estimated time for taxiing.
+ 3 Parking outside ATS operational hours 
+ Parking on apron outside ATS operational hours is not allowed. Exceptions for SAR, ambulance and police.
+ 4 Vehicle traffic on manoeuvring area 
+ Vehicle traffic may occur on the manoeuvring area outside ATS operational hours.
+ 5 Routines outside ATS opening hours 
+ Outside ATS operational hours, blind transmission is mandatory in ESMK CTR. The intention to take off or land must be clearly announced on channel 129.355.

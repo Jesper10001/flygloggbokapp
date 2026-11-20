@@ -8,6 +8,7 @@ import { scanReach, passSize, grantScanPass, scanPassCovers, noteScanRead } from
 import { getCredits, grantPurchase, revokePurchase, splitCharge, hasAllowance, COIN_PACKS } from './credits';
 import { redeemCode, promoTierOf } from './promo';
 import { makeOsintHandler } from './osint.mjs';
+import { handleAirportInfo } from './airportInfo';
 import OSINT_LAYER from '../data/osint-airbases.json';
 import OSINT_CFG from '../config/osint_exclusions.json';
 // OSINT-lagret (Global map → Air Bases → Specific): filtreras här, spärras för blocked_countries (src/osint.mjs).
@@ -1136,6 +1137,9 @@ export default {
     }
 
     // ── Version / app news endpoint ──
+    // ── Airport Info (Info-kortet: PPR, bränsle, öppettider …): GET /airport-info, ändringar via Ops ──
+    if (url.pathname === '/airport-info' && request.method === 'GET') return handleAirportInfo(request, env);
+
     // ── OSINT-lagret med militära flygbaser: GET /osint/airbases (filtrerat, 451 för spärrade länder) ──
     if (url.pathname === '/osint/airbases' && request.method === 'GET') return handleOsint(request);
 

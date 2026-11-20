@@ -1,0 +1,119 @@
+SOURCE: AIP Sweden, AD 2 ESNQ KIRUNA (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESNQ%20KIRUNA%201-en-GB.html
+
+ESNQ 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 674917N 0202008E BRG 033.7° GEO 1150 m from THR 03 
+ 2. 
+ Direction and distance from (city) 
+ SE 2 NM from Kiruna 
+ 3. 
+ Elevation/Reference temperature 
+ 1509 ft/+19.7°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 98 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 10° E (2020)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Swedavia AB 
+ Kiruna Airport 
+ Box 831 
+ SE-981 28 Kiruna
+ TEL: +46 10 109 46 00 
+ FAX: +46 10 109 46 50 
+ E-mail: krn.groundhandling@swedavia.se 
+ AFS: ESNQZTZX 
+ Website: www.swedavia.se/kiruna 
+ Website: www.swedavia.net/airport/kiruna
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4D 
+ 8. 
+ Remarks 
+ PPR for CIV and MIL ACFT 5 days prior to planned arrival or departure. 
+ The following TFC is exempted: HOSP, STATE, SAR, SKED TFC, SWE/EU/NATO MIL and operators with sanction agreement. 
+ Requests shall be sent to krn.ppr@swedavia.se
+
+ESNQ 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0800-1600 (0700-1500) 
+ AD Operating hours 
+ Ref AIP SUP/NOTAM 
+ 2. 
+ Customs and immigration 
+ O/R +46 8 456 66 20, kcgs.vb@tullverket.se 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ FPC H24 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ TWR opens 15 min prior AD operating hours. 
+ Closes as AD operating hours.
+ 8. 
+ Fuelling 
+ As AD HR of OPS 
+ 9. 
+ Handling 
+ For scheduled flights. Other O/R 
+ 10. 
+ Security 
+ Screening and CSRA for scheduled flights, 
+ other O/R
+ 11. 
+ De-Icing 
+ For scheduled flights, other O/R 
+ 12. 
+ Remarks 
+ Increased charges outside AD HR of OPS (AD OPR HRS EXTD) 
+ PPR required for operations outside AD operational hours (AD CLSD) subject to a signed agreement. Applications shall be submitted during AD operator hours to krn.safety@swedavia.se
+
+ESNQ 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ Available 
+ 2. 
+ Fuel and oil types 
+ Fuel: Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ Jet A1: 200,000 l fuel truck/stationary 
+ 4. 
+ De-icing facilities 
+ Available, Type I and II, mobile unit 
+ 5. 
+ Hangar space for visiting ACFT 
+ Available up to B747-400 
+ 6. 
+ Repair facilities for visiting ACFT 
+ Limited 
+ 7. 
+ Remarks 
+ Towing by towbar, limited availability of towbars. 
+ Fuel on Shell (fuel and fly or carnet) and major credit cards.
+
+ESNQ 2.20 LOCAL AERODROME REGULATIONS 
+ 1 Clearance at gate 
+ All aircraft shall request start-up from ATC. ATC clearance will be delivered on request prior to start-up. Such clearance will be issued for RWY in use, appropriate SID or TMA exit point.
+ 2 Taxi regulations on TWY Y 
+ Maximum wingspan 36 m for taxiing on TWY Y. De-icing of aircraft with larger wingspan than 36 m shall contact TWR for special instructions.
+ 3 Taxiing and towing regulations 
+ When taxiing or towing, the aircraft’s anti-collision and position lights (if equipped) shall be turned on.
+ 4 Ground movement procedures 
+ Engines shall be operated at minimum power required when taxiing on Apron Terminal, Hangar 2 and Arena. Caution advised when turning around on aprons. Watch out for passengers on aprons.
+ 5 Engine ground run 
+ Engine ground runs must be coordinated with the Airport Duty Officer TEL +46 10 109 46 23.

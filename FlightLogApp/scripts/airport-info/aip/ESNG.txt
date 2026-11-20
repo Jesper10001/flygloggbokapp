@@ -1,0 +1,104 @@
+SOURCE: AIP Sweden, AD 2 ESNG GÄLLIVARE (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESNG%20G%C3%84LLIVARE%201-en-GB.html
+
+ESNG 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 670759N 0204844E RWY 730 m from THR 12 
+ 2. 
+ Direction and distance from (city) 
+ E 3.8 NM from Gällivare 
+ 3. 
+ Elevation/Reference temperature 
+ 1027 ft/+18.5°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 94 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 10° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Lapland airport i Gällivare AB 
+ Flygplatsvägen 10 
+ SE-982 35 Gällivare
+ TEL: +46 970 780 00 
+ FAX: +46 970 780 09 
+ E-mail: airport@gallivare.se 
+ AFS: ESNGZTZX 
+ Website: www.lapair.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 3C 
+ 8. 
+ Remarks 
+ PPR for all non scheduled traffic outside ATS HR of OPS. Request shall be made 72 hours before ARR to airport@gallivare.se. 
+ Caution due intermittent motor vehicles on RWY. 
+ Ambulance helicopter is located at the airport. Delays may occur.
+
+ESNG 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0700-1500 (0600-1400) 
+ AD Operating hours 
+ As ATS 
+ 2. 
+ Customs and immigration 
+ - 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ Ref AIP SUP/NOTAM 
+ 8. 
+ Fuelling 
+ As AD operating hours or O/R. 
+ 9. 
+ Handling 
+ For scheduled flights, other O/R. 
+ 10. 
+ Security 
+ Screening and CSRA for scheduled flights, other O/R. 
+ 11. 
+ De-Icing 
+ For scheduled flights, other O/R. 
+ 12. 
+ Remarks 
+ Increased charges outside hours of scheduled operations.
+
+ESNG 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ Limited 
+ 2. 
+ Fuel and oil types 
+ Fuel: Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ Jet A1: 70 000 l, hydrant fuelling 
+ 4. 
+ De-icing facilities 
+ Available, Type I and II, mobile unit 
+ 5. 
+ Hangar space for visiting ACFT 
+ O/R airport@gallivare.se 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ For payment of fuel only VISA and Mastercard credit cards are accepted
+
+ESNG 2.20 LOCAL AERODROME REGULATIONS 
+ NIL

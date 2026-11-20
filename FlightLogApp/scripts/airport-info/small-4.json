@@ -1,0 +1,281 @@
+[
+ {
+  "key": "ESGA",
+  "name": "Backamo Airport",
+  "type": "small",
+  "municipality": "Uddevalla",
+  "lat": 58.1772,
+  "lon": 11.9735,
+  "home_link": ""
+ },
+ {
+  "key": "ESGH",
+  "name": "Herrljunga Airfield",
+  "type": "small",
+  "municipality": "Herrljunga",
+  "lat": 58.0293,
+  "lon": 13.1082,
+  "home_link": ""
+ },
+ {
+  "key": "ESGN",
+  "name": "Brännebrona Airport",
+  "type": "small",
+  "municipality": "Götene",
+  "lat": 58.5786,
+  "lon": 13.6106,
+  "home_link": ""
+ },
+ {
+  "key": "ESGV",
+  "name": "Varberg Getterön airfield",
+  "type": "small",
+  "municipality": "Varberg",
+  "lat": 57.1246,
+  "lon": 12.2283,
+  "home_link": ""
+ },
+ {
+  "key": "ESKG",
+  "name": "Gryttjom Airfield",
+  "type": "small",
+  "municipality": "Gryttjom",
+  "lat": 60.287,
+  "lon": 17.4217,
+  "home_link": ""
+ },
+ {
+  "key": "ESKV",
+  "name": "Arvika Airport",
+  "type": "small",
+  "municipality": "Arvika",
+  "lat": 59.6759,
+  "lon": 12.6394,
+  "home_link": "https://www.arvikaflygklubb.se"
+ },
+ {
+  "key": "ESMF",
+  "name": "Fagerhult Airport",
+  "type": "small",
+  "municipality": "Fagerhult",
+  "lat": 56.3879,
+  "lon": 13.4706,
+  "home_link": ""
+ },
+ {
+  "key": "ESML",
+  "name": "Landskrona Airport",
+  "type": "small",
+  "municipality": "Landskrona",
+  "lat": 55.946,
+  "lon": 12.87,
+  "home_link": "http://landskronaflygklubb.se"
+ },
+ {
+  "key": "ESMZ",
+  "name": "Ölanda Airport",
+  "type": "small",
+  "municipality": "Ölanda",
+  "lat": 57.32824,
+  "lon": 17.05052,
+  "home_link": "http://www.ölanda.se/"
+ },
+ {
+  "key": "ESNJ",
+  "name": "Jokkmokk Airport",
+  "type": "small",
+  "municipality": "",
+  "lat": 66.4962,
+  "lon": 20.1472,
+  "home_link": ""
+ },
+ {
+  "key": "ESOL",
+  "name": "Lemstanas Airport",
+  "type": "small",
+  "municipality": "Storvik",
+  "lat": 60.5879,
+  "lon": 16.5868,
+  "home_link": "http://flygklubbenstorvik.se/wp/"
+ },
+ {
+  "key": "ESSG",
+  "name": "Ludvika Airport",
+  "type": "small",
+  "municipality": "Ludvika",
+  "lat": 60.0883,
+  "lon": 15.0964,
+  "home_link": "https://ludvikaflyg.se/Flygplatsen/"
+ },
+ {
+  "key": "ESSW",
+  "name": "Västervik Airport",
+  "type": "small",
+  "municipality": "Västervik",
+  "lat": 57.78,
+  "lon": 16.5236,
+  "home_link": "http://www.essw.se"
+ },
+ {
+  "key": "ESUB",
+  "name": "Arbrå Airport",
+  "type": "small",
+  "municipality": "Arbrå",
+  "lat": 61.5125,
+  "lon": 16.3725,
+  "home_link": "https://www.facebook.com/p/Arbrå-Flygklubb-100064337065413/"
+ },
+ {
+  "key": "ESUI",
+  "name": "Mellansel Airport",
+  "type": "small",
+  "municipality": "Mellansel",
+  "lat": 63.39181,
+  "lon": 18.31947,
+  "home_link": "https://www.mellanselsfk.se"
+ },
+ {
+  "key": "ESUO",
+  "name": "Graftavallen Airport",
+  "type": "small",
+  "municipality": "Graftavallen",
+  "lat": 63.0417,
+  "lon": 14.0014,
+  "home_link": ""
+ },
+ {
+  "key": "ESVA",
+  "name": "Avesta Airport",
+  "type": "small",
+  "municipality": "Avesta",
+  "lat": 60.1804,
+  "lon": 16.1228,
+  "home_link": ""
+ },
+ {
+  "key": "ESVM",
+  "name": "Skinnlanda Airport",
+  "type": "small",
+  "municipality": "Malung",
+  "lat": 60.6588,
+  "lon": 13.7266,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0003",
+  "name": "Bollnäs",
+  "type": "small",
+  "municipality": "Bollnäs",
+  "lat": 61.3562,
+  "lon": 16.3288,
+  "home_link": "http://www.bollnasflygklubb.se/flygf%C3%A4ltsinformation2"
+ },
+ {
+  "key": "SE-0008",
+  "name": "Kattleberg Airfield",
+  "type": "small",
+  "municipality": "",
+  "lat": 57.98004,
+  "lon": 12.14489,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0014",
+  "name": "Ålåsen Airfield",
+  "type": "small",
+  "municipality": "Ålåsen",
+  "lat": 63.8657,
+  "lon": 14.60811,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0020",
+  "name": "Bänkås Hoppfält",
+  "type": "small",
+  "municipality": "Sundsvall",
+  "lat": 62.38909,
+  "lon": 17.45281,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0025",
+  "name": "Flykälen Airfield",
+  "type": "small",
+  "municipality": "Flykälen",
+  "lat": 63.86715,
+  "lon": 15.03912,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0030",
+  "name": "Finlanda Airfield",
+  "type": "small",
+  "municipality": "Rossön",
+  "lat": 63.91189,
+  "lon": 16.32289,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0040",
+  "name": "Kokhedsfältet Airstrip",
+  "type": "small",
+  "municipality": "",
+  "lat": 66.15049,
+  "lon": 21.03525,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0047",
+  "name": "Åviken Fly Camp",
+  "type": "small",
+  "municipality": "Örnsköldsvik",
+  "lat": 63.21278,
+  "lon": 18.74917,
+  "home_link": "https://www.aviken.se/"
+ },
+ {
+  "key": "SE-0055",
+  "name": "Hornlanda",
+  "type": "small",
+  "municipality": "",
+  "lat": 57.8664,
+  "lon": 15.84486,
+  "home_link": "http://www.hornlanda.se"
+ },
+ {
+  "key": "SE-0060",
+  "name": "Kvarnhem Flygfält",
+  "type": "small",
+  "municipality": "",
+  "lat": 55.80065,
+  "lon": 13.6221,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0065",
+  "name": "Stockholm – Hova",
+  "type": "small",
+  "municipality": "",
+  "lat": 59.67466,
+  "lon": 17.77854,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0070",
+  "name": "Sticksjö Private Airstrip",
+  "type": "small",
+  "municipality": "",
+  "lat": 59.31151,
+  "lon": 15.47868,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0076",
+  "name": "Ragglanda Airfield",
+  "type": "small",
+  "municipality": "Huskvarna",
+  "lat": 57.86829,
+  "lon": 14.33832,
+  "home_link": ""
+ }
+]

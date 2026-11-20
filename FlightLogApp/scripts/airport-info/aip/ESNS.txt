@@ -1,0 +1,109 @@
+SOURCE: AIP Sweden, AD 2 ESNS SKELLEFTEÅ (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESNS%20SKELLEFTE%C3%85%201-en-GB.html
+
+ESNS 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 643729N 0210437E RWY 1055 m inwards THR 10 
+ 2. 
+ Direction and distance from (city) 
+ SE 8 NM from Skellefteå 
+ 3. 
+ Elevation/Reference temperature 
+ 158 ft/+17.0°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 71 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 10° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Skellefteå City Airport 
+ SE-931 32 Skellefteå
+ TEL: +46 910 576 00 
+ E-mail: info@skellefteaairport.se 
+ AFS: ESNSZTZX 
+ Website: skellefteaairport.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4E 
+ 8. 
+ Remarks 
+ PPR: See ESNS 2.20
+
+ESNS 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0700-1500 (0600-1400) 
+ AD Operating hours 
+ Ref AIP SUP/NOTAM 
+ 2. 
+ Customs and immigration 
+ O/R TEL +46 90 18 55 25 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ Ref AIP SUP/NOTAM 
+ 8. 
+ Fuelling 
+ As ATS 
+ 9. 
+ Handling 
+ As ATS 1 HR PN 
+ 10. 
+ Security 
+ As ATS 1 HR PN 
+ 11. 
+ De-Icing 
+ As ATS 
+ Avbl for SKED TFC, others on request 1 HR PN
+ 12. 
+ Remarks 
+ Increased charges outside TWR HR of OPS
+
+ESNS 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ - 
+ 2. 
+ Fuel and oil types 
+ Fuel: 91UL, Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ 91UL: 10 000 l, Hydrant 
+ Jet A1: 189 000 l, 2 fuel trucks
+ 4. 
+ De-icing facilities 
+ Available, Type I and II, mobile unit 
+ 5. 
+ Hangar space for visiting ACFT 
+ - 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ Fuel supplier Air BP
+
+ESNS 2.20 LOCAL AERODROME REGULATIONS 
+ 1. Availability
+ PPR is required for all traffic outside ATS hours of operation, except for airportbased businesses in accordance with local safety regulations. 
+ For PPR, contact aerodrome TEL +46 910 576 25 or 
+ insatsledare@sft.se .
+ 2. Owing to integrated rescue and ramp service operator of aircraft requiring such service shall request permission for engine start from the start-up supervisor.
+ 3. Clearance at gate
+ ATC clearance will be delivered on request prior to start-up. Such clearance will be issued for RWY in use and TMA exit point. Transponder code will be communicated during taxi.
+ 4. Engines shall be operated at minimum power required when taxiing on apron.

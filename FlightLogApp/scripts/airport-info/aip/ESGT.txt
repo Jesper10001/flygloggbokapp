@@ -1,0 +1,114 @@
+SOURCE: AIP Sweden, AD 2 ESGT GÖTEBORG-STALLBACKA (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESGT%20G%C3%96TEBORG-STALLBACKA%201-en-GB.html
+
+ESGT 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 581905N 0122042E RWY centre point 
+ 2. 
+ Direction and distance from (city) 
+ NE 2.9 NM from Trollhättan, S 3.8 NM from Vänersborg 
+ 3. 
+ Elevation/Reference temperature 
+ 137 ft/+18.5°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 114 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 5° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Fyrstads Flygplats AB 
+ Göteborg Stallbacka Airport 
+ SE-461 93 Trollhättan
+ TEL: +46 520 825 00 
+ FAX: +46 520 838 17 
+ E-mail: info@gsairport.se 
+ AFS: ESGTZTZX 
+ Website: www.gsairport.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 3C 
+ 8. 
+ Remarks 
+ PPR applies for school and training flights with repeated instrument approaches and TGL. 
+ PPR for all military registered aircraft, for other than transport flights PPR shall be issued 14 days ahead of flight. 
+ TEL: +46 520 42 93 61 during ATS operational hours. 
+ E-mail: ats.trollhattan@acr-sweden.se
+
+ESGT 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ As ATS 
+ AD Operating hours 
+ As ATS. 
+ 2. 
+ Customs and immigration 
+ MON-SUN 0600-2000 (0500-1900) 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ Ref AIP SUP/NOTAM 
+ 8. 
+ Fuelling 
+ As ATS 
+ 9. 
+ Handling 
+ As ATS 
+ 10. 
+ Security 
+ As ATS 
+ 11. 
+ De-Icing 
+ As ATS 
+ 12. 
+ Remarks 
+ Increased charges outside TWR HR of OPS
+
+ESGT 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ Available, forklift 
+ 2. 
+ Fuel and oil types 
+ Fuel: 91UL, Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ 91UL: 20,000 l 
+ Jet A1: 15,000 l in fuelling truck, 100,000 l in store
+ 4. 
+ De-icing facilities 
+ Available, Type I and Type II 
+ 5. 
+ Hangar space for visiting ACFT 
+ - 
+ 6. 
+ Repair facilities for visiting ACFT 
+ Available 
+ 7. 
+ Remarks 
+ Fuel supplier: Fyrstads Flygplats AB (AD Operator). 
+ Battery charger: Pipistrel skycharge M20 Portable charger. 
+ Fuel can only be paid by VISA or Mastercard credit cards, invoice or Swish.
+
+ESGT 2.20 LOCAL AERODROME REGULATIONS 
+ 1. Restrictions for school and trainingflights 
+Take-off and landing exercises, TGL, with aircraft with MTOM below 2000 kg and aerobatic flights are only permitted:
+ MON-FRI 0600-2100 (0500-2000)
+ SAT, SUN and HOL 0800-1600 (0700-1500). 
+Take-off and landing exercises, TGL, with aircraft with MTOM below 2000 kg and aerobatic flights are not permitted on Good Friday, Easter Eve, Easter Day, Easter Monday, Ascension Day, Whitsun Eve, Whitsun Day, Midsummers Eve, Midsummers Day, All Saints Day, Christmas Eve, Christmas Day and Boxing Day.
+ 2. Right-hand traffic circuit applies for grass strip 15.
+ 3. Commercial air transport (CAT) operators at GÖTEBORG/Stallbacka AD with ICAO code letter C aircraft shall classify the aerodrome as category B, ref EASA AMC1 ORO.FC.105 (b) (2);(c). This is due to the nonstandard dimensions. See ESGT Aerodrome Chart.

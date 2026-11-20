@@ -1,0 +1,119 @@
+SOURCE: AIP Sweden, AD 2 ESOK KARLSTAD (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESOK%20KARLSTAD%201-en-GB.html
+
+ESOK 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 592641N 0132015E RWY centre point 
+ 2. 
+ Direction and distance from (city) 
+ NW 6.5 NM from Karlstad 
+ 3. 
+ Elevation/Reference temperature 
+ 353 ft/+20.0°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 104 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 5° E (2020)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Karlstad Airport 
+ SE-655 91 Karlstad
+ TEL: +46 54 540 77 14 
+ FAX: +46 54 53 23 06 
+ E-mail: karlstadairport@karlstad.se 
+ AFS: ESOKZTZX 
+ Website: www.ksdarprt.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4E 
+ 8. 
+ Remarks 
+ IFR traffic is only allowed when ATS is open. 
+ HEMS RNP 3D approaches (LPV or LNAV/VNAV) and HEMS RNP departures allowed during all hours.
+
+ESOK 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0430-2000 (0330-1900) 
+ AD Operating hours 
+ As ATS 
+ 2. 
+ Customs and immigration 
+ Customs: O/R +46 40 661 32 20 
+ Border Police: O/R TUE-FRI 0800-1400 (0700-1300) except Swedish public holidays.
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ Ref AIP SUP/NOTAM or on request 
+ 8. 
+ Fuelling 
+ As ATS 
+ 9. 
+ Handling 
+ O/R 
+ 10. 
+ Security 
+ O/R 
+ 11. 
+ De-Icing 
+ O/R 
+ 12. 
+ Remarks 
+ Increased charges outside TWR HR of OPS. For request e-mail: 
+ karlstadairport@karlstad.se during hours of AD operator.
+ Border Police: Always prior notice to 
+ utl.varmland@polisen.se or TEL 010 56 70 805 MON-FRI 0700-1100 (0600-1000) and 1200-1500 (1100-1400) except Swedish public holidays.
+
+ESOK 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ Available O/R 
+ 2. 
+ Fuel and oil types 
+ Fuel: 100LL, Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ 100LL: 20 000 l stationary 
+ Jet A1: 19 000 l fuel truck/100 000 l stationary
+ 4. 
+ De-icing facilities 
+ Available, Type I and II 
+ 5. 
+ Hangar space for visiting ACFT 
+ Available, private 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ Fuel 100LL supplier Air BP. All major credit cards are accepted for payment, during opening hours. During closing hours, 100LL available with Air BP card. 
+ JET A1: Service only during opening hours and to aircraft with contract (Air BP card or fuel release).
+
+ESOK 2.20 LOCAL AERODROME REGULATIONS 
+ 1. Request for start-up required by aircraft on IFR flight plan.
+ 2. Radio communication with de-icing vehicle on channel 131.805.
+ 3. PPR for all IFR school flights. TEL +46 54 55 60 76.
+ 4. School- and general aviation flights 
+Repeated take-off and landings permitted only 
+ 15 JUN-15 AUG: MON-FRI 0800-1700 (0700-1600)
+ 16 AUG-14 JUN: MON-FRI 0600-2000 (0500-1900) also SAT, SUN and HOL 0800-1600 (0700-1500).
+ Repeated take-off and landings are not permitted Good Friday, Easter Eve, Easter Day, Ascension Day, Whitsun Eve, National Day, Midsummer Eve, All Saints Day, Christmas Eve and Christmas Day.
+ 5. When the aerodrome is closed parking of aircraft is only allowed on Apron S.
+ 6. Malfunctioning stopbar. When a stopbar is not controllable the following procedures apply:
+ 6.1. Taxiway with operational stopbar manoeuvring will be used. Taxiway with unserviceable manoeuvring function will be closed.
+ 6.2. When using taxiway with malfunctioning stopbar manoeuvring, taxiing past a lighted stopbar is only permitted behind a marshalling car. ATC will inform via clearance.

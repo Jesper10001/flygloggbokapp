@@ -1,0 +1,361 @@
+[
+ {
+  "key": "ESFA",
+  "name": "Hässleholm Bokeberg Airfield",
+  "status": "ok",
+  "website": {
+   "value": "https://hlmfk.se",
+   "url": "http://www.hlmfk.se",
+   "quote": "Hässleholms flygklubb, Bokeberg 1430, 288 90 Vinslöv."
+  },
+  "ppr": {
+   "status": "not_required",
+   "note": "PPR/PN not applied; landing at own responsibility",
+   "url": "https://hlmfk.se/flygplatsen/",
+   "quote": "PN/PPR TILLÄMPAS EJ PÅ ESFA!"
+  },
+  "fuel": {
+   "types": [
+    "UL91"
+   ],
+   "note": "AirBP UL91, cash or Swish; unmanned field, refuelling only by arrangement",
+   "url": "https://hlmfk.se/flygplatsen/",
+   "quote": "AirBP UL91, betalning kontant eller med Swish."
+  },
+  "contacts": [
+   {
+    "label": "Runway condition questions (SMS/text)",
+    "phone": "+46702127627",
+    "url": "https://hlmfk.se/flygplatsen/",
+    "quote": "kontakta via SMS/text +46702127627"
+   }
+  ],
+  "good_to_know": [
+   {
+    "text": "Left-hand circuit at 1200 ft MSL",
+    "url": "https://hlmfk.se/flygplatsen/",
+    "quote": "Trafikvarvshöjd 1200 fot MSL, vänstervarv."
+   }
+  ]
+ },
+ {
+  "key": "ESGD",
+  "name": "Bämmelshed Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESGK",
+  "name": "Falköping Airfield",
+  "status": "ok",
+  "website": {
+   "value": "https://falbygdensfk.se",
+   "url": "https://falbygdensfk.se/falbygdens-flygklubb/english",
+   "quote": "info@falbygdensfk.se"
+  },
+  "contacts": [
+   {
+    "label": "Club house",
+    "phone": "0515-163 90",
+    "url": "https://falbygdensfk.se/falbygdens-flygklubb/english",
+    "quote": "0515-163 90"
+   }
+  ],
+  "good_to_know": [
+   {
+    "text": "1300 m asphalt runway and two large grass strips",
+    "url": "https://falbygdensfk.se/falbygdens-flygklubb/english",
+    "quote": "The airport of Falköping offers 1300 m of asphalt runway and two large grass strips"
+   }
+  ]
+ },
+ {
+  "key": "ESGR",
+  "name": "Skövde Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESKA",
+  "name": "Gimo Air Base",
+  "status": "no_source"
+ },
+ {
+  "key": "ESKK",
+  "name": "Karlskoga Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESMB",
+  "name": "Borglanda Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESMH",
+  "name": "Höganäs Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESMP",
+  "name": "Anderstorp Airport",
+  "status": "ok",
+  "website": {
+   "value": "https://www.srwanderstorp.se/en/anderstorp-airfield/",
+   "url": "https://www.srwanderstorp.se/en/anderstorp-airfield/",
+   "quote": "Therefore it is a prerequisit to request a permit before landing, PPR."
+  },
+  "ppr": {
+   "status": "required",
+   "note": "Airfield is part of the racing circuit; landing only when no other activity; check NOTAM first",
+   "phone": "+4670/6498506",
+   "url": "https://www.srwanderstorp.se/en/anderstorp-airfield/",
+   "quote": "PPR: Johan at mail, airport(a)srwanderstorp.se or +4670/6498506"
+  },
+  "hours": {
+   "ad": "Daytime only",
+   "note": "Track has no landing lights",
+   "url": "https://www.srwanderstorp.se/en/anderstorp-airfield/",
+   "quote": "Only daytime flying."
+  },
+  "good_to_know": [
+   {
+    "text": "Helipad only open to HEMS and SAR",
+    "url": "https://www.srwanderstorp.se/en/anderstorp-airfield/",
+    "quote": "The Helipad is only open to HEMS and SAR."
+   },
+   {
+    "text": "Avoid overflight below 1500 ft GND except during take-off and landing",
+    "url": "https://www.srwanderstorp.se/en/anderstorp-airfield/",
+    "quote": "Avoid overflight below 1500 ft GND except during Take off and Landing."
+   }
+  ]
+ },
+ {
+  "key": "ESNB",
+  "name": "Sollefteå/Långsele Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESNP",
+  "name": "Piteå Airport",
+  "status": "ok",
+  "website": {
+   "value": "https://pfk.pitea-flygklubb.se/",
+   "url": "https://pfk.pitea-flygklubb.se/pitea-airport/",
+   "quote": "PITEÅ RADIO"
+  },
+  "ppr": {
+   "status": "partial",
+   "note": "PPR 1 Oct - 30 Apr due to irregular snow clearing; preferably email or SMS/WhatsApp; check NOTAM for temporary closure due to other activity",
+   "url": "https://pfk.pitea-flygklubb.se/pitea-airport/",
+   "quote": "PPR 1st October – 30th April due to irregular snow clearing"
+  },
+  "fuel": {
+   "types": [
+    "AVGAS 91"
+   ],
+   "note": "AVGAS 91 available on request; AVGAS 100LL not available",
+   "url": "https://pfk.pitea-flygklubb.se/pitea-airport/",
+   "quote": "AVGAS 91 available on request"
+  },
+  "contacts": [
+   {
+    "label": "Airport manager / PPR contact (email or SMS/WhatsApp preferred)",
+    "phone": "+46 70 188 71 11",
+    "url": "https://pfk.pitea-flygklubb.se/pitea-airport/",
+    "quote": "Marcus Lidman"
+   }
+  ],
+  "good_to_know": [
+   {
+    "text": "Uncontrolled airfield, announce intentions on radio (123.550 Piteå Radio)",
+    "url": "https://pfk.pitea-flygklubb.se/pitea-airport/",
+    "quote": "transmitt intentions on radio"
+   }
+  ]
+ },
+ {
+  "key": "ESSC",
+  "name": "Ekeby Airfield",
+  "status": "no_source"
+ },
+ {
+  "key": "ESSI",
+  "name": "Visingsö Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESSZ",
+  "name": "Vängsö Airport",
+  "status": "ok",
+  "website": {
+   "value": "https://www.osfk.se/",
+   "url": "https://www.osfk.se/",
+   "quote": "Flygfält, 646 93 Vängsö"
+  },
+  "ppr": {
+   "status": "unknown",
+   "note": "Site mentions both PPR and prior notice (PN); unclear",
+   "url": "https://www.osfk.se/",
+   "quote": "Om du är pilot glöm inte PPR!"
+  },
+  "fuel": {
+   "types": [
+    "UL91"
+   ],
+   "note": "91/96 UL available; contact club for price",
+   "url": "https://www.osfk.se/visitvaengsoe",
+   "quote": "På fältet finns det möjlighet att tanka 91/96 UL"
+  },
+  "hours": {
+   "ad": "Summer months, often well into autumn",
+   "url": "https://www.osfk.se/",
+   "quote": "Fältet är öppet under sommar månaderna och ofta en bra bit in på hösten."
+  },
+  "contacts": [
+   {
+    "label": "Field contact",
+    "phone": "073-989 61 10",
+    "url": "https://www.osfk.se/visitvaengsoe",
+    "quote": "073-989 61 10"
+   }
+  ],
+  "good_to_know": [
+   {
+    "text": "Left-hand circuit at 1000 ft",
+    "url": "https://www.osfk.se/visitvaengsoe",
+    "quote": "Trafikvarvshöjd 1000 fot och trafikvarvet flygs i vänstervarv"
+   }
+  ]
+ },
+ {
+  "key": "ESUE",
+  "name": "Idre Airport",
+  "status": "ok",
+  "website": {
+   "value": "https://www.idrefjallensairport.se/",
+   "url": "https://www.idrefjallensairport.se/",
+   "quote": "PPR: +46 76 850 3131"
+  },
+  "ppr": {
+   "status": "required",
+   "note": "Call for PPR",
+   "phone": "+46 76 850 3131",
+   "url": "https://www.idrefjallensairport.se/",
+   "quote": "PPR: +46 76 850 3131"
+  },
+  "fuel": {
+   "types": [],
+   "note": "Helicopter landing and fuel station always cleared and open; call for information",
+   "url": "https://www.idrefjallensairport.se/",
+   "quote": "The helicopter landing and fuelstation are always cleared and open!"
+  },
+  "good_to_know": [
+   {
+    "text": "Wildlife (bear, reindeer, moose, deer) may be on the field",
+    "url": "https://www.idrefjallensairport.se/",
+    "quote": "Bear, reindeer, elk/moose and deer may appear on the field."
+   }
+  ]
+ },
+ {
+  "key": "ESUK",
+  "name": "Kalixfors Airfield",
+  "status": "no_source"
+ },
+ {
+  "key": "ESUS",
+  "name": "Åsele Airport",
+  "status": "no_source"
+ },
+ {
+  "key": "ESVG",
+  "name": "Gagnef Airport",
+  "status": "ok",
+  "website": {
+   "value": "https://gagnefsflygklubb.se",
+   "url": "https://gagnefsflygklubb.se",
+   "quote": "info@gagnefsflygklubb.se"
+  },
+  "good_to_know": [
+   {
+    "text": "800 m grass strip, runway 08/26",
+    "url": "https://gagnefsflygklubb.se",
+    "quote": "800 meter grässtråk"
+   },
+   {
+    "text": "Contact the club before visiting",
+    "url": "https://gagnefsflygklubb.se",
+    "quote": "Hör av dig innan besöket så hjälper vi dig rätt."
+   }
+  ]
+ },
+ {
+  "key": "ESVS",
+  "name": "Siljansnäs Air Park",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0005",
+  "name": "Åre / Molanda",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0010",
+  "name": "Vallentuna flygfält",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0016",
+  "name": "Nyholm Airstrip",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0022",
+  "name": "Vassunda Private Airfield",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0027",
+  "name": "Flygebyns hoppövningsfält",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0032",
+  "name": "Porjus flygfält",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0044",
+  "name": "Vuollerim Airstrip",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0049",
+  "name": "Timmele Airfield",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0057",
+  "name": "Lindholmen flygfält",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0062",
+  "name": "Hellby Säteri Private Airstrip",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0067",
+  "name": "Örnlanda Airstrip",
+  "status": "no_source"
+ },
+ {
+  "key": "SE-0072",
+  "name": "Bleckåsen Airstirp",
+  "status": "no_source"
+ },
+ {
+  "key": "ESHG",
+  "name": "Gamla Stan HLS",
+  "status": "no_source"
+ }
+]

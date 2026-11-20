@@ -1,0 +1,105 @@
+SOURCE: AIP Sweden, AD 2 ESIA KARLSBORG (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESIA%20KARLSBORG%201-en-GB.html
+
+ESIA 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 583049N 0143026E RWY centre point 
+ 2. 
+ Direction and distance from (city) 
+ In Karlsborg 
+ 3. 
+ Elevation/Reference temperature 
+ 310 ft/+18.5°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 100 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 6° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ MIL AD: FM/Swedish Armed Forces 
+ Flygplatsplutonen 
+ Flygplatsen 
+ SE-546 83 Karlsborg
+ TEL: +46 10 825 10 12 (AD) 
+ TEL: +46 10 827 70 00 (F7)
+ FAX: +46 10 825 10 14 
+ AFS: ESIAZTZX 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ VFR 
+ 8. 
+ Remarks 
+ PPR shall be made to AD operator on phone +46 70 395 56 07 or e-mail: f7-airportops@mil.se
+
+ESIA 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ As ATS 
+ AD Operating hours 
+ As ATS 
+ 2. 
+ Customs and immigration 
+ Customs O/R 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ MON-THU 0730-1500 (0630-1400) 
+ FRI and day before HOL 0730-1100 (0630-1000) 
+ HOL CLSD
+ 8. 
+ Fuelling 
+ O/R 
+ 9. 
+ Handling 
+ O/R 
+ 10. 
+ Security 
+ MIL AD. For separate aircraft O/R 7 days PN. 
+ 11. 
+ De-Icing 
+ O/R 
+ 12. 
+ Remarks 
+ Frequent extension of operating HRS
+
+ESIA 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ O/R 
+ 2. 
+ Fuel and oil types 
+ Fuel: - 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ - 
+ 4. 
+ De-icing facilities 
+ Type 1, mobile unit, O/R 
+ 5. 
+ Hangar space for visiting ACFT 
+ - 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ Fuel/oil types etc according to Swedish military standard which differs from normally used by civil aviation. Jet A1 equivalent NATO F35. F34 available O/R. 
+ Payment of airport fees, fuel etc. by invoice only. Credit cards not accepted.
+
+ESIA 2.20 LOCAL AERODROME REGULATIONS 
+ Start-up permission required by all traffic due to frequent parachute descents.

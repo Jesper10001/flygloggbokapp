@@ -1,0 +1,113 @@
+SOURCE: AIP Sweden, AD 2 ESSU ESKILSTUNA (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESSU%20ESKILSTUNA%201-en-GB.html
+
+ESSU 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 592108N 0164230E RWY 803 m N THR 36 
+ 2. 
+ Direction and distance from (city) 
+ E 6 NM from Eskilstuna 
+ 3. 
+ Elevation/Reference temperature 
+ 140 ft/+24.0°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 84 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 7° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Eskilstuna Logistik och Etablering 
+ Box 78 
+ SE-361 02 Eskilstuna
+ TEL: +46 16 940 20 
+ E-mail: ats@eskilstunaairport.se 
+ AFS: ESSUZTZX 
+ Website: www.eskilstunaflygplats.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 2C 
+ 8. 
+ Remarks 
+ -
+
+ESSU 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0700-1100, 1200-1600 (0600-1000, 1100-1500) 
+ AD Operating hours 
+ H24 
+ 2. 
+ Customs and immigration 
+ O/R 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ MON-FRI 0700-1100, 1200-1600 (0600-1000, 1100-1500) 
+ 8. 
+ Fuelling 
+ MON-FRI 0700-1600 (0600-1500) 
+ 9. 
+ Handling 
+ O/R 
+ 10. 
+ Security 
+ - 
+ 11. 
+ De-Icing 
+ - 
+ 12. 
+ Remarks 
+ Increased charges outside AFIS HR of OPS
+
+ESSU 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ Forklift 
+ 2. 
+ Fuel and oil types 
+ Fuel: 100LL, 91UL, Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ 100LL: 50,000 l 
+ 91UL: 15,000 l 
+ Jet A1: 50,000 l
+ 4. 
+ De-icing facilities 
+ - 
+ 5. 
+ Hangar space for visiting ACFT 
+ Available 
+ 6. 
+ Repair facilities for visiting ACFT 
+ Available 
+ 7. 
+ Remarks 
+ -
+
+ESSU 2.20 LOCAL AERODROME REGULATIONS 
+ 1 School flight 
+ All school flights are subject to PPR, TEL +46 16 940 20 MON–FRI 0700–1600 (0600–1500).
+ Repeated touch-and-go landings, TGL, are permitted only MON–FRI 0700–1600 (0600–1500), TUE and THU also 1700–2100 (1600–2000).
+ 2 VFR flight 
+ Repeated touch-and-go landings, TGL during darkness are subject to PPR, TEL +46 16 940 20 MON–FRI 0700–1600 (0600–1500).
+ Repeated touch-and-go landings, TGL permitted only MON–FRI 0700–1600 (0600–1500), TUE and THU also 1700–2100 (1600–2000) and SAT, SUN and HOL 0800–1600 (0700–1500).
+ TGL is not permitted New Year’s Day, Good Friday, Easter Eve, Ascension Day, Whitsun Eve, Midsummer Eve, Midsummer Day, All Saints Day, Christmas Eve and Christmas Day.
+ 3 Aerobatic flight 
+ PPR for aerobatic flight, TEL +46 16 940 20.
+ 4 Traffic regulations 
+ When the ATS is closed, instrument approaches may only be carried out by flight operators who have established an agreement with the airport. This does not apply to socially important missions, for example ambulances and police helicopters.

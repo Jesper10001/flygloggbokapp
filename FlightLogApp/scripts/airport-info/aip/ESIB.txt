@@ -1,0 +1,108 @@
+SOURCE: AIP Sweden, AD 2 ESIB SÅTENÄS (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESIB%20S%C3%85TEN%C3%84S%201-en-GB.html
+
+ESIB 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 582542N 0124240E RWY 01/19 centre point 
+ 2. 
+ Direction and distance from (city) 
+ W 14 NM from Lidköping 
+ 3. 
+ Elevation/Reference temperature 
+ 181 ft/+18.5°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 112 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 4° E (2020)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ MIL AD: FM/Swedish Armed Forces 
+ F7 Skaraborgs flygflottilj 
+ SE-530 32 Såtenäs
+ TEL: +46 10 827 70 00 
+ TEL: +46 70 395 56 07 (OPS)
+ E-mail: f7-airportops@mil.se 
+ AFS: ESIBZTZX 
+ Website: www.forsvarsmakten.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 3C 
+ 8. 
+ Remarks 
+ PPR 
+ 72 HR PN for all foreign military aircrafts and helicopters. 
+ Diplomatic clearance mandatory for all foreign traffic. 
+ All PPR shall be made during HR of AD operator to e-mail: f7-airportops@mil.se
+
+ESIB 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0700-1500 (0600-1400) 
+ AD Operating hours 
+ As ATS. 
+ 2. 
+ Customs and immigration 
+ Customs O/R 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ MON-FRI 0700-1600 (0600-1500) 
+ 8. 
+ Fuelling 
+ O/R 
+ 9. 
+ Handling 
+ O/R 
+ 10. 
+ Security 
+ MIL AD. For separate aircraft O/R 
+ 7 days PN
+ 11. 
+ De-Icing 
+ O/R, 15 SEP - 15 MAR 
+ 12. 
+ Remarks 
+ Extended ATS operational hours occurs frequently.
+
+ESIB 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ O/R 
+ 2. 
+ Fuel and oil types 
+ Fuel: - 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ - 
+ 4. 
+ De-icing facilities 
+ Type 1 and 2, mobile unit, O/R 
+ +46 708 87 00 56
+ 5. 
+ Hangar space for visiting ACFT 
+ - 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ De-icing is committed to apron 6 
+ Fuel/oil types etc according to Swedish military standard which differs from normally used by civil aviation. Jet A1 equivalent NATO F35
+
+ESIB 2.20 LOCAL AERODROME REGULATIONS 
+ NIL

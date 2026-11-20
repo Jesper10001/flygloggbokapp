@@ -1,0 +1,359 @@
+SOURCE: AIP Sweden, AD 2 ESSA STOCKHOLM-ARLANDA (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESSA%20STOCKHOLM-ARLANDA%201-en-GB.html
+
+ESSA 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 593907N 0175507E 010.5° GEO 1650 m from THR 01L 
+ 2. 
+ Direction and distance from (city) 
+ N 20 NM from Stockholm 
+ 3. 
+ Elevation/Reference temperature 
+ 138 ft/+23.8°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 75 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 8° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Swedavia AB 
+ Flygvägen 1 
+ SE-190 45 Stockholm/Arlanda
+ TEL: +46 10 109 10 00 
+ FAX: +46 10 109 05 00 
+ E-mail: info.arlanda@swedavia.se 
+ AFS: ESSAZTZX 
+ Website: www.swedavia.se/arlanda/ 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4E, all runways 
+ 8. 
+ Remarks 
+ PPR for all VFR traffic TEL +46 8 585 544 50
+
+ESSA 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0700-1530 (0600-1430) 
+ AD Operating hours 
+ H24 
+ 2. 
+ Customs and immigration 
+ H24 Direct transit area 
+ 3. 
+ Health and sanitation 
+ H24, Designated quarantine AD 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ H24 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ H24 
+ 8. 
+ Fuelling 
+ H24 
+ 9. 
+ Handling 
+ H24 
+ 10. 
+ Security 
+ H24 
+ 11. 
+ De-Icing 
+ H24 
+ 12. 
+ Remarks 
+ Marshalling available H24. No marshall service on apron H, J and L.
+
+ESSA 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ All types 
+ 2. 
+ Fuel and oil types 
+ Fuel: Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ Jet A1: No limitations, hydrant fuelling 
+ Fuel trucks on apron G, J, K, M, S and on Terminal 3 north side
+ 4. 
+ De-icing facilities 
+ Type I and II, mobile units 
+ 5. 
+ Hangar space for visiting ACFT 
+ Limited 
+ 6. 
+ Repair facilities for visiting ACFT 
+ Available for various types of aircraft 
+ 7. 
+ Remarks 
+ For payment of fuel contact Shell, BP or World Fuel Service
+
+ESSA 2.20 LOCAL AERODROME REGULATIONS 
+ 1 Aerodrome coordination 
+ 1.1 Application for airport SLOT 
+ Flights exempted from coordination in accordance with EU Regulation (EC) No. 793/2004 amending Council Regulation (EEC) No. 95/93: 
+ Government flights.
+ Humanitarian flights, such as emergency medical flights, organ transport, flights participating in rescue operations and ambulance flights where the patient's condition is acute.
+ Emergency landings.
+ Helicopter.
+ Contact information office hours: MON-FRI 0700-1500 (0600-1400)
+ Airport Coordination Sweden ACS
+ E-post: 
+ slot@acsslot.se 
+ TEL: 08 800 700
+ SCR/GCR is sent to: 
+ scr.se@airportcoordination.com 
+ Online Coordination System OCS: 
+ www.online-coordination.com 
+Changes or cancellations of SLOT requests must be communicated without delay.
+ Approval of SLOT does not replace flight plan or ground handling request.
+ Operational hours: H24
+ Outside office hours, ACS's phone number is forwarded to Arlanda Aircraft Stand Parking.
+ For more information: 
+ www.airportcoordination.com 
+ 1.2 Ground Handling 
+ All flights to and from STOCKHOLM/Arlanda are subject to mandatory handling or self-handling agreements. Exceptions apply for hospital flights and state aircrafts.
+ Operators shall assure arrangements with ground handling agent or possess a self-handling agreement prior to arrival and departure. For further information about handling services or self-handling agreements visit “Aviation business” at 
+ www.swedavia.com/about-swedavia 
+ 2 Taxi regulations 
+ 2.1 Mode S transponder 
+ STOCKHOLM/Arlanda aerodrome is equipped with an advanced surface movement radar communicating with aircrafts and vehicles Mode S transponders to obtain their position and identification code.
+ Aircraft operators should ensure that Mode S transponder are able to operate when the aircraft is on the ground. 
+ Flight crew shall;
+ from the request for push-back or taxi, whichever is earlier, and after landing, continuously until the aircraft is fully parked on stand: 
+ Select AUTO mode and the assigned Mode A code. If AUTO mode is not available, the pilots shall select XPNDR or the equivalent depending on installed equipment, and the assigned Mode A code.
+ Set the aircraft identification if the aircraft is equipped with Mode S transponder. The aircraft identification to be used is specified in Item 7 of the ICAO ATC Flight plan.
+ Aircraft taxiing between stands shall activate Mode S and code 2000.
+ 2.2 Taxi Procedures 
+ Aircraft shall not taxi on the manoeuvring area without clearance from Air Traffic Control and shall comply with any instructions given by that unit.
+ Unless otherwise instructed from Air Traffic Control, taxi routes on GROUND MOVEMENT CHART ARRIVAL/DEPARTURE applies.
+ 2.2.1 Arrival 
+ Arriving aircraft shall not leave RWY via exit TWY with turn exceeding 90 degrees.
+ 2.2.2 Departure 
+ 2.2.2.1 Departure clearance 
+ Departure clearance may be requested by data-link (DCL) (SITA/AIRINC) or by RTF from EOBT -25 minutes until EOBT +10 minutes. 
+At request state: 
+ Type of aircraft
+ Stand position
+ Latest received ATIS id-letter and QNH
+ Runway other than in use only permitted due performance. When requesting departure clearance using DCL add; “REQ [RWY]” in RMK-field in RCD. 
+Aircraft unable to follow RNAV SID shall when using DCL add: “REQ URNAV” in RMK-field in RCD. 
+The following procedure applies for DCL: 
+ Send a request for clearance (RCD).
+ A flight system message (FSM) will be transmitted automatically; 
+ If the RCD is accepted; a pre-departure clearance (CLD) will be issued.
+ If the RCD is rejected; revert to RTF procedures.
+ Acknowledge the pre-departure clearance with a read back (CDA) within 5 minutes.
+ When the CDA is processed successfully; a positive FSM will be issued.
+ When using the DCL service, monitor Clearance Delivery channel, 121.830. 
+Pilots shall verify that SID and runway added into FMS is in accordance with received clearance. In the event of doubts or system related problems, RTF procedures shall be conducted. 
+A departure clearance issued by RTF always supersedes a clearance transmitted via DCL.
+ 2.2.2.2 Start-up/Push-back/Taxi 
+ Approval for start-up/push-back/taxi must be obtained from ”GROUND”. Request of such permission shall include stand or position and only be made when aircraft is fully ready to comply. 
+Established push-back procedures according to Airport Regulations shall be adhered to where push-back is mandatory. 
+Push-back approval includes permission to start engines during push-back. 
+If push-back has not been commenced within one minute from approval, the push-back permission will automatically expire and a push-back permission must be requested again.
+ 2.2.2.2.1 Airport Collaborative Decision Making (A-CDM) 
+ Target Off Block Time (TOBT) 
+ TOBT must be updated and accurate to within +/- 5 minutes.
+ TOBT shall be updated through the usual channels, e.g. standard IATA (ETD) estimated departure message.
+ Only updates 5 minutes or more should be sent.
+ For a delay of 15 minutes or more, a DLA message must be sent by the ground handling company or airline operator.
+ Target Start Up Approval Time (TSAT) 
+ TSAT is provided by ATS with the departure
+ clearance.
+ If TSAT is updated pilot will be notified via: 
+ DCL or,
+ Docking Guidance System-display or,
+ A-CDM app:
+ Download via App Store/Google Play. Search for A-CDM ESSA or,
+ On the website:
+ https://www.swedavia.net/airport/arlanda/start/om-flygplatsen/operations/a-cdm or,
+ Ground handling company or airline operator.
+ TOBT/TSAT 
+ Pilot shall ensure the flight is ready for start-up at TOBT.
+ If flight is ready before TOBT then TOBT must be updated by ground handling company or airline operator.
+ If flight is not ready then TOBT must be updated by ground handling company or airline operator.
+ Pilot shall take notice of TOBT and TSAT and comply with them.
+ Start Request 
+ Start-up/push-back shall be requested within TSAT-window +/- 5 minutes.
+ If pilot has called ready but is then delayed by ATS there is no requirement for TOBT to be updated.
+ If at TSAT + 5 minutes Arlanda Ground has not received a start-up request, the aircraft will lose its TSAT. Pilot shall request new TOBT from ground handling company or airline operator.
+ Once new TOBT is entered the aircraft will be re-sequenced with new TSAT.
+ Aircraft will not be allowed to depart until a valid TOBT is entered and revised TSAT is given and complied to.
+ 2.2.2.3 Intermediate take-off position 
+ Take off from intermediate positions shall always be requested from TWR.
+ 2.2.2.4 Immediate take-off 
+ Flight crew not ready for immediate take-off during outtaxiing shall advise TWR before entering RWY holding position.
+ 2.2.3 Taxi procedures in low visibility conditions 
+ In order to ensure correct taxi operations on aprons not equipped with taxi lights (apron G, H, J, K and S) following procedure will apply: 
+In RVR less than 550 m during darkness and 350 m during daylight, marshalling will be conducted between the apron´s entry/exit point and aircraft stand. 
+On apron H and J marshalling will be conducted between the apron´s entry/exit point and stop line on apron.
+ 2.2.4 Taxiway limitations 
+ TWY Y4, Y5, Y6 and Y7
+ TWY W2 and W4 
+Only permitted for aircraft with wingspan maximum 42 m due to insufficient fillets in taxiway curves.
+ 2.2.5 Reduced distance 
+ Reduced distance between outer main gear wheel and taxiway edge will apply at taxiway curves on the taxiways below due to insufficient fillets; 
+TWY M, W8 and PA for A350-1000 and B777-300/-300ER. 
+TWY ZH and ZK for A330-300, A330-900, A340-300 and B777-200. 
+TWY KW for A330-200, A340-300 and B747. 
+Remaining distance between outer main gear wheel and taxiway edge will be more than 2,5 m of required 4 m with cockpit over centre line. Pilot awareness and taxiing with nose gear on centre line alternatively usage of oversteer method is recommended.
+ 3 Apron regulations 
+ 3.1 Taxi regulations on apron 
+ ATC is not provided on aprons.
+ In order to maintain orderly flow on aprons, a limited traffic information service is provided and all aircraft movements are subject to prior contact with TWR and are required to follow procedures shown in ESSA Ground Movement Charts and Parking and Docking Charts unless otherwise instructed by TWR. 
+Following regulations will apply;
+ Taxiing between terminal building and aircraft after completed push-back is only allowed after TWR has been informed and taxiing aircraft has been instructed to do so. 
+Terminal 2
+ Taxiing out shall take place as follows:
+ From stand 62 out via UA.
+ From stand 63-65 out via UB.
+ From stand 66-68 out via UC. 
+Terminal 4
+ Taxiing to stand 31 shall take place via ZE.
+ Taxiing and towing on apron area between ZF-ZG is not allowed. 
+Terminal 5
+ Taxiing or towing on apron area is not allowed between ZH-ZK and ZL-ZN.
+ Taxiing from TWY Z to apron FA via ZN only allowed for aircraft with max wingspan 36 m, except if parking at stand 8.
+ Taxiing to stand 9 shall take place only via ZL.
+ Taxiing to stand 10 shall take place only via ZN.
+ Taxiing to stand 20 shall take place only via ZK.
+ Taxiing out from stand 1-7 shall take place via ZL.
+ Taxiing out from stands 9 and 10 shall take place via ZM.
+ Taxiing out from stand 12-20 shall take place via ZK.
+ 3.2 Wing span restrictions 
+ Maximum wing span 24 m for taxiing on apron S south of SC.
+ 3.3 Jet Blast 
+ Engines shall be operated at minimum required thrust on all aprons when taxiing to avoid jet blast.
+ 4 Helicopter traffic 
+ TWR will 
+ advise 
+ assign 
+ approach 
+ landing 
+ and take off to 
+ FATO or to 
+ any RWY. 
+ Taxiing/ air-taxiing 
+ Taxiing/hover 
+ to and from parking stand shall follow published taxi routes if not otherwise instructed by TWR.
+ All taxiing, hovering, and air-taxiing on apron P must be approved by TWR. 
+ 5 Stand regulations 
+ 5.1 Stand restrictions 
+ At parking stands 7, 8 and 18 the following widebody ACFT will be towed-in to door 2 after power-in to first STOP: A330, A350, B777 and B787.
+ 5.2 Reduced safety distances 
+ Terminal 4
+ Reduced safety distances minimum 3 m will apply between left engine and passenger bridge for A220-100, A319, B737-600/-700, E170 on all applicable stands. The procedure is assessed according to EASA CS ADR-DSN.E.365. 
+Stand R5
+ Reduced safety distance minimum 6.2 m will apply on right side abeam light pole at stand R4 for ACFT with wingspan above 63 m but not 65 m. Light pole marked with colour and lights. The procedure is assessed according to EASA CS ADR-DSN.E.365.
+ 5.3 Push and Hold 
+ When delayed by CTOT, aircraft may be ordered to push and hold to release stand capacity according to instructions from TWR.
+ 5.4 Push-back 
+ Push-back is compulsory for all nose-in stands. For self service stands push-back is normally mandatory for all jet aircraft, however deviations are allowed. Handling agent will inform if applicable or not, according to Airport Regulations. Power-back as an alternative to push-back where mandatory is not allowed.
+ 5.5 Parking Guidance System 
+ Whenever parking guidance system is not activated or not installed, aircraft shall wait on apron taxi line or outside parking stand whichever applicable until parking guidance system has been activated or until signal from a marshal for entering has been received.
+ 5.6 Use of APU 
+ Use of APU on aircraft stands shall be limited as far as possible. APU may be used:
+ • 5 minutes after on block
+ • 5 minutes before Target Off-Block Time (TOBT) 
+Exception: When outside air temperature (according to ATIS) is +25° C or above, the APU may be started 20 minutes before Target Off-Block Time (TOBT). The exception does not include stand 101-119 and 102-112.
+ 6 De/anti-icing regulations 
+ 6.1 De/anti-icing is available through following companies; 
+ Menzies Aviation +46 8 797 80 70
+ Aviator +46 8 797 71 90
+ SAS Ground Handling +46 70 997 59 92
+ 6.2 Procedure 
+ De-icing will take place at parking stand or other advised deicing spot.
+ At T2 push-back will be performed before de-icing starts.
+ If de-icing will be performed at any of the de-icing areas on apron G, R or S, line-up on these areas will be with push-back or with marshall.
+ To book de-icing on apron G, R or S, contact with ground handling company needs to be established.
+ 7 RWY regulations 
+ 7.1 RWY other than in use 
+ RWY other than in use only permitted due flight safety, HOSP or performance.
+ 7.2 Intersection take-off position 
+ Aircraft shall request intersection take-off position from ”GROUND” earliest when on TWY or on initial contact with TWR.
+ 7.3 High intensity runway operations (HIRO) 
+ In order to reduce delays and expedite traffic HIRO should be applied to all aircraft. Short runway occupancy times allow for the highest possible throughput per hour.
+ 7.3.1 HIRO for departing aircraft 
+ On receipt of clearance to line-up, pilots should taxi into the correct position on the RWY without delay.
+ Pilot should commence take-off roll immediately when take-off clearance is issued.
+ Pilots who are unable to comply with these requirements shall notify ATC when transferred to Arlanda TWR.
+ 7.3.2 HIRO for arriving aircraft 
+ HIRO requires all aircraft to exit the runway as quickly as possible. Extended runway occupancy time may result in the following aircraft being assigned a missed approach.
+ During approach briefing pilots should plan and name which rapid exit taxiway (if applicable) they will vacate.
+ In case the aircraft will miss the planned exit, pilots shall adjust taxi speed to quickly vacate the runway via the next rapid exit taxiway (if applicable). Low taxi speeds on the runway shall be avoided.
+ Distances from RWY THR to turn-off point on RWY CL:
+ RWY 01L
+ Y4
+ 33°
+ 1084 m
+ RWY 01L
+ Y6
+ RET
+ 1464 m
+ RWY 01L
+ Y8
+ RET
+ 2037 m
+ RWY 01L
+ Y9
+ 90°
+ 2437 m
+ RWY 19R
+ Y7
+ 33°
+ 1084 m
+ RWY 19R
+ Y5
+ RET
+ 1464 m
+ RWY 19R
+ Y3
+ RET
+ 2067 m
+ RWY 19R
+ Y2
+ 90°
+ 2437 m
+ RWY 01R
+ W5
+ RET
+ 1486 m
+ RWY 01R
+ W6
+ RET
+ 1916 m
+ RWY 19L
+ W4
+ RET
+ 1466 m
+ RWY 19L
+ W3
+ RET
+ 1916 m
+ RWY 26
+ X3
+ RET
+ 1701 m
+ 7.4 After landing 
+ If no taxi instructions have been received after landing, aircraft shall vacate the runway, hold before the first parallel taxiway and wait for taxi instructions.
+ 8 Restrictions for other flights 
+ 8.1 School flights, training flights and aerobatics 
+ Repeated take-off and landing exercises, solo flight during basic training and aerobatics at or in the vicinity of the airport, is not permitted.
+ 8.2 Photo-, survey- and calibration flights 
+ Prior permission required (PPR) 30 days in advance of planned activity. PPR shall be obtained from watch supervisor Arlanda TWR, TEL +46 8 585 544 50, e-mail 
+ essaws@lfv.se 
+ 9 D-ATIS 
+ D-ATIS service available by ACARS for ACFT equipped with ACARS-MU. (AEEC 623 compliant) (Provider is ARINC for datalink com and ESSA airport for ATIS service.)

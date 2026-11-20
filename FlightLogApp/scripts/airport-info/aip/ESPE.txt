@@ -1,0 +1,106 @@
+SOURCE: AIP Sweden, AD 2 ESPE VIDSEL (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESPE%20VIDSEL%201-en-GB.html
+
+ESPE 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 655231N 0200900E RWY centre point 
+ 2. 
+ Direction and distance from (city) 
+ WNW 10.5 NM from Vidsel 
+ 3. 
+ Elevation/Reference temperature 
+ 597 ft/+20.0°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 88 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 11° E (2025)/+0.3 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ MIL AD: FM/Swedish Armed Forces 
+ FMV T&E
+ Provplats Vidsel 
+ SE-942 95 Vidsel
+ TEL: +46 929 370 00 
+ FAX: +46 929 371 05 
+ E-mail: f21-vidselairbase@mil.se 
+ AFS: ESPEZTZX 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ VFR 
+ 8. 
+ Remarks 
+ PPR for all traffic. Landing permission must be 
+ obtained from AD coordinator 
+ TEL +46 730 91 02 48, E-mail: f21-vidselairbase@mil.se
+
+ESPE 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ - 
+ AD Operating hours 
+ PPR 
+ 2. 
+ Customs and immigration 
+ - 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ - 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ MON-THU 0730-1100, 1145-1500 (0630-1000, 1045-1400) 
+ FRI and day before HOL (MON-FRI) 0730-1030 (0630-0930) 
+ HOL CLSD
+ 8. 
+ Fuelling 
+ O/R 
+ 9. 
+ Handling 
+ O/R 
+ 10. 
+ Security 
+ - 
+ 11. 
+ De-Icing 
+ O/R 
+ 12. 
+ Remarks 
+ Frequent extension of operating HRS.
+
+ESPE 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ - 
+ 2. 
+ Fuel and oil types 
+ Fuel: MIL standard 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ MIL standard 
+ 4. 
+ De-icing facilities 
+ MIL standard 
+ 5. 
+ Hangar space for visiting ACFT 
+ - 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ -
+
+ESPE 2.20 LOCAL AERODROME REGULATIONS 
+ NIL

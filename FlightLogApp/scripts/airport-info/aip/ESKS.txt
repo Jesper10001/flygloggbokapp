@@ -1,0 +1,103 @@
+SOURCE: AIP Sweden, AD 2 ESKS SÄLEN-SCANDINAVIAN MOUNTAINS (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESKS%20S%C3%84LEN-SCANDINAVIAN%20MOUNTAINS%201-en-GB.html
+
+ESKS 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 610953N 0125002E RWY centre point 
+ 2. 
+ Direction and distance from (city) 
+ E 4NM from Sälen 
+ 3. 
+ Elevation/Reference temperature 
+ 1649 ft/+19.8°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 112 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 5° E (2020)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Scandinavian Mountains Airport AB 
+ Flygplatsvägen 4 
+ SE-780 67 Sälen
+ TEL: +46 280 48 19 00 
+ E-mail: info@scandinavianmountains.se 
+ AFS: ESKSZTZX 
+ Website: www.scandinavianmountains.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4E 
+ 8. 
+ Remarks 
+ PPR for all traffic. PPR forms on AD website
+
+ESKS 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ Published on AD website 
+ AD Operating hours 
+ According to granted PPR request 
+ 2. 
+ Customs and immigration 
+ O/R 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ Ref AIP SUP/NOTAM 
+ 8. 
+ Fuelling 
+ O/R 
+ 9. 
+ Handling 
+ O/R 
+ 10. 
+ Security 
+ O/R 
+ 11. 
+ De-Icing 
+ O/R 
+ 12. 
+ Remarks 
+ -
+
+ESKS 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ O/R 
+ 2. 
+ Fuel and oil types 
+ Fuel: Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ Jet A1: 1 X 20 000 l. Trucks 
+ 4. 
+ De-icing facilities 
+ Type I and II, mobile unit 
+ 5. 
+ Hangar space for visiting ACFT 
+ - 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ Jet A1 Shell TEL +46 280 48 19 00
+
+ESKS 2.20 LOCAL AERODROME REGULATIONS 
+ 1. Daily between 2100-0500 (2000-0400) the aerodrome must not be used by aircraft certificated in accordance with ICAO Annex 16, Volume I, Part II, Chapter 2.
+ 2. PPR for all traffic. PPR forms on AD website.
+ 3. Marshalling mandatory for aircraft with wingspan exceeding 18 m entering apron GA.

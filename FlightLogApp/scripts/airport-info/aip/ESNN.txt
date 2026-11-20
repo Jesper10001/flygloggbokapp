@@ -1,0 +1,109 @@
+SOURCE: AIP Sweden, AD 2 ESNN SUNDSVALL-TIMRÅ (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESNN%20SUNDSVALL-TIMR%C3%85%201-en-GB.html
+
+ESNN 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 623146N 0172634E BRG 160.2° GEO 800 m from THR 16 
+ 2. 
+ Direction and distance from (city) 
+ NNE 9 NM from Sundsvall 
+ 3. 
+ Elevation/Reference temperature 
+ 17 ft/+21.3°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 86 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 7° 
+ 8° 
+ E 
+ (2020)/+0.2 
+ (2025)/+0.2 
+ increasing
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ Midlanda Flygplats AB 
+ SE-851 85 Sundsvall
+ TEL: +46 60 658 39 00 
+ AFS: ESNNZTZX 
+ Website: www.sdlairport.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4C 
+ 8. 
+ Remarks 
+ PPR outside TWR HR of OPS. Request and changes shall be made 
+ during AD HR of operator. Application form on AD website
+
+ESNN 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0700-1500 (0600-1400) 
+ AD Operating hours 
+ Ref AIP SUP/NOTAM 
+ 2. 
+ Customs and immigration 
+ O/R TEL +46 8 456 66 20 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ Ref AIP SUP/NOTAM 
+ 8. 
+ Fuelling 
+ As AD Operating hours 
+ 9. 
+ Handling 
+ O/R 
+ 10. 
+ Security 
+ O/R 
+ 11. 
+ De-Icing 
+ O/R 
+ 12. 
+ Remarks 
+ Increased charges outside TWR HR of OPS
+
+ESNN 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ Available O/R 
+ 2. 
+ Fuel and oil types 
+ Fuel: 100LL, Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ 100LL: No limitations 
+ Jet A1: No limitations
+ 4. 
+ De-icing facilities 
+ Available, Type I and II. ACFT height: max 13.5 m 
+ 5. 
+ Hangar space for visiting ACFT 
+ Limited O/R 
+ 6. 
+ Repair facilities for visiting ACFT 
+ Limited 
+ 7. 
+ Remarks 
+ Fuel supplier Air BP. Fuel sales only against Air BP Carnet Card 
+ or with requisition via Air BP Out of Hours Service.
+
+ESNN 2.20 LOCAL AERODROME REGULATIONS 
+ 1. Start-up clearance shall be obtained from TWR at all times
+ 2. When flight safety, traffic situation and weather conditions permit, landings arriving from the south must be performed on RWY 34 and take-offs for destinations to the south must be performed on RWY 16.
+ 3. Aircraft parked on stands 2-6 or 11-16 shall not perform power pushback as a standard procedure. This is only permitted if the aerodrome is unable to perform pushback by towing or TBL tractor.

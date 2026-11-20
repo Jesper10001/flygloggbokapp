@@ -1,0 +1,290 @@
+[
+ {
+  "key": "ESFA",
+  "name": "Hässleholm Bokeberg Airfield",
+  "type": "small",
+  "municipality": "Hässleholm",
+  "lat": 56.13441,
+  "lon": 13.87565,
+  "home_link": "http://www.hlmfk.se"
+ },
+ {
+  "key": "ESGD",
+  "name": "Bämmelshed Airport",
+  "type": "small",
+  "municipality": "Tidaholm",
+  "lat": 58.1918,
+  "lon": 13.9957,
+  "home_link": ""
+ },
+ {
+  "key": "ESGK",
+  "name": "Falköping Airfield",
+  "type": "small",
+  "municipality": "Falköping",
+  "lat": 58.1698,
+  "lon": 13.5878,
+  "home_link": ""
+ },
+ {
+  "key": "ESGR",
+  "name": "Skövde Airport",
+  "type": "medium",
+  "municipality": "Skövde",
+  "lat": 58.4564,
+  "lon": 13.9727,
+  "home_link": ""
+ },
+ {
+  "key": "ESKA",
+  "name": "Gimo Air Base",
+  "type": "small",
+  "municipality": "Gimo",
+  "lat": 60.1328,
+  "lon": 18.1049,
+  "home_link": ""
+ },
+ {
+  "key": "ESKK",
+  "name": "Karlskoga Airport",
+  "type": "medium",
+  "municipality": "",
+  "lat": 59.3459,
+  "lon": 14.4959,
+  "home_link": "https://karlskoga-airport.se/"
+ },
+ {
+  "key": "ESMB",
+  "name": "Borglanda Airport",
+  "type": "small",
+  "municipality": "Borglanda",
+  "lat": 56.863,
+  "lon": 16.6561,
+  "home_link": "http://www.borglanda.se"
+ },
+ {
+  "key": "ESMH",
+  "name": "Höganäs Airport",
+  "type": "small",
+  "municipality": "Höganäs",
+  "lat": 56.1848,
+  "lon": 12.5761,
+  "home_link": ""
+ },
+ {
+  "key": "ESMP",
+  "name": "Anderstorp Airport",
+  "type": "small",
+  "municipality": "Anderstorp",
+  "lat": 57.2642,
+  "lon": 13.5994,
+  "home_link": "https://www.srwanderstorp.se/en/anderstorp-airfield/"
+ },
+ {
+  "key": "ESNB",
+  "name": "Sollefteå/Långsele Airport",
+  "type": "small",
+  "municipality": "Långsele",
+  "lat": 63.1712,
+  "lon": 16.9852,
+  "home_link": "https://www.facebook.com/sollefteaflygklubb/"
+ },
+ {
+  "key": "ESNP",
+  "name": "Piteå Airport",
+  "type": "small",
+  "municipality": "Piteå",
+  "lat": 65.3983,
+  "lon": 21.2608,
+  "home_link": "https://pfk.pitea-flygklubb.se/"
+ },
+ {
+  "key": "ESSC",
+  "name": "Ekeby Airfield",
+  "type": "small",
+  "municipality": "Eskilstuna",
+  "lat": 59.3839,
+  "lon": 16.4419,
+  "home_link": ""
+ },
+ {
+  "key": "ESSI",
+  "name": "Visingsö Airport",
+  "type": "small",
+  "municipality": "Visingsö",
+  "lat": 58.0984,
+  "lon": 14.4026,
+  "home_link": ""
+ },
+ {
+  "key": "ESSZ",
+  "name": "Vängsö Airport",
+  "type": "small",
+  "municipality": "Vängsö",
+  "lat": 59.1011,
+  "lon": 17.2111,
+  "home_link": "https://www.osfk.se/"
+ },
+ {
+  "key": "ESUE",
+  "name": "Idre Airport",
+  "type": "small",
+  "municipality": "Idre",
+  "lat": 61.8697,
+  "lon": 12.6894,
+  "home_link": "https://www.idrefjallensairport.se/"
+ },
+ {
+  "key": "ESUK",
+  "name": "Kalixfors Airfield",
+  "type": "small",
+  "municipality": "",
+  "lat": 67.7648,
+  "lon": 20.2572,
+  "home_link": ""
+ },
+ {
+  "key": "ESUS",
+  "name": "Åsele Airport",
+  "type": "small",
+  "municipality": "Åsele",
+  "lat": 64.15594,
+  "lon": 17.28505,
+  "home_link": ""
+ },
+ {
+  "key": "ESVG",
+  "name": "Gagnef Airport",
+  "type": "small",
+  "municipality": "Djurås",
+  "lat": 60.5517,
+  "lon": 15.0816,
+  "home_link": ""
+ },
+ {
+  "key": "ESVS",
+  "name": "Siljansnäs Air Park",
+  "type": "small",
+  "municipality": "Siljansnäs",
+  "lat": 60.7851,
+  "lon": 14.8272,
+  "home_link": "http://www.siljansnasfk.com"
+ },
+ {
+  "key": "SE-0005",
+  "name": "Åre / Molanda",
+  "type": "small",
+  "municipality": "",
+  "lat": 63.32833,
+  "lon": 13.42572,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0010",
+  "name": "Vallentuna flygfält",
+  "type": "small",
+  "municipality": "",
+  "lat": 59.54179,
+  "lon": 18.03866,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0016",
+  "name": "Nyholm Airstrip",
+  "type": "small",
+  "municipality": "",
+  "lat": 64.86937,
+  "lon": 20.44866,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0022",
+  "name": "Vassunda Private Airfield",
+  "type": "small",
+  "municipality": "Vassunda",
+  "lat": 59.72167,
+  "lon": 17.72,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0027",
+  "name": "Flygebyns hoppövningsfält",
+  "type": "small",
+  "municipality": "",
+  "lat": 58.60339,
+  "lon": 14.45441,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0032",
+  "name": "Porjus flygfält",
+  "type": "small",
+  "municipality": "Porjus",
+  "lat": 66.96329,
+  "lon": 19.83322,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0044",
+  "name": "Vuollerim Airstrip",
+  "type": "small",
+  "municipality": "Vuollerim",
+  "lat": 66.43441,
+  "lon": 20.63406,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0049",
+  "name": "Timmele Airfield",
+  "type": "small",
+  "municipality": "Timmele",
+  "lat": 57.87299,
+  "lon": 13.43045,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0057",
+  "name": "Lindholmen flygfält",
+  "type": "small",
+  "municipality": "Lindholmen",
+  "lat": 59.58588,
+  "lon": 18.161,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0062",
+  "name": "Hellby Säteri Private Airstrip",
+  "type": "small",
+  "municipality": "",
+  "lat": 59.71731,
+  "lon": 16.62933,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0067",
+  "name": "Örnlanda Airstrip",
+  "type": "small",
+  "municipality": "",
+  "lat": 60.32916,
+  "lon": 15.78226,
+  "home_link": ""
+ },
+ {
+  "key": "SE-0072",
+  "name": "Bleckåsen Airstirp",
+  "type": "small",
+  "municipality": "",
+  "lat": 63.38726,
+  "lon": 13.76057,
+  "home_link": ""
+ },
+ {
+  "key": "ESHG",
+  "name": "Gamla Stan HLS",
+  "type": "small",
+  "municipality": "",
+  "lat": 59.32276,
+  "lon": 18.06663,
+  "home_link": ""
+ }
+]

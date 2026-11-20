@@ -1,0 +1,106 @@
+SOURCE: AIP Sweden, AD 2 ESKM MORA-SILJAN (AIRAC AIP AMDT 6-2026_2026_10_29)
+URL: https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-AD%202%20ESKM%20MORA-SILJAN%201-en-GB.html
+
+ESKM 2.2 AERODROME GEOGRAPHICAL AND ADMINISTRATIVE DATA 
+ 1. 
+ ARP coordinates and site at AD 
+ 605731N 0143038E RWY centre point 
+ 2. 
+ Direction and distance from (city) 
+ SSW 3.3 NM from Mora 
+ 3. 
+ Elevation/Reference temperature 
+ 635 ft/+22.0°C 
+ 4. 
+ Geoid undulation at AD ELEV PSN 
+ 102 ft 
+ 5. 
+ MAG VAR/Annual change 
+ 6° E (2025)/+0.2 increasing 
+ 6. 
+ Name of aerodrome operator, address, telephone, telefax numbers, AFS, e-mail, website 
+ AB Dalaflyget 
+ Mora Airport 
+ SE-792 91 Mora
+ TEL: +46 250 393 01 
+ E-mail: mxxinfo@dalaflyget.se 
+ AFS: ESKMZTZX 
+ Website: www.dalaflyget.se 
+ 7. 
+ Types of traffic permitted (IFR/VFR) 
+ IFR/VFR. Max RWY ref code 4C 
+ 8. 
+ Remarks 
+ IFR traffic requires ATS availability. 
+ VFR traffic outside ATS hours upon PIC discretion.
+
+ESKM 2.3 OPERATIONAL HOURS 
+ 1. 
+ AD operator 
+ MON-FRI 0600-1800 (0500-1700) 
+ AD Operating hours 
+ H24 
+ 2. 
+ Customs and immigration 
+ O/R 
+ 3. 
+ Health and sanitation 
+ - 
+ 4. 
+ AIS Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 5. 
+ ATS Reporting Office (ARO) 
+ As ATS 
+ 6. 
+ MET Briefing Office 
+ FPC, H24, +46 8 797 63 40, www.lfv.se/fpc 
+ 7. 
+ ATS 
+ Ref AIP SUP/NOTAM 
+ 8. 
+ Fuelling 
+ Ref AIP SUP/NOTAM 
+ 9. 
+ Handling 
+ As AD operator 
+ 10. 
+ Security 
+ As AD operator 
+ 11. 
+ De-Icing 
+ As ATS 
+ 12. 
+ Remarks 
+ Increased charges outside AFIS HR of OPS.
+
+ESKM 2.4 HANDLING SERVICES AND FACILITIES 
+ 1. 
+ Cargo-handling facilities 
+ Limited 
+ 2. 
+ Fuel and oil types 
+ Fuel: 100LL, Jet A1 
+ Oil: - 
+ 3. 
+ Fuelling facilities and capacity 
+ 100LL: 20 000 l stationary unit (100 l/min) 
+ Jet A1: 20 000 l stationary (100 l/min), 20 000 l in fuel truck (600 l/min)
+ 4. 
+ De-icing facilities 
+ Available, Type I and II, mobile unit 
+ 5. 
+ Hangar space for visiting ACFT 
+ Limited 
+ 6. 
+ Repair facilities for visiting ACFT 
+ - 
+ 7. 
+ Remarks 
+ Visa, Mastercard and Swish accepted for payment of services. 
+ Fuel self-service available after agreement. 
+ Electrical charging poles, type 2 and 220/380V connectors, available in north apron area.
+
+ESKM 2.20 LOCAL AERODROME REGULATIONS 
+ 1. For VFR landing outside ATS hours the intention to land and ETA shall be clearly declared on ESKM ATS channel (119.055 MHz) followed by a RWY crossing (500 ft + traffic pattern altitude) in order to verify RWY availability and alerting AD personnel.
+ 2. For take-off outside ATS hours the intention to takeoff and ETD shall be clearly declared on ESKM ATS channel 119.055 MHz.
