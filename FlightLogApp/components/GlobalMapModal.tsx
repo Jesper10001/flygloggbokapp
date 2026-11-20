@@ -237,6 +237,17 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [openSection, setOpenSection] = useState<null | string>(null); // 'props' | 'access' | 'closed' | 'g:<grupp>'
   const [specificPage, setSpecificPage] = useState(false); // Air Bases-panelens andra sida (Specific)
   const [unitSourceOpen, setUnitSourceOpen] = useState(false); // förbandskortets Source-ruta
+  // Specific är dold (2026-11-20): rutan i Air Bases-panelen är osynlig men ligger kvar; håll den i 5 s → lösenord
+  // ("Nerd") → Specific-sidan. Upplåst gäller tills kartan stängs (då räcker ett vanligt tryck på den dolda rutan).
+  const [specUnlocked, setSpecUnlocked] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pw, setPw] = useState('');
+  const [pwErr, setPwErr] = useState(false);
+  const tryUnlock = () => {
+    if (pw.trim().toLowerCase() === 'nerd') {
+      Keyboard.dismiss(); setPwOpen(false); setPw(''); setSpecUnlocked(true); setSpecificPage(true);
+    } else setPwErr(true);
+  };
   const [dataInfoOpen, setDataInfoOpen] = useState(false); // info-ruta: datakälla + uppdaterad + friskrivning
   const propsOpen = openSection === 'props';
 
@@ -527,7 +538,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   }, [mapSearch, seedData]);
 
   const closeMap = () => {
-    setFlyTo(false); setFlyToFrozen(false); setUnitSourceOpen(false);
+    setFlyTo(false); setFlyToFrozen(false); setUnitSourceOpen(false); setSpecUnlocked(false); setPwOpen(false); setPw('');
     setDrillStack([]); setFocusAirport(null); setMapSearch(''); setMapRegion(WORLD);
     setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); setSatellite(false); setClosedMode('hide'); setFavMode(false);
     clearWeather();
@@ -1199,9 +1210,19 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                         );
                       })}
                       {openGroup.key === 'airbases' && (
-                        <TouchableOpacity onPress={() => setSpecificPage(true)} activeOpacity={0.7} accessibilityRole="button"
+                        // Dold ruta: osynlig (men på sin plats) tills Specific är på. Håll 5 s → lösenordsrutan; efter
+                        // upplåsning, eller när filtret redan är på, öppnar ett vanligt tryck sidan. Pressable i stället
+                        // för TouchableOpacity, som annars blinkar fram rutan med sin tryckopacitet.
+                        <Pressable
+                          onPress={specificOn || specUnlocked ? () => setSpecificPage(true) : undefined}
+                          onLongPress={() => { if (specificOn || specUnlocked) { setSpecificPage(true); return; } setPw(''); setPwErr(false); setPwOpen(true); }}
+                          delayLongPress={5000}
+                          accessible={specificOn}
+                          accessibilityElementsHidden={!specificOn}
+                          importantForAccessibility={specificOn ? 'auto' : 'no-hide-descendants'}
+                          accessibilityRole="button"
                           accessibilityLabel="Specific: military air bases by aircraft" accessibilityState={{ selected: specificOn }}
-                          style={[styles.groupOpt, { justifyContent: 'flex-start', borderColor: specificOn ? Colors.primary : Colors.primary + '73' }, specificOn && styles.propPillOn]}>
+                          style={[styles.groupOpt, { justifyContent: 'flex-start', borderColor: specificOn ? Colors.primary : Colors.primary + '73' }, specificOn && styles.propPillOn, !specificOn && { opacity: 0 }]}>
                           <View style={{ flexDirection: 'row' }}>
                             {(['fighter', 'bomber', 'heli'] as const).map((r, i) => (
                               <View key={r} style={{ width: 11, height: 11, borderRadius: 3.5, borderWidth: 1.5, borderColor: ROLES[r].color, backgroundColor: '#0F1A2E', marginLeft: i ? -4 : 0 }} />
@@ -1214,7 +1235,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                             </Text>
                           )}
                           <Ionicons name="chevron-forward" size={13} color={specificOn ? Colors.primary : '#fff'} />
-                        </TouchableOpacity>
+                        </Pressable>
                       )}
                     </View>
                     <Text style={styles.groupInfo}>{openGroup.info}</Text>
@@ -1410,6 +1431,28 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
         )}
 
         {/* Förbandskortets Source-ruta: lager ovanpå kartan (ingen nästlad Modal). */}
+        {pwOpen && (
+          // Lösenordsrutan för Specific: lager inne i kartvyn (ingen native Modal/Alert ovanpå kartan), högt upp så att
+          // tangentbordet inte täcker den; stängs bara med krysset.
+          <View style={[StyleSheet.absoluteFill, { zIndex: 85, backgroundColor: 'rgba(3,8,18,0.6)', alignItems: 'center', paddingTop: insets.top + 90, paddingHorizontal: 24 }]}>
+            <View style={styles.pwCard}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="lock-closed" size={15} color={Colors.primary} />
+                <Text style={{ flex: 1, color: '#fff', fontSize: 16, fontWeight: '800' }}>Password</Text>
+                <TouchableOpacity onPress={() => { Keyboard.dismiss(); setPwOpen(false); setPw(''); }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close" style={styles.pwClose}>
+                  <Ionicons name="close" size={17} color="#fff" />
+                </TouchableOpacity>
+              </View>
+              <TextInput value={pw} onChangeText={(t) => { setPw(t); setPwErr(false); }} placeholder="Password" placeholderTextColor="#6F89A6"
+                secureTextEntry autoFocus autoCapitalize="none" autoCorrect={false} returnKeyType="done" onSubmitEditing={tryUnlock}
+                style={[styles.pwInput, pwErr && { borderColor: '#FF6B4A' }]} accessibilityLabel="Password" />
+              {pwErr && <Text style={{ color: '#FF6B4A', fontSize: 12.5, fontWeight: '600' }}>Wrong password</Text>}
+              <TouchableOpacity onPress={tryUnlock} activeOpacity={0.8} accessibilityRole="button" style={styles.pwBtn}>
+                <Text style={{ color: '#0A1628', fontSize: 14, fontWeight: '800' }}>Unlock</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
         {unitSourceOpen && focusAirport && <UnitSourcesPopup dataset={getMilBase(focusAirport[0])?.s ?? 'eu'} topInset={insets.top} onClose={() => setUnitSourceOpen(false)} />}
 
         {/* News (AI) — flygincidenter kopplade till flygplatser. Ligger överst; cachas i storen. */}
@@ -1444,6 +1487,10 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
 }
 
 const styles = StyleSheet.create({
+  pwCard: { width: '100%', maxWidth: 340, gap: 12, borderRadius: 16, padding: 16, backgroundColor: 'rgba(15,30,58,0.98)', borderWidth: 1, borderColor: Colors.primary + '55' },
+  pwClose: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.10)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' },
+  pwInput: { height: 44, borderRadius: 10, paddingHorizontal: 12, color: '#fff', fontSize: 15, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },
+  pwBtn: { height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary },
   focusBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 10, paddingHorizontal: 10, height: 36, borderWidth: 1, borderColor: Colors.primary + '66' },
   focusBtnTxt: { color: Colors.primary, fontSize: 13, fontWeight: '700' },
   topBtn: { flex: 1, justifyContent: 'center', height: 40, paddingHorizontal: 8 },
