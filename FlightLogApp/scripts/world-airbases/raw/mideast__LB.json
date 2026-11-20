@@ -1,0 +1,97 @@
+[
+{
+"operator": "LB",
+"base": "Beirut-Rafic Hariri International Airport",
+"icao": "",
+"location": "LB",
+"region": "",
+"command": "Lebanese Air Force",
+"units": [
+"1st Sqn",
+"4th Sqn",
+"12th Sqn",
+"Presidential Flight"
+],
+"aircraft": [
+"Bulldog T.1",
+"AC-208B Combat Caravan",
+"UH-1H-II",
+"AW139"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "",
+"urls": [
+"https://en.wikipedia.org/wiki/Lebanese_Air_Force"
+]
+},
+{
+"operator": "LB",
+"base": "Wujah Al Hajar Air Base (Hamat)",
+"icao": "",
+"location": "LB",
+"region": "",
+"command": "Lebanese Air Force",
+"units": [
+"7th Sqn",
+"9th Sqn"
+],
+"aircraft": [
+"A-29B Super Tucano",
+"MD530F"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "",
+"urls": [
+"https://en.wikipedia.org/wiki/Lebanese_Air_Force"
+]
+},
+{
+"operator": "LB",
+"base": "Rayak Air Base",
+"icao": "",
+"location": "LB",
+"region": "",
+"command": "Lebanese Air Force",
+"units": [
+"8th Sqn",
+"15th Sqn"
+],
+"aircraft": [
+"SA342L Gazelle",
+"R44 II",
+"UH-1H"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "",
+"urls": [
+"https://en.wikipedia.org/wiki/Lebanese_Air_Force"
+]
+},
+{
+"operator": "LB",
+"base": "Rene Mouawad Air Base (Kleyate)",
+"icao": "",
+"location": "LB",
+"region": "",
+"command": "Lebanese Air Force",
+"units": [
+"14th Sqn"
+],
+"aircraft": [
+"SA330 Puma"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "",
+"urls": [
+"https://en.wikipedia.org/wiki/Lebanese_Air_Force"
+]
+}
+]

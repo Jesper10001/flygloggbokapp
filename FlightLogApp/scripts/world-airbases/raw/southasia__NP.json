@@ -1,0 +1,28 @@
+[
+ {
+  "operator": "NP",
+  "base": "Tribhuvan Airport",
+  "icao": "VNKT",
+  "location": "NP",
+  "region": "Bagmati",
+  "command": "Nepali Army",
+  "units": [
+   "Nepali Army Air Service"
+  ],
+  "aircraft": [
+   "Mi-171",
+   "HAL Dhruv",
+   "AW139",
+   "AS550",
+   "CN-235",
+   "PZL M28"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Nepali_Army_Air_Service"
+  ],
+  "note": "Article also names Surkhet and Dipayal; basing citation-needed"
+ }
+]

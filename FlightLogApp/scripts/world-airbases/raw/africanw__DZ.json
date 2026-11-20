@@ -1,0 +1,243 @@
+[
+ {
+  "operator": "DZ",
+  "base": "Tafraoui Air Base",
+  "icao": "DAOL",
+  "location": "DZ",
+  "region": "Oran",
+  "command": "Algerian Air Force",
+  "units": [
+   "Ecole superieure de l'Air (air force academy / flying school)"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/algerian-air-force/"
+  ],
+  "note": "Base-unit attribution from migflug.com (derived from French Wikipedia), not officially confirmed"
+ },
+ {
+  "operator": "DZ",
+  "base": "Oum El Bouaghi Air Base",
+  "icao": "DABO",
+  "location": "DZ",
+  "region": "Oum El Bouaghi",
+  "command": "Algerian Air Force",
+  "units": [
+   "Fighter wing"
+  ],
+  "aircraft": [
+   "Su-35"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/algerian-air-force/"
+  ],
+  "note": "Base-unit attribution from migflug.com (derived from French Wikipedia), not officially confirmed; Su-35 seen on satellite imagery per page"
+ },
+ {
+  "operator": "DZ",
+  "base": "Bou Sfer Air Base",
+  "icao": "DAOE",
+  "location": "DZ",
+  "region": "Oran",
+  "command": "Algerian Air Force",
+  "units": [
+   "Fighter wing"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/algerian-air-force/"
+  ],
+  "note": "Base-unit attribution from migflug.com (derived from French Wikipedia), not officially confirmed"
+ },
+ {
+  "operator": "DZ",
+  "base": "Bechar Air Base",
+  "icao": "DAOR",
+  "location": "DZ",
+  "region": "Bechar",
+  "command": "Algerian Air Force",
+  "units": [
+   "Fighter wing"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/algerian-air-force/",
+   "https://en.wikipedia.org/wiki/Boudghene_Ben_Ali_Lotfi_Airport"
+  ],
+  "note": "Base-unit attribution from migflug.com (derived from French Wikipedia), not officially confirmed"
+ },
+ {
+  "operator": "DZ",
+  "base": "Tindouf Air Base",
+  "icao": "DAOF",
+  "location": "DZ",
+  "region": "Tindouf",
+  "command": "Algerian Air Force",
+  "units": [
+   "Fighter wing"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/algerian-air-force/"
+  ],
+  "note": "Base-unit attribution from migflug.com (derived from French Wikipedia), not officially confirmed"
+ },
+ {
+  "operator": "DZ",
+  "base": "Laghouat Air Base",
+  "icao": "DAUL",
+  "location": "DZ",
+  "region": "Laghouat",
+  "command": "Algerian Air Force",
+  "units": [
+   "Strike wing"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/algerian-air-force/"
+  ],
+  "note": "Base-unit attribution from migflug.com (derived from French Wikipedia), not officially confirmed"
+ },
+ {
+  "operator": "DZ",
+  "base": "Ain Oussera Air Base",
+  "icao": "DAAQ",
+  "location": "DZ",
+  "region": "Djelfa",
+  "command": "Algerian Air Force",
+  "units": [
+   "Reconnaissance and electronic warfare wing"
+  ],
+  "aircraft": [
+   "Su-24MR"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/algerian-air-force/"
+  ],
+  "note": "Base-unit attribution from migflug.com (derived from French Wikipedia), not officially confirmed; page says MiG-25 retired 2022"
+ },
+ {
+  "operator": "DZ",
+  "base": "Boufarik Air Base",
+  "icao": "DAAK",
+  "location": "DZ",
+  "region": "Blida",
+  "command": "Algerian Air Force",
+  "units": [
+   "Air transport fleet"
+  ],
+  "aircraft": [
+   "Il-76",
+   "Il-78",
+   "C-130",
+   "C295"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/algerian-air-force/",
+   "https://en.wikipedia.org/wiki/Boufarik_Airport"
+  ],
+  "note": "Wikipedia: home base for the Air Transport fleet; types are air-force level per migflug"
+ },
+ {
+  "operator": "DZ",
+  "base": "Biskra Air Base",
+  "icao": "DAUB",
+  "location": "DZ",
+  "region": "Biskra",
+  "command": "Algerian Air Force",
+  "units": [
+   "Helicopter regiment"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/algerian-air-force/"
+  ],
+  "note": "Base-unit attribution from migflug.com (derived from French Wikipedia), not officially confirmed"
+ },
+ {
+  "operator": "DZ",
+  "base": "Chlef Air Base",
+  "icao": "DAOI",
+  "location": "DZ",
+  "region": "Chlef",
+  "command": "Algerian Air Force",
+  "units": [
+   "Helicopter regiment"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/algerian-air-force/"
+  ],
+  "note": "Base-unit attribution from migflug.com (derived from French Wikipedia), not officially confirmed"
+ },
+ {
+  "operator": "DZ",
+  "base": "Ouargla Air Base",
+  "icao": "DAUU",
+  "location": "DZ",
+  "region": "Ouargla",
+  "command": "Algerian Air Force",
+  "units": [
+   "Helicopter regiment"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/algerian-air-force/"
+  ],
+  "note": "Base-unit attribution from migflug.com (derived from French Wikipedia), not officially confirmed"
+ },
+ {
+  "operator": "DZ",
+  "base": "Blida Air Base",
+  "icao": "DAAB",
+  "location": "DZ",
+  "region": "Blida",
+  "command": "Algerian Air Force",
+  "units": [
+   "Liaison wing"
+  ],
+  "aircraft": [
+   "Kamov helicopters"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/algerian-air-force/"
+  ],
+  "note": "Base-unit attribution from migflug.com (derived from French Wikipedia), not officially confirmed"
+ }
+]

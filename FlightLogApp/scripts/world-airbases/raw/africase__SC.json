@@ -1,0 +1,25 @@
+[
+ {
+  "operator": "SC",
+  "base": "Seychelles International Airport (Pointe Larue, Mahe)",
+  "icao": "",
+  "location": "SC",
+  "region": "Mahe",
+  "command": "",
+  "units": [
+   "Seychelles Air Force"
+  ],
+  "aircraft": [
+   "Dornier 228",
+   "Harbin Y-12",
+   "DHC-6-320 Twin Otter"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/seychelles-air-force/"
+  ],
+  "note": ""
+ }
+]

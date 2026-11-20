@@ -1160,7 +1160,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                       </TouchableOpacity>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: '#fff', fontSize: 15, fontWeight: '800' }}>Specific</Text>
-                        <Text style={{ color: '#9DB4CC', fontSize: 11.5 }}>{MIL_BASE_COUNT} bases in Europe and Russia · by aircraft</Text>
+                        <Text style={{ color: '#9DB4CC', fontSize: 11.5 }}>{MIL_BASE_COUNT.toLocaleString('en-US')} bases worldwide · by aircraft</Text>
                       </View>
                     </View>
                     <View style={styles.groupOpts}>

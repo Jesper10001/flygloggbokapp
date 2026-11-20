@@ -1,0 +1,138 @@
+[
+ {
+  "operator": "ML",
+  "base": "Bamako Air Base (BA 100)",
+  "icao": "",
+  "location": "ML",
+  "region": "Bamako",
+  "command": "Région aérienne 1",
+  "units": [],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_du_Mali"
+  ],
+  "note": "French Wikipedia list of air bases (aviationsmilitaires.net); units/aircraft per base not stated; long-established bases only"
+ },
+ {
+  "operator": "ML",
+  "base": "Senou Air Base (BA 101)",
+  "icao": "",
+  "location": "ML",
+  "region": "Bamako",
+  "command": "Région aérienne 1",
+  "units": [],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_du_Mali"
+  ],
+  "note": "French Wikipedia list of air bases (aviationsmilitaires.net); units/aircraft per base not stated; long-established bases only"
+ },
+ {
+  "operator": "ML",
+  "base": "Kayes Air Base (BA 102)",
+  "icao": "",
+  "location": "ML",
+  "region": "Kayes",
+  "command": "Région aérienne 1",
+  "units": [],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_du_Mali"
+  ],
+  "note": "French Wikipedia list of air bases (aviationsmilitaires.net); units/aircraft per base not stated; long-established bases only"
+ },
+ {
+  "operator": "ML",
+  "base": "Sikasso Air Base (BA 103)",
+  "icao": "",
+  "location": "ML",
+  "region": "Sikasso",
+  "command": "Région aérienne 1",
+  "units": [],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_du_Mali"
+  ],
+  "note": "French Wikipedia list of air bases (aviationsmilitaires.net); units/aircraft per base not stated; long-established bases only"
+ },
+ {
+  "operator": "ML",
+  "base": "Sevare Air Base (BA 200)",
+  "icao": "",
+  "location": "ML",
+  "region": "Mopti",
+  "command": "Région aérienne 2",
+  "units": [],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_du_Mali"
+  ],
+  "note": "French Wikipedia list of air bases (aviationsmilitaires.net); units/aircraft per base not stated; long-established bases only"
+ },
+ {
+  "operator": "ML",
+  "base": "Tombouctou Air Base (BA 201)",
+  "icao": "",
+  "location": "ML",
+  "region": "Tombouctou",
+  "command": "Région aérienne 2",
+  "units": [],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_du_Mali"
+  ],
+  "note": "French Wikipedia list of air bases (aviationsmilitaires.net); units/aircraft per base not stated; long-established bases only"
+ },
+ {
+  "operator": "ML",
+  "base": "Gao Air Base (BA 300)",
+  "icao": "",
+  "location": "ML",
+  "region": "Gao",
+  "command": "Région aérienne 3",
+  "units": [],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_du_Mali"
+  ],
+  "note": "French Wikipedia list of air bases (aviationsmilitaires.net); units/aircraft per base not stated; long-established bases only"
+ },
+ {
+  "operator": "ML",
+  "base": "Tessalit Air Base (BA 301)",
+  "icao": "",
+  "location": "ML",
+  "region": "Kidal",
+  "command": "Région aérienne 3",
+  "units": [],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_du_Mali"
+  ],
+  "note": "French Wikipedia list of air bases (aviationsmilitaires.net); units/aircraft per base not stated; long-established bases only"
+ }
+]

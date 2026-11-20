@@ -1,0 +1,46 @@
+[
+ {
+  "operator": "MM",
+  "base": "Hmawbi Air Base",
+  "icao": "",
+  "location": "MM",
+  "region": "Yangon",
+  "command": "Myanmar Air Force",
+  "units": [
+   "56 Squadron"
+  ],
+  "aircraft": [
+   "Mi-17"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Hmawbi_Air_Base",
+   "https://en.wikipedia.org/wiki/Myanmar_Air_Force"
+  ],
+  "note": "Long-established home base per encyclopedic page; no current operational detail given"
+ },
+ {
+  "operator": "MM",
+  "base": "Meiktila Air Base",
+  "icao": "",
+  "location": "MM",
+  "region": "Mandalay",
+  "command": "Central Sector Operations Center",
+  "units": [
+   "Mi-35P squadron"
+  ],
+  "aircraft": [
+   "Mi-35P"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Meiktila_Air_Base",
+   "https://en.wikipedia.org/wiki/Myanmar_Air_Force"
+  ],
+  "note": "Page also calls it the helicopter training and operations base"
+ }
+]

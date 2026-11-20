@@ -1,19 +1,27 @@
 // Militära flygbaser med förband och flygplanstyper för Air Bases → Specific på global map och förbandskortet
 // (components/UnitCard.tsx). Två datamängder i samma form: Ryssland (assets/ru-airbases.json, användarens fil,
-// scripts/build-ru-airbases.mjs) och Europa (assets/eu-airbases.json, scripts/build-eu-airbases.mjs; Ukraina ej med).
+// scripts/build-ru-airbases.mjs), Europa (assets/eu-airbases.json, scripts/build-eu-airbases.mjs; Ukraina ej med) och
+// resten av världen (assets/world-airbases.json, build-eu-airbases.mjs --world ur scripts/world-airbases, varje rad
+// kontrollerad mot sina källsidor med verify.py; aldrig Scramble). Vid samma flygplats vinner Ryssland, sedan Europa.
 // En bas kan ha flera länders förband (ops), t.ex. tyska och franska i Évreux. Flaggan visar förbandets land.
 // Rollerna: symbol (siluett ovanifrån, viewBox 24), bokstav och färg (Blades palett; bara etikettens kant färgas).
 import ru from '../assets/ru-airbases.json';
 import eu from '../assets/eu-airbases.json';
+import world from '../assets/world-airbases.json';
 import { flagEmoji } from '../constants/continents';
 
 export type RoleKey = 'fighter' | 'bomber' | 'attack' | 'heli' | 'transport' | 'special' | 'training';
 export type BaseOp = { o: string; c: string; u: string[]; g: [RoleKey, string[]][] };
-export type MilBase = { n: string; r: string; s: 'ru' | 'eu'; ops: BaseOp[] };
-const D: Record<string, MilBase> = { ...(eu as unknown as Record<string, MilBase>), ...(ru as unknown as Record<string, MilBase>) };
+export type Dataset = 'ru' | 'eu' | 'world';
+export type MilBase = { n: string; r: string; s: Dataset; ops: BaseOp[] };
+const D: Record<string, MilBase> = {
+  ...(world as unknown as Record<string, MilBase>),
+  ...(eu as unknown as Record<string, MilBase>),
+  ...(ru as unknown as Record<string, MilBase>),
+};
 
-/** När datamängderna sammanställdes (visas i Source-rutan). */
-export const DATA_COMPILED = '19 November 2026';
+/** När varje datamängd sammanställdes (visas i Source-rutan). */
+export const DATA_COMPILED: Record<Dataset, string> = { ru: '19 November 2026', eu: '19 November 2026', world: '20 November 2026' };
 
 export const ROLE_ORDER: RoleKey[] = ['fighter', 'bomber', 'attack', 'heli', 'transport', 'special', 'training'];
 export const ROLES: Record<RoleKey | 'unknown', { label: string; letter: string; color: string; glyph: string }> = {

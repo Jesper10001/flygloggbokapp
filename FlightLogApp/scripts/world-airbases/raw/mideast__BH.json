@@ -1,0 +1,81 @@
+[
+{
+"operator": "BH",
+"base": "Isa Air Base",
+"icao": "",
+"location": "BH",
+"region": "Southern Governorate",
+"command": "Royal Bahraini Air Force",
+"units": [
+"1st Tactical Fighter Sqn",
+"2nd Tactical Fighter Sqn",
+"4th Sqn",
+"5th Sqn",
+"6th Tactical Fighter Sqn"
+],
+"aircraft": [
+"F-16C/D",
+"T-67M260",
+"Hawk 129",
+"F-5E/F"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Bahraini_Air_Force"
+]
+},
+{
+"operator": "BH",
+"base": "Sakhir Air Base",
+"icao": "",
+"location": "BH",
+"region": "Southern Governorate",
+"command": "Royal Bahraini Air Force",
+"units": [
+"7th Transport Sqn",
+"Bahrain Amiri Royal Flight"
+],
+"aircraft": [
+"C-130J"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "Royal flight types not given.",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Bahraini_Air_Force"
+]
+},
+{
+"operator": "BH",
+"base": "Riffa Air Base",
+"icao": "",
+"location": "BH",
+"region": "Southern Governorate",
+"command": "Royal Bahraini Air Force",
+"units": [
+"3rd Helicopter Sqn",
+"8th and 9th Helicopter Sqn",
+"10th Helicopter Sqn",
+"19th Helicopter Sqn"
+],
+"aircraft": [
+"AB 212",
+"UH-60M",
+"AH-1E",
+"TAH-1P",
+"Bo 105C",
+"AH-1Z"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Bahraini_Air_Force"
+]
+}
+]

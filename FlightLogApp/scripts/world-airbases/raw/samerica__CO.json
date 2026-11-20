@@ -1,0 +1,373 @@
+[
+ {
+  "operator": "CO",
+  "base": "CACOM 1 – Germán Olano Air Base (Puerto Salgar)",
+  "icao": "",
+  "location": "CO",
+  "region": "Cundinamarca",
+  "command": "Fuerza Aérea Colombiana",
+  "units": [
+   "Grupo de Combate N.º 11",
+   "Escuadrón 111",
+   "113",
+   "114",
+   "116"
+  ],
+  "aircraft": [
+   "Kfir C12",
+   "AB212 Rapaz",
+   "AC-47T Fantasma",
+   "AH-60L Arpía IV",
+   "Cessna 208",
+   "IAI 201 Arava",
+   "SA2-37B Vampiro",
+   "UH-1H-II",
+   "ECN-235 Phobos",
+   "T-6C Texan II"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Colombiana"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CO",
+  "base": "CACOM 2 – Luis F. Gómez Niño Air Base (Apiay)",
+  "icao": "",
+  "location": "CO",
+  "region": "Meta",
+  "command": "Fuerza Aérea Colombiana",
+  "units": [
+   "Grupo de Combate N.º 21",
+   "Escuadrón 211",
+   "212",
+   "213",
+   "214",
+   "217"
+  ],
+  "aircraft": [
+   "A-29B Super Tucano",
+   "AT-27 Tucano",
+   "AC-47T Fantasma",
+   "AH-60L Arpía IV",
+   "C212-300",
+   "Cessna 208",
+   "SA2-37B Vampiro",
+   "SR-560",
+   "Hermes 450",
+   "Hermes 900"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Colombiana"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CO",
+  "base": "CACOM 3 – Alberto Pauwels Rodríguez Air Base (Malambo)",
+  "icao": "",
+  "location": "CO",
+  "region": "Atlántico",
+  "command": "Fuerza Aérea Colombiana",
+  "units": [
+   "Grupo de Combate 31",
+   "Escuadrón 311",
+   "312",
+   "313",
+   "314"
+  ],
+  "aircraft": [
+   "A-29B Super Tucano",
+   "AB212 Rapaz",
+   "C-95A",
+   "C208B Grand Caravan",
+   "SR-560"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Colombiana"
+  ],
+  "note": "A-37 listed but page says none in service"
+ },
+ {
+  "operator": "CO",
+  "base": "CACOM 4 – Luis F. Pinto Parra Air Base (Melgar)",
+  "icao": "",
+  "location": "CO",
+  "region": "Tolima",
+  "command": "Fuerza Aérea Colombiana",
+  "units": [
+   "Grupo de Combate 41",
+   "Escuadrón 411",
+   "412",
+   "413",
+   "Escuela de Helicópteros de Fuerza Pública"
+  ],
+  "aircraft": [
+   "Bell 212 Rapaz",
+   "Cessna 208",
+   "UH-1H-II",
+   "MD500E",
+   "MD530MG",
+   "Bell 206B-3",
+   "UH-1H"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Colombiana"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CO",
+  "base": "CACOM 5 – Arturo Lema Posada Air Base (Rionegro)",
+  "icao": "",
+  "location": "CO",
+  "region": "Antioquia",
+  "command": "Fuerza Aérea Colombiana",
+  "units": [
+   "Grupo de Combate 51",
+   "Escuadrón 511",
+   "512",
+   "513"
+  ],
+  "aircraft": [
+   "AH-60L Arpía IV",
+   "Cessna 208",
+   "UH-60A Halcón",
+   "UH-60L Halcón"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Colombiana"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CO",
+  "base": "CACOM 6 – Ernesto Esguerra Cubides Air Base (Tres Esquinas)",
+  "icao": "",
+  "location": "CO",
+  "region": "Caquetá",
+  "command": "Fuerza Aérea Colombiana",
+  "units": [
+   "Grupo de Combate 61",
+   "Escuadrón 611",
+   "613"
+  ],
+  "aircraft": [
+   "AT-27 Tucano",
+   "A-29B Super Tucano",
+   "AC-47T Fantasma",
+   "Bell 212 Rapaz",
+   "C212-300",
+   "SA2-37B Vampiro",
+   "UH-1H-II",
+   "ScanEagle"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Colombiana"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CO",
+  "base": "CACOM 7 – Marco Fidel Suárez Air Base (Cali)",
+  "icao": "",
+  "location": "CO",
+  "region": "Valle del Cauca",
+  "command": "Fuerza Aérea Colombiana",
+  "units": [
+   "Grupo de Combate 71",
+   "Escuadrón 712",
+   "713"
+  ],
+  "aircraft": [
+   "T-90 Calima",
+   "Bell 212",
+   "Cessna 208",
+   "C212",
+   "AC-47T",
+   "UH-60L",
+   "S10VT",
+   "SZD-54",
+   "Cessna 172S"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Colombiana"
+  ],
+  "note": "Air force academy base"
+ },
+ {
+  "operator": "CO",
+  "base": "GAAMA Leticia",
+  "icao": "",
+  "location": "CO",
+  "region": "Amazonas",
+  "command": "Fuerza Aérea Colombiana",
+  "units": [
+   "Grupo Aéreo del Amazonas",
+   "Escuadrón de Combate 102"
+  ],
+  "aircraft": [
+   "Cessna 208",
+   "A-27 Tucano",
+   "UH-1N",
+   "UH-60A",
+   "C212-300"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Colombiana"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CO",
+  "base": "GACAR San Andrés",
+  "icao": "",
+  "location": "CO",
+  "region": "San Andrés y Providencia",
+  "command": "Fuerza Aérea Colombiana",
+  "units": [
+   "Grupo Aéreo del Caribe"
+  ],
+  "aircraft": [
+   "A-29 Super Tucano",
+   "Beech C90",
+   "Cessna 208"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Colombiana"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CO",
+  "base": "GACAS Yopal",
+  "icao": "",
+  "location": "CO",
+  "region": "Casanare",
+  "command": "Fuerza Aérea Colombiana",
+  "units": [
+   "Grupo Aéreo del Casanare",
+   "Escuadrón de Combate 103"
+  ],
+  "aircraft": [
+   "Cessna 336/337",
+   "UH-1 Huey II",
+   "UH-60L",
+   "Cessna 208B"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Colombiana"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CO",
+  "base": "GAORI Marandúa",
+  "icao": "",
+  "location": "CO",
+  "region": "Vichada",
+  "command": "Fuerza Aérea Colombiana",
+  "units": [
+   "Grupo Aéreo del Oriente"
+  ],
+  "aircraft": [
+   "AC-47T Fantasma",
+   "AB212 Rapaz",
+   "UH-1H-II",
+   "ScanEagle"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Colombiana"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CO",
+  "base": "CATAM Bogotá",
+  "icao": "",
+  "location": "CO",
+  "region": "Bogotá",
+  "command": "Fuerza Aérea Colombiana",
+  "units": [
+   "Comando Aéreo de Transporte Militar",
+   "Grupo de Transporte Aéreo 81",
+   "Grupo de Vuelos Especiales 82",
+   "Grupo de Inteligencia Aérea 83"
+  ],
+  "aircraft": [
+   "C-130B/H",
+   "C295M",
+   "CN235M-100",
+   "Boeing 727",
+   "KC-767",
+   "Boeing 737",
+   "Learjet 60",
+   "Beech 350",
+   "UH-60L",
+   "Bell 412HP"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Colombiana"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CO",
+  "base": "CAMAN Madrid",
+  "icao": "",
+  "location": "CO",
+  "region": "Cundinamarca",
+  "command": "Fuerza Aérea Colombiana",
+  "units": [
+   "Comando Aéreo de Mantenimiento",
+   "Grupo de Transporte Aéreo 91"
+  ],
+  "aircraft": [
+   "Beech C90",
+   "C212-300"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Colombiana"
+  ],
+  "note": ""
+ }
+]

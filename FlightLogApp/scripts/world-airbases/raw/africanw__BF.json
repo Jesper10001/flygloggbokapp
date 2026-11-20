@@ -1,0 +1,45 @@
+[
+ {
+  "operator": "BF",
+  "base": "Ouagadougou Air Base (Base Aérienne 511)",
+  "icao": "DFFD",
+  "location": "BF",
+  "region": "Kadiogo",
+  "command": "Force aérienne du Burkina Faso",
+  "units": [
+   "Escadron de Transport 511",
+   "Escadrille de Chasse"
+  ],
+  "aircraft": [
+   "C295W",
+   "A-29B Super Tucano"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/burkina-faso-air-force/"
+  ],
+  "note": "From migflug.com (secondary source, derived from open reporting); not officially confirmed"
+ },
+ {
+  "operator": "BF",
+  "base": "Bobo-Dioulasso Air Base (Base Aérienne 210)",
+  "icao": "DFOO",
+  "location": "BF",
+  "region": "Houet",
+  "command": "Force aérienne du Burkina Faso",
+  "units": [
+   "Air force instruction and training centre",
+   "Ecole Militaire des Technologies Aeronautiques (EMTA)"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/burkina-faso-air-force/"
+  ],
+  "note": "From migflug.com (secondary source, derived from open reporting); not officially confirmed; no aircraft stated for current units"
+ }
+]

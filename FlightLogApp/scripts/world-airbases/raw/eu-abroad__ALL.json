@@ -1,0 +1,42 @@
+[
+ {
+  "operator": "GB",
+  "base": "RAF Mount Pleasant",
+  "icao": "EGYP",
+  "location": "FK",
+  "region": "East Falkland",
+  "command": "British Forces South Atlantic Islands (No. 905 Expeditionary Air Wing)",
+  "units": [
+   "No. 1435 Flight",
+   "No. 1312 Flight"
+  ],
+  "aircraft": [
+   "Typhoon FGR4",
+   "Voyager KC2",
+   "A400M Atlas C1"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Permanent overseas flights; the aircraft rotate from UK squadrons."
+ },
+ {
+  "operator": "NL",
+  "base": "Fort Hood (Robert Gray Army Airfield)",
+  "icao": "KGRK",
+  "location": "US",
+  "region": "Texas",
+  "command": "Defence Helicopter Command",
+  "units": [
+   "302 Squadron"
+  ],
+  "aircraft": [
+   "AH-64E Apache",
+   "CH-47F Chinook"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Permanent Dutch training squadron in the US (not a rotation); the airfield ICAO is from Wikipedia."
+ }
+]

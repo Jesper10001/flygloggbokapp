@@ -1,0 +1,25 @@
+[
+ {
+  "operator": "SS",
+  "base": "Juba Air Base",
+  "icao": "",
+  "location": "SS",
+  "region": "Central Equatoria",
+  "command": "",
+  "units": [
+   "South Sudan Air Force HQ"
+  ],
+  "aircraft": [
+   "Mi-17",
+   "Mi-172",
+   "Beech 1900"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/South_Sudan_Air_Force"
+  ],
+  "note": "Headquarters; Mi-17s pictured at Juba airport; type list per page (secrecy)."
+ }
+]

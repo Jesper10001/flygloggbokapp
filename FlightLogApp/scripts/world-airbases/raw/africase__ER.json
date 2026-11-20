@@ -1,0 +1,78 @@
+[
+ {
+  "operator": "ER",
+  "base": "Asmara Airport",
+  "icao": "",
+  "location": "ER",
+  "region": "Central",
+  "command": "",
+  "units": [
+   "Eritrean Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Eritrean_Air_Force"
+  ],
+  "note": "Listed as an air force base; units/aircraft not stated. Headquarters in Asmara."
+ },
+ {
+  "operator": "ER",
+  "base": "Assab International Airport",
+  "icao": "",
+  "location": "ER",
+  "region": "Southern Red Sea",
+  "command": "",
+  "units": [
+   "Eritrean Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Eritrean_Air_Force"
+  ],
+  "note": "Listed as an air force base; units/aircraft not stated."
+ },
+ {
+  "operator": "ER",
+  "base": "Massawa International Airport",
+  "icao": "",
+  "location": "ER",
+  "region": "Northern Red Sea",
+  "command": "",
+  "units": [
+   "Eritrean Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Eritrean_Air_Force"
+  ],
+  "note": "Listed as an air force base; units/aircraft not stated."
+ },
+ {
+  "operator": "ER",
+  "base": "Sawa Airport",
+  "icao": "",
+  "location": "ER",
+  "region": "Gash-Barka",
+  "command": "",
+  "units": [
+   "Eritrean Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Eritrean_Air_Force"
+  ],
+  "note": "Listed as an air force base; units/aircraft not stated."
+ }
+]

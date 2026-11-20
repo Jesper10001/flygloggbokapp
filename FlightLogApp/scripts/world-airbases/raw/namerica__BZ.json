@@ -1,0 +1,29 @@
+[
+ {
+  "operator": "BZ",
+  "base": "Philip S. W. Goldson International Airport (Ladyville)",
+  "icao": "MZBZ",
+  "location": "BZ",
+  "region": "Belize",
+  "command": "Belize Defence Force",
+  "units": [
+   "Belize Defence Force Air Wing"
+  ],
+  "aircraft": [
+   "BN-2B Defender",
+   "Cessna 208 Caravan",
+   "BN-2 Islander",
+   "Piper PA-34 Seneca",
+   "Bell UH-1",
+   "Bell 407",
+   "Cessna 182"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Belize_Defence_Force_Air_Wing"
+  ],
+  "note": "Air Wing HQ at Price Barracks, Ladyville."
+ }
+]

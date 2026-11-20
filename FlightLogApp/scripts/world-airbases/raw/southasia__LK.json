@@ -1,0 +1,47 @@
+[
+ {
+  "operator": "LK",
+  "base": "SLAF China Bay",
+  "icao": "VCCT",
+  "location": "LK",
+  "region": "Eastern",
+  "command": "",
+  "units": [
+   "No. 1 Flying Training Wing",
+   "No. 14 Squadron"
+  ],
+  "aircraft": [
+   "K-8"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Sri_Lanka_Air_Force"
+  ],
+  "note": "Wikipedia text; may be dated, verify"
+ },
+ {
+  "operator": "LK",
+  "base": "SLAF Katunayake",
+  "icao": "VCBI",
+  "location": "LK",
+  "region": "Western",
+  "command": "",
+  "units": [
+   "No. 5 Jet Squadron",
+   "No. 10 Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-7",
+   "Kfir"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Sri_Lanka_Air_Force"
+  ],
+  "note": "Wikipedia text; may be dated, verify"
+ }
+]

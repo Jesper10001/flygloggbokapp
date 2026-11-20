@@ -1,0 +1,55 @@
+[
+ {
+  "operator": "DJ",
+  "base": "Djibouti-Ambouli Air Base",
+  "icao": "",
+  "location": "DJ",
+  "region": "Djibouti",
+  "command": "",
+  "units": [
+   "Djibouti Air Force"
+  ],
+  "aircraft": [
+   "Cessna 208",
+   "Harbin Y-12",
+   "Xi'an MA60",
+   "AS355",
+   "Mi-8",
+   "Mi-35"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Djibouti_Air_Force"
+  ],
+  "note": "Air force HQ at Ambouli International Airport."
+ },
+ {
+  "operator": "FR",
+  "base": "Base aerienne 188 Djibouti (Colonel Massart)",
+  "icao": "",
+  "location": "DJ",
+  "region": "Djibouti",
+  "command": "",
+  "units": [
+   "Escadron de Chasse 3/11 Corse",
+   "Escadron de Transport 88 Larzac",
+   "DETALAT 5e RIAOM"
+  ],
+  "aircraft": [
+   "Mirage 2000-5F",
+   "Mirage 2000D",
+   "CN-235",
+   "SA330 Puma",
+   "Gazelle"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/French_forces_in_Djibouti"
+  ],
+  "note": "French forces; equipment as listed on the page (circa 2014-2019)."
+ }
+]

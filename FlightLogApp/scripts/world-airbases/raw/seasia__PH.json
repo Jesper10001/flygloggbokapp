@@ -1,0 +1,152 @@
+[
+ {
+  "operator": "PH",
+  "base": "Basa Air Base",
+  "icao": "",
+  "location": "PH",
+  "region": "Pampanga",
+  "command": "5th Fighter Wing",
+  "units": [
+   "6th Tactical Fighter Squadron",
+   "7th Tactical Fighter Squadron",
+   "105th Fighter Training Squadron"
+  ],
+  "aircraft": [
+   "FA-50PH",
+   "S-211"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Philippine_Air_Force"
+  ],
+  "note": "6th TFS reactivated July 2025 for FA-50PH Block 70"
+ },
+ {
+  "operator": "PH",
+  "base": "Villamor Air Base",
+  "icao": "",
+  "location": "PH",
+  "region": "Metro Manila",
+  "command": "250th Presidential Airlift Wing / 205th Tactical Helicopter Wing / 505th SAR Group",
+  "units": [
+   "207th Tactical Helicopter Squadron",
+   "251st Presidential Airlift Squadron",
+   "252nd Presidential Airlift Squadron",
+   "505th Search and Rescue Group"
+  ],
+  "aircraft": [
+   "Bell 412EP/EPX",
+   "C-295M",
+   "Gulfstream G280",
+   "Hawker 800",
+   "S-70i",
+   "Bell 205A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Philippine_Air_Force"
+  ],
+  "note": "Colonel Jesus Villamor Air Base, Pasay"
+ },
+ {
+  "operator": "PH",
+  "base": "Benito Ebuen Air Base",
+  "icao": "",
+  "location": "PH",
+  "region": "Cebu",
+  "command": "205th Tactical Helicopter Wing / 220th Airlift Wing",
+  "units": [
+   "208th Tactical Helicopter Squadron",
+   "221st Airlift Squadron",
+   "222nd Airlift Squadron",
+   "223rd Airlift Squadron"
+  ],
+  "aircraft": [
+   "S-70i",
+   "C-295M",
+   "F27 Friendship",
+   "C-130B/H/T",
+   "N-22B/C Nomad",
+   "NC-212i"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Philippine_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "PH",
+  "base": "Edwin Andrews Air Base",
+  "icao": "",
+  "location": "PH",
+  "region": "Zamboanga",
+  "command": "Air Combat Command",
+  "units": [
+   "206th Tactical Helicopter Squadron"
+  ],
+  "aircraft": [
+   "S-70i"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Philippine_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "PH",
+  "base": "Danilo Atienza Air Base",
+  "icao": "",
+  "location": "PH",
+  "region": "Cavite",
+  "command": "15th Strike Wing",
+  "units": [
+   "16th Attack Squadron",
+   "17th Attack Squadron"
+  ],
+  "aircraft": [
+   "SF-260TP",
+   "A-29B Super Tucano"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Philippine_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "PH",
+  "base": "Godofredo Juliano Air Base",
+  "icao": "",
+  "location": "PH",
+  "region": "Davao",
+  "command": "15th Strike Wing",
+  "units": [
+   "18th Attack Squadron",
+   "20th Attack Squadron"
+  ],
+  "aircraft": [
+   "AW109E",
+   "T129 ATAK",
+   "MD-520MG Defender"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Philippine_Air_Force"
+  ],
+  "note": "Also called Lumbia Air Base"
+ }
+]

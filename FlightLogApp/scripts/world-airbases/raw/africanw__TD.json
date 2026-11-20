@@ -1,0 +1,32 @@
+[
+ {
+  "operator": "TD",
+  "base": "N'Djamena Air Base",
+  "icao": "",
+  "location": "TD",
+  "region": "N'Djamena",
+  "command": "Armée de l'Air Tchadienne",
+  "units": [
+   "Escadrille d'Appui",
+   "Escadrille de Transport",
+   "Escadrille d'Hélicoptères"
+  ],
+  "aircraft": [
+   "Su-25",
+   "C-130",
+   "C-27J",
+   "An-26",
+   "An-12",
+   "Mi-24",
+   "Mi-8",
+   "Mi-17"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_tchadienne"
+  ],
+  "note": "Garrison per French Wikipedia; fleet types listed per squadron, dated"
+ }
+]

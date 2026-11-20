@@ -1,0 +1,62 @@
+[
+ {
+  "operator": "CM",
+  "base": "Yaounde Air Base (BA 101)",
+  "icao": "",
+  "location": "CM",
+  "region": "Centre",
+  "command": "Cameroon Air Force",
+  "units": [],
+  "aircraft": [
+   "helicopters",
+   "liaison aircraft"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Cameroon_Air_Force",
+   "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_camerounaise"
+  ],
+  "note": "Helicopter and liaison platform per Wikipedia"
+ },
+ {
+  "operator": "CM",
+  "base": "Douala Air Base",
+  "icao": "",
+  "location": "CM",
+  "region": "Littoral",
+  "command": "Cameroon Air Force",
+  "units": [],
+  "aircraft": [
+   "transport aircraft"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Cameroon_Air_Force"
+  ],
+  "note": "Logistical and tactical transport platform per Wikipedia"
+ },
+ {
+  "operator": "CM",
+  "base": "Garoua Air Base (Base 301)",
+  "icao": "",
+  "location": "CM",
+  "region": "North",
+  "command": "Cameroon Air Force",
+  "units": [],
+  "aircraft": [
+   "attack aircraft",
+   "trainers"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Cameroon_Air_Force"
+  ],
+  "note": "Attack and training platform per Wikipedia"
+ }
+]

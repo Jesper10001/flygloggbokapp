@@ -1,0 +1,53 @@
+[
+ {
+  "operator": "DO",
+  "base": "San Isidro Air Base",
+  "icao": "",
+  "location": "DO",
+  "region": "Santo Domingo",
+  "command": "Fuerza Aérea de la República Dominicana",
+  "units": [],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Dominican_Air_Force"
+  ],
+  "note": "Squadrons are not assigned to bases on the page. Force-wide: Combat Sqn Dragones (A-29B Super Tucano, T-35B Pillan), Transport Sqn Pegasos (C-212-400, Citation II, Gulfstream II), Rescue Sqn Aguilas (UH-1H, AW169, EC155, Bell 430), Aviation School."
+ },
+ {
+  "operator": "DO",
+  "base": "Puerto Plata Air Base",
+  "icao": "",
+  "location": "DO",
+  "region": "Puerto Plata",
+  "command": "Fuerza Aérea de la República Dominicana",
+  "units": [],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Dominican_Air_Force"
+  ],
+  "note": "Squadrons are not assigned to bases on the page. Force-wide: Combat Sqn Dragones (A-29B Super Tucano, T-35B Pillan), Transport Sqn Pegasos (C-212-400, Citation II, Gulfstream II), Rescue Sqn Aguilas (UH-1H, AW169, EC155, Bell 430), Aviation School."
+ },
+ {
+  "operator": "DO",
+  "base": "Barahona Air Base",
+  "icao": "",
+  "location": "DO",
+  "region": "Barahona",
+  "command": "Fuerza Aérea de la República Dominicana",
+  "units": [],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Dominican_Air_Force"
+  ],
+  "note": "Squadrons are not assigned to bases on the page. Force-wide: Combat Sqn Dragones (A-29B Super Tucano, T-35B Pillan), Transport Sqn Pegasos (C-212-400, Citation II, Gulfstream II), Rescue Sqn Aguilas (UH-1H, AW169, EC155, Bell 430), Aviation School."
+ }
+]

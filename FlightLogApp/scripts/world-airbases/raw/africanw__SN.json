@@ -1,0 +1,109 @@
+[
+ {
+  "operator": "SN",
+  "base": "Dakar Air Base (Ouakam)",
+  "icao": "",
+  "location": "SN",
+  "region": "Dakar",
+  "command": "Armée de l'Air",
+  "units": [
+   "Air Force headquarters base"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_s%C3%A9n%C3%A9galaise",
+   "https://en.wikipedia.org/wiki/Senegalese_Air_Force"
+  ],
+  "note": "Listed as operational base of the air force on French Wikipedia; units/aircraft per base not stated"
+ },
+ {
+  "operator": "SN",
+  "base": "Kaolack Air Base",
+  "icao": "",
+  "location": "SN",
+  "region": "Kaolack",
+  "command": "Armée de l'Air",
+  "units": [],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_s%C3%A9n%C3%A9galaise"
+  ],
+  "note": "Listed as operational base of the air force on French Wikipedia; units/aircraft per base not stated"
+ },
+ {
+  "operator": "SN",
+  "base": "Linguere Air Base",
+  "icao": "",
+  "location": "SN",
+  "region": "Louga",
+  "command": "Armée de l'Air",
+  "units": [],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_s%C3%A9n%C3%A9galaise"
+  ],
+  "note": "Listed as operational base of the air force on French Wikipedia; units/aircraft per base not stated"
+ },
+ {
+  "operator": "SN",
+  "base": "Tambacounda Air Base",
+  "icao": "",
+  "location": "SN",
+  "region": "Tambacounda",
+  "command": "Armée de l'Air",
+  "units": [],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_s%C3%A9n%C3%A9galaise"
+  ],
+  "note": "Listed as operational base of the air force on French Wikipedia; units/aircraft per base not stated"
+ },
+ {
+  "operator": "SN",
+  "base": "Thies Air Base (Ecole de l'Air)",
+  "icao": "",
+  "location": "SN",
+  "region": "Thies",
+  "command": "Armée de l'Air",
+  "units": [
+   "Ecole de l'Air"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_s%C3%A9n%C3%A9galaise"
+  ],
+  "note": "Listed as operational base of the air force on French Wikipedia; units/aircraft per base not stated"
+ },
+ {
+  "operator": "SN",
+  "base": "Diass Air Station",
+  "icao": "",
+  "location": "SN",
+  "region": "Thies",
+  "command": "Armée de l'Air",
+  "units": [],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_s%C3%A9n%C3%A9galaise"
+  ],
+  "note": "Listed as operational base of the air force on French Wikipedia; units/aircraft per base not stated"
+ }
+]

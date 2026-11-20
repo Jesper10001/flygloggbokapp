@@ -1,0 +1,159 @@
+[
+{
+"operator": "JO",
+"base": "King Abdullah I Air Base",
+"icao": "",
+"location": "JO",
+"region": "Amman",
+"command": "Royal Jordanian Air Force",
+"units": [
+"3 Sqn",
+"7 Sqn",
+"Royal Sqn",
+"Air Ambulance Center"
+],
+"aircraft": [
+"C-130H",
+"M28",
+"Il-76TD",
+"AS332M-1",
+"UH-60A",
+"EC635",
+"S-70A",
+"UH-60M",
+"AW139"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "At Marka, Amman.",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Jordanian_Air_Force"
+]
+},
+{
+"operator": "JO",
+"base": "King Abdullah II Air Base",
+"icao": "",
+"location": "JO",
+"region": "Zarqa",
+"command": "Royal Jordanian Air Force",
+"units": [
+"8, 9, 10, 12, 14, 15, 25, 28, 30, 32 Sqn"
+],
+"aircraft": [
+"UH-60M",
+"S-100",
+"AH-1F",
+"UH-60A",
+"UH-60L",
+"Cessna 208B-ISR",
+"AT-802U/i/F",
+"MD530FF",
+"AC-235"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "At Al Ghabawi. 9 Sqn also listed at Zarqa.",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Jordanian_Air_Force"
+]
+},
+{
+"operator": "JO",
+"base": "Zarqa Air Base",
+"icao": "",
+"location": "JO",
+"region": "Zarqa",
+"command": "Royal Jordanian Air Force",
+"units": [
+"9 Sqn",
+"26 Sqn"
+],
+"aircraft": [
+"S-100",
+"Mi-26T2"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "Sahel Nassab.",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Jordanian_Air_Force"
+]
+},
+{
+"operator": "JO",
+"base": "King Hussein Air Base",
+"icao": "",
+"location": "JO",
+"region": "Mafraq",
+"command": "Royal Jordanian Air Force",
+"units": [
+"4 Sqn",
+"5 Sqn",
+"11 Sqn",
+"Flight Instructor School"
+],
+"aircraft": [
+"G120TP",
+"R44-II",
+"Bell 505",
+"PC-21"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Jordanian_Air_Force"
+]
+},
+{
+"operator": "JO",
+"base": "Muwaffaq Salti Air Base",
+"icao": "",
+"location": "JO",
+"region": "Zarqa",
+"command": "Royal Jordanian Air Force",
+"units": [
+"1 Sqn",
+"2 Sqn OCU",
+"6 Sqn"
+],
+"aircraft": [
+"F-16AM/BM"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "At Azraq. Also hosts foreign units, not listed.",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Jordanian_Air_Force"
+]
+},
+{
+"operator": "JO",
+"base": "Rweished Air Base (H-4)",
+"icao": "",
+"location": "JO",
+"region": "Mafraq",
+"command": "Royal Jordanian Air Force",
+"units": [
+"10/12 Sqn det.",
+"15 Sqn det."
+],
+"aircraft": [
+"AH-1F",
+"Cessna 208B-ISR"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "Detachments per source.",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Jordanian_Air_Force"
+]
+}
+]

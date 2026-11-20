@@ -1,0 +1,243 @@
+[
+ {
+  "operator": "ID",
+  "base": "Halim Perdanakusuma Air Force Base",
+  "icao": "WIHH",
+  "location": "ID",
+  "region": "Jakarta",
+  "command": "1st Air Force Operations Command / National Air Operations Command",
+  "units": [
+   "2nd Air Squadron",
+   "17th VIP Air Squadron",
+   "31st Air Squadron",
+   "45th VIP Air Squadron"
+  ],
+  "aircraft": [
+   "CN-295",
+   "Falcon 7X",
+   "Boeing 737NG",
+   "C-130J Super Hercules",
+   "C-130H/HS",
+   "L-100-30",
+   "A400M",
+   "AS332 Super Puma"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Halim_Perdanakusuma_International_Airport"
+  ],
+  "note": "Shares airfield with civil airport; Skadron Udara 18 reported inaugurated 2026-06 (not verified on page)"
+ },
+ {
+  "operator": "ID",
+  "base": "Sultan Hasanuddin Air Force Base",
+  "icao": "WAAA",
+  "location": "ID",
+  "region": "South Sulawesi",
+  "command": "Air Force",
+  "units": [
+   "5th Air Squadron",
+   "11th Air Squadron",
+   "33rd Air Squadron"
+  ],
+  "aircraft": [
+   "Boeing 737-200",
+   "CN-235-220",
+   "Su-27",
+   "Su-30",
+   "C-130H Hercules"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Sultan_Hasanuddin_International_Airport"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "ID",
+  "base": "Iswahjudi Air Force Base",
+  "icao": "WARI",
+  "location": "ID",
+  "region": "East Java",
+  "command": "32nd Air Wing (3rd Group)",
+  "units": [
+   "3rd Air Squadron",
+   "14th Air Squadron",
+   "15th Air Squadron"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Iswahjudi_Air_Force_Base"
+  ],
+  "note": "Page lists the squadrons but no aircraft types in the fetched text"
+ },
+ {
+  "operator": "ID",
+  "base": "Abdul Rachman Saleh Air Force Base",
+  "icao": "WARA",
+  "location": "ID",
+  "region": "East Java",
+  "command": "Air Force",
+  "units": [
+   "4th Light Transport Squadron",
+   "21st Combat Squadron",
+   "32nd Heavy Transport Squadron"
+  ],
+  "aircraft": [
+   "C-212 Aviocar",
+   "EMB-314 Super Tucano",
+   "C-130 Hercules"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Abdul_Rachman_Saleh_Airport"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "ID",
+  "base": "Supadio Air Force Base",
+  "icao": "WIOO",
+  "location": "ID",
+  "region": "West Kalimantan",
+  "command": "Air Force",
+  "units": [
+   "1st Air Combat Squadron",
+   "51st UAV Squadron"
+  ],
+  "aircraft": [
+   "Hawk 109/209",
+   "Wing Loong"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Supadio_International_Airport"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "ID",
+  "base": "Roesmin Nurjadin Air Force Base",
+  "icao": "WIBB",
+  "location": "ID",
+  "region": "Riau",
+  "command": "Air Force",
+  "units": [
+   "12th Air Squadron",
+   "16th Air Squadron"
+  ],
+  "aircraft": [
+   "F-16",
+   "Hawk Mk. 109/209"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Sultan_Syarif_Kasim_II_International_Airport"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "ID",
+  "base": "Suryadarma Air Force Base",
+  "icao": "WIHK",
+  "location": "ID",
+  "region": "West Java",
+  "command": "8th Air Wing",
+  "units": [
+   "7th Air Squadron"
+  ],
+  "aircraft": [
+   "EC120 Colibri"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Suryadarma_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "ID",
+  "base": "Atang Sendjaja Air Force Base",
+  "icao": "WIHJ",
+  "location": "ID",
+  "region": "West Java",
+  "command": "Air Force",
+  "units": [
+   "Two helicopter squadrons",
+   "Search and Rescue Air Unit"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Atang_Sendjaja_Air_Force_Base"
+  ],
+  "note": "Page does not name the squadrons or types"
+ },
+ {
+  "operator": "ID",
+  "base": "Manuhua Air Force Base (Biak)",
+  "icao": "WABB",
+  "location": "ID",
+  "region": "Papua",
+  "command": "Naval Aviation (shared field)",
+  "units": [
+   "800th Air Squadron (Navy)"
+  ],
+  "aircraft": [
+   "CN-235 MPA"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Frans_Kaisiepo_Airport"
+  ],
+  "note": "Navy squadron at Naval Air Station Biak; the same page also names Manuhua AFB (type A) without units"
+ },
+ {
+  "operator": "ID",
+  "base": "Pondok Cabe Airport (Army Aviation Center)",
+  "icao": "",
+  "location": "ID",
+  "region": "Banten",
+  "command": "Army Aviation Center (Puspenerbad)",
+  "units": [
+   "Army Aviation Center"
+  ],
+  "aircraft": [
+   "AH-64E",
+   "Mi-35P",
+   "Mi-17V-5",
+   "Bell 205",
+   "Bell 412",
+   "NBo 105",
+   "AS355/AS550",
+   "NC-212",
+   "Beechcraft Premier I"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Indonesian_Army_Aviation_Center"
+  ],
+  "note": ""
+ }
+]

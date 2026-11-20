@@ -1,0 +1,321 @@
+[
+ {
+  "operator": "TW",
+  "base": "Songshan Airport",
+  "icao": "",
+  "location": "TW",
+  "region": "Taipei",
+  "command": "ROCAF",
+  "units": [
+   "Air Force Songshan Base Command",
+   "Special Transport Squadron, Presidential Flight"
+  ],
+  "aircraft": [
+   "Beech 1900",
+   "Fokker 50",
+   "Boeing 737-800"
+  ],
+  "sources": [
+   "Wikipedia (ROCAF, table from IISS 2010)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_China_Air_Force"
+  ],
+  "note": "Unit/aircraft table on source dates from IISS 2010; types may have changed"
+ },
+ {
+  "operator": "TW",
+  "base": "Makung Airport",
+  "icao": "",
+  "location": "TW",
+  "region": "Penghu",
+  "command": "ROCAF",
+  "units": [
+   "Air Force Makung Base Command (1 detachment)"
+  ],
+  "aircraft": [
+   "AIDC F-CK-1 Ching-kuo"
+  ],
+  "sources": [
+   "Wikipedia (ROCAF, table from IISS 2010)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_China_Air_Force"
+  ],
+  "note": "Unit/aircraft table on source dates from IISS 2010; types may have changed"
+ },
+ {
+  "operator": "TW",
+  "base": "Tainan Air Base",
+  "icao": "",
+  "location": "TW",
+  "region": "Tainan",
+  "command": "ROCAF",
+  "units": [
+   "1st (443rd) Tactical Fighter Wing"
+  ],
+  "aircraft": [
+   "AIDC F-CK-1 Ching-kuo"
+  ],
+  "sources": [
+   "Wikipedia (ROCAF, table from IISS 2010)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_China_Air_Force"
+  ],
+  "note": "Unit/aircraft table on source dates from IISS 2010; types may have changed; aircraft cell is ambiguous in the table (also lists Penghu Airport)"
+ },
+ {
+  "operator": "TW",
+  "base": "Hsinchu Air Base",
+  "icao": "",
+  "location": "TW",
+  "region": "Hsinchu",
+  "command": "ROCAF",
+  "units": [
+   "2nd (499th) Tactical Fighter Wing"
+  ],
+  "aircraft": [
+   "Mirage 2000-5"
+  ],
+  "sources": [
+   "Wikipedia (ROCAF, table from IISS 2010)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_China_Air_Force"
+  ],
+  "note": "Unit/aircraft table on source dates from IISS 2010; types may have changed"
+ },
+ {
+  "operator": "TW",
+  "base": "Ching Chuan Kang Air Base",
+  "icao": "",
+  "location": "TW",
+  "region": "Taichung",
+  "command": "ROCAF",
+  "units": [
+   "3rd (427th) Tactical Fighter Wing"
+  ],
+  "aircraft": [
+   "AIDC F-CK-1 Ching-kuo"
+  ],
+  "sources": [
+   "Wikipedia (ROCAF, table from IISS 2010)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_China_Air_Force"
+  ],
+  "note": "Unit/aircraft table on source dates from IISS 2010; types may have changed"
+ },
+ {
+  "operator": "TW",
+  "base": "Chiayi Air Base",
+  "icao": "",
+  "location": "TW",
+  "region": "Chiayi",
+  "command": "ROCAF",
+  "units": [
+   "4th (455th) Tactical Fighter Wing",
+   "Air Rescue Group"
+  ],
+  "aircraft": [
+   "F-16A/B",
+   "S-70",
+   "UH-60M",
+   "EC225"
+  ],
+  "sources": [
+   "Wikipedia (ROCAF, table from IISS 2010)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_China_Air_Force"
+  ],
+  "note": "Unit/aircraft table on source dates from IISS 2010; types may have changed"
+ },
+ {
+  "operator": "TW",
+  "base": "Hualien Airport / Chiashan Air Force Base",
+  "icao": "",
+  "location": "TW",
+  "region": "Hualien",
+  "command": "ROCAF / ROC Naval Aviation Command",
+  "units": [
+   "5th (401st) Tactical Fighter Wing",
+   "12th Tactical Reconnaissance Squadron",
+   "701st Helicopter Group (Navy)"
+  ],
+  "aircraft": [
+   "F-16A/B",
+   "RF-16",
+   "S-70C(M)-1"
+  ],
+  "sources": [
+   "Wikipedia (ROCAF)",
+   "Wikipedia (ROC Naval Aviation Command)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_China_Air_Force",
+   "https://en.wikipedia.org/wiki/Republic_of_China_Naval_Aviation_Command"
+  ],
+  "note": "Unit/aircraft table on source dates from IISS 2010; types may have changed; navy page says Hualien Air Base"
+ },
+ {
+  "operator": "TW",
+  "base": "Pingtung Air Base",
+  "icao": "",
+  "location": "TW",
+  "region": "Pingtung",
+  "command": "ROCAF / ROC Naval Aviation Command",
+  "units": [
+   "6th (439th) Tactical Mixed Wing",
+   "Naval Aviation Command 1st Maintenance Squadron"
+  ],
+  "aircraft": [
+   "E-2K",
+   "C-130H",
+   "P-3C"
+  ],
+  "sources": [
+   "Wikipedia (ROCAF)",
+   "Wikipedia (ROC Naval Aviation Command)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_China_Air_Force",
+   "https://en.wikipedia.org/wiki/Republic_of_China_Naval_Aviation_Command"
+  ],
+  "note": "Unit/aircraft table on source dates from IISS 2010; types may have changed"
+ },
+ {
+  "operator": "TW",
+  "base": "Chihhang Air Base",
+  "icao": "",
+  "location": "TW",
+  "region": "Taitung",
+  "command": "ROCAF",
+  "units": [
+   "7th (737th) Tactical Fighter Wing"
+  ],
+  "aircraft": [
+   "F-16C/D",
+   "AIDC T-5 Brave Eagle"
+  ],
+  "sources": [
+   "Wikipedia (ROCAF, table from IISS 2010)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_China_Air_Force"
+  ],
+  "note": "Unit/aircraft table on source dates from IISS 2010; types may have changed"
+ },
+ {
+  "operator": "TW",
+  "base": "Gangshan Air Base",
+  "icao": "",
+  "location": "TW",
+  "region": "Kaohsiung",
+  "command": "ROCAF Flight Training Command",
+  "units": [
+   "Air Force Academy"
+  ],
+  "aircraft": [
+   "AIDC T-5 Brave Eagle",
+   "T-34"
+  ],
+  "sources": [
+   "Wikipedia (ROCAF, table from IISS 2010)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_China_Air_Force"
+  ],
+  "note": "Unit/aircraft table on source dates from IISS 2010; types may have changed"
+ },
+ {
+  "operator": "TW",
+  "base": "Tsoying",
+  "icao": "",
+  "location": "TW",
+  "region": "Kaohsiung",
+  "command": "ROC Naval Aviation Command",
+  "units": [
+   "702nd Helicopter Group",
+   "703rd Helicopter Training Group",
+   "2nd Maintenance Squadron"
+  ],
+  "aircraft": [
+   "S-70C(M)-2",
+   "500MD/ASW"
+  ],
+  "sources": [
+   "Wikipedia (ROC Naval Aviation Command)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_China_Naval_Aviation_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "TW",
+  "base": "Longtan",
+  "icao": "",
+  "location": "TW",
+  "region": "Taoyuan",
+  "command": "ROC Army Aviation and Special Forces Command",
+  "units": [
+   "601st Aviation Brigade"
+  ],
+  "aircraft": [
+   "AH-64E"
+  ],
+  "sources": [
+   "migflug"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/republic-of-china-army-aviation/"
+  ],
+  "note": "Single secondary source (migflug); not official"
+ },
+ {
+  "operator": "TW",
+  "base": "Taichung",
+  "icao": "",
+  "location": "TW",
+  "region": "Taichung",
+  "command": "ROC Army Aviation and Special Forces Command",
+  "units": [
+   "602nd Aviation Brigade"
+  ],
+  "aircraft": [
+   "AH-1W",
+   "OH-58D"
+  ],
+  "sources": [
+   "migflug"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/republic-of-china-army-aviation/"
+  ],
+  "note": "Single secondary source (migflug); aircraft per search summary, page lists types force-wide only"
+ },
+ {
+  "operator": "TW",
+  "base": "Guiren",
+  "icao": "",
+  "location": "TW",
+  "region": "Tainan",
+  "command": "ROC Army Aviation and Special Forces Command",
+  "units": [
+   "Aviation and Special Forces Command HQ",
+   "Flight Training Command"
+  ],
+  "aircraft": [
+   "TH-67A"
+  ],
+  "sources": [
+   "migflug"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/republic-of-china-army-aviation/"
+  ],
+  "note": "HQ location per Chinese Wikipedia as cited by migflug, not officially confirmed"
+ }
+]

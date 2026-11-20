@@ -1,0 +1,157 @@
+[
+{
+"operator": "IL",
+"base": "Ramat David Air Base",
+"icao": "",
+"location": "IL",
+"region": "",
+"command": "Israeli Air Force",
+"units": [
+"Wing 1: 101, 105, 109, 157, 160, 190 Sqn"
+],
+"aircraft": [],
+"sources": [
+"Wikipedia"
+],
+"note": "Squadron numbers per Wikipedia; aircraft types not given on the page.",
+"urls": [
+"https://en.wikipedia.org/wiki/Israeli_Air_Force"
+]
+},
+{
+"operator": "IL",
+"base": "Sdot Micha Air Base",
+"icao": "",
+"location": "IL",
+"region": "",
+"command": "Israeli Air Force",
+"units": [
+"Wing 2: 150, 199, 248 Sqn"
+],
+"aircraft": [],
+"sources": [
+"Wikipedia"
+],
+"note": "Squadron numbers per Wikipedia; aircraft types not given on the page.",
+"urls": [
+"https://en.wikipedia.org/wiki/Israeli_Air_Force"
+]
+},
+{
+"operator": "IL",
+"base": "Hatzor Air Base",
+"icao": "",
+"location": "IL",
+"region": "",
+"command": "Israeli Air Force",
+"units": [
+"Wing 4: 100, 144, 200, 254 Sqn"
+],
+"aircraft": [],
+"sources": [
+"Wikipedia"
+],
+"note": "Squadron numbers per Wikipedia; aircraft types not given on the page.",
+"urls": [
+"https://en.wikipedia.org/wiki/Israeli_Air_Force"
+]
+},
+{
+"operator": "IL",
+"base": "Hatzerim Air Base",
+"icao": "",
+"location": "IL",
+"region": "",
+"command": "Israeli Air Force",
+"units": [
+"69, 102, 107 Sqn",
+"IAF Aerobatic Team"
+],
+"aircraft": [],
+"sources": [
+"Wikipedia"
+],
+"note": "Squadron numbers per Wikipedia; aircraft types not given on the page.",
+"urls": [
+"https://en.wikipedia.org/wiki/Israeli_Air_Force"
+]
+},
+{
+"operator": "IL",
+"base": "Tel Nof Air Base",
+"icao": "",
+"location": "IL",
+"region": "",
+"command": "Israeli Air Force",
+"units": [
+"106, 118, 133, 210, 601 (Flight Test Center) Sqn",
+"Unit 555"
+],
+"aircraft": [],
+"sources": [
+"Wikipedia"
+],
+"note": "Squadron numbers per Wikipedia; aircraft types not given on the page.",
+"urls": [
+"https://en.wikipedia.org/wiki/Israeli_Air_Force"
+]
+},
+{
+"operator": "IL",
+"base": "Ramon Air Base",
+"icao": "",
+"location": "IL",
+"region": "",
+"command": "Israeli Air Force",
+"units": [
+"Wing 25: 113, 119, 201, 253 Sqn"
+],
+"aircraft": [],
+"sources": [
+"Wikipedia"
+],
+"note": "Squadron numbers per Wikipedia; aircraft types not given on the page.",
+"urls": [
+"https://en.wikipedia.org/wiki/Israeli_Air_Force"
+]
+},
+{
+"operator": "IL",
+"base": "Nevatim Air Base",
+"icao": "",
+"location": "IL",
+"region": "",
+"command": "Israeli Air Force",
+"units": [
+"103, 116, 117, 120 Sqn",
+"UAV Sqn 122, 131, 140 listed nearby"
+],
+"aircraft": [],
+"sources": [
+"Wikipedia"
+],
+"note": "Squadron numbers per Wikipedia; aircraft types not given on the page.",
+"urls": [
+"https://en.wikipedia.org/wiki/Israeli_Air_Force"
+]
+},
+{
+"operator": "IL",
+"base": "Palmachim Air Base",
+"icao": "",
+"location": "IL",
+"region": "",
+"command": "Israeli Air Force",
+"units": [
+"123, 124, 147, 151, 161, 166, 193 Sqn"
+],
+"aircraft": [],
+"sources": [
+"Wikipedia"
+],
+"note": "Squadron numbers per Wikipedia; aircraft types not given on the page.",
+"urls": [
+"https://en.wikipedia.org/wiki/Israeli_Air_Force"
+]
+}
+]

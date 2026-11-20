@@ -1,0 +1,138 @@
+[
+ {
+  "operator": "AO",
+  "base": "Luanda Air Base (Quatro de Fevereiro Airport)",
+  "icao": "",
+  "location": "AO",
+  "region": "Luanda",
+  "command": "",
+  "units": [
+   "23rd Air Transportation Regiment",
+   "5th/6th/7th Transportation Squadrons"
+  ],
+  "aircraft": [
+   "An-12",
+   "An-26",
+   "Il-76T",
+   "C-130K",
+   "Boeing 707",
+   "EMB-120"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/National_Air_Force_of_Angola"
+  ],
+  "note": "Order of battle from Wikipedia (flagged citation needed, legacy Soviet-style structure); current aircraft strength uncertain."
+ },
+ {
+  "operator": "AO",
+  "base": "Kuito Airport",
+  "icao": "",
+  "location": "AO",
+  "region": "Bie",
+  "command": "",
+  "units": [
+   "25th Fighter Aviation Regiment"
+  ],
+  "aircraft": [
+   "Su-27",
+   "MiG-23",
+   "MiG-21"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/National_Air_Force_of_Angola"
+  ],
+  "note": "Order of battle from Wikipedia (flagged citation needed, legacy Soviet-style structure); current aircraft strength uncertain."
+ },
+ {
+  "operator": "AO",
+  "base": "Mocamedes Air Base (Namibe)",
+  "icao": "",
+  "location": "AO",
+  "region": "Namibe",
+  "command": "",
+  "units": [
+   "26th Fighter Aviation Regiment"
+  ],
+  "aircraft": [
+   "Su-24MK",
+   "Su-25K",
+   "Su-22M-4K"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/National_Air_Force_of_Angola"
+  ],
+  "note": "Order of battle from Wikipedia (flagged citation needed, legacy Soviet-style structure); current aircraft strength uncertain."
+ },
+ {
+  "operator": "AO",
+  "base": "Menongue Airport",
+  "icao": "",
+  "location": "AO",
+  "region": "Cuando Cubango",
+  "command": "",
+  "units": [
+   "24th Training Regiment"
+  ],
+  "aircraft": [
+   "L-39ZA",
+   "EMB-312",
+   "PC-9",
+   "PC-7",
+   "L-29"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/National_Air_Force_of_Angola"
+  ],
+  "note": "Order of battle from Wikipedia (flagged citation needed, legacy Soviet-style structure); current aircraft strength uncertain."
+ },
+ {
+  "operator": "AO",
+  "base": "Luena Airport",
+  "icao": "",
+  "location": "AO",
+  "region": "Moxico",
+  "command": "",
+  "units": [
+   "21st Transportation Helicopter Regiment"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/National_Air_Force_of_Angola"
+  ],
+  "note": "Order of battle from Wikipedia (flagged citation needed, legacy Soviet-style structure); current aircraft strength uncertain."
+ },
+ {
+  "operator": "AO",
+  "base": "Huambo Air Base",
+  "icao": "",
+  "location": "AO",
+  "region": "Huambo",
+  "command": "",
+  "units": [
+   "22nd Combat Helicopter Regiment"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/National_Air_Force_of_Angola"
+  ],
+  "note": "Order of battle from Wikipedia (flagged citation needed, legacy Soviet-style structure); current aircraft strength uncertain."
+ }
+]

@@ -1,0 +1,79 @@
+[
+{
+"operator": "KW",
+"base": "Abdullah Al-Mubarak Air Base",
+"icao": "",
+"location": "KW",
+"region": "",
+"command": "Kuwait Air Force",
+"units": [
+"41st Transport Sqn",
+"42nd Transport Sqn"
+],
+"aircraft": [
+"L-100-30 Hercules",
+"KC-130J",
+"C-17 Globemaster III"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "Described as HQ base; sited at Kuwait Intl airport area.",
+"urls": [
+"https://en.wikipedia.org/wiki/Kuwait_Air_Force"
+]
+},
+{
+"operator": "KW",
+"base": "Ali Al Salem Air Base",
+"icao": "",
+"location": "KW",
+"region": "",
+"command": "Kuwait Air Force",
+"units": [
+"12th, 19th, 88th Training Sqn",
+"62nd, 32nd, 33rd Helicopter Sqn",
+"17th, 20th Attack Sqn",
+"7th Fighter Sqn"
+],
+"aircraft": [
+"Hawk Mk.64",
+"Tucano Mk.52",
+"SA342K Gazelle",
+"SA330H Puma",
+"AS332M Super Puma",
+"AH-64D Apache",
+"Eurofighter Typhoon"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "Typhoon listing uncertain in source. Also hosts foreign units, not listed.",
+"urls": [
+"https://en.wikipedia.org/wiki/Kuwait_Air_Force"
+]
+},
+{
+"operator": "KW",
+"base": "Ahmad Al Jaber Air Base",
+"icao": "",
+"location": "KW",
+"region": "",
+"command": "Kuwait Air Force",
+"units": [
+"9th Fighter Sqn",
+"25th Fighter Sqn Matrix",
+"61st Training Sqn"
+],
+"aircraft": [
+"F/A-18C/D Hornet"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "",
+"urls": [
+"https://en.wikipedia.org/wiki/Kuwait_Air_Force"
+]
+}
+]

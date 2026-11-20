@@ -1,0 +1,142 @@
+[
+ {
+  "operator": "CU",
+  "base": "San Antonio de los Baños Airfield",
+  "icao": "",
+  "location": "CU",
+  "region": "Artemisa",
+  "command": "2nd Guards Aviation Brigade (Western Air Zone)",
+  "units": [
+   "21st Fighter Regiment (211th, 212th Sqn)",
+   "23rd Fighter Regiment (231st, 232nd Sqn)",
+   "25th Transport Regiment (252nd Sqn)"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Cuban_Revolutionary_Air_and_Air_Defense_Force"
+  ],
+  "note": "Unit list sourced 2021 and may be dated; aircraft by base not stated (force-wide: MiG-29, MiG-21, L-39, Mi-8/17, Mi-24/35, An-24/26). "
+ },
+ {
+  "operator": "CU",
+  "base": "San Julián Air Base",
+  "icao": "",
+  "location": "CU",
+  "region": "Pinar del Río",
+  "command": "Western Air Zone",
+  "units": [
+   "23rd Fighter Regiment (part)",
+   "Comandante Che Guevara Air Force Academy"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Cuban_Revolutionary_Air_and_Air_Defense_Force"
+  ],
+  "note": "Unit list sourced 2021 and may be dated; aircraft by base not stated (force-wide: MiG-29, MiG-21, L-39, Mi-8/17, Mi-24/35, An-24/26). "
+ },
+ {
+  "operator": "CU",
+  "base": "Playa Baracoa Airbase",
+  "icao": "",
+  "location": "CU",
+  "region": "Artemisa",
+  "command": "Western Air Zone",
+  "units": [
+   "22nd Fighter Regiment (221st, 222nd, 223rd Sqn)"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Cuban_Revolutionary_Air_and_Air_Defense_Force"
+  ],
+  "note": "Unit list sourced 2021 and may be dated; aircraft by base not stated (force-wide: MiG-29, MiG-21, L-39, Mi-8/17, Mi-24/35, An-24/26). "
+ },
+ {
+  "operator": "CU",
+  "base": "Santa Clara Air Base",
+  "icao": "",
+  "location": "CU",
+  "region": "Villa Clara",
+  "command": "1st Guards Aviation Brigade (Central Air Zone)",
+  "units": [
+   "11th Fighter Regiment (111th, 112th Sqn)",
+   "14th Tactical Support Regiment (141st Sqn)"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Cuban_Revolutionary_Air_and_Air_Defense_Force"
+  ],
+  "note": "Unit list sourced 2021 and may be dated; aircraft by base not stated (force-wide: MiG-29, MiG-21, L-39, Mi-8/17, Mi-24/35, An-24/26). "
+ },
+ {
+  "operator": "CU",
+  "base": "Cienfuegos Air Base",
+  "icao": "",
+  "location": "CU",
+  "region": "Cienfuegos",
+  "command": "Central Air Zone",
+  "units": [
+   "16th Helicopter Regiment (162nd, 163rd Sqn)",
+   "Naval Aviation 161st ASW Helicopter Squadron",
+   "15th Transport Regiment (151st Sqn)"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Cuban_Revolutionary_Air_and_Air_Defense_Force"
+  ],
+  "note": "Unit list sourced 2021 and may be dated; aircraft by base not stated (force-wide: MiG-29, MiG-21, L-39, Mi-8/17, Mi-24/35, An-24/26). "
+ },
+ {
+  "operator": "CU",
+  "base": "Holguín Air Base",
+  "icao": "",
+  "location": "CU",
+  "region": "Holguín",
+  "command": "3rd Guards Aviation Brigade (Eastern Air Zone)",
+  "units": [
+   "34th Tactical Support Regiment (341st Sqn)"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Cuban_Revolutionary_Air_and_Air_Defense_Force"
+  ],
+  "note": "Unit list sourced 2021 and may be dated; aircraft by base not stated (force-wide: MiG-29, MiG-21, L-39, Mi-8/17, Mi-24/35, An-24/26). "
+ },
+ {
+  "operator": "CU",
+  "base": "Santiago de Cuba Base",
+  "icao": "",
+  "location": "CU",
+  "region": "Santiago de Cuba",
+  "command": "Eastern Air Zone",
+  "units": [
+   "36th Helicopter Regiment (361st-363rd Sqn)",
+   "35th Transport Regiment (351st Sqn)"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Cuban_Revolutionary_Air_and_Air_Defense_Force"
+  ],
+  "note": "Unit list sourced 2021 and may be dated; aircraft by base not stated (force-wide: MiG-29, MiG-21, L-39, Mi-8/17, Mi-24/35, An-24/26). "
+ }
+]

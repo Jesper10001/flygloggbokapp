@@ -1,0 +1,40 @@
+[
+ {
+  "operator": "NA",
+  "base": "Karibib Air Force Base",
+  "icao": "",
+  "location": "NA",
+  "region": "Erongo",
+  "command": "",
+  "units": [
+   "Namibian Air Force HQ"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Namibian_Air_Force"
+  ],
+  "note": "Air force headquarters; unit allocation not stated."
+ },
+ {
+  "operator": "NA",
+  "base": "Grootfontein Air Force Base",
+  "icao": "",
+  "location": "NA",
+  "region": "Otjozondjupa",
+  "command": "",
+  "units": [
+   "Namibian Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Namibian_Air_Force"
+  ],
+  "note": "Where the Air Force was commissioned 2005; Air Defence Wing (F-7), helicopter and transport squadrons (An-26, Y-9E, Y-12) listed for the service but base allocation not stated."
+ }
+]

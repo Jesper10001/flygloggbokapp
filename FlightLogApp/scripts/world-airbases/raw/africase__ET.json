@@ -1,0 +1,98 @@
+[
+ {
+  "operator": "ET",
+  "base": "Harar Meda Air Base (Bishoftu)",
+  "icao": "",
+  "location": "ET",
+  "region": "Oromia",
+  "command": "",
+  "units": [
+   "Ethiopian Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Ethiopian_Air_Force",
+   "https://en.wikipedia.org/wiki/Harar_Meda_Airport"
+  ],
+  "note": "Main base of the Ethiopian Air Force; helicopters, fighters and transport aircraft reported there. Per-base unit/aircraft allocation not stated on the cited page."
+ },
+ {
+  "operator": "ET",
+  "base": "Bahir Dar Airport",
+  "icao": "",
+  "location": "ET",
+  "region": "Amhara",
+  "command": "",
+  "units": [
+   "Ethiopian Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Ethiopian_Air_Force"
+  ],
+  "note": "Listed as one of four smaller Air Force bases. Per-base unit/aircraft allocation not stated on the cited page."
+ },
+ {
+  "operator": "ET",
+  "base": "Dire Dawa Airport",
+  "icao": "",
+  "location": "ET",
+  "region": "Dire Dawa",
+  "command": "",
+  "units": [
+   "Ethiopian Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Ethiopian_Air_Force"
+  ],
+  "note": "Listed as one of four smaller Air Force bases. Per-base unit/aircraft allocation not stated on the cited page."
+ },
+ {
+  "operator": "ET",
+  "base": "Gode Airport",
+  "icao": "",
+  "location": "ET",
+  "region": "Somali",
+  "command": "",
+  "units": [
+   "Ethiopian Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Ethiopian_Air_Force"
+  ],
+  "note": "Listed as one of four smaller Air Force bases. Per-base unit/aircraft allocation not stated on the cited page."
+ },
+ {
+  "operator": "ET",
+  "base": "Mek'ele Airport",
+  "icao": "",
+  "location": "ET",
+  "region": "Tigray",
+  "command": "",
+  "units": [
+   "Ethiopian Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Ethiopian_Air_Force"
+  ],
+  "note": "Listed as one of four smaller Air Force bases. Per-base unit/aircraft allocation not stated on the cited page."
+ }
+]

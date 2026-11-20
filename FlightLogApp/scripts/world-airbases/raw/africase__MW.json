@@ -1,0 +1,63 @@
+[
+ {
+  "operator": "MW",
+  "base": "Chileka (Bakili Muluzi International Airport)",
+  "icao": "",
+  "location": "MW",
+  "region": "Blantyre",
+  "command": "",
+  "units": [
+   "Transport squadron"
+  ],
+  "aircraft": [
+   "Xian MA60/MA600"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/malawi-air-force/"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "MW",
+  "base": "Zomba Airport",
+  "icao": "",
+  "location": "MW",
+  "region": "Zomba",
+  "command": "",
+  "units": [
+   "Transport squadron"
+  ],
+  "aircraft": [
+   "Dornier 228"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/malawi-air-force/"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "MW",
+  "base": "Kamuzu International Airport",
+  "icao": "",
+  "location": "MW",
+  "region": "Lilongwe",
+  "command": "",
+  "units": [
+   "Malawi Defence Force Air Wing HQ"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/malawi-air-force/"
+  ],
+  "note": "HQ location; no flying unit named permanently based there. Helicopter unit base not stated."
+ }
+]

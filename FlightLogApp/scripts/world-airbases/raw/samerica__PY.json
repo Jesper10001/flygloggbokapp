@@ -1,0 +1,24 @@
+[
+ {
+  "operator": "PY",
+  "base": "Ñu Guasu Air Base",
+  "icao": "",
+  "location": "PY",
+  "region": "Central (Luque)",
+  "command": "Fuerza Aérea Paraguaya",
+  "units": [
+   "Aerial Transport Escadrille",
+   "Air Force headquarters"
+  ],
+  "aircraft": [
+   "C-212"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Paraguayan_Air_Force"
+  ],
+  "note": "Only explicit unit-base link on page; other units/aircraft (Super Tucano, Tucano, UH-1H, T-25/T-35, C-208 etc.) not tied to bases"
+ }
+]

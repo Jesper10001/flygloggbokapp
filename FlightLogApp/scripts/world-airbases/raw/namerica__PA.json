@@ -1,0 +1,135 @@
+[
+ {
+  "operator": "PA",
+  "base": "Captain Juan Delgado Air Base",
+  "icao": "",
+  "location": "PA",
+  "region": "",
+  "command": "Servicio Nacional Aeronaval",
+  "units": [
+   "SENAN"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Servicio_Nacional_Aeronaval"
+  ],
+  "note": "Region/aircraft by base not stated; force-wide fleet incl. AW139, Bell 412, King Air, C-212, T-35 Pillan. Region per page layout is approximate: 2nd Region"
+ },
+ {
+  "operator": "PA",
+  "base": "De Rambala Air Station",
+  "icao": "",
+  "location": "PA",
+  "region": "",
+  "command": "Servicio Nacional Aeronaval",
+  "units": [
+   "SENAN"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Servicio_Nacional_Aeronaval"
+  ],
+  "note": "Region/aircraft by base not stated; force-wide fleet incl. AW139, Bell 412, King Air, C-212, T-35 Pillan. Region per page layout is approximate: 1st Region"
+ },
+ {
+  "operator": "PA",
+  "base": "Mayor Azael Adames Air Station",
+  "icao": "",
+  "location": "PA",
+  "region": "",
+  "command": "Servicio Nacional Aeronaval",
+  "units": [
+   "SENAN"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Servicio_Nacional_Aeronaval"
+  ],
+  "note": "Region/aircraft by base not stated; force-wide fleet incl. AW139, Bell 412, King Air, C-212, T-35 Pillan. Region per page layout is approximate: 1st Region"
+ },
+ {
+  "operator": "PA",
+  "base": "Subteniente Vicente Vargas Air Station",
+  "icao": "",
+  "location": "PA",
+  "region": "",
+  "command": "Servicio Nacional Aeronaval",
+  "units": [
+   "SENAN"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Servicio_Nacional_Aeronaval"
+  ],
+  "note": "Region/aircraft by base not stated; force-wide fleet incl. AW139, Bell 412, King Air, C-212, T-35 Pillan. Region per page layout is approximate: 1st Region"
+ },
+ {
+  "operator": "PA",
+  "base": "De Chame Air Station",
+  "icao": "",
+  "location": "PA",
+  "region": "",
+  "command": "Servicio Nacional Aeronaval",
+  "units": [
+   "SENAN"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Servicio_Nacional_Aeronaval"
+  ],
+  "note": "Region/aircraft by base not stated; force-wide fleet incl. AW139, Bell 412, King Air, C-212, T-35 Pillan. Region per page layout is approximate: 2nd Region"
+ },
+ {
+  "operator": "PA",
+  "base": "Octavio Rodriguez Garrido Air Station",
+  "icao": "",
+  "location": "PA",
+  "region": "",
+  "command": "Servicio Nacional Aeronaval",
+  "units": [
+   "SENAN"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Servicio_Nacional_Aeronaval"
+  ],
+  "note": "Region/aircraft by base not stated; force-wide fleet incl. AW139, Bell 412, King Air, C-212, T-35 Pillan. Region per page layout is approximate: 2nd Region"
+ },
+ {
+  "operator": "PA",
+  "base": "Major Salvador Cordoba Air Station",
+  "icao": "",
+  "location": "PA",
+  "region": "",
+  "command": "Servicio Nacional Aeronaval",
+  "units": [
+   "SENAN"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Servicio_Nacional_Aeronaval"
+  ],
+  "note": "Region/aircraft by base not stated; force-wide fleet incl. AW139, Bell 412, King Air, C-212, T-35 Pillan. Region per page layout is approximate: 3rd Region"
+ }
+]

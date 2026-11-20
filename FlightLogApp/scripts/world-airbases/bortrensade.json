@@ -1,0 +1,730 @@
+[
+ {
+  "fil": "africanw__BJ.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "BJ",
+   "base": "Cotonou Air Base (BACO)",
+   "icao": "DBBB",
+   "location": "BJ",
+   "region": "Littoral",
+   "command": "Armée de l'Air",
+   "units": [],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://migflug.com/air-forces/benin-air-force/"
+   ],
+   "note": "From migflug.com (secondary source); not officially confirmed; air force HQ base at Cadjehoun; page lists no units or aircraft per base"
+  }
+ },
+ {
+  "fil": "africanw__BJ.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "BJ",
+   "base": "Cana Air Base (BACA)",
+   "icao": "DBBC",
+   "location": "BJ",
+   "region": "Zou",
+   "command": "Armée de l'Air",
+   "units": [],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://migflug.com/air-forces/benin-air-force/"
+   ],
+   "note": "From migflug.com (secondary source); not officially confirmed; near Bohicon; page lists no units or aircraft per base"
+  }
+ },
+ {
+  "fil": "africanw__GH.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "GH",
+   "base": "Air Force Base Accra",
+   "icao": "",
+   "location": "GH",
+   "region": "Greater Accra",
+   "command": "Ghana Air Force",
+   "units": [
+    "Ghana Air Force HQ airfield (Burma Camp); main transport airfield"
+   ],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://en.wikipedia.org/wiki/Ghana_Air_Force"
+   ],
+   "note": "Wikipedia lists airfield but not units per base; shares runway with Kotoka airport"
+  }
+ },
+ {
+  "fil": "africanw__GH.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "GH",
+   "base": "Air Force Base Tamale",
+   "icao": "",
+   "location": "GH",
+   "region": "Northern",
+   "command": "Ghana Air Force",
+   "units": [],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://en.wikipedia.org/wiki/Ghana_Air_Force"
+   ],
+   "note": "Wikipedia lists airfield but not units per base; shares runway with Tamale International Airport"
+  }
+ },
+ {
+  "fil": "africanw__ML.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "ML",
+   "base": "Bamako Air Base (BA 100)",
+   "icao": "",
+   "location": "ML",
+   "region": "Bamako",
+   "command": "Région aérienne 1",
+   "units": [],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_du_Mali"
+   ],
+   "note": "French Wikipedia list of air bases (aviationsmilitaires.net); units/aircraft per base not stated; long-established bases only"
+  }
+ },
+ {
+  "fil": "africanw__ML.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "ML",
+   "base": "Senou Air Base (BA 101)",
+   "icao": "",
+   "location": "ML",
+   "region": "Bamako",
+   "command": "Région aérienne 1",
+   "units": [],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_du_Mali"
+   ],
+   "note": "French Wikipedia list of air bases (aviationsmilitaires.net); units/aircraft per base not stated; long-established bases only"
+  }
+ },
+ {
+  "fil": "africanw__ML.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "ML",
+   "base": "Kayes Air Base (BA 102)",
+   "icao": "",
+   "location": "ML",
+   "region": "Kayes",
+   "command": "Région aérienne 1",
+   "units": [],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_du_Mali"
+   ],
+   "note": "French Wikipedia list of air bases (aviationsmilitaires.net); units/aircraft per base not stated; long-established bases only"
+  }
+ },
+ {
+  "fil": "africanw__ML.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "ML",
+   "base": "Sikasso Air Base (BA 103)",
+   "icao": "",
+   "location": "ML",
+   "region": "Sikasso",
+   "command": "Région aérienne 1",
+   "units": [],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_du_Mali"
+   ],
+   "note": "French Wikipedia list of air bases (aviationsmilitaires.net); units/aircraft per base not stated; long-established bases only"
+  }
+ },
+ {
+  "fil": "africanw__ML.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "ML",
+   "base": "Sevare Air Base (BA 200)",
+   "icao": "",
+   "location": "ML",
+   "region": "Mopti",
+   "command": "Région aérienne 2",
+   "units": [],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_du_Mali"
+   ],
+   "note": "French Wikipedia list of air bases (aviationsmilitaires.net); units/aircraft per base not stated; long-established bases only"
+  }
+ },
+ {
+  "fil": "africanw__ML.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "ML",
+   "base": "Tombouctou Air Base (BA 201)",
+   "icao": "",
+   "location": "ML",
+   "region": "Tombouctou",
+   "command": "Région aérienne 2",
+   "units": [],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_du_Mali"
+   ],
+   "note": "French Wikipedia list of air bases (aviationsmilitaires.net); units/aircraft per base not stated; long-established bases only"
+  }
+ },
+ {
+  "fil": "africanw__ML.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "ML",
+   "base": "Gao Air Base (BA 300)",
+   "icao": "",
+   "location": "ML",
+   "region": "Gao",
+   "command": "Région aérienne 3",
+   "units": [],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_du_Mali"
+   ],
+   "note": "French Wikipedia list of air bases (aviationsmilitaires.net); units/aircraft per base not stated; long-established bases only"
+  }
+ },
+ {
+  "fil": "africanw__ML.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "ML",
+   "base": "Tessalit Air Base (BA 301)",
+   "icao": "",
+   "location": "ML",
+   "region": "Kidal",
+   "command": "Région aérienne 3",
+   "units": [],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_du_Mali"
+   ],
+   "note": "French Wikipedia list of air bases (aviationsmilitaires.net); units/aircraft per base not stated; long-established bases only"
+  }
+ },
+ {
+  "fil": "africanw__SN.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "SN",
+   "base": "Kaolack Air Base",
+   "icao": "",
+   "location": "SN",
+   "region": "Kaolack",
+   "command": "Armée de l'Air",
+   "units": [],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_s%C3%A9n%C3%A9galaise"
+   ],
+   "note": "Listed as operational base of the air force on French Wikipedia; units/aircraft per base not stated"
+  }
+ },
+ {
+  "fil": "africanw__SN.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "SN",
+   "base": "Linguere Air Base",
+   "icao": "",
+   "location": "SN",
+   "region": "Louga",
+   "command": "Armée de l'Air",
+   "units": [],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_s%C3%A9n%C3%A9galaise"
+   ],
+   "note": "Listed as operational base of the air force on French Wikipedia; units/aircraft per base not stated"
+  }
+ },
+ {
+  "fil": "africanw__SN.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "SN",
+   "base": "Tambacounda Air Base",
+   "icao": "",
+   "location": "SN",
+   "region": "Tambacounda",
+   "command": "Armée de l'Air",
+   "units": [],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_s%C3%A9n%C3%A9galaise"
+   ],
+   "note": "Listed as operational base of the air force on French Wikipedia; units/aircraft per base not stated"
+  }
+ },
+ {
+  "fil": "africanw__SN.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "SN",
+   "base": "Diass Air Station",
+   "icao": "",
+   "location": "SN",
+   "region": "Thies",
+   "command": "Armée de l'Air",
+   "units": [],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://fr.wikipedia.org/wiki/Arm%C3%A9e_de_l%27air_s%C3%A9n%C3%A9galaise"
+   ],
+   "note": "Listed as operational base of the air force on French Wikipedia; units/aircraft per base not stated"
+  }
+ },
+ {
+  "fil": "africanw__TG.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "TG",
+   "base": "Niamtougou Air Base (Base de Chasse)",
+   "icao": "",
+   "location": "TG",
+   "region": "Kara",
+   "command": "Togolese Air Force",
+   "units": [],
+   "aircraft": [
+    "Alpha Jet (stored)",
+    "EMB 314 A-29 (reported due 2026)"
+   ],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://migflug.com/air-forces/togolese-air-force/"
+   ],
+   "note": "From migflug.com (secondary source, derived from open reporting); not officially confirmed; page says no units published, aircraft attribution to base not confirmed"
+  }
+ },
+ {
+  "fil": "africanw__TG.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "TG",
+   "base": "Lome Air Base (Base de Transport)",
+   "icao": "",
+   "location": "TG",
+   "region": "Maritime",
+   "command": "Togolese Air Force",
+   "units": [],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://migflug.com/air-forces/togolese-air-force/"
+   ],
+   "note": "From migflug.com (secondary source, derived from open reporting); not officially confirmed; transport base at Tokoin airport, units/aircraft not published"
+  }
+ },
+ {
+  "fil": "africase__NA.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "NA",
+   "base": "Karibib Air Force Base",
+   "icao": "",
+   "location": "NA",
+   "region": "Erongo",
+   "command": "",
+   "units": [
+    "Namibian Air Force HQ"
+   ],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://en.wikipedia.org/wiki/Namibian_Air_Force"
+   ],
+   "note": "Air force headquarters; unit allocation not stated."
+  }
+ },
+ {
+  "fil": "africase__RW.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "RW",
+   "base": "Kigali International Airport (Kanombe)",
+   "icao": "",
+   "location": "RW",
+   "region": "Kigali",
+   "command": "",
+   "units": [
+    "Rwandan Air Force helicopter element"
+   ],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://migflug.com/pt/forcas-aereas/forca-aerea-ruandesa/"
+   ],
+   "note": "Military helicopters use two pads on the south side; types not disclosed on the cited page."
+  }
+ },
+ {
+  "fil": "centralasia__AZ.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "AZ",
+   "base": "Kurdamir Air Base",
+   "icao": "",
+   "location": "AZ",
+   "region": "Kurdamir",
+   "command": "Azerbaijani Air Force",
+   "units": [
+    "411th Fighter-Bomber Squadron",
+    "115th Training Squadron"
+   ],
+   "aircraft": [
+    "Su-25",
+    "L-29",
+    "L-39"
+   ],
+   "sources": [
+    "ru.Wikipedia"
+   ],
+   "urls": [
+    "https://ru.wikipedia.org/wiki/Военно-воздушные_силы_Азербайджана",
+    "https://en.wikipedia.org/wiki/Kurdamir_Air_Base"
+   ],
+   "note": "Data 2014-2022 per ru.Wikipedia, unverified version."
+  }
+ },
+ {
+  "fil": "centralasia__AZ.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "AZ",
+   "base": "Dollyar Air Base",
+   "icao": "",
+   "location": "AZ",
+   "region": "Shamkir",
+   "command": "Azerbaijani Air Force",
+   "units": [
+    "422nd Reconnaissance Squadron"
+   ],
+   "aircraft": [],
+   "sources": [
+    "ru.Wikipedia"
+   ],
+   "urls": [
+    "https://ru.wikipedia.org/wiki/Военно-воздушные_силы_Азербайджана",
+    "https://en.wikipedia.org/wiki/Azerbaijan_Air_Force"
+   ],
+   "note": "Types not stated; English article cites Jane's reporting it non-operational."
+  }
+ },
+ {
+  "fil": "eu-abroad__ALL.json",
+  "skäl": "utan urls",
+  "rad": {
+   "operator": "GB",
+   "base": "RAF Mount Pleasant",
+   "icao": "EGYP",
+   "location": "FK",
+   "region": "East Falkland",
+   "command": "British Forces South Atlantic Islands (No. 905 Expeditionary Air Wing)",
+   "units": [
+    "No. 1435 Flight",
+    "No. 1312 Flight"
+   ],
+   "aircraft": [
+    "Typhoon FGR4",
+    "Voyager KC2",
+    "A400M Atlas C1"
+   ],
+   "sources": [
+    "Wikipedia"
+   ],
+   "note": "Permanent overseas flights; the aircraft rotate from UK squadrons."
+  }
+ },
+ {
+  "fil": "eu-abroad__ALL.json",
+  "skäl": "utan urls",
+  "rad": {
+   "operator": "NL",
+   "base": "Fort Hood (Robert Gray Army Airfield)",
+   "icao": "KGRK",
+   "location": "US",
+   "region": "Texas",
+   "command": "Defence Helicopter Command",
+   "units": [
+    "302 Squadron"
+   ],
+   "aircraft": [
+    "AH-64E Apache",
+    "CH-47F Chinook"
+   ],
+   "sources": [
+    "Wikipedia"
+   ],
+   "note": "Permanent Dutch training squadron in the US (not a rotation); the airfield ICAO is from Wikipedia."
+  }
+ },
+ {
+  "fil": "mideast__LB.json",
+  "skäl": "basen står inte på sidan",
+  "rad": {
+   "operator": "LB",
+   "base": "Beirut-Rafic Hariri International Airport",
+   "icao": "",
+   "location": "LB",
+   "region": "",
+   "command": "Lebanese Air Force",
+   "units": [
+    "1st Sqn",
+    "4th Sqn",
+    "12th Sqn",
+    "Presidential Flight"
+   ],
+   "aircraft": [
+    "Bulldog T.1",
+    "AC-208B Combat Caravan",
+    "UH-1H-II",
+    "AW139"
+   ],
+   "sources": [
+    "Wikipedia"
+   ],
+   "note": "",
+   "urls": [
+    "https://en.wikipedia.org/wiki/Lebanese_Air_Force"
+   ]
+  }
+ },
+ {
+  "fil": "namerica__DO.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "DO",
+   "base": "San Isidro Air Base",
+   "icao": "",
+   "location": "DO",
+   "region": "Santo Domingo",
+   "command": "Fuerza Aérea de la República Dominicana",
+   "units": [],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://en.wikipedia.org/wiki/Dominican_Air_Force"
+   ],
+   "note": "Squadrons are not assigned to bases on the page. Force-wide: Combat Sqn Dragones (A-29B Super Tucano, T-35B Pillan), Transport Sqn Pegasos (C-212-400, Citation II, Gulfstream II), Rescue Sqn Aguilas (UH-1H, AW169, EC155, Bell 430), Aviation School."
+  }
+ },
+ {
+  "fil": "namerica__DO.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "DO",
+   "base": "Puerto Plata Air Base",
+   "icao": "",
+   "location": "DO",
+   "region": "Puerto Plata",
+   "command": "Fuerza Aérea de la República Dominicana",
+   "units": [],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://en.wikipedia.org/wiki/Dominican_Air_Force"
+   ],
+   "note": "Squadrons are not assigned to bases on the page. Force-wide: Combat Sqn Dragones (A-29B Super Tucano, T-35B Pillan), Transport Sqn Pegasos (C-212-400, Citation II, Gulfstream II), Rescue Sqn Aguilas (UH-1H, AW169, EC155, Bell 430), Aviation School."
+  }
+ },
+ {
+  "fil": "namerica__DO.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "DO",
+   "base": "Barahona Air Base",
+   "icao": "",
+   "location": "DO",
+   "region": "Barahona",
+   "command": "Fuerza Aérea de la República Dominicana",
+   "units": [],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://en.wikipedia.org/wiki/Dominican_Air_Force"
+   ],
+   "note": "Squadrons are not assigned to bases on the page. Force-wide: Combat Sqn Dragones (A-29B Super Tucano, T-35B Pillan), Transport Sqn Pegasos (C-212-400, Citation II, Gulfstream II), Rescue Sqn Aguilas (UH-1H, AW169, EC155, Bell 430), Aviation School."
+  }
+ },
+ {
+  "fil": "samerica__CL.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "CL",
+   "base": "Concón Naval Air Base",
+   "icao": "",
+   "location": "CL",
+   "region": "Valparaíso",
+   "command": "Aviación Naval de Chile",
+   "units": [
+    "operations base"
+   ],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia (es)"
+   ],
+   "urls": [
+    "https://es.wikipedia.org/wiki/Aviaci%C3%B3n_Naval_de_Chile"
+   ],
+   "note": "Page gives navy fleet only (P-3ACH, P-295 ASW, AS532 Cougar, AS365 Dauphin, PC-7, etc.), not per-base; aircraft left blank"
+  }
+ },
+ {
+  "fil": "seasia__TH.json",
+  "skäl": "basen står inte på sidan",
+  "rad": {
+   "operator": "TH",
+   "base": "Kamphaeng Saen Air Force Base",
+   "icao": "",
+   "location": "TH",
+   "region": "Nakhon Pathom",
+   "command": "Flying Training School",
+   "units": [
+    "Flying Training Squadrons (3)"
+   ],
+   "aircraft": [
+    "CT/4E",
+    "Pilatus PC-9M",
+    "EC135T3H"
+   ],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://en.wikipedia.org/wiki/Royal_Thai_Air_Force"
+   ],
+   "note": ""
+  }
+ },
+ {
+  "fil": "usang__US.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "US",
+   "base": "Joint Base Pearl Harbor-Hickam (JBPHH)",
+   "icao": "",
+   "location": "US",
+   "region": "Hawaii",
+   "command": "Air National Guard",
+   "units": [
+    "154th Wing",
+    "199th Fighter Squadron",
+    "203rd Air Refueling Squadron",
+    "204th Airlift Squadron"
+   ],
+   "aircraft": [
+    "F-22A",
+    "KC-135R",
+    "C-17A"
+   ],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://en.wikipedia.org/wiki/Air_National_Guard"
+   ],
+   "note": ""
+  }
+ },
+ {
+  "fil": "usarmy__US.json",
+  "skäl": "inga förband/typer på sidan",
+  "rad": {
+   "operator": "US",
+   "base": "Libby Army Airfield",
+   "icao": "KFHU",
+   "location": "US",
+   "region": "Arizona",
+   "command": "US Army Intelligence Center / Aviation Center of Excellence",
+   "units": [
+    "2nd Battalion, 13th Aviation Regiment (1st Aviation Brigade)"
+   ],
+   "aircraft": [],
+   "sources": [
+    "Wikipedia"
+   ],
+   "urls": [
+    "https://en.wikipedia.org/wiki/Fort_Huachuca",
+    "https://en.wikipedia.org/wiki/Sierra_Vista_Municipal_Airport"
+   ],
+   "note": "Shared with Sierra Vista Municipal Airport. Aircraft types not stated on cited page."
+  }
+ }
+]

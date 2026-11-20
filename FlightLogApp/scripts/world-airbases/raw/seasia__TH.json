@@ -1,0 +1,320 @@
+[
+ {
+  "operator": "TH",
+  "base": "Korat Royal Thai Air Force Base",
+  "icao": "",
+  "location": "TH",
+  "region": "Nakhon Ratchasima",
+  "command": "Wing 1",
+  "units": [
+   "102 Fighter Squadron",
+   "103 Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-16A/B Block 15 ADF",
+   "F-16A/B Block 15 OCU"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_Thai_Air_Force"
+  ],
+  "note": "101 Fighter Squadron also listed without aircraft"
+ },
+ {
+  "operator": "TH",
+  "base": "Khok Kathiam Air Force Base",
+  "icao": "",
+  "location": "TH",
+  "region": "Lopburi",
+  "command": "Wing 2",
+  "units": [
+   "201 Helicopter Squadron",
+   "202 Helicopter Squadron",
+   "203 Helicopter Squadron"
+  ],
+  "aircraft": [
+   "S-70i",
+   "S-92",
+   "Bell 412",
+   "EC725"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_Thai_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "TH",
+  "base": "Watthana Nakhon (Wing 3)",
+  "icao": "",
+  "location": "TH",
+  "region": "Sa Kaeo",
+  "command": "Wing 3",
+  "units": [
+   "301 UAV Squadron",
+   "302 UAV Squadron",
+   "303 UAV Squadron"
+  ],
+  "aircraft": [
+   "Aerostar BP",
+   "RTAF U-1"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_Thai_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "TH",
+  "base": "Takhli Royal Thai Air Force Base",
+  "icao": "",
+  "location": "TH",
+  "region": "Nakhon Sawan",
+  "command": "Wing 4",
+  "units": [
+   "401 Light Attack Squadron",
+   "402 Elint Reconnaissance Squadron",
+   "403 Fighter Squadron"
+  ],
+  "aircraft": [
+   "T-50TH",
+   "P.180 Avanti",
+   "F-16AM/BM Block 20 MLU"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_Thai_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "TH",
+  "base": "Prachuap Khiri Khan (Wing 5)",
+  "icao": "",
+  "location": "TH",
+  "region": "Prachuap Khiri Khan",
+  "command": "Wing 5",
+  "units": [
+   "501 Light Attack Squadron"
+  ],
+  "aircraft": [
+   "AU-23"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_Thai_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "TH",
+  "base": "Don Mueang Royal Thai Air Force Base",
+  "icao": "",
+  "location": "TH",
+  "region": "Bangkok",
+  "command": "Wing 6 / Royal Security Command",
+  "units": [
+   "601 Transport Squadron",
+   "602 Royal Flight Squadron",
+   "603 Transport Squadron",
+   "604 Civil Pilot Training Squadron",
+   "Dechochai 3 Royal Flight Unit",
+   "904 Aggressor Squadron"
+  ],
+  "aircraft": [
+   "C-130H/H-30",
+   "A319CJ",
+   "A320CJ",
+   "A340-500",
+   "ATR 72-600",
+   "SSJ100-95LR",
+   "CT-4A",
+   "T-41D",
+   "DA42",
+   "B737-400",
+   "B737-800",
+   "F-5E"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_Thai_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "TH",
+  "base": "Surat Thani Air Force Base",
+  "icao": "",
+  "location": "TH",
+  "region": "Surat Thani",
+  "command": "Wing 7",
+  "units": [
+   "701 Fighter Squadron",
+   "702 Air Control Squadron"
+  ],
+  "aircraft": [
+   "JAS-39C/D Gripen",
+   "Saab 340",
+   "S-100B Argus"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_Thai_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "TH",
+  "base": "Ubon Royal Thai Air Force Base",
+  "icao": "",
+  "location": "TH",
+  "region": "Ubon Ratchathani",
+  "command": "Wing 21",
+  "units": [
+   "211 Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-5TH Super Tigris"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_Thai_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "TH",
+  "base": "Udon Thani Royal Thai Air Force Base",
+  "icao": "",
+  "location": "TH",
+  "region": "Udon Thani",
+  "command": "Wing 23",
+  "units": [
+   "231 Attack Squadron"
+  ],
+  "aircraft": [
+   "Alpha Jet A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_Thai_Air_Force"
+  ],
+  "note": "Page spells the base Udorn"
+ },
+ {
+  "operator": "TH",
+  "base": "Chiang Mai Air Force Base",
+  "icao": "",
+  "location": "TH",
+  "region": "Chiang Mai",
+  "command": "Wing 41",
+  "units": [
+   "411 Fighter Squadron"
+  ],
+  "aircraft": [
+   "AT-6TH"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_Thai_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "TH",
+  "base": "Phitsanulok Air Force Base",
+  "icao": "",
+  "location": "TH",
+  "region": "Phitsanulok",
+  "command": "Wing 46",
+  "units": [
+   "461 Transport Squadron"
+  ],
+  "aircraft": [
+   "Basler BT-67"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_Thai_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "TH",
+  "base": "Kamphaeng Saen Air Force Base",
+  "icao": "",
+  "location": "TH",
+  "region": "Nakhon Pathom",
+  "command": "Flying Training School",
+  "units": [
+   "Flying Training Squadrons (3)"
+  ],
+  "aircraft": [
+   "CT/4E",
+   "Pilatus PC-9M",
+   "EC135T3H"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_Thai_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "TH",
+  "base": "Fort Princess Srinagarindra (Army Aviation Center)",
+  "icao": "",
+  "location": "TH",
+  "region": "Lopburi",
+  "command": "Royal Thai Army Aviation Center",
+  "units": [
+   "1st Aviation Battalion",
+   "2nd Aviation Battalion",
+   "3rd Aviation Battalion"
+  ],
+  "aircraft": [
+   "AH-1F Cobra",
+   "AH-6",
+   "AS550 Fennec",
+   "CH-47",
+   "Mi-17V-5",
+   "AW149",
+   "UH-1H",
+   "UH-72A Lakota",
+   "UH-60"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_Thai_Army_Aviation_Center"
+  ],
+  "note": "Aircraft list from infobox, may include retired types"
+ }
+]

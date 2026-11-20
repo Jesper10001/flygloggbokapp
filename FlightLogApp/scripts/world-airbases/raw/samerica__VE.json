@@ -1,0 +1,112 @@
+[
+ {
+  "operator": "VE",
+  "base": "Rafael Urdaneta Air Base (Maracaibo)",
+  "icao": "",
+  "location": "VE",
+  "region": "Zulia",
+  "command": "Aviación Militar Bolivariana - Zona I",
+  "units": [
+   "Grupo Aéreo de Operaciones Especiales N.º 15"
+  ],
+  "aircraft": [
+   "K-8W Karakorum",
+   "Beechcraft A-65 Queen Air",
+   "Beechcraft BE-80 Queen Air"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Aviaci%C3%B3n_Militar_Bolivariana"
+  ],
+  "note": "Aircraft listed at zone level on page"
+ },
+ {
+  "operator": "VE",
+  "base": "Teniente Vicente Landaeta Gil Air Base (Barquisimeto)",
+  "icao": "",
+  "location": "VE",
+  "region": "Lara",
+  "command": "Aviación Militar Bolivariana - Zona II",
+  "units": [
+   "Grupo Aéreo de Caza N.º 12"
+  ],
+  "aircraft": [
+   "K-8W Karakorum"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Aviaci%C3%B3n_Militar_Bolivariana"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "VE",
+  "base": "El Libertador Air Base (Palo Negro)",
+  "icao": "",
+  "location": "VE",
+  "region": "Aragua",
+  "command": "Aviación Militar Bolivariana - Zona III",
+  "units": [
+   "Grupo Aéreo de Transporte N.º 6",
+   "Grupo Aéreo de Inteligencia, Vigilancia y Reconocimiento N.º 8",
+   "Grupo Aéreo de Operaciones Especiales N.º 10",
+   "Grupo Aéreo de Caza N.º 11",
+   "Grupo de Entrenamiento Aéreo N.º 14",
+   "Grupo Aéreo de Caza N.º 16",
+   "Grupo de Entrenamiento Aéreo N.º 18",
+   "Grupo de Entrenamiento Aéreo N.º 19"
+  ],
+  "aircraft": [
+   "C-130H",
+   "Y-8-F200W",
+   "Short 360-300",
+   "Falcon 20C",
+   "C-26B Metro",
+   "CAVIM-Arpía UAV",
+   "AS 332B Super Puma",
+   "AS.532AC Cougar",
+   "Su-30MK2",
+   "F-260EV",
+   "AT-27 Tucano",
+   "T-27 Tucano",
+   "F-16A/B",
+   "Diamond DA-40NG",
+   "DA-42VI",
+   "Enstrom 480B"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Aviaci%C3%B3n_Militar_Bolivariana"
+  ],
+  "note": "Per page, as listed under the Zona III HQ; F-16 status not verified"
+ },
+ {
+  "operator": "VE",
+  "base": "Teniente Luis del Valle García Air Base (Barcelona)",
+  "icao": "",
+  "location": "VE",
+  "region": "Anzoátegui",
+  "command": "Aviación Militar Bolivariana - Zona IV",
+  "units": [
+   "Grupo Aéreo de Caza N.º 13",
+   "Grupo Aéreo de Operaciones Especiales N.º 17"
+  ],
+  "aircraft": [
+   "Su-30MK2",
+   "Mi-17V5"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Aviaci%C3%B3n_Militar_Bolivariana"
+  ],
+  "note": ""
+ }
+]

@@ -1,0 +1,355 @@
+[
+ {
+  "operator": "KR",
+  "base": "Gwangju",
+  "icao": "",
+  "location": "KR",
+  "region": "Gwangju",
+  "command": "Air Combat Command",
+  "units": [
+   "1st Fighter Wing"
+  ],
+  "aircraft": [
+   "T-50"
+  ],
+  "sources": [
+   "Wikipedia (ROKAF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Korea_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "KR",
+  "base": "Wonju",
+  "icao": "",
+  "location": "KR",
+  "region": "Gangwon",
+  "command": "Air Combat Command",
+  "units": [
+   "8th Fighter Wing",
+   "53rd Air Demonstration Group"
+  ],
+  "aircraft": [
+   "FA-50",
+   "KA-1",
+   "HARPY"
+  ],
+  "sources": [
+   "Wikipedia (ROKAF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Korea_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "KR",
+  "base": "Suwon Air Base",
+  "icao": "",
+  "location": "KR",
+  "region": "Gyeonggi",
+  "command": "Air Combat Command",
+  "units": [
+   "10th Fighter Wing"
+  ],
+  "aircraft": [
+   "KF-5E/F"
+  ],
+  "sources": [
+   "Wikipedia (ROKAF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Korea_Air_Force"
+  ],
+  "note": "Page notes F-4E retired from 10th Fighter Wing June 2024"
+ },
+ {
+  "operator": "KR",
+  "base": "Daegu",
+  "icao": "",
+  "location": "KR",
+  "region": "Daegu",
+  "command": "Air Combat Command",
+  "units": [
+   "11th Fighter Wing"
+  ],
+  "aircraft": [
+   "F-15K"
+  ],
+  "sources": [
+   "Wikipedia (ROKAF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Korea_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "KR",
+  "base": "Yecheon Air Base",
+  "icao": "",
+  "location": "KR",
+  "region": "North Gyeongsang",
+  "command": "Air Combat Command",
+  "units": [
+   "16th Fighter Wing",
+   "156th Fighter Squadron"
+  ],
+  "aircraft": [
+   "TA-50",
+   "FA-50",
+   "KF-21"
+  ],
+  "sources": [
+   "Wikipedia (ROKAF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Korea_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "KR",
+  "base": "Cheongju",
+  "icao": "",
+  "location": "KR",
+  "region": "North Chungcheong",
+  "command": "Air Combat Command",
+  "units": [
+   "17th Fighter Wing",
+   "29th Tactical Fighter Weapons Group",
+   "6th Search & Rescue Air Group"
+  ],
+  "aircraft": [
+   "F-35A"
+  ],
+  "sources": [
+   "Wikipedia (ROKAF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Korea_Air_Force"
+  ],
+  "note": "SAR group aircraft not stated on source"
+ },
+ {
+  "operator": "KR",
+  "base": "Gangneung Air Base",
+  "icao": "",
+  "location": "KR",
+  "region": "Gangwon",
+  "command": "Air Combat Command",
+  "units": [
+   "18th Fighter Wing"
+  ],
+  "aircraft": [
+   "KF-5E/F"
+  ],
+  "sources": [
+   "Wikipedia (ROKAF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Korea_Air_Force"
+  ],
+  "note": "Source article elsewhere lists KF-21 first deployment to 18th Wing"
+ },
+ {
+  "operator": "KR",
+  "base": "Jungwon Air Base",
+  "icao": "",
+  "location": "KR",
+  "region": "North Chungcheong",
+  "command": "Air Combat Command",
+  "units": [
+   "19th Fighter Wing",
+   "39th Reconnaissance Wing"
+  ],
+  "aircraft": [
+   "KF-16",
+   "F-16",
+   "RF-16",
+   "RC-800"
+  ],
+  "sources": [
+   "Wikipedia (ROKAF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Korea_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "KR",
+  "base": "Seosan Air Base",
+  "icao": "",
+  "location": "KR",
+  "region": "South Chungcheong",
+  "command": "Air Combat Command",
+  "units": [
+   "20th Fighter Wing"
+  ],
+  "aircraft": [
+   "KF-16"
+  ],
+  "sources": [
+   "Wikipedia (ROKAF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Korea_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "KR",
+  "base": "Kunsan Air Base",
+  "icao": "",
+  "location": "KR",
+  "region": "North Jeolla",
+  "command": "Air Combat Command",
+  "units": [
+   "38th Fighter Group"
+  ],
+  "aircraft": [
+   "KF-16"
+  ],
+  "sources": [
+   "Wikipedia (ROKAF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Korea_Air_Force"
+  ],
+  "note": "ROKAF unit at a base shared with US forces"
+ },
+ {
+  "operator": "KR",
+  "base": "Sacheon",
+  "icao": "",
+  "location": "KR",
+  "region": "South Gyeongsang",
+  "command": "Education & Training / Air Mobility & Reconnaissance Command",
+  "units": [
+   "3rd Flight Training Wing",
+   "Air Force Test & Evaluation Wing"
+  ],
+  "aircraft": [
+   "KT-1",
+   "KF-21"
+  ],
+  "sources": [
+   "Wikipedia (ROKAF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Korea_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "KR",
+  "base": "Gimhae Air Base",
+  "icao": "",
+  "location": "KR",
+  "region": "Busan",
+  "command": "Air Mobility & Reconnaissance Command",
+  "units": [
+   "5th Air Mobility Wing",
+   "51st Air Control Flight Group"
+  ],
+  "aircraft": [
+   "C-130",
+   "CN-235",
+   "KC-330",
+   "E-737"
+  ],
+  "sources": [
+   "Wikipedia (ROKAF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Korea_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "KR",
+  "base": "Seoul Air Base (Seongnam)",
+  "icao": "",
+  "location": "KR",
+  "region": "Gyeonggi",
+  "command": "Air Mobility & Reconnaissance Command",
+  "units": [
+   "15th Special Missions Wing",
+   "35th Flight Group"
+  ],
+  "aircraft": [
+   "C-130",
+   "CN-235"
+  ],
+  "sources": [
+   "Wikipedia (ROKAF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Korea_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "KR",
+  "base": "Pohang",
+  "icao": "",
+  "location": "KR",
+  "region": "North Gyeongsang",
+  "command": "Naval Air Command",
+  "units": [
+   "Naval Air Command (HQ)"
+  ],
+  "aircraft": [
+   "P-8 Poseidon",
+   "AW159 Wildcat"
+  ],
+  "sources": [
+   "Wikipedia (ROK Navy)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Korea_Navy"
+  ],
+  "note": "Naval air station; Naval Air Command has three air groups and ~70 aircraft, per-base split not stated"
+ },
+ {
+  "operator": "KR",
+  "base": "Mokpo",
+  "icao": "",
+  "location": "KR",
+  "region": "South Jeolla",
+  "command": "Naval Air Command",
+  "units": [
+   "Naval Air Command air station"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia (ROK Navy)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Korea_Navy"
+  ],
+  "note": "Naval air station named on source; units/types not stated"
+ },
+ {
+  "operator": "KR",
+  "base": "Jinhae",
+  "icao": "",
+  "location": "KR",
+  "region": "South Gyeongsang",
+  "command": "Naval Air Command",
+  "units": [
+   "Naval Air Command air station"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia (ROK Navy)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Korea_Navy"
+  ],
+  "note": "Naval air station named on source; units/types not stated"
+ }
+]

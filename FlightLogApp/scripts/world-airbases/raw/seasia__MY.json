@@ -1,0 +1,159 @@
+[
+ {
+  "operator": "MY",
+  "base": "RMAF Subang Air Base",
+  "icao": "WMSA",
+  "location": "MY",
+  "region": "Selangor",
+  "command": "Air Operations Command / Air Support Command",
+  "units": [
+   "No. 2 Squadron",
+   "No. 8 Squadron",
+   "No. 16 Squadron",
+   "No. 20 Squadron",
+   "No. 21 Squadron"
+  ],
+  "aircraft": [
+   "Airbus A319CJ",
+   "A320-214CJ",
+   "Global Express",
+   "S-70A",
+   "A400M Atlas",
+   "Beechcraft 200T",
+   "C-130H Hercules",
+   "KC-130T",
+   "CN235-220M"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_Malaysian_Air_Force",
+   "https://en.wikipedia.org/wiki/RMAF_Subang_Air_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "MY",
+  "base": "RMAF Butterworth Air Base",
+  "icao": "WMKB",
+  "location": "MY",
+  "region": "Penang",
+  "command": "Air Region 1",
+  "units": [
+   "No. 3 Squadron",
+   "No. 15 Squadron",
+   "No. 18 Squadron"
+  ],
+  "aircraft": [
+   "AW139",
+   "Hawk 108/Hawk 208",
+   "F/A-18D Hornet"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_Malaysian_Air_Force",
+   "https://en.wikipedia.org/wiki/RMAF_Butterworth_Air_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "MY",
+  "base": "RMAF Kuantan Air Base",
+  "icao": "WMKD",
+  "location": "MY",
+  "region": "Pahang",
+  "command": "Air Region 1",
+  "units": [
+   "No. 10 Squadron"
+  ],
+  "aircraft": [
+   "EC725"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_Malaysian_Air_Force",
+   "https://en.wikipedia.org/wiki/RMAF_Kuantan_Air_Base"
+  ],
+  "note": "Page also lists Nos. 17 and 19 Squadrons and a training squadron; aircraft not confirmed in extract"
+ },
+ {
+  "operator": "MY",
+  "base": "RMAF Gong Kedak Air Base",
+  "icao": "WMGK",
+  "location": "MY",
+  "region": "Kelantan",
+  "command": "Air Region 1",
+  "units": [
+   "No. 12 Squadron"
+  ],
+  "aircraft": [
+   "Su-30MKM"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_Malaysian_Air_Force",
+   "https://en.wikipedia.org/wiki/RMAF_Gong_Kedak_Air_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "MY",
+  "base": "RMAF Labuan Air Base",
+  "icao": "WBKL",
+  "location": "MY",
+  "region": "Labuan",
+  "command": "Air Region 2",
+  "units": [
+   "No. 5 Squadron",
+   "No. 6 Squadron",
+   "No. 11 Squadron",
+   "No. 14 Squadron"
+  ],
+  "aircraft": [
+   "EC725",
+   "Hawk 108/Hawk 208",
+   "Anka-S",
+   "C-130H Hercules"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_Malaysian_Air_Force",
+   "https://en.wikipedia.org/wiki/RMAF_Labuan_Air_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "MY",
+  "base": "RMAF Kuching Air Base",
+  "icao": "WBGG",
+  "location": "MY",
+  "region": "Sarawak",
+  "command": "Air Region 2",
+  "units": [
+   "No. 1 Squadron",
+   "No. 7 Squadron"
+  ],
+  "aircraft": [
+   "CN-235-220M",
+   "AW139",
+   "AW149"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_Malaysian_Air_Force",
+   "https://en.wikipedia.org/wiki/RMAF_Kuching_Air_Base"
+  ],
+  "note": ""
+ }
+]

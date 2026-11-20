@@ -1,0 +1,51 @@
+JP RJSH JMSDF Hachinohe Air Base / Hachinohe Airport: «Hachinohe Air Base» + «Hachinohe»
+JP RJOF JASDF Hofu Airfield: «Hōfu Air Field» + «Hofu»
+JP RJOS Tokushima Awaodori Airport / JMSDF Tokushima Air Base: «Tokushima» + «Kita-Tokushima»
+MX MMLP Manuel Márquez de León International Airport: «La Paz Air Force Base (AFB 9)» + «La Paz Naval Air Base»
+MX MX-2145 Base Aeronaval Acapulco: «Acapulco Air Force Base (AFB 7)» + «Acapulco Naval Air Base»
+MX MX-2122 Mexico City Air Base: «Mexico City Air Force Base (AFB 19)» + «Mexico City Naval Air Station»
+BR SBCG Campo Grande Airport: «Campo Grande Air Base» + «Campo Grande (Army aviation)»
+BR SBMN Ponta Pelada Airport / Manaus Air Base: «Manaus Air Base» + «Manaus (Army aviation)»
+BR BR-2445 Eletronorte Belém Heliport: «Belém Air Base» + «Belém (Army aviation)»
+CL SCTE El Tepual International Airport: «El Tepual Air Base (Puerto Montt)» + «El Tepual Airport (Puerto Montt) naval air group»
+TH VTPI Takhli Royal Thai Air Force Base: «Korat Royal Thai Air Force Base» + «Takhli Royal Thai Air Force Base»
+TH VTPI Takhli Royal Thai Air Force Base: «Korat Royal Thai Air Force Base» + «Ubon Royal Thai Air Force Base»
+TH VTPI Takhli Royal Thai Air Force Base: «Korat Royal Thai Air Force Base» + «Udon Thani Royal Thai Air Force Base»
+US PAEI Eielson Air Force Base: «Eielson Air Force Base» + «Eielson AFB»
+US KDMA Davis Monthan Air Force Base: «Davis-Monthan Air Force Base» + «Davis-Monthan AFB»
+US KLRF Little Rock Air Force Base: «Little Rock Air Force Base» + «Little Rock AFB»
+US KADW Joint Base Andrews: «Joint Base Andrews» + «Joint Base Andrews (JB Andrews)»
+US KBLV Scott AFB/Midamerica Airport: «Scott Air Force Base» + «Scott AFB»
+US KSZL Whiteman Air Force Base: «Whiteman Air Force Base» + «Whiteman AFB»
+US US-3299 Kirtland Air Force Base Auxiliary Field: «Kirtland Air Force Base» + «Kirtland AFB»
+US KTIK Tinker Air Force Base: «Tinker Air Force Base» + «Tinker AFB»
+US KLFI Langley Air Force Base: «Joint Base Langley-Eustis» + «Langley AFB»
+US KSKA Fairchild Air Force Base: «Fairchild Air Force Base» + «Fairchild AFB»
+US KCHS Charleston International Airport: «Joint Base Charleston» + «Joint Base Charleston»
+US KSUU Travis Air Force Base: «Travis Air Force Base» + «Travis AFB»
+US KSKF Lackland Air Force Base: «Kelly Field Annex» + «JBSA-Lackland»
+US KDOV Dover Civil Air Terminal/Dover Air Force Base: «Dover Air Force Base» + «Dover AFB»
+US KGSB Seymour Johnson Air Force Base: «Seymour Johnson Air Force Base» + «Seymour Johnson AFB»
+US KMCF MacDill Air Force Base: «MacDill Air Force Base» + «MacDill AFB»
+US KIAB McConnell Air Force Base: «McConnell Air Force Base» + «McConnell AFB»
+US KBAB Beale Air Force Base: «Beale Air Force Base» + «Beale AFB»
+US KPAM Tyndall Air Force Base: «Tyndall Air Force Base» + «Tyndall AFB»
+US KBAD Barksdale Air Force Base: «Barksdale Air Force Base» + «Barksdale AFB»
+US KRND Randolph Air Force Base: «Randolph Air Force Base (JBSA-Randolph)» + «Randolph Field (JBSA-Randolph)»
+US KHIF Hill Air Force Base: «Hill Air Force Base» + «Hill AFB»
+US KVAD Moody Air Force Base: «Moody Air Force Base» + «Moody AFB»
+US KEGI Duke Field: «Duke Field» + «Duke Field»
+US KLSV Nellis Air Force Base: «Nellis Air Force Base» + «Nellis AFB»
+US KLUF Luke Air Force Base: «Luke Air Force Base» + «Luke AFB»
+US KGRF Gray Army Air Field: «Joint Base Lewis-McChord (JBLM)» + «Gray Army Airfield»
+US KNBG New Orleans NAS JRB/Alvin Callender Field: «NAS JRB New Orleans» + «Coast Guard Air Station New Orleans»
+US KNTD Point Mugu Naval Air Station (Naval Base Ventura Co): «Channel Islands ANGS (Point Mugu)» + «Coast Guard Air Station Ventura County»
+US KNTD Point Mugu Naval Air Station (Naval Base Ventura Co): «Channel Islands ANGS (Point Mugu)» + «Naval Base Ventura County, Point Mugu»
+US KNIP Jacksonville Naval Air Station (Towers Field): «Jacksonville ANGB» + «Naval Air Station Jacksonville»
+US KNBG New Orleans NAS JRB/Alvin Callender Field: «NAS JRB New Orleans» + «Naval Air Station Joint Reserve Base New Orleans (Belle Chasse)»
+US KADW Joint Base Andrews: «Joint Base Andrews» + «Joint Base Andrews»
+US  : «Joint Base McGuire-Dix-Lakehurst» + «Joint Base McGuire-Dix-Lakehurst»
+US KNFW NAS Fort Worth JRB / Carswell Field: «NAS JRB Fort Worth» + «Naval Air Station Joint Reserve Base Fort Worth (Carswell Field)»
+US PGUA Andersen Air Force Base: «Andersen Air Force Base» + «Andersen Air Force Base»
+US KNGP Naval Air Station Corpus Christi Truax Field: «Coast Guard Air Station Corpus Christi» + «Naval Air Station Corpus Christi»
+US KTIK Tinker Air Force Base: «Tinker Air Force Base» + «Tinker Air Force Base»

@@ -1,0 +1,74 @@
+[
+ {
+  "operator": "BW",
+  "base": "Maparangwane Air Base (Thebephatshwa)",
+  "icao": "",
+  "location": "BW",
+  "region": "Kweneng",
+  "command": "",
+  "units": [
+   "Z1 Squadron",
+   "Z7 Training Squadron",
+   "Z10 Squadron",
+   "Z21 Squadron",
+   "Z23 Squadron",
+   "Z28 Fighter Squadron"
+  ],
+  "aircraft": [
+   "PC-7 Mk II",
+   "King Air 200",
+   "C-130",
+   "C-212",
+   "CN-235",
+   "Bell 412",
+   "AS350",
+   "CF-5"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Arm_Command_(Botswana)"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "BW",
+  "base": "Francistown Airport",
+  "icao": "",
+  "location": "BW",
+  "region": "North-East",
+  "command": "",
+  "units": [
+   "Z3 Transport (Liaison) Squadron",
+   "Z12 Transport Squadron"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Arm_Command_(Botswana)"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "BW",
+  "base": "Sir Seretse Khama International Airport",
+  "icao": "",
+  "location": "BW",
+  "region": "South-East",
+  "command": "",
+  "units": [
+   "VIP Flight Squadron"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Arm_Command_(Botswana)"
+  ],
+  "note": "Gaborone."
+ }
+]

@@ -1,0 +1,2484 @@
+[
+ {
+  "operator": "US",
+  "base": "Montgomery ANGB (Dannelly Field)",
+  "icao": "",
+  "location": "US",
+  "region": "Alabama",
+  "command": "Air National Guard",
+  "units": [
+   "187th Fighter Wing",
+   "100th Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-35A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Sumpter Smith ANGB (Birmingham)",
+  "icao": "",
+  "location": "US",
+  "region": "Alabama",
+  "command": "Air National Guard",
+  "units": [
+   "117th Air Refueling Wing",
+   "106th Air Refueling Squadron"
+  ],
+  "aircraft": [
+   "KC-135R"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Eielson AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Alaska",
+  "command": "Air National Guard",
+  "units": [
+   "168th Wing",
+   "168th Air Refueling Squadron"
+  ],
+  "aircraft": [
+   "KC-135R"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Joint Base Elmendorf-Richardson (JBER)",
+  "icao": "",
+  "location": "US",
+  "region": "Alaska",
+  "command": "Air National Guard; Air Force Reserve Command",
+  "units": [
+   "176th Wing",
+   "144th Airlift Squadron",
+   "210th Rescue Squadron",
+   "211th Rescue Squadron",
+   "477th Fighter Group"
+  ],
+  "aircraft": [
+   "C-17A",
+   "HH-60G",
+   "HC-130J",
+   "F-22A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard",
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Barry M. Goldwater ANGB (Phoenix)",
+  "icao": "",
+  "location": "US",
+  "region": "Arizona",
+  "command": "Air National Guard",
+  "units": [
+   "161st Air Refueling Wing",
+   "197th Air Refueling Squadron"
+  ],
+  "aircraft": [
+   "KC-135R"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Tucson ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Arizona",
+  "command": "Air National Guard",
+  "units": [
+   "162nd Wing",
+   "148th Fighter Squadron",
+   "152nd Fighter Squadron",
+   "195th Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-16C/D",
+   "F-16A/B/E/F"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Davis-Monthan AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Arizona",
+  "command": "Air National Guard; Air Force Reserve Command",
+  "units": [
+   "214th Attack Group",
+   "214th Attack Squadron",
+   "924th Fighter Group"
+  ],
+  "aircraft": [
+   "MQ-9A",
+   "A-10C"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard",
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Ebbing ANGB (Fort Smith)",
+  "icao": "",
+  "location": "US",
+  "region": "Arkansas",
+  "command": "Air National Guard",
+  "units": [
+   "188th Wing",
+   "184th Attack Squadron"
+  ],
+  "aircraft": [
+   "MQ-9A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Little Rock AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Arkansas",
+  "command": "Air National Guard; Air Force Reserve Command",
+  "units": [
+   "189th Airlift Wing",
+   "154th Training Squadron",
+   "913th Airlift Group"
+  ],
+  "aircraft": [
+   "C-130H",
+   "C-130J"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard",
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Moffett Federal Airfield",
+  "icao": "",
+  "location": "US",
+  "region": "California",
+  "command": "Air National Guard",
+  "units": [
+   "129th Rescue Wing",
+   "129th Rescue Squadron",
+   "130th Rescue Squadron"
+  ],
+  "aircraft": [
+   "HH-60W",
+   "HC-130J"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Fresno ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "California",
+  "command": "Air National Guard",
+  "units": [
+   "144th Fighter Wing",
+   "194th Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-15C/D"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Channel Islands ANGS (Point Mugu)",
+  "icao": "",
+  "location": "US",
+  "region": "California",
+  "command": "Air National Guard",
+  "units": [
+   "146th Airlift Wing",
+   "115th Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-130J-30"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "March ARB",
+  "icao": "",
+  "location": "US",
+  "region": "California",
+  "command": "Air National Guard; Air Force Reserve Command",
+  "units": [
+   "163rd Attack Wing",
+   "196th Attack Squadron",
+   "452d Air Mobility Wing"
+  ],
+  "aircraft": [
+   "MQ-9A",
+   "C-17A",
+   "KC-135R"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard",
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Buckley SFB",
+  "icao": "",
+  "location": "US",
+  "region": "Colorado",
+  "command": "Air National Guard",
+  "units": [
+   "140th Wing",
+   "120th Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-16C/D"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Bradley ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Connecticut",
+  "command": "Air National Guard",
+  "units": [
+   "103rd Airlift Wing",
+   "118th Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-130H"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "New Castle ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Delaware",
+  "command": "Air National Guard",
+  "units": [
+   "166th Airlift Wing",
+   "142nd Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-130H"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Joint Base Andrews (JB Andrews)",
+  "icao": "",
+  "location": "US",
+  "region": "Maryland",
+  "command": "Air National Guard; Air Force Reserve Command",
+  "units": [
+   "113th Wing",
+   "121st Fighter Squadron",
+   "201st Airlift Squadron",
+   "459th Air Refueling Wing"
+  ],
+  "aircraft": [
+   "F-16C/D",
+   "C-40C",
+   "KC-135R"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard",
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Jacksonville ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Florida",
+  "command": "Air National Guard",
+  "units": [
+   "125th Fighter Wing",
+   "159th Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-35A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Savannah ANGB (Hilton Head IAP)",
+  "icao": "",
+  "location": "US",
+  "region": "Georgia",
+  "command": "Air National Guard",
+  "units": [
+   "165th Airlift Wing",
+   "158th Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-130J-30"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Joint Base Pearl Harbor-Hickam (JBPHH)",
+  "icao": "",
+  "location": "US",
+  "region": "Hawaii",
+  "command": "Air National Guard",
+  "units": [
+   "154th Wing",
+   "199th Fighter Squadron",
+   "203rd Air Refueling Squadron",
+   "204th Airlift Squadron"
+  ],
+  "aircraft": [
+   "F-22A",
+   "KC-135R",
+   "C-17A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Gowen Field ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Idaho",
+  "command": "Air National Guard",
+  "units": [
+   "124th Fighter Wing",
+   "190th Fighter Squadron"
+  ],
+  "aircraft": [
+   "A-10C"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Scott AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Illinois",
+  "command": "Air National Guard; Air Force Reserve Command",
+  "units": [
+   "126th Air Refueling Wing",
+   "108th Air Refueling Squadron",
+   "932d Airlift Wing"
+  ],
+  "aircraft": [
+   "KC-135R",
+   "C-40C"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard",
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Peoria ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Illinois",
+  "command": "Air National Guard",
+  "units": [
+   "182nd Airlift Wing",
+   "169th Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-130H"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Fort Wayne ANGS",
+  "icao": "",
+  "location": "US",
+  "region": "Indiana",
+  "command": "Air National Guard",
+  "units": [
+   "122nd Fighter Wing",
+   "163rd Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-16C/D"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Des Moines ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Iowa",
+  "command": "Air National Guard",
+  "units": [
+   "132nd Fighter Wing",
+   "124th Attack Squadron"
+  ],
+  "aircraft": [
+   "MQ-9A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Sioux City ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Iowa",
+  "command": "Air National Guard",
+  "units": [
+   "185th Air Refueling Wing",
+   "174th Air Refueling Squadron"
+  ],
+  "aircraft": [
+   "KC-135R"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Forbes Field ANGB (Topeka)",
+  "icao": "",
+  "location": "US",
+  "region": "Kansas",
+  "command": "Air National Guard",
+  "units": [
+   "190th Air Refueling Wing",
+   "117th Air Refueling Squadron"
+  ],
+  "aircraft": [
+   "KC-135R"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Louisville ANGB (Standiford Field)",
+  "icao": "",
+  "location": "US",
+  "region": "Kentucky",
+  "command": "Air National Guard",
+  "units": [
+   "123rd Airlift Wing",
+   "165th Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-130J-30"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "NAS JRB New Orleans",
+  "icao": "",
+  "location": "US",
+  "region": "Louisiana",
+  "command": "Air National Guard",
+  "units": [
+   "159th Fighter Wing",
+   "122nd Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-15C/D"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Bangor ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Maine",
+  "command": "Air National Guard",
+  "units": [
+   "101st Air Refueling Wing",
+   "132nd Air Refueling Squadron"
+  ],
+  "aircraft": [
+   "KC-135R"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Martin State Airport (Warfield ANGB)",
+  "icao": "",
+  "location": "US",
+  "region": "Maryland",
+  "command": "Air National Guard",
+  "units": [
+   "175th Wing",
+   "104th Fighter Squadron"
+  ],
+  "aircraft": [
+   "A-10C"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Barnes ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Massachusetts",
+  "command": "Air National Guard",
+  "units": [
+   "104th Fighter Wing",
+   "131st Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-15C/D"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Selfridge ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Michigan",
+  "command": "Air National Guard",
+  "units": [
+   "127th Wing",
+   "107th Fighter Squadron",
+   "171st Air Refueling Squadron"
+  ],
+  "aircraft": [
+   "A-10C",
+   "KC-135T"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Battle Creek ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Michigan",
+  "command": "Air National Guard",
+  "units": [
+   "110th Attack Wing",
+   "172nd Attack Squadron"
+  ],
+  "aircraft": [
+   "MQ-9A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Minneapolis-St. Paul ARS",
+  "icao": "",
+  "location": "US",
+  "region": "Minnesota",
+  "command": "Air National Guard; Air Force Reserve Command",
+  "units": [
+   "133rd Airlift Wing",
+   "109th Airlift Squadron",
+   "934th Airlift Wing"
+  ],
+  "aircraft": [
+   "C-130H"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard",
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Duluth ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Minnesota",
+  "command": "Air National Guard",
+  "units": [
+   "148th Fighter Wing",
+   "179th Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-16C/D"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Jackson ANGB (Allen C. Thompson Field)",
+  "icao": "",
+  "location": "US",
+  "region": "Mississippi",
+  "command": "Air National Guard",
+  "units": [
+   "172nd Airlift Wing",
+   "183rd Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-17A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Key Field ANGB (Meridian)",
+  "icao": "",
+  "location": "US",
+  "region": "Mississippi",
+  "command": "Air National Guard",
+  "units": [
+   "186th Air Refueling Wing",
+   "153rd Air Refueling Squadron"
+  ],
+  "aircraft": [
+   "KC-135R"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Whiteman AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Missouri",
+  "command": "Air National Guard; Air Force Reserve Command",
+  "units": [
+   "131st Bomb Wing",
+   "110th Bomb Squadron",
+   "442d Fighter Wing"
+  ],
+  "aircraft": [
+   "B-2A",
+   "A-10C"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard",
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Rosecrans ANGB (St. Joseph)",
+  "icao": "",
+  "location": "US",
+  "region": "Missouri",
+  "command": "Air National Guard",
+  "units": [
+   "139th Airlift Wing",
+   "180th Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-130H2"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Great Falls ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Montana",
+  "command": "Air National Guard",
+  "units": [
+   "120th Airlift Wing",
+   "186th Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-130H"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Lincoln ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Nebraska",
+  "command": "Air National Guard",
+  "units": [
+   "155th Air Refueling Wing",
+   "173rd Air Refueling Squadron"
+  ],
+  "aircraft": [
+   "KC-135R"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Reno ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Nevada",
+  "command": "Air National Guard",
+  "units": [
+   "152nd Airlift Wing",
+   "192nd Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-130H"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Pease ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "New Hampshire",
+  "command": "Air National Guard",
+  "units": [
+   "157th Air Refueling Wing",
+   "133rd Air Refueling Squadron"
+  ],
+  "aircraft": [
+   "KC-46A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Joint Base McGuire-Dix-Lakehurst (JB McGuire-Dix-Lakehurst)",
+  "icao": "",
+  "location": "US",
+  "region": "New Jersey",
+  "command": "Air National Guard; Air Force Reserve Command",
+  "units": [
+   "108th Wing",
+   "141st Air Refueling Squadron",
+   "170th Air Refueling Squadron",
+   "150th Special Operations Squadron",
+   "514th Air Mobility Wing"
+  ],
+  "aircraft": [
+   "KC-46A",
+   "C-32B",
+   "C-17A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard",
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Atlantic City ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "New Jersey",
+  "command": "Air National Guard",
+  "units": [
+   "177th Fighter Wing",
+   "119th Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-16C/D"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Kirtland AFB",
+  "icao": "",
+  "location": "US",
+  "region": "New Mexico",
+  "command": "Air National Guard",
+  "units": [
+   "150th Special Operations Wing",
+   "188th Rescue Squadron"
+  ],
+  "aircraft": [
+   "HC-130J",
+   "HH-60G",
+   "CV-22B"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Stewart ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "New York",
+  "command": "Air National Guard",
+  "units": [
+   "105th Airlift Wing",
+   "137th Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-17A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Francis S. Gabreski ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "New York",
+  "command": "Air National Guard",
+  "units": [
+   "106th Rescue Wing",
+   "101st Rescue Squadron",
+   "102nd Rescue Squadron"
+  ],
+  "aircraft": [
+   "HH-60W",
+   "HC-130J"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Niagara Falls ARS",
+  "icao": "",
+  "location": "US",
+  "region": "New York",
+  "command": "Air National Guard; Air Force Reserve Command",
+  "units": [
+   "107th Attack Wing",
+   "136th Air Squadron",
+   "914th Air Refueling Wing"
+  ],
+  "aircraft": [
+   "MQ-9A",
+   "KC-135R"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard",
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Stratton ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "New York",
+  "command": "Air National Guard",
+  "units": [
+   "109th Airlift Wing",
+   "139th Airlift Squadron"
+  ],
+  "aircraft": [
+   "LC-130H",
+   "C-130H"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Hancock Field ANGB (Syracuse)",
+  "icao": "",
+  "location": "US",
+  "region": "New York",
+  "command": "Air National Guard",
+  "units": [
+   "174th Attack Wing",
+   "138th Attack Squadron"
+  ],
+  "aircraft": [
+   "MQ-9A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Charlotte ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "North Carolina",
+  "command": "Air National Guard",
+  "units": [
+   "145th Airlift Wing",
+   "156th Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-17A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Fargo ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "North Dakota",
+  "command": "Air National Guard",
+  "units": [
+   "119th Wing",
+   "178th Attack Squadron"
+  ],
+  "aircraft": [
+   "MQ-9A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Rickenbacker ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Ohio",
+  "command": "Air National Guard",
+  "units": [
+   "121st Air Refueling Wing",
+   "145th Air Refueling Squadron",
+   "166th Air Refueling Squadron"
+  ],
+  "aircraft": [
+   "KC-135R"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Springfield ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Ohio",
+  "command": "Air National Guard",
+  "units": [
+   "178th Wing",
+   "162nd Attack Squadron"
+  ],
+  "aircraft": [
+   "MQ-9A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Mansfield Lahm ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Ohio",
+  "command": "Air National Guard",
+  "units": [
+   "179th Airlift Wing",
+   "164th Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-130H"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Toledo ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Ohio",
+  "command": "Air National Guard",
+  "units": [
+   "180th Fighter Wing",
+   "112th Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-16C/D"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Tinker AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Oklahoma",
+  "command": "Air National Guard; Air Force Reserve Command",
+  "units": [
+   "137th Air Refueling Wing",
+   "185th Special Operations Squadron",
+   "507th Air Refueling Wing",
+   "513th Air Control Group"
+  ],
+  "aircraft": [
+   "MC-12W",
+   "OA-1K",
+   "KC-135R",
+   "E-3G"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard",
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Tulsa ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Oklahoma",
+  "command": "Air National Guard",
+  "units": [
+   "138th Fighter Wing",
+   "125th Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-16C/D"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Portland ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Oregon",
+  "command": "Air National Guard",
+  "units": [
+   "142nd Wing",
+   "123rd Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-15C/D",
+   "F-15EX"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Kingsley Field ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Oregon",
+  "command": "Air National Guard",
+  "units": [
+   "173rd Fighter Wing",
+   "114th Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-15C/D"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Pittsburgh IAP ARS",
+  "icao": "",
+  "location": "US",
+  "region": "Pennsylvania",
+  "command": "Air National Guard; Air Force Reserve Command",
+  "units": [
+   "171st Air Refueling Wing",
+   "146th Air Refueling Squadron",
+   "147th Air Refueling Squadron",
+   "911th Airlift Wing"
+  ],
+  "aircraft": [
+   "KC-135T",
+   "C-17A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard",
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Harrisburg ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Pennsylvania",
+  "command": "Air National Guard",
+  "units": [
+   "193rd Special Operations Wing",
+   "193rd Special Operations Squadron"
+  ],
+  "aircraft": [
+   "MC-130J"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "NAS JRB Willow Grove (Biddle ANGB)",
+  "icao": "",
+  "location": "US",
+  "region": "Pennsylvania",
+  "command": "Air National Guard",
+  "units": [
+   "111th Attack Wing",
+   "103rd Attack Squadron"
+  ],
+  "aircraft": [
+   "MQ-9A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Quonset ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Rhode Island",
+  "command": "Air National Guard",
+  "units": [
+   "143rd Airlift Wing",
+   "143rd Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-130J-30"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "McEntire JNGB",
+  "icao": "",
+  "location": "US",
+  "region": "South Carolina",
+  "command": "Air National Guard",
+  "units": [
+   "169th Fighter Wing",
+   "157th Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-16CM/DM"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Joe Foss Field ANGS (Sioux Falls)",
+  "icao": "",
+  "location": "US",
+  "region": "South Dakota",
+  "command": "Air National Guard",
+  "units": [
+   "114th Fighter Wing",
+   "175th Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-16C/D"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Berry Field ANGB (Nashville)",
+  "icao": "",
+  "location": "US",
+  "region": "Tennessee",
+  "command": "Air National Guard",
+  "units": [
+   "118th Wing",
+   "105th Airlift Squadron"
+  ],
+  "aircraft": [
+   "MQ-9A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "McGhee Tyson ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Tennessee",
+  "command": "Air National Guard",
+  "units": [
+   "134th Air Refueling Wing",
+   "151st Air Refueling Squadron"
+  ],
+  "aircraft": [
+   "KC-135R"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Memphis ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Tennessee",
+  "command": "Air National Guard",
+  "units": [
+   "164th Airlift Wing",
+   "155th Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-17A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "NAS JRB Fort Worth",
+  "icao": "",
+  "location": "US",
+  "region": "Texas",
+  "command": "Air National Guard; Air Force Reserve Command",
+  "units": [
+   "136th Airlift Wing",
+   "181st Airlift Squadron",
+   "301st Fighter Wing"
+  ],
+  "aircraft": [
+   "C-130J-30",
+   "F-35A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard",
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Ellington Field JRB",
+  "icao": "",
+  "location": "US",
+  "region": "Texas",
+  "command": "Air National Guard",
+  "units": [
+   "147th Attack Wing",
+   "111th Attack Squadron"
+  ],
+  "aircraft": [
+   "MQ-9A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Kelly Field Annex",
+  "icao": "",
+  "location": "US",
+  "region": "Texas",
+  "command": "Air National Guard",
+  "units": [
+   "149th Fighter Wing",
+   "182nd Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-16C/D"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Roland R. Wright ANGB (Salt Lake City)",
+  "icao": "",
+  "location": "US",
+  "region": "Utah",
+  "command": "Air National Guard",
+  "units": [
+   "151st Air Refueling Wing",
+   "191st Air Refueling Squadron"
+  ],
+  "aircraft": [
+   "KC-135R"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Burlington ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Vermont",
+  "command": "Air National Guard",
+  "units": [
+   "158th Fighter Wing",
+   "134th Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-35A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Langley AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Virginia",
+  "command": "Air National Guard",
+  "units": [
+   "192nd Fighter Wing",
+   "149th Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-22A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Fairchild AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Washington",
+  "command": "Air National Guard",
+  "units": [
+   "141st Air Refueling Wing",
+   "116th Air Refueling Squadron"
+  ],
+  "aircraft": [
+   "KC-135R"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Yeager Airport (McLaughlin ANGB, Charleston)",
+  "icao": "",
+  "location": "US",
+  "region": "West Virginia",
+  "command": "Air National Guard",
+  "units": [
+   "130th Airlift Wing",
+   "130th Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-130J-30"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Shepherd Field ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "West Virginia",
+  "command": "Air National Guard",
+  "units": [
+   "167th Airlift Wing",
+   "167th Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-17A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Truax Field ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Wisconsin",
+  "command": "Air National Guard",
+  "units": [
+   "115th Fighter Wing",
+   "176th Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-35A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "General Mitchell ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Wisconsin",
+  "command": "Air National Guard",
+  "units": [
+   "128th Air Refueling Wing",
+   "126th Air Refueling Squadron"
+  ],
+  "aircraft": [
+   "KC-135R"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Cheyenne ANGB",
+  "icao": "",
+  "location": "US",
+  "region": "Wyoming",
+  "command": "Air National Guard",
+  "units": [
+   "153rd Airlift Wing",
+   "187th Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-130H"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_National_Guard"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Joint Base Charleston",
+  "icao": "",
+  "location": "US",
+  "region": "South Carolina",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "315th Airlift Wing"
+  ],
+  "aircraft": [
+   "C-17A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Travis AFB",
+  "icao": "",
+  "location": "US",
+  "region": "California",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "349th Air Mobility Wing"
+  ],
+  "aircraft": [
+   "C-5M",
+   "C-17A",
+   "KC-46A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "JBSA-Lackland",
+  "icao": "",
+  "location": "US",
+  "region": "Texas",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "433d Airlift Wing"
+  ],
+  "aircraft": [
+   "C-5M"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Grissom ARB",
+  "icao": "",
+  "location": "US",
+  "region": "Indiana",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "434th Air Refueling Wing"
+  ],
+  "aircraft": [
+   "KC-135R"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Wright-Patterson AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Ohio",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "445th Airlift Wing"
+  ],
+  "aircraft": [
+   "C-17A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Joint Base Lewis-McChord (JBLM)",
+  "icao": "",
+  "location": "US",
+  "region": "Washington",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "446th Airlift Wing"
+  ],
+  "aircraft": [
+   "C-17A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Dover AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Delaware",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "512th Airlift Wing"
+  ],
+  "aircraft": [
+   "C-5M",
+   "C-17A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Seymour Johnson AFB",
+  "icao": "",
+  "location": "US",
+  "region": "North Carolina",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "916th Air Refueling Wing",
+   "414th Fighter Group"
+  ],
+  "aircraft": [
+   "KC-46A",
+   "F-15E"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "MacDill AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Florida",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "927th Air Refueling Wing"
+  ],
+  "aircraft": [
+   "KC-135R/T"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "McConnell AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Kansas",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "931st Air Refueling Wing"
+  ],
+  "aircraft": [
+   "KC-135R/T",
+   "KC-46A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Beale AFB",
+  "icao": "",
+  "location": "US",
+  "region": "California",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "940th Air Refueling Wing"
+  ],
+  "aircraft": [
+   "KC-135R"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Tyndall AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Florida",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "44th Fighter Group"
+  ],
+  "aircraft": [
+   "F-22A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Barksdale AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Louisiana",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "307th Bomb Wing"
+  ],
+  "aircraft": [
+   "B-52H"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Randolph Field (JBSA-Randolph)",
+  "icao": "",
+  "location": "US",
+  "region": "Texas",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "340th Flying Training Group"
+  ],
+  "aircraft": [
+   "T-1A",
+   "T-6A",
+   "T-38B/C",
+   "AT-38B"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Hill AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Utah",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "419th Fighter Wing"
+  ],
+  "aircraft": [
+   "F-35A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Moody AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Georgia",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "476th Fighter Group"
+  ],
+  "aircraft": [
+   "A-10C"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Homestead ARB",
+  "icao": "",
+  "location": "US",
+  "region": "Florida",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "482d Fighter Wing"
+  ],
+  "aircraft": [
+   "F-16C/D"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Duke Field",
+  "icao": "",
+  "location": "US",
+  "region": "Florida",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "919th Special Operations Wing"
+  ],
+  "aircraft": [
+   "MQ-9",
+   "U-28",
+   "C-146",
+   "AC-130J"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Patrick SFB",
+  "icao": "",
+  "location": "US",
+  "region": "Florida",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "920th Rescue Wing"
+  ],
+  "aircraft": [
+   "HH-60W",
+   "HC-130J"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Nellis AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Nevada",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "926th Wing"
+  ],
+  "aircraft": [
+   "F-22A",
+   "F-35A",
+   "F-16C/D",
+   "A-10C",
+   "MQ-9"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Luke AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Arizona",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "944th Fighter Wing"
+  ],
+  "aircraft": [
+   "F-16C/D"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Dobbins ARB",
+  "icao": "",
+  "location": "US",
+  "region": "Georgia",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "94th Airlift Wing"
+  ],
+  "aircraft": [
+   "C-130H"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Peterson AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Colorado",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "302d Airlift Wing"
+  ],
+  "aircraft": [
+   "C-130H"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Keesler AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Mississippi",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "403d Wing"
+  ],
+  "aircraft": [
+   "C-130J",
+   "WC-130J"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Maxwell AFB",
+  "icao": "",
+  "location": "US",
+  "region": "Alabama",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "908th Flying Training Wing"
+  ],
+  "aircraft": [
+   "MH-139"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Youngstown-Warren ARS",
+  "icao": "",
+  "location": "US",
+  "region": "Ohio",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "910th Airlift Wing"
+  ],
+  "aircraft": [
+   "C-130H"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Air_Force_Reserve_Command"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Westover ARB",
+  "icao": "",
+  "location": "US",
+  "region": "Massachusetts",
+  "command": "Air Force Reserve Command",
+  "units": [
+   "439th Airlift Wing",
+   "337th Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-5M Super Galaxy"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/439th_Airlift_Wing"
+  ],
+  "note": ""
+ }
+]

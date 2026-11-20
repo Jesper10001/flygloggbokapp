@@ -1,0 +1,457 @@
+[
+ {
+  "operator": "EG",
+  "base": "Abu Sultan Air Base",
+  "icao": "",
+  "location": "EG",
+  "region": "Ismailia",
+  "command": "",
+  "units": [
+   "30 Squadron",
+   "56 Squadron"
+  ],
+  "aircraft": [
+   "SA342L Gazelle"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Abu_Sultan_Air_Base"
+  ],
+  "note": "Unit assignments as given on the Wikipedia page; dated"
+ },
+ {
+  "operator": "EG",
+  "base": "Abu Suweir Air Base",
+  "icao": "",
+  "location": "EG",
+  "region": "Ismailia",
+  "command": "",
+  "units": [
+   "60 Squadron, 262nd Tactical Fighter Wing"
+  ],
+  "aircraft": [
+   "F-16C/D Block 40"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Abu_Suweir_Air_Base"
+  ],
+  "note": "Unit assignments as given on the Wikipedia page; dated"
+ },
+ {
+  "operator": "EG",
+  "base": "Al Mansurah Air Base",
+  "icao": "",
+  "location": "EG",
+  "region": "Dakahlia",
+  "command": "139 Air Division",
+  "units": [
+   "57 Squadron",
+   "58 Squadron (308 Close Air Support Tactical Wing)"
+  ],
+  "aircraft": [
+   "Alpha Jet MS1/2"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Al_Mansurah_Air_Base"
+  ],
+  "note": "Unit assignments as given on the Wikipedia page; dated"
+ },
+ {
+  "operator": "EG",
+  "base": "Az Zaqaziq Air Base",
+  "icao": "",
+  "location": "EG",
+  "region": "Sharqia",
+  "command": "129 Air Division",
+  "units": [
+   "51 Squadron",
+   "52 Squadron",
+   "53 Squadron (550 Air Wing)"
+  ],
+  "aircraft": [
+   "AH-64D Apache"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Az_Zaqaziq_Air_Base"
+  ],
+  "note": "Unit assignments as given on the Wikipedia page; dated"
+ },
+ {
+  "operator": "EG",
+  "base": "Bilbays Air Base",
+  "icao": "",
+  "location": "EG",
+  "region": "Sharqia",
+  "command": "Egyptian Air Academy",
+  "units": [
+   "Egyptian Air Academy",
+   "3 Squadron",
+   "5 Squadron",
+   "28 Squadron",
+   "29 Squadron",
+   "54 Squadron"
+  ],
+  "aircraft": [
+   "Grob G 115EG",
+   "K-8E",
+   "SA342L Gazelle"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Bilbays_Air_Base"
+  ],
+  "note": "Unit assignments as given on the Wikipedia page; dated"
+ },
+ {
+  "operator": "EG",
+  "base": "El Minya Air Base",
+  "icao": "",
+  "location": "EG",
+  "region": "Minya",
+  "command": "139 Air Division",
+  "units": [
+   "Silver Stars (201 Air Wing)",
+   "57 Squadron",
+   "58 Squadron (308 Wing)"
+  ],
+  "aircraft": [
+   "K-8E",
+   "Alpha Jet MS1/2"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/El_Minya_Air_Base"
+  ],
+  "note": "Unit assignments as given on the Wikipedia page; dated"
+ },
+ {
+  "operator": "EG",
+  "base": "Fayid Air Base",
+  "icao": "",
+  "location": "EG",
+  "region": "Ismailia",
+  "command": "149 Air Division",
+  "units": [
+   "86 Squadron",
+   "88 Squadron (282 Tactical Fighter Wing)"
+  ],
+  "aircraft": [
+   "F-16C/D Block 40"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Fayid_Air_Base"
+  ],
+  "note": "Unit assignments as given on the Wikipedia page; dated"
+ },
+ {
+  "operator": "EG",
+  "base": "Gebel el Basur Air Base",
+  "icao": "",
+  "location": "EG",
+  "region": "",
+  "command": "139 Air Division",
+  "units": [
+   "82 Squadron (252 TFW)",
+   "34 Squadron (203 TFW)"
+  ],
+  "aircraft": [
+   "Mirage 2000BM/EM",
+   "Rafale DM/EM"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Gebel_el_Basur_Air_Base"
+  ],
+  "note": "Unit assignments as given on the Wikipedia page; dated"
+ },
+ {
+  "operator": "EG",
+  "base": "Habata Air Base",
+  "icao": "",
+  "location": "EG",
+  "region": "Matrouh",
+  "command": "149 Air Division",
+  "units": [
+   "44 Squadron (104 TFW)",
+   "36 Squadron (203 TFW)"
+  ],
+  "aircraft": [
+   "MiG-29M/M2",
+   "Rafale DM/EM"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Habata_Air_Base"
+  ],
+  "note": "Unit assignments as given on the Wikipedia page; dated"
+ },
+ {
+  "operator": "EG",
+  "base": "Jiyanklis Air Base",
+  "icao": "",
+  "location": "EG",
+  "region": "",
+  "command": "139 Air Division",
+  "units": [
+   "75 Squadron",
+   "77 Squadron",
+   "79 Squadron (272 Tactical Fighter Wing)"
+  ],
+  "aircraft": [
+   "F-16C/D Block 40"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Jiyanklis_Air_Base"
+  ],
+  "note": "Unit assignments as given on the Wikipedia page; dated"
+ },
+ {
+  "operator": "EG",
+  "base": "Quwaysina Air Base",
+  "icao": "",
+  "location": "EG",
+  "region": "Monufia",
+  "command": "119 Air Division",
+  "units": [
+   "91 Squadron (547 Air Wing)"
+  ],
+  "aircraft": [
+   "Mi-17",
+   "Mi-8T"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Quwaysina_Air_Base"
+  ],
+  "note": "Unit assignments as given on the Wikipedia page; dated"
+ },
+ {
+  "operator": "EG",
+  "base": "Uthman Air Base",
+  "icao": "",
+  "location": "EG",
+  "region": "",
+  "command": "149 Air Division",
+  "units": [
+   "26 Squadron (102 Tactical Air Wing)",
+   "22 Squadron (702 Air Wing)",
+   "13 Squadron detachment"
+  ],
+  "aircraft": [
+   "Air Tractor AT-802",
+   "Wing Loong II",
+   "Mi-17V-5"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Uthman_Air_Base"
+  ],
+  "note": "Unit assignments as given on the Wikipedia page; dated"
+ },
+ {
+  "operator": "EG",
+  "base": "Wadi Abu Rish Air Base",
+  "icao": "",
+  "location": "EG",
+  "region": "",
+  "command": "149 Air Division",
+  "units": [
+   "42 Squadron (104 TFW)",
+   "Aviation and Training Center"
+  ],
+  "aircraft": [
+   "MiG-29M/M2"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Wadi_Abu_Rish_Air_Base"
+  ],
+  "note": "Unit assignments as given on the Wikipedia page; dated"
+ },
+ {
+  "operator": "EG",
+  "base": "Wadi al Jandali Air Base",
+  "icao": "",
+  "location": "EG",
+  "region": "",
+  "command": "129 Air Division",
+  "units": [
+   "40 Squadron",
+   "41 Squadron (549 Air Wing)"
+  ],
+  "aircraft": [
+   "Ka-52E"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Wadi_al_Jandali_Air_Base"
+  ],
+  "note": "Unit assignments as given on the Wikipedia page; dated; page says 'flew'"
+ },
+ {
+  "operator": "EG",
+  "base": "Al Khatatbah Air Base",
+  "icao": "",
+  "location": "EG",
+  "region": "Monufia",
+  "command": "119 Air Division",
+  "units": [
+   "13 Squadron (547 Air Wing)"
+  ],
+  "aircraft": [
+   "Mi-17V-5"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Al_Khatatbah_Air_Base"
+  ],
+  "note": "Unit assignments as given on the Wikipedia page; dated"
+ },
+ {
+  "operator": "EG",
+  "base": "Cairo West Air Base",
+  "icao": "HECW",
+  "location": "EG",
+  "region": "Giza",
+  "command": "139 Air Division",
+  "units": [
+   "Egyptian Fighter Weapon School",
+   "95 Squadron",
+   "97 Squadron (292 TFW)",
+   "87 Squadron (601 Air Wing)",
+   "16 Squadron detachment"
+  ],
+  "aircraft": [
+   "F-16C/D",
+   "E-2C Hawkeye",
+   "C-130H"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Cairo_West_Air_Base"
+  ],
+  "note": "Unit assignments as given on the Wikipedia page; dated"
+ },
+ {
+  "operator": "EG",
+  "base": "Almaza Air Base",
+  "icao": "HEAZ",
+  "location": "EG",
+  "region": "Cairo",
+  "command": "159 Air Division",
+  "units": [
+   "99 Squadron",
+   "Air Navigation School (533 Air Wing)",
+   "7 (VIP) Squadron",
+   "12 Squadron",
+   "18 Squadron (SAR)"
+  ],
+  "aircraft": [
+   "King Air 200",
+   "Gulfstream III/IV",
+   "Falcon 7X",
+   "C-295M",
+   "An-74T-200A",
+   "S-70A-21",
+   "AW189",
+   "Commando Mk1/2B",
+   "A109EMS",
+   "AW139"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Almaza_Air_Base"
+  ],
+  "note": "Unit assignments as given on the Wikipedia page; dated"
+ },
+ {
+  "operator": "EG",
+  "base": "Beni Suef Air Base",
+  "icao": "",
+  "location": "EG",
+  "region": "Beni Suef",
+  "command": "149 Air Division",
+  "units": [
+   "55 Squadron (547 Air Wing)",
+   "70 Squadron (242 TFW)",
+   "94 Squadron (770 TFW)",
+   "87 Squadron detachment"
+  ],
+  "aircraft": [
+   "Mi-17V-5",
+   "F-16C/D",
+   "K-8E",
+   "E-2C Hawkeye"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Beni_Suef_Air_Base"
+  ],
+  "note": "Unit assignments as given on the Wikipedia page; dated"
+ },
+ {
+  "operator": "EG",
+  "base": "Mersa Matruh Air Base",
+  "icao": "HEMM",
+  "location": "EG",
+  "region": "Matrouh",
+  "command": "149 Air Division",
+  "units": [
+   "102nd Tactical Fighter Brigade (26 Squadron)",
+   "82 Squadron detachment"
+  ],
+  "aircraft": [
+   "F-7",
+   "FT-7",
+   "Mirage 2000BM/EM"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Marsa_Matruh_International_Airport"
+  ],
+  "note": "Shared with civil airport; page says possibly collocated"
+ }
+]

@@ -1,0 +1,700 @@
+[
+ {
+  "operator": "MX",
+  "base": "Santa Lucía Air Force Base (AFB 1)",
+  "icao": "",
+  "location": "MX",
+  "region": "State of Mexico",
+  "command": "Fuerza Aérea Mexicana",
+  "units": [
+   "101 Sqn",
+   "112 Sqn",
+   "301 Sqn",
+   "302 Sqn",
+   "303 Sqn",
+   "Aerial Surveillance Sqn",
+   "VIP Transport Sqn"
+  ],
+  "aircraft": [
+   "Bell 412",
+   "EC725",
+   "UH-60 Black Hawk",
+   "Bell 212",
+   "MD 530MG",
+   "C-295",
+   "C-27J",
+   "C-130",
+   "Mi-17",
+   "C-26",
+   "Boeing 757",
+   "Super Puma"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Air_Force"
+  ],
+  "note": "Wikipedia table of Bases Aéreas Militares; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Ixtepec Air Force Base (AFB 2)",
+  "icao": "",
+  "location": "MX",
+  "region": "Oaxaca",
+  "command": "Fuerza Aérea Mexicana",
+  "units": [
+   "401 Sqn",
+   "402 Sqn"
+  ],
+  "aircraft": [
+   "F-5E/F",
+   "PC-7"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Air_Force"
+  ],
+  "note": "Wikipedia table of Bases Aéreas Militares; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Ensenada Air Force Base (AFB 3)",
+  "icao": "",
+  "location": "MX",
+  "region": "Baja California",
+  "command": "Fuerza Aérea Mexicana",
+  "units": [
+   "106 Sqn"
+  ],
+  "aircraft": [
+   "Cessna 182",
+   "Cessna 206"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Air_Force"
+  ],
+  "note": "Wikipedia table of Bases Aéreas Militares; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Cozumel Air Force Base (AFB 4)",
+  "icao": "",
+  "location": "MX",
+  "region": "Quintana Roo",
+  "command": "Fuerza Aérea Mexicana",
+  "units": [
+   "201 Sqn"
+  ],
+  "aircraft": [
+   "T-6C+"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Air_Force"
+  ],
+  "note": "Wikipedia table of Bases Aéreas Militares; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Zapopan Air Force Base (AFB 5)",
+  "icao": "",
+  "location": "MX",
+  "region": "Jalisco",
+  "command": "Fuerza Aérea Mexicana",
+  "units": [
+   "105 Sqn",
+   "111 Sqn",
+   "Air Force Academy squadrons"
+  ],
+  "aircraft": [
+   "Cessna 182",
+   "Cessna 206",
+   "Bell 206",
+   "Bell 212",
+   "Beech F33C",
+   "SF.260",
+   "PC-7"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Air_Force"
+  ],
+  "note": "Wikipedia table of Bases Aéreas Militares; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Tuxtla Gutiérrez Air Force Base (AFB 6)",
+  "icao": "",
+  "location": "MX",
+  "region": "Chiapas",
+  "command": "Fuerza Aérea Mexicana",
+  "units": [
+   "202 Sqn"
+  ],
+  "aircraft": [
+   "PC-7",
+   "PC-9M"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Air_Force"
+  ],
+  "note": "Wikipedia table of Bases Aéreas Militares; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Acapulco Air Force Base (AFB 7)",
+  "icao": "",
+  "location": "MX",
+  "region": "Guerrero",
+  "command": "Fuerza Aérea Mexicana",
+  "units": [
+   "204 Sqn",
+   "102 Sqn"
+  ],
+  "aircraft": [
+   "PC-7",
+   "Bell 206",
+   "Bell 212"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Air_Force"
+  ],
+  "note": "Wikipedia table of Bases Aéreas Militares; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Mérida Air Force Base (AFB 8)",
+  "icao": "",
+  "location": "MX",
+  "region": "Yucatán",
+  "command": "Fuerza Aérea Mexicana",
+  "units": [
+   "104 Sqn"
+  ],
+  "aircraft": [
+   "Bell 206",
+   "Bell 212",
+   "CH-53D",
+   "Cessna 210"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Air_Force"
+  ],
+  "note": "Wikipedia table of Bases Aéreas Militares; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "La Paz Air Force Base (AFB 9)",
+  "icao": "",
+  "location": "MX",
+  "region": "Baja California Sur",
+  "command": "Fuerza Aérea Mexicana",
+  "units": [
+   "203 Sqn"
+  ],
+  "aircraft": [
+   "PC-7"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Air_Force"
+  ],
+  "note": "Wikipedia table of Bases Aéreas Militares; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Culiacán Air Force Base (AFB 10)",
+  "icao": "",
+  "location": "MX",
+  "region": "Sinaloa",
+  "command": "Fuerza Aérea Mexicana",
+  "units": [
+   "Maintenance Center",
+   "109 Sqn"
+  ],
+  "aircraft": [
+   "Bell 206",
+   "Cessna 206",
+   "Cessna 182"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Air_Force"
+  ],
+  "note": "Wikipedia table of Bases Aéreas Militares; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Santa Gertrudis Air Force Base (AFB 11)",
+  "icao": "",
+  "location": "MX",
+  "region": "Chihuahua",
+  "command": "Fuerza Aérea Mexicana",
+  "units": [
+   "EMAATFA (Air Force Air Tactics Military School)"
+  ],
+  "aircraft": [
+   "PC-7"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Air_Force"
+  ],
+  "note": "Wikipedia table of Bases Aéreas Militares; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Chihuahua Air Force Base (AFB 13)",
+  "icao": "",
+  "location": "MX",
+  "region": "Chihuahua",
+  "command": "Fuerza Aérea Mexicana",
+  "units": [
+   "110 Sqn"
+  ],
+  "aircraft": [
+   "Cessna 182"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Air_Force"
+  ],
+  "note": "Wikipedia table of Bases Aéreas Militares; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Apodaca Air Force Base (AFB 14)",
+  "icao": "",
+  "location": "MX",
+  "region": "Nuevo León",
+  "command": "Fuerza Aérea Mexicana",
+  "units": [
+   "102 Sqn",
+   "108 Sqn"
+  ],
+  "aircraft": [
+   "Bell 206",
+   "Bell 212",
+   "Cessna 182",
+   "Cessna 206"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Air_Force"
+  ],
+  "note": "Wikipedia table of Bases Aéreas Militares; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Oaxaca Air Force Base (AFB 15)",
+  "icao": "",
+  "location": "MX",
+  "region": "Oaxaca",
+  "command": "Fuerza Aérea Mexicana",
+  "units": [
+   "103 Sqn"
+  ],
+  "aircraft": [
+   "Bell 212"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Air_Force"
+  ],
+  "note": "Wikipedia table of Bases Aéreas Militares; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Ciudad Pemex Air Force Base (AFB 16)",
+  "icao": "",
+  "location": "MX",
+  "region": "Tabasco",
+  "command": "Fuerza Aérea Mexicana",
+  "units": [
+   "109 Sqn"
+  ],
+  "aircraft": [
+   "Cessna 182"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Air_Force"
+  ],
+  "note": "Wikipedia table of Bases Aéreas Militares; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Comitán Air Force Base (AFB 17)",
+  "icao": "",
+  "location": "MX",
+  "region": "Chiapas",
+  "command": "Fuerza Aérea Mexicana",
+  "units": [
+   "113 Sqn"
+  ],
+  "aircraft": [
+   "UH-60 Black Hawk"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Air_Force"
+  ],
+  "note": "Wikipedia table of Bases Aéreas Militares; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Hermosillo Air Force Base (AFB 18)",
+  "icao": "",
+  "location": "MX",
+  "region": "Sonora",
+  "command": "Fuerza Aérea Mexicana",
+  "units": [
+   "3rd Aerial Surveillance Sqn",
+   "107 Sqn"
+  ],
+  "aircraft": [
+   "C-26",
+   "PC-6",
+   "R/P-99",
+   "Cessna 182"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Air_Force"
+  ],
+  "note": "Wikipedia table of Bases Aéreas Militares; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Mexico City Air Force Base (AFB 19)",
+  "icao": "",
+  "location": "MX",
+  "region": "Mexico City",
+  "command": "Fuerza Aérea Mexicana",
+  "units": [
+   "General Coordination of the Presidential Air Transport Unit (CGTAP)",
+   "High Command Special Air Transport Unit (UETAAM)"
+  ],
+  "aircraft": [
+   "Boeing 737",
+   "IAI 201",
+   "JetStar",
+   "King Air",
+   "SA 330J",
+   "UH-60"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Air_Force"
+  ],
+  "note": "Wikipedia table of Bases Aéreas Militares; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Tampico Naval Air Base",
+  "icao": "",
+  "location": "MX",
+  "region": "Tamaulipas",
+  "command": "Mexican Naval Aviation",
+  "units": [
+   "1st Air Mobility, Observation and Transport NAS",
+   "1st Shipborne Patrol NAS"
+  ],
+  "aircraft": [
+   "Mi-17",
+   "Lancair IV-P",
+   "AS565 MB",
+   "Bo 105CBS-5",
+   "MD902"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Naval_Aviation"
+  ],
+  "note": "Wikipedia list; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Las Bajadas Naval Air Base",
+  "icao": "",
+  "location": "MX",
+  "region": "Veracruz",
+  "command": "Mexican Naval Aviation",
+  "units": [
+   "1st Maritime Patrol NAS",
+   "1st Early Warning and Reconnaissance NAS",
+   "Naval Aviation School"
+  ],
+  "aircraft": [
+   "CASA C-212PM",
+   "E-2C Hawkeye 2000",
+   "MD 500",
+   "Robinson R22",
+   "Schweizer 300",
+   "Zlín Z 42"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Naval_Aviation"
+  ],
+  "note": "Wikipedia list; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Campeche Naval Air Base",
+  "icao": "",
+  "location": "MX",
+  "region": "Campeche",
+  "command": "Mexican Naval Aviation",
+  "units": [
+   "5th Air Mobility, Observation and Transport NAS",
+   "1st Interception and Reconnaissance NAS"
+  ],
+  "aircraft": [
+   "Mi-8",
+   "L-90TP",
+   "Sabre 60"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Naval_Aviation"
+  ],
+  "note": "Wikipedia list; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Chetumal Naval Air Base",
+  "icao": "",
+  "location": "MX",
+  "region": "Quintana Roo",
+  "command": "Mexican Naval Aviation",
+  "units": [
+   "1st Patrol NAS",
+   "3rd Air Mobility, Observation and Transport NAS"
+  ],
+  "aircraft": [
+   "Lancair Super ES",
+   "MX-7-180A",
+   "RC695",
+   "Mi-8"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Naval_Aviation"
+  ],
+  "note": "Wikipedia list; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Guaymas Naval Air Base",
+  "icao": "",
+  "location": "MX",
+  "region": "Sonora",
+  "command": "Mexican Naval Aviation",
+  "units": [
+   "1st Interception and Reconnaissance NAS"
+  ],
+  "aircraft": [
+   "L-90TP",
+   "MX-7-180A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Naval_Aviation"
+  ],
+  "note": "Wikipedia list; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "La Paz Naval Air Base",
+  "icao": "",
+  "location": "MX",
+  "region": "Baja California Sur",
+  "command": "Mexican Naval Aviation",
+  "units": [
+   "2nd Patrol NAS",
+   "2nd Air Mobility, Observation and Transport NAS",
+   "2nd Shipborne Patrol NAS",
+   "2nd Transport NAS"
+  ],
+  "aircraft": [
+   "RC695",
+   "Lancair IV-P",
+   "Mi-8",
+   "Bo 105CBS-5",
+   "An-32B"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Naval_Aviation"
+  ],
+  "note": "Wikipedia list; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Lázaro Cárdenas Naval Air Base",
+  "icao": "",
+  "location": "MX",
+  "region": "Michoacán",
+  "command": "Mexican Naval Aviation",
+  "units": [
+   "2nd Search and Rescue NAS"
+  ],
+  "aircraft": [
+   "AS555 AF",
+   "Mi-2"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Naval_Aviation"
+  ],
+  "note": "Wikipedia list; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Acapulco Naval Air Base",
+  "icao": "",
+  "location": "MX",
+  "region": "Guerrero",
+  "command": "Mexican Naval Aviation",
+  "units": [
+   "2nd Search and Rescue NAS"
+  ],
+  "aircraft": [
+   "AS555 AF",
+   "Mi-2"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Naval_Aviation"
+  ],
+  "note": "Wikipedia list; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Salina Cruz Naval Air Base",
+  "icao": "",
+  "location": "MX",
+  "region": "Oaxaca",
+  "command": "Mexican Naval Aviation",
+  "units": [
+   "1st Search and Rescue NAS"
+  ],
+  "aircraft": [
+   "AS555 AF",
+   "Mi-2"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Naval_Aviation"
+  ],
+  "note": "Wikipedia list; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Tapachula Naval Air Base",
+  "icao": "",
+  "location": "MX",
+  "region": "Chiapas",
+  "command": "Mexican Naval Aviation",
+  "units": [
+   "4th Patrol NAS",
+   "4th Air Mobility, Observation and Transport NAS"
+  ],
+  "aircraft": [
+   "Mi-8",
+   "MX-7-180A",
+   "Super Lancair ES"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Naval_Aviation"
+  ],
+  "note": "Wikipedia list; may be dated."
+ },
+ {
+  "operator": "MX",
+  "base": "Mexico City Naval Air Station",
+  "icao": "",
+  "location": "MX",
+  "region": "Mexico City",
+  "command": "Mexican Naval Aviation",
+  "units": [
+   "1st Transport NAS"
+  ],
+  "aircraft": [
+   "Gulfstream G450",
+   "Learjet 25",
+   "Learjet 31",
+   "Learjet 60",
+   "DHC-8-Q202"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mexican_Naval_Aviation"
+  ],
+  "note": "Wikipedia list; may be dated."
+ }
+]

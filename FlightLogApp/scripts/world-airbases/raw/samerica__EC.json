@@ -1,0 +1,150 @@
+[
+ {
+  "operator": "EC",
+  "base": "Cotopaxi Air Base (Latacunga)",
+  "icao": "",
+  "location": "EC",
+  "region": "Cotopaxi",
+  "command": "Fuerza Aérea Ecuatoriana - Ala de Transporte 11",
+  "units": [
+   "Ala de Transporte 11",
+   "Escuadrón 1111",
+   "1112",
+   "1113"
+  ],
+  "aircraft": [
+   "C-130 Hercules",
+   "L-100-30 Hercules",
+   "Boeing 727",
+   "C-295",
+   "DHC-6 Twin Otter"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Ecuatoriana"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "EC",
+  "base": "Eloy Alfaro Air Base (Manta)",
+  "icao": "",
+  "location": "EC",
+  "region": "Manabí",
+  "command": "Fuerza Aérea Ecuatoriana - Ala de Combate 23",
+  "units": [
+   "Ala de Combate n.º 23",
+   "Escuadrón de Combate 2311",
+   "2313"
+  ],
+  "aircraft": [
+   "A-29 Super Tucano"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Ecuatoriana"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "EC",
+  "base": "Simón Bolívar Air Base (Guayaquil)",
+  "icao": "",
+  "location": "EC",
+  "region": "Guayas",
+  "command": "Fuerza Aérea Ecuatoriana - Ala de Combate 22",
+  "units": [
+   "Ala de Combate n.º 22",
+   "Escuadrón 2211",
+   "2212"
+  ],
+  "aircraft": [
+   "Piper PA-34 Seneca",
+   "SA-316B Alouette III",
+   "TH-57A",
+   "Bell 412",
+   "Bell 212"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Ecuatoriana"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "EC",
+  "base": "Taura Air Base",
+  "icao": "",
+  "location": "EC",
+  "region": "Guayas",
+  "command": "Fuerza Aérea Ecuatoriana - Ala de Combate 21",
+  "units": [
+   "Ala de Combate n.º 21",
+   "Escuadrón 2112 Cheetah",
+   "2113 Kfir"
+  ],
+  "aircraft": [
+   "Cheetah C/D",
+   "Kfir C.E",
+   "Kfir T.C2"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Ecuatoriana"
+  ],
+  "note": "Page may be dated regarding Kfir/Cheetah service"
+ },
+ {
+  "operator": "EC",
+  "base": "Lago Agrio Air Base",
+  "icao": "",
+  "location": "EC",
+  "region": "Sucumbíos",
+  "command": "Fuerza Aérea Ecuatoriana - Ala de Combate 31",
+  "units": [
+   "Ala de Combate n.º 31"
+  ],
+  "aircraft": [
+   "A-29 Super Tucano"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Ecuatoriana"
+  ],
+  "note": "Appears only in unit material section of page"
+ },
+ {
+  "operator": "EC",
+  "base": "Ulpiano Páez Air Base (Salinas, ESMA)",
+  "icao": "",
+  "location": "EC",
+  "region": "Santa Elena",
+  "command": "Fuerza Aérea Ecuatoriana",
+  "units": [
+   "Escuela Superior Militar de Aviación Cosme Rennella B. - Escuadrón de Entrenamiento Aéreo"
+  ],
+  "aircraft": [
+   "Cessna 150L",
+   "T-34 Mentor",
+   "MXP-650",
+   "Grob G-120"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Ecuatoriana"
+  ],
+  "note": "Page names Base Aérea Ulpiano Páez without locality; region not stated"
+ }
+]

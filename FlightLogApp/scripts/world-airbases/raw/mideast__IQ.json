@@ -1,0 +1,84 @@
+[
+{
+"operator": "IQ",
+"base": "Balad Air Base",
+"icao": "",
+"location": "IQ",
+"region": "",
+"command": "Iraqi Air Force",
+"units": [
+"9th Squadron",
+"115th Squadron",
+"3rd Squadron"
+],
+"aircraft": [
+"F-16",
+"L-159 ALCA",
+"Cessna 208"
+],
+"sources": [
+"Wikipedia"
+],
+"urls": [
+"https://en.wikipedia.org/wiki/Balad_Air_Base",
+"https://en.wikipedia.org/wiki/List_of_Iraqi_Air_Force_aircraft_squadrons"
+],
+"note": "Squadron listing dated (latest entries 2007-2016); current status not confirmed."
+},
+{
+"operator": "IQ",
+"base": "Ali Air Base",
+"icao": "",
+"location": "IQ",
+"region": "",
+"command": "Iraqi Air Force",
+"units": [
+"1st Squadron",
+"3rd Squadron",
+"70th Squadron",
+"202nd Squadron",
+"203rd Squadron"
+],
+"aircraft": [
+"Cessna 172",
+"Cessna 208",
+"SAMA CH2000",
+"Utva Lasta",
+"T-6A Texan II"
+],
+"sources": [
+"Wikipedia"
+],
+"urls": [
+"https://en.wikipedia.org/wiki/List_of_Iraqi_Air_Force_aircraft_squadrons"
+],
+"note": "Squadron listing dated (latest entries 2007-2016); current status not confirmed."
+},
+{
+"operator": "IQ",
+"base": "New Al Muthana Air Base",
+"icao": "",
+"location": "IQ",
+"region": "",
+"command": "Iraqi Air Force",
+"units": [
+"23rd Squadron",
+"33rd Squadron",
+"87th Squadron",
+"109th Squadron"
+],
+"aircraft": [
+"C-130J-30",
+"An-32B",
+"King Air 350ER",
+"Su-25"
+],
+"sources": [
+"Wikipedia"
+],
+"urls": [
+"https://en.wikipedia.org/wiki/List_of_Iraqi_Air_Force_aircraft_squadrons"
+],
+"note": "Squadron listing dated (latest entries 2007-2016); current status not confirmed."
+}
+]

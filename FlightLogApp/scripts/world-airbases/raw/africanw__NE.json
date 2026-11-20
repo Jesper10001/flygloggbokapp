@@ -1,0 +1,45 @@
+[
+ {
+  "operator": "NE",
+  "base": "Niamey Air Base (Base Aérienne 101)",
+  "icao": "DRRN",
+  "location": "NE",
+  "region": "Niamey",
+  "command": "Armée de l'Air",
+  "units": [],
+  "aircraft": [
+   "Bayraktar TB2",
+   "C-130H",
+   "Mi-24 Super Hind Mk III",
+   "Mi-171"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/niger-air-force/"
+  ],
+  "note": "From migflug.com (secondary source, derived from open reporting); not officially confirmed; foreign detachments listed on page not included (withdrawn)"
+ },
+ {
+  "operator": "NE",
+  "base": "Tahoua Air Base (Base Aérienne 401)",
+  "icao": "DRRT",
+  "location": "NE",
+  "region": "Tahoua",
+  "command": "Armée de l'Air",
+  "units": [
+   "Drone unit"
+  ],
+  "aircraft": [
+   "drones"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/niger-air-force/"
+  ],
+  "note": "From migflug.com (secondary source, derived from open reporting); not officially confirmed"
+ }
+]

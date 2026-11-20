@@ -1,0 +1,193 @@
+[
+ {
+  "operator": "NG",
+  "base": "NAF Ikeja (Lagos)",
+  "icao": "",
+  "location": "NG",
+  "region": "Lagos",
+  "command": "Mobility Command",
+  "units": [
+   "301 Heavy Airlift Group: 205 Rotary Wing, 221 Airlift Wing"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Nigerian_Air_Force"
+  ],
+  "note": "Unit-to-base per Wikipedia organisation section; aircraft types per base not given on the page"
+ },
+ {
+  "operator": "NG",
+  "base": "NAF Ilorin",
+  "icao": "",
+  "location": "NG",
+  "region": "Kwara",
+  "command": "Mobility Command",
+  "units": [
+   "303 Medium Airlift Group: 227 Airlift Wing"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Nigerian_Air_Force"
+  ],
+  "note": "Unit-to-base per Wikipedia organisation section; aircraft types per base not given on the page"
+ },
+ {
+  "operator": "NG",
+  "base": "NAF Calabar",
+  "icao": "",
+  "location": "NG",
+  "region": "Cross River",
+  "command": "Mobility Command",
+  "units": [
+   "305 Special Mobility Group"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Nigerian_Air_Force"
+  ],
+  "note": "Unit-to-base per Wikipedia organisation section; aircraft types per base not given on the page"
+ },
+ {
+  "operator": "NG",
+  "base": "NAF Minna",
+  "icao": "",
+  "location": "NG",
+  "region": "Niger",
+  "command": "Mobility Command",
+  "units": [
+   "307 Executive Airlift Group"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Nigerian_Air_Force"
+  ],
+  "note": "Unit-to-base per Wikipedia organisation section; aircraft types per base not given on the page"
+ },
+ {
+  "operator": "NG",
+  "base": "NAF Kaduna (Old Kaduna Airport)",
+  "icao": "",
+  "location": "NG",
+  "region": "Kaduna",
+  "command": "Training Command",
+  "units": [
+   "401 Flying Training School"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Nigerian_Air_Force"
+  ],
+  "note": "Unit-to-base per Wikipedia organisation section; aircraft types per base not given on the page"
+ },
+ {
+  "operator": "NG",
+  "base": "NAF Kano",
+  "icao": "",
+  "location": "NG",
+  "region": "Kano",
+  "command": "Training Command",
+  "units": [
+   "403 Flying Training School"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Nigerian_Air_Force"
+  ],
+  "note": "Unit-to-base per Wikipedia organisation section; aircraft types per base not given on the page"
+ },
+ {
+  "operator": "NG",
+  "base": "NAF Enugu",
+  "icao": "",
+  "location": "NG",
+  "region": "Enugu",
+  "command": "Training Command",
+  "units": [
+   "405 Helicopter Group",
+   "409 International Helicopter Flying School"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Nigerian_Air_Force"
+  ],
+  "note": "Unit-to-base per Wikipedia organisation section; aircraft types per base not given on the page"
+ },
+ {
+  "operator": "NG",
+  "base": "NAF Kainji",
+  "icao": "",
+  "location": "NG",
+  "region": "Niger",
+  "command": "Training Command",
+  "units": [
+   "407 Air Combat Training Group"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Nigerian_Air_Force"
+  ],
+  "note": "Unit-to-base per Wikipedia organisation section; aircraft types per base not given on the page"
+ },
+ {
+  "operator": "NG",
+  "base": "NAF Bauchi",
+  "icao": "",
+  "location": "NG",
+  "region": "Bauchi",
+  "command": "Special Operations Command",
+  "units": [
+   "201 Composite Group"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Nigerian_Air_Force"
+  ],
+  "note": "Unit-to-base per Wikipedia organisation section; aircraft types per base not given on the page"
+ },
+ {
+  "operator": "NG",
+  "base": "NAF Kerang",
+  "icao": "",
+  "location": "NG",
+  "region": "Plateau",
+  "command": "Special Operations Command",
+  "units": [
+   "205 Combat Search and Rescue Group"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Nigerian_Air_Force"
+  ],
+  "note": "Unit-to-base per Wikipedia organisation section; aircraft types per base not given on the page"
+ }
+]

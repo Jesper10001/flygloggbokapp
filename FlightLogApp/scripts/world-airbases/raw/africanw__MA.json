@@ -1,0 +1,112 @@
+[
+ {
+  "operator": "MA",
+  "base": "Ben Guerir Air Base",
+  "icao": "GMMG",
+  "location": "MA",
+  "region": "Rehamna",
+  "command": "Royal Moroccan Air Force",
+  "units": [
+   "Fighter Wing (Falcon, Spark and Viper squadrons)"
+  ],
+  "aircraft": [
+   "F-16C/D"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Ben_Guerir_Air_Base"
+  ],
+  "note": "BAFRA 1"
+ },
+ {
+  "operator": "MA",
+  "base": "Sidi Slimane Air Base",
+  "icao": "GMSL",
+  "location": "MA",
+  "region": "Rabat-Salé-Kénitra",
+  "command": "Royal Moroccan Air Force",
+  "units": [
+   "Escadron de Chasse Atlas",
+   "Escadron de Chasse Assad"
+  ],
+  "aircraft": [
+   "Mirage F1EH-200",
+   "Mirage F1CH"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Sidi_Slimane_Air_Base"
+  ],
+  "note": "BAFRA 5"
+ },
+ {
+  "operator": "MA",
+  "base": "Kenitra Air Base",
+  "icao": "GMMY",
+  "location": "MA",
+  "region": "Rabat-Salé-Kénitra",
+  "command": "Royal Moroccan Air Force",
+  "units": [
+   "3rd Air Force Base (military air transport; transport pilot training wing)"
+  ],
+  "aircraft": [
+   "C-130 Hercules",
+   "Beechcraft King Air"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Kenitra_Air_Base"
+  ],
+  "note": "BAFRA 3; Wikipedia page marks this text citation needed"
+ },
+ {
+  "operator": "MA",
+  "base": "Meknes (Bassatine) Air Base",
+  "icao": "GMFM",
+  "location": "MA",
+  "region": "Fès-Meknès",
+  "command": "Royal Moroccan Air Force",
+  "units": [
+   "Escadron Boraq",
+   "Escadron Chahine"
+  ],
+  "aircraft": [
+   "F-5 Tiger"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://fr.wikipedia.org/wiki/Forces_royales_air",
+   "https://en.wikipedia.org/wiki/Bassatine_Air_Base"
+  ],
+  "note": "BAFRA 2; French Wikipedia says two F-5 squadrons based at Meknès"
+ },
+ {
+  "operator": "MA",
+  "base": "Nouasseur / Mohammed V Airport (naval aviation)",
+  "icao": "",
+  "location": "MA",
+  "region": "Casablanca-Settat",
+  "command": "Royal Moroccan Navy",
+  "units": [
+   "Royal Moroccan Navy helicopters"
+  ],
+  "aircraft": [
+   "helicopters (type not given)"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Nouasseur_Air_Base"
+  ],
+  "note": "Page says Mohammed V International Airport hosts Royal Moroccan Navy helicopters"
+ }
+]

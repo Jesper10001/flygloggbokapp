@@ -1,0 +1,78 @@
+[
+ {
+  "operator": "BO",
+  "base": "II Brigada Aérea (Cochabamba)",
+  "icao": "",
+  "location": "BO",
+  "region": "Cochabamba",
+  "command": "Fuerza Aérea Boliviana",
+  "units": [
+   "II Brigada Aérea",
+   "Grupo Aéreo 22",
+   "Grupo Aéreo 34",
+   "Grupo Aéreo 51"
+  ],
+  "aircraft": [
+   "K-8W Karakorum"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Boliviana"
+  ],
+  "note": "City from page's aircraft section"
+ },
+ {
+  "operator": "BO",
+  "base": "III Brigada Aérea (Santa Cruz)",
+  "icao": "",
+  "location": "BO",
+  "region": "Santa Cruz",
+  "command": "Fuerza Aérea Boliviana",
+  "units": [
+   "III Brigada Aérea",
+   "Grupo Aéreo 32",
+   "Grupo Aéreo 61",
+   "Grupo Aéreo 83"
+  ],
+  "aircraft": [
+   "Zlín Z-242L",
+   "Diamond DA40",
+   "Neiva T-25 Universal",
+   "Beech T-34 Mentor",
+   "Cessna A-152 Aerobat"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Boliviana"
+  ],
+  "note": "Trainers listed for this brigade on page; counts inconsistent"
+ },
+ {
+  "operator": "BO",
+  "base": "IV Brigada Aérea (Tarija)",
+  "icao": "",
+  "location": "BO",
+  "region": "Tarija",
+  "command": "Fuerza Aérea Boliviana",
+  "units": [
+   "IV Brigada Aérea",
+   "Grupo Aéreo 41",
+   "Grupo Aéreo 63",
+   "Grupo Aéreo de Caza 33"
+  ],
+  "aircraft": [
+   "Pilatus PC-7"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_Boliviana"
+  ],
+  "note": "PC-7 listed under Grupo Aéreo de Caza 33"
+ }
+]

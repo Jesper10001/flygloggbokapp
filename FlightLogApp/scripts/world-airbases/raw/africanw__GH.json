@@ -1,0 +1,57 @@
+[
+ {
+  "operator": "GH",
+  "base": "Air Force Base Accra",
+  "icao": "",
+  "location": "GH",
+  "region": "Greater Accra",
+  "command": "Ghana Air Force",
+  "units": [
+   "Ghana Air Force HQ airfield (Burma Camp); main transport airfield"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Ghana_Air_Force"
+  ],
+  "note": "Wikipedia lists airfield but not units per base; shares runway with Kotoka airport"
+ },
+ {
+  "operator": "GH",
+  "base": "Air Force Base Tamale",
+  "icao": "",
+  "location": "GH",
+  "region": "Northern",
+  "command": "Ghana Air Force",
+  "units": [],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Ghana_Air_Force"
+  ],
+  "note": "Wikipedia lists airfield but not units per base; shares runway with Tamale International Airport"
+ },
+ {
+  "operator": "GH",
+  "base": "Air Force Station Sekondi-Takoradi",
+  "icao": "",
+  "location": "GH",
+  "region": "Western",
+  "command": "Ghana Air Force",
+  "units": [
+   "Air Force Station Sekondi-Takoradi"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Ghana_Air_Force"
+  ],
+  "note": "Wikipedia lists airfield but not units per base"
+ }
+]

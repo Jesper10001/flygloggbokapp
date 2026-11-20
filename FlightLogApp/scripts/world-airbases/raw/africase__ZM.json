@@ -1,0 +1,63 @@
+[
+ {
+  "operator": "ZM",
+  "base": "Lusaka (Air Force base, K-8)",
+  "icao": "",
+  "location": "ZM",
+  "region": "Lusaka",
+  "command": "",
+  "units": [
+   "Zambia Air Force HQ",
+   "No. 8 Squadron",
+   "No. 21 Squadron"
+  ],
+  "aircraft": [
+   "K-8P"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Zambian_Air_Force"
+  ],
+  "note": "Combat elements understood to be at Lusaka, Mbala and Mumbwa; squadron-base mapping not stated."
+ },
+ {
+  "operator": "ZM",
+  "base": "Mbala",
+  "icao": "",
+  "location": "ZM",
+  "region": "Northern",
+  "command": "",
+  "units": [
+   "Zambia Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Zambian_Air_Force"
+  ],
+  "note": "Combat element location per page; specific unit not stated."
+ },
+ {
+  "operator": "ZM",
+  "base": "Mumbwa",
+  "icao": "",
+  "location": "ZM",
+  "region": "Central",
+  "command": "",
+  "units": [
+   "Zambia Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Zambian_Air_Force"
+  ],
+  "note": "Combat element location per page; specific unit not stated."
+ }
+]

@@ -1,0 +1,41 @@
+[
+ {
+  "operator": "ZW",
+  "base": "Josiah Tungamirai Air Force Base (Thornhill)",
+  "icao": "",
+  "location": "ZW",
+  "region": "Midlands",
+  "command": "",
+  "units": [
+   "Air Force of Zimbabwe"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Josiah_Tungamirai_Air_Force_Base",
+   "https://en.wikipedia.org/wiki/Air_Force_of_Zimbabwe"
+  ],
+  "note": "One of the two main AFZ bases, near Gweru; units/aircraft not stated on cited pages."
+ },
+ {
+  "operator": "ZW",
+  "base": "Manyame Air Force Base",
+  "icao": "",
+  "location": "ZW",
+  "region": "Harare",
+  "command": "",
+  "units": [
+   "Air Force of Zimbabwe"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Manyame_Air_Force_Base"
+  ],
+  "note": "One of the two main AFZ bases, at Harare airport; current units not stated."
+ }
+]

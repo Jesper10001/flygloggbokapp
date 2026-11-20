@@ -1,0 +1,158 @@
+[
+{
+"operator": "OM",
+"base": "Adam",
+"icao": "",
+"location": "OM",
+"region": "",
+"command": "Royal Air Force of Oman",
+"units": [
+"No. 8 Sqn"
+],
+"aircraft": [
+"Eurofighter Typhoon"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Air_Force_of_Oman"
+]
+},
+{
+"operator": "OM",
+"base": "Thumrait",
+"icao": "",
+"location": "OM",
+"region": "",
+"command": "Royal Air Force of Oman",
+"units": [
+"No. 18 Sqn",
+"No. 20 Sqn"
+],
+"aircraft": [
+"F-16C/D Block 50"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Air_Force_of_Oman"
+]
+},
+{
+"operator": "OM",
+"base": "Masirah",
+"icao": "",
+"location": "OM",
+"region": "",
+"command": "Royal Air Force of Oman",
+"units": [
+"No. 1 Sqn",
+"No. 6 Sqn",
+"No. 15 Sqn (detachment)"
+],
+"aircraft": [
+"Super Mushshak",
+"PC-9(M)",
+"Hawk 166",
+"Super Lynx Mk.120"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Air_Force_of_Oman"
+]
+},
+{
+"operator": "OM",
+"base": "Seeb",
+"icao": "",
+"location": "OM",
+"region": "",
+"command": "Royal Air Force of Oman",
+"units": [
+"No. 4 Sqn"
+],
+"aircraft": [
+"A320-214CJ"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "Royal flight; co-located with Muscat Intl.",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Air_Force_of_Oman"
+]
+},
+{
+"operator": "OM",
+"base": "Salalah",
+"icao": "",
+"location": "OM",
+"region": "",
+"command": "Royal Air Force of Oman",
+"units": [
+"No. 3 Sqn",
+"No. 5 Sqn"
+],
+"aircraft": [
+"NH90 TTH",
+"Bell 429",
+"C295M"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "No. 5 Sqn base assignment uncertain in source. No. 15 and 16 Sqn (Super Lynx, C-130H/J) base unclear and omitted.",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Air_Force_of_Oman"
+]
+},
+{
+"operator": "OM",
+"base": "Khasab",
+"icao": "",
+"location": "OM",
+"region": "",
+"command": "Royal Air Force of Oman",
+"units": [
+"No. 14 Sqn (detachment)"
+],
+"aircraft": [
+"NH90 TTH"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "Detachment per source.",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Air_Force_of_Oman"
+]
+},
+{
+"operator": "OM",
+"base": "Musannah",
+"icao": "",
+"location": "OM",
+"region": "",
+"command": "Royal Air Force of Oman",
+"units": [
+"No. 14 Sqn (detachment)"
+],
+"aircraft": [
+"NH90 TTH"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "Detachment per source.",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Air_Force_of_Oman"
+]
+}
+]

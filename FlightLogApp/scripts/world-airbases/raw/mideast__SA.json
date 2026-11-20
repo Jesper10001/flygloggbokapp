@@ -1,0 +1,218 @@
+[
+{
+"operator": "SA",
+"base": "King Faisal Air Academy",
+"icao": "",
+"location": "SA",
+"region": "",
+"command": "Royal Saudi Air Force",
+"units": [
+"Wing 1: Sqn 8, 9, 22, 77"
+],
+"aircraft": [
+"Cirrus SR22T",
+"PC-21"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Saudi_Air_Force"
+]
+},
+{
+"operator": "SA",
+"base": "King Fahd Air Base (Taif)",
+"icao": "",
+"location": "SA",
+"region": "Mecca",
+"command": "Royal Saudi Air Force",
+"units": [
+"Wing 2: Sqn 3, 10, 80",
+"Wing 9: Sqn 14, 33 (Royal Medical Flight), 44",
+"Wing 10: Sqn 5, 34, 94"
+],
+"aircraft": [
+"Eurofighter Typhoon",
+"F-15C/D",
+"Bell 212",
+"Bell 412EP"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "Sqn 94 aircraft type not listed.",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Saudi_Air_Force"
+]
+},
+{
+"operator": "SA",
+"base": "King Abdulaziz Air Base (Dhahran)",
+"icao": "",
+"location": "SA",
+"region": "Eastern Province",
+"command": "Royal Saudi Air Force",
+"units": [
+"Wing 3: Sqn 13",
+"Wing 11: Sqn 7, 75, 83, 35, Fighter Weapons School"
+],
+"aircraft": [
+"F-15C/D",
+"Tornado IDS",
+"Jetstream"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "Tornado status in 2026 may be dated.",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Saudi_Air_Force"
+]
+},
+{
+"operator": "SA",
+"base": "Prince Sultan Air Base (Al-Kharj)",
+"icao": "",
+"location": "SA",
+"region": "Riyadh",
+"command": "Royal Saudi Air Force",
+"units": [
+"Wing 4: Sqn 23, 24, 32",
+"Wing 6: Sqn 18, 19, 71"
+],
+"aircraft": [
+"KE-3A",
+"A330 MRTT",
+"KC-130H/J",
+"E-3A Sentry",
+"Beech 350ER-ISR",
+"RE-3A/B"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "Also hosts foreign (incl. US) detachments, not listed here.",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Saudi_Air_Force"
+]
+},
+{
+"operator": "SA",
+"base": "King Khalid Air Base (Khamis Mushait)",
+"icao": "",
+"location": "SA",
+"region": "Asir",
+"command": "Royal Saudi Air Force",
+"units": [
+"Wing 5: Sqn 6, 55, 66, 99",
+"Wing 12: Sqn 100, 201, 202, 203, 204"
+],
+"aircraft": [
+"F-15S/SA",
+"AS532 Cougar",
+"Falco",
+"Wing Loong",
+"CH-4B"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Saudi_Air_Force"
+]
+},
+{
+"operator": "SA",
+"base": "King Faisal Air Base (Tabuk)",
+"icao": "",
+"location": "SA",
+"region": "Tabuk",
+"command": "Royal Saudi Air Force",
+"units": [
+"Wing 7: Sqn 2, 25, 29, 88"
+],
+"aircraft": [
+"F-15C/D",
+"F-15SA",
+"Bell 412EP",
+"Hawk 65/A"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Saudi_Air_Force"
+]
+},
+{
+"operator": "SA",
+"base": "King Abdullah Air Base (Jeddah)",
+"icao": "",
+"location": "SA",
+"region": "Mecca",
+"command": "Royal Saudi Air Force",
+"units": [
+"Wing 8: Sqn 4, 16, 20"
+],
+"aircraft": [
+"C-130H",
+"C-130H-30"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Saudi_Air_Force"
+]
+},
+{
+"operator": "SA",
+"base": "King Saud Air Base (Hafar al-Batin)",
+"icao": "",
+"location": "SA",
+"region": "Eastern Province",
+"command": "Royal Saudi Air Force",
+"units": [
+"Wing 15: Sqn 12, 17, 92"
+],
+"aircraft": [
+"Bell 412EP",
+"F-15SA",
+"F-15S"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Saudi_Air_Force"
+]
+},
+{
+"operator": "SA",
+"base": "Al-Jouf Air Base (Sakaka)",
+"icao": "",
+"location": "SA",
+"region": "Al-Jouf",
+"command": "Royal Saudi Air Force",
+"units": [
+"Wing 16: Sqn 15, 45"
+],
+"aircraft": [
+"F-15SA",
+"Bell 412EP"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "Sqn 45 type uncertain in source.",
+"urls": [
+"https://en.wikipedia.org/wiki/Royal_Saudi_Air_Force"
+]
+}
+]

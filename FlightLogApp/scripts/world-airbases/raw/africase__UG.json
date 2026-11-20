@@ -1,0 +1,47 @@
+[
+ {
+  "operator": "UG",
+  "base": "Entebbe Air Base",
+  "icao": "",
+  "location": "UG",
+  "region": "Central",
+  "command": "",
+  "units": [
+   "Uganda People's Defence Force Air Force HQ"
+  ],
+  "aircraft": [
+   "Su-30",
+   "Mi-17",
+   "Mi-24/35",
+   "Mi-28"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Uganda_Air_Force"
+  ],
+  "note": "Air force headquarters; fleet per page, base-by-base allocation not stated."
+ },
+ {
+  "operator": "UG",
+  "base": "Gulu Air Base",
+  "icao": "",
+  "location": "UG",
+  "region": "Northern",
+  "command": "",
+  "units": [
+   "Air Force training"
+  ],
+  "aircraft": [
+   "L-39ZA"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Uganda_Air_Force"
+  ],
+  "note": "Training facility."
+ }
+]

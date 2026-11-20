@@ -1,0 +1,67 @@
+[
+ {
+  "operator": "CI",
+  "base": "Abidjan Air Base (Port-Bouet)",
+  "icao": "DIAP",
+  "location": "CI",
+  "region": "Abidjan",
+  "command": "Armée de l'Air",
+  "units": [
+   "Groupe Aérien de Transport et de Liaison (GATL)"
+  ],
+  "aircraft": [
+   "An-26B",
+   "Mi-8P",
+   "C295W"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/ivorian-air-force/"
+  ],
+  "note": "From migflug.com (secondary source, derived from open reporting); not officially confirmed"
+ },
+ {
+  "operator": "CI",
+  "base": "Bouake Air Base",
+  "icao": "DIBK",
+  "location": "CI",
+  "region": "Vallée du Bandama",
+  "command": "Armée de l'Air",
+  "units": [
+   "Wing Loong II drone element"
+  ],
+  "aircraft": [
+   "Wing Loong II"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/ivorian-air-force/"
+  ],
+  "note": "From migflug.com (secondary source, derived from open reporting); not officially confirmed"
+ },
+ {
+  "operator": "CI",
+  "base": "Korhogo Air Base",
+  "icao": "DIKO",
+  "location": "CI",
+  "region": "Savanes",
+  "command": "Armée de l'Air",
+  "units": [
+   "Northern forward detachment"
+  ],
+  "aircraft": [
+   "Mi-24D Hind"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/ivorian-air-force/"
+  ],
+  "note": "From migflug.com (secondary source, derived from open reporting); not officially confirmed; page says Mi-24 fleet may be down to zero after an Oct 2025 crash"
+ }
+]

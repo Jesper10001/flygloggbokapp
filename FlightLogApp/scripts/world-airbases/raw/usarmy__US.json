@@ -1,0 +1,811 @@
+[
+ {
+  "operator": "US",
+  "base": "Campbell Army Airfield",
+  "icao": "KHOP",
+  "location": "US",
+  "region": "Kentucky",
+  "command": "US Army Forces Command / USASOC",
+  "units": [
+   "101st Combat Aviation Brigade (101st Airborne Division)",
+   "160th Special Operations Aviation Regiment (Airborne) (1st and 2nd Battalions, Special Operations Aviation Training Battalion)"
+  ],
+  "aircraft": [
+   "UH-60M",
+   "CH-47F",
+   "AH-64D",
+   "MH-60M",
+   "MH-60M DAP",
+   "MH-47G",
+   "MH-6/AH-6M"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Campbell_Army_Airfield"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Simmons Army Airfield",
+  "icao": "KFBG",
+  "location": "US",
+  "region": "North Carolina",
+  "command": "XVIII Airborne Corps",
+  "units": [
+   "82nd Combat Aviation Brigade (82nd Airborne Division)"
+  ],
+  "aircraft": [
+   "AH-64E",
+   "UH-60M",
+   "CH-47F"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Simmons_Army_Airfield"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Hunter Army Airfield",
+  "icao": "KSVN",
+  "location": "US",
+  "region": "Georgia",
+  "command": "US Army Forces Command",
+  "units": [
+   "3rd Combat Aviation Brigade (3rd Infantry Division)",
+   "3rd Battalion, 160th Special Operations Aviation Regiment (Airborne)"
+  ],
+  "aircraft": [
+   "UH-60",
+   "CH-47",
+   "AH-64D"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Hunter_Army_Airfield"
+  ],
+  "note": "Also hosts Coast Guard Air Station Savannah (separate row)."
+ },
+ {
+  "operator": "US",
+  "base": "Wheeler-Sack Army Airfield",
+  "icao": "KGTB",
+  "location": "US",
+  "region": "New York",
+  "command": "US Army Forces Command",
+  "units": [
+   "Combat Aviation Brigade, 10th Mountain Division"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Wheeler-Sack_Army_Airfield"
+  ],
+  "note": "Aircraft types not stated on cited page. Page also mentions RQ-7B Shadow UAS platoons."
+ },
+ {
+  "operator": "US",
+  "base": "Marshall Army Airfield",
+  "icao": "KFRI",
+  "location": "US",
+  "region": "Kansas",
+  "command": "US Army Forces Command",
+  "units": [
+   "Combat Aviation Brigade, 1st Infantry Division"
+  ],
+  "aircraft": [
+   "UH-60 Black Hawk",
+   "AH-64 Apache",
+   "CH-47 Chinook"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Marshall_Army_Airfield"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Gray Army Airfield",
+  "icao": "KGRF",
+  "location": "US",
+  "region": "Washington",
+  "command": "I Corps / 7th Infantry Division",
+  "units": [
+   "16th Combat Aviation Brigade",
+   "1st Battalion, 229th Aviation Regiment",
+   "2nd Battalion, 158th Aviation Regiment",
+   "1st Battalion, 52nd Aviation Regiment"
+  ],
+  "aircraft": [
+   "AH-64E",
+   "UH-60",
+   "CH-47"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Gray_Army_Airfield",
+   "https://en.wikipedia.org/wiki/16th_Combat_Aviation_Brigade"
+  ],
+  "note": "Joint Base Lewis-McChord."
+ },
+ {
+  "operator": "US",
+  "base": "Biggs Army Airfield",
+  "icao": "KBIF",
+  "location": "US",
+  "region": "Texas",
+  "command": "US Army Forces Command",
+  "units": [
+   "Combat Aviation Brigade, 1st Armored Division"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Biggs_Army_Airfield"
+  ],
+  "note": "Fort Bliss. Aircraft types not stated on cited page."
+ },
+ {
+  "operator": "US",
+  "base": "Wheeler Army Airfield",
+  "icao": "PHHI",
+  "location": "US",
+  "region": "Hawaii",
+  "command": "US Army Pacific",
+  "units": [
+   "25th Combat Aviation Brigade (25th Infantry Division)",
+   "193rd Aviation Regiment (Medium Lift), Hawaii Army National Guard"
+  ],
+  "aircraft": [
+   "UH-60"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Wheeler_Army_Airfield",
+   "https://en.wikipedia.org/wiki/25th_Combat_Aviation_Brigade"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Davison Army Airfield",
+  "icao": "KDAA",
+  "location": "US",
+  "region": "Virginia",
+  "command": "Military District of Washington",
+  "units": [
+   "12th Aviation Battalion",
+   "Army Aviation Brigade (MDW)"
+  ],
+  "aircraft": [
+   "VH-60M Black Hawk",
+   "UH-72 Lakota"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Davison_Army_Airfield",
+   "https://en.wikipedia.org/wiki/Fort_Belvoir"
+  ],
+  "note": "Fort Belvoir."
+ },
+ {
+  "operator": "US",
+  "base": "Cairns Army Airfield",
+  "icao": "KOZR",
+  "location": "US",
+  "region": "Alabama",
+  "command": "US Army Aviation Center of Excellence",
+  "units": [
+   "1st Aviation Brigade",
+   "110th Aviation Brigade",
+   "23rd Flying Training Squadron (USAF)"
+  ],
+  "aircraft": [
+   "TH-1H"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Cairns_Army_Airfield",
+   "https://en.wikipedia.org/wiki/Fort_Rucker"
+  ],
+  "note": "Fort Rucker, home of Army Aviation; TH-1H flown by USAF 23rd FTS."
+ },
+ {
+  "operator": "US",
+  "base": "Libby Army Airfield",
+  "icao": "KFHU",
+  "location": "US",
+  "region": "Arizona",
+  "command": "US Army Intelligence Center / Aviation Center of Excellence",
+  "units": [
+   "2nd Battalion, 13th Aviation Regiment (1st Aviation Brigade)"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Fort_Huachuca",
+   "https://en.wikipedia.org/wiki/Sierra_Vista_Municipal_Airport"
+  ],
+  "note": "Shared with Sierra Vista Municipal Airport. Aircraft types not stated on cited page."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station Cape Cod",
+  "icao": "",
+  "location": "US",
+  "region": "Massachusetts",
+  "command": "Northeast District (CG District 1)",
+  "units": [
+   "Coast Guard Air Station Cape Cod"
+  ],
+  "aircraft": [
+   "MH-60 Jayhawk",
+   "HC-144A Ocean Sentry"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_Cape Cod",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "Located at Otis Air National Guard Base, Sandwich."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station Atlantic City",
+  "icao": "",
+  "location": "US",
+  "region": "New Jersey",
+  "command": "East District (CG District 5)",
+  "units": [
+   "Coast Guard Air Station Atlantic City"
+  ],
+  "aircraft": [
+   "MH-65E Dolphin"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_Atlantic City",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "Atlantic City International Airport; also provides aircrews to Air Station Washington."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station Elizabeth City",
+  "icao": "",
+  "location": "US",
+  "region": "North Carolina",
+  "command": "East District (CG District 5)",
+  "units": [
+   "Coast Guard Air Station Elizabeth City"
+  ],
+  "aircraft": [
+   "MH-60T Jayhawk",
+   "HC-130J Hercules"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_Elizabeth City",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "Co-located with Aviation Technical Training Center."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station Washington",
+  "icao": "",
+  "location": "US",
+  "region": "Virginia",
+  "command": "East District (CG District 5)",
+  "units": [
+   "Coast Guard Air Station Washington"
+  ],
+  "aircraft": [
+   "MH-65E Dolphin",
+   "C-37B"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_Washington",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "Reagan National Airport, Arlington; aircrews drawn from Air Station Atlantic City."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station Clearwater",
+  "icao": "",
+  "location": "US",
+  "region": "Florida",
+  "command": "Southeast District (CG District 7)",
+  "units": [
+   "Coast Guard Air Station Clearwater"
+  ],
+  "aircraft": [
+   "MH-60T Jayhawk",
+   "HC-27J Spartan"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_Clearwater",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "St. Pete-Clearwater International Airport; largest Coast Guard air station. HC-130H also appears in article history."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station Miami",
+  "icao": "",
+  "location": "US",
+  "region": "Florida",
+  "command": "Southeast District (CG District 7)",
+  "units": [
+   "Coast Guard Air Station Miami"
+  ],
+  "aircraft": [
+   "HC-144A Ocean Sentry",
+   "MH-65 Dolphin"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_Miami",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "Opa-locka."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station Savannah",
+  "icao": "",
+  "location": "US",
+  "region": "Georgia",
+  "command": "Southeast District (CG District 7)",
+  "units": [
+   "Coast Guard Air Station Savannah"
+  ],
+  "aircraft": [
+   "MH-65 Dolphin"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_Savannah",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "At Hunter Army Airfield."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station Borinquen",
+  "icao": "",
+  "location": "PR",
+  "region": "Puerto Rico",
+  "command": "Southeast District (CG District 7)",
+  "units": [
+   "Coast Guard Air Station Borinquen"
+  ],
+  "aircraft": [
+   "MH-65D Dolphin",
+   "MH-60 Jayhawk"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_Borinquen",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "Rafael Hernandez Airport, Aguadilla."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station Houston",
+  "icao": "",
+  "location": "US",
+  "region": "Texas",
+  "command": "Heartland District (CG District 8)",
+  "units": [
+   "Coast Guard Air Station Houston"
+  ],
+  "aircraft": [
+   "MH-65E Dolphin"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_Houston",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "Ellington Field."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station Corpus Christi",
+  "icao": "",
+  "location": "US",
+  "region": "Texas",
+  "command": "Heartland District (CG District 8)",
+  "units": [
+   "Coast Guard Air Station Corpus Christi"
+  ],
+  "aircraft": [
+   "MH-65E Dolphin",
+   "HC-144B Ocean Sentry"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_Corpus_Christi",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "Corpus Christi International Airport."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station New Orleans",
+  "icao": "",
+  "location": "US",
+  "region": "Louisiana",
+  "command": "Heartland District (CG District 8)",
+  "units": [
+   "Coast Guard Air Station New Orleans"
+  ],
+  "aircraft": [
+   "MH-60T Jayhawk"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_New_Orleans",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "NAS JRB New Orleans."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station Detroit",
+  "icao": "",
+  "location": "US",
+  "region": "Michigan",
+  "command": "Great Lakes District (CG District 9)",
+  "units": [
+   "Coast Guard Air Station Detroit"
+  ],
+  "aircraft": [
+   "MH-65E Dolphin"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_Detroit",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "Selfridge Air National Guard Base."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station Traverse City",
+  "icao": "",
+  "location": "US",
+  "region": "Michigan",
+  "command": "Great Lakes District (CG District 9)",
+  "units": [
+   "Coast Guard Air Station Traverse City"
+  ],
+  "aircraft": [
+   "MH-60T Jayhawk"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_Traverse_City",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "Cherry Capital Airport."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station Humboldt Bay",
+  "icao": "",
+  "location": "US",
+  "region": "California",
+  "command": "Southwest District (CG District 11)",
+  "units": [
+   "Coast Guard Air Station Humboldt Bay"
+  ],
+  "aircraft": [
+   "MH-65E Dolphin"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_Humboldt_Bay",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "Humboldt Bay (Arcata-Eureka area)."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station Sacramento",
+  "icao": "",
+  "location": "US",
+  "region": "California",
+  "command": "Southwest District (CG District 11)",
+  "units": [
+   "Coast Guard Air Station Sacramento"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_Sacramento",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "Former McClellan AFB. Aircraft types not stated on cited page."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station San Francisco",
+  "icao": "",
+  "location": "US",
+  "region": "California",
+  "command": "Southwest District (CG District 11)",
+  "units": [
+   "Coast Guard Air Station San Francisco"
+  ],
+  "aircraft": [
+   "MH-65 Dolphin"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_San_Francisco",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "San Francisco International Airport."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station San Diego",
+  "icao": "",
+  "location": "US",
+  "region": "California",
+  "command": "Southwest District (CG District 11)",
+  "units": [
+   "Coast Guard Air Station San Diego"
+  ],
+  "aircraft": [
+   "MH-60T Jayhawk"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_San_Diego",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "San Diego."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station Astoria",
+  "icao": "",
+  "location": "US",
+  "region": "Oregon",
+  "command": "Northwest District (CG District 13)",
+  "units": [
+   "Coast Guard Air Station Astoria"
+  ],
+  "aircraft": [
+   "MH-60T Jayhawk"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_Astoria",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "Astoria / Warrenton."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station North Bend",
+  "icao": "",
+  "location": "US",
+  "region": "Oregon",
+  "command": "Northwest District (CG District 13)",
+  "units": [
+   "Coast Guard Air Station North Bend"
+  ],
+  "aircraft": [
+   "MH-65E Dolphin"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_North_Bend",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "Southwest Oregon Regional Airport."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station Port Angeles",
+  "icao": "",
+  "location": "US",
+  "region": "Washington",
+  "command": "Northwest District (CG District 13)",
+  "units": [
+   "Coast Guard Air Station Port Angeles"
+  ],
+  "aircraft": [
+   "MH-65E Dolphin"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_Port_Angeles",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "Port Angeles."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station Barbers Point",
+  "icao": "",
+  "location": "US",
+  "region": "Hawaii",
+  "command": "Oceania District (CG District 14)",
+  "units": [
+   "Coast Guard Air Station Barbers Point"
+  ],
+  "aircraft": [
+   "MH-65E Dolphin",
+   "HC-130J Hercules"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_Barbers_Point",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "Kalaeloa (former Barbers Point NAS)."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station Kodiak",
+  "icao": "",
+  "location": "US",
+  "region": "Alaska",
+  "command": "Arctic District (CG District 17)",
+  "units": [
+   "Coast Guard Air Station Kodiak"
+  ],
+  "aircraft": [
+   "MH-60 Jayhawk",
+   "MH-65 Dolphin",
+   "HC-130 Hercules"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_Kodiak",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "Largest Coast Guard air station in Pacific Area."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station Sitka",
+  "icao": "",
+  "location": "US",
+  "region": "Alaska",
+  "command": "Arctic District (CG District 17)",
+  "units": [
+   "Coast Guard Air Station Sitka"
+  ],
+  "aircraft": [
+   "MH-60T Jayhawk"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Coast_Guard_Air_Station_Sitka",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "Sitka."
+ },
+ {
+  "operator": "US",
+  "base": "Coast Guard Air Station Ventura County",
+  "icao": "",
+  "location": "US",
+  "region": "California",
+  "command": "Southwest District (CG District 11)",
+  "units": [
+   "Coast Guard Air Station Ventura"
+  ],
+  "aircraft": [
+   "MH-60T Jayhawk"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Base_Ventura_County",
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "At NAS Point Mugu; began operations 2024. Aircraft from image caption."
+ },
+ {
+  "operator": "US",
+  "base": "Aviation Training Center Mobile",
+  "icao": "",
+  "location": "US",
+  "region": "Alabama",
+  "command": "Coast Guard Headquarters",
+  "units": [
+   "Coast Guard Aviation Training Center"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/United_States_Coast_Guard_Air_Stations"
+  ],
+  "note": "Mobile Regional Airport; pilot training. Aircraft types not verified. partial: true"
+ }
+]

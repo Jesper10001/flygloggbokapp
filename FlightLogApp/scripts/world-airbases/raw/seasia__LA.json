@@ -1,0 +1,48 @@
+[
+ {
+  "operator": "LA",
+  "base": "Wattay International Airport (Vientiane)",
+  "icao": "",
+  "location": "LA",
+  "region": "Vientiane",
+  "command": "Lao People's Army Air Force",
+  "units": [
+   "LPAAF main units (Vientiane)"
+  ],
+  "aircraft": [
+   "Yak-130",
+   "K-8",
+   "Z-9",
+   "Ka-32",
+   "Mi-17/172",
+   "MA600",
+   "An-26"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Lao_People's_Army_Air_Force"
+  ],
+  "note": "Page: LPAAF operates from two main bases, Vientiane and Phonsavan; aircraft list is for the whole air force, not per base"
+ },
+ {
+  "operator": "LA",
+  "base": "Xieng Khouang Airport (Phonsavan)",
+  "icao": "",
+  "location": "LA",
+  "region": "Xiangkhouang",
+  "command": "Lao People's Army Air Force",
+  "units": [
+   "LPAAF main units (Phonsavan)"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Lao_People's_Army_Air_Force"
+  ],
+  "note": "Page names Phonsavan as the second main base; unit and types not given per base"
+ }
+]

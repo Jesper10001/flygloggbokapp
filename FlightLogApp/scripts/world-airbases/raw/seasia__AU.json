@@ -1,0 +1,306 @@
+[
+ {
+  "operator": "AU",
+  "base": "RAAF Base Williamtown",
+  "icao": "YWLM",
+  "location": "AU",
+  "region": "New South Wales",
+  "command": "Air Combat Group / Surveillance and Response Group",
+  "units": [
+   "No. 2 Squadron",
+   "No. 3 Squadron",
+   "No. 76 Squadron",
+   "No. 77 Squadron",
+   "No. 278 Squadron"
+  ],
+  "aircraft": [
+   "E-7A Wedgetail",
+   "F-35A",
+   "Hawk 127",
+   "PC-21"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/RAAF_Base_Williamtown"
+  ],
+  "note": "Aircraft per base page: E-7A, F-35A, Hawk 127, PC-21 operated by various squadrons"
+ },
+ {
+  "operator": "AU",
+  "base": "RAAF Base Amberley",
+  "icao": "YAMB",
+  "location": "AU",
+  "region": "Queensland",
+  "command": "Air Combat Group / Air Mobility Group",
+  "units": [
+   "No. 1 Squadron",
+   "No. 6 Squadron",
+   "No. 33 Squadron",
+   "No. 35 Squadron",
+   "No. 36 Squadron"
+  ],
+  "aircraft": [
+   "F/A-18F Super Hornet",
+   "EA-18G Growler",
+   "KC-30A MRTT",
+   "C-27J Spartan",
+   "C-17A Globemaster III"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/RAAF_Base_Amberley"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "AU",
+  "base": "RAAF Base Richmond",
+  "icao": "YSRI",
+  "location": "AU",
+  "region": "New South Wales",
+  "command": "Air Mobility Group / No. 84 Wing",
+  "units": [
+   "No. 37 Squadron"
+  ],
+  "aircraft": [
+   "C-130J Hercules"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/RAAF_Base_Richmond"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "AU",
+  "base": "RAAF Base Tindal",
+  "icao": "YPTN",
+  "location": "AU",
+  "region": "Northern Territory",
+  "command": "Air Combat Group",
+  "units": [
+   "No. 75 Squadron"
+  ],
+  "aircraft": [
+   "F-35A Lightning II"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/RAAF_Base_Tindal"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "AU",
+  "base": "RAAF Base Edinburgh",
+  "icao": "YPED",
+  "location": "AU",
+  "region": "South Australia",
+  "command": "Surveillance and Response Group",
+  "units": [
+   "No. 11 Squadron"
+  ],
+  "aircraft": [
+   "P-8A Poseidon"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/RAAF_Base_Edinburgh"
+  ],
+  "note": "Page also lists No. 10 Squadron with AP-3C Orion (dated, AP-3C retired)"
+ },
+ {
+  "operator": "AU",
+  "base": "RAAF Base East Sale",
+  "icao": "YMES",
+  "location": "AU",
+  "region": "Victoria",
+  "command": "Air Force Training Group",
+  "units": [
+   "No. 32 Squadron"
+  ],
+  "aircraft": [
+   "King Air 350"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/RAAF_Base_East_Sale"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "AU",
+  "base": "RAAF Base Pearce",
+  "icao": "YPEA",
+  "location": "AU",
+  "region": "Western Australia",
+  "command": "Air Force Training Group / Air Combat Group",
+  "units": [
+   "No. 2 Flying Training School",
+   "No. 79 Squadron"
+  ],
+  "aircraft": [
+   "PC-21",
+   "Hawk 127"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/RAAF_Base_Pearce"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "AU",
+  "base": "Defence Establishment Fairbairn (Canberra)",
+  "icao": "",
+  "location": "AU",
+  "region": "Australian Capital Territory",
+  "command": "Air Mobility Group",
+  "units": [
+   "No. 34 Squadron"
+  ],
+  "aircraft": [
+   "Boeing 737 BBJ",
+   "Dassault Falcon 7X"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/No._34_Squadron_RAAF",
+   "https://en.wikipedia.org/wiki/RAAF_Base_Williamtown"
+  ],
+  "note": "VIP squadron; flies from Canberra Airport/Fairbairn"
+ },
+ {
+  "operator": "AU",
+  "base": "HMAS Albatross (NAS Nowra)",
+  "icao": "YSNW",
+  "location": "AU",
+  "region": "New South Wales",
+  "command": "Fleet Air Arm",
+  "units": [
+   "723 Squadron RAN",
+   "725 Squadron RAN",
+   "808 Squadron RAN",
+   "816 Squadron RAN",
+   "822X Squadron RAN"
+  ],
+  "aircraft": [
+   "EC135 T2+",
+   "MH-60R Seahawk",
+   "Schiebel Camcopter S-100"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/HMAS_Albatross_(air_station)"
+  ],
+  "note": "Navy"
+ },
+ {
+  "operator": "AU",
+  "base": "Oakey Army Aviation Centre",
+  "icao": "YBOK",
+  "location": "AU",
+  "region": "Queensland",
+  "command": "Army Aviation Training Centre",
+  "units": [
+   "Army Aviation Training Centre",
+   "Army Helicopter School"
+  ],
+  "aircraft": [
+   "Helicopters (training)"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Oakey_Army_Aviation_Centre"
+  ],
+  "note": "Training establishment; Boeing-contracted rotary training for Kiowa/Black Hawk/Chinook as described on page (dated)"
+ },
+ {
+  "operator": "AU",
+  "base": "RAAF Base Townsville",
+  "icao": "YBTL",
+  "location": "AU",
+  "region": "Queensland",
+  "command": "Army Aviation",
+  "units": [
+   "5th Aviation Regiment",
+   "1st Aviation Regiment (HQ and 161 Recon Sqn from 2025)"
+  ],
+  "aircraft": [
+   "CH-47F Chinook",
+   "UH-60M Black Hawk",
+   "H135T3",
+   "AH-64E Apache"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/5th_Aviation_Regiment_(Australia)",
+   "https://en.wikipedia.org/wiki/1st_Aviation_Regiment_(Australia)"
+  ],
+  "note": "Army units based at RAAF Townsville"
+ },
+ {
+  "operator": "AU",
+  "base": "Robertson Barracks (Darwin)",
+  "icao": "",
+  "location": "AU",
+  "region": "Northern Territory",
+  "command": "Army Aviation",
+  "units": [
+   "1st Aviation Regiment (162 Reconnaissance Squadron)"
+  ],
+  "aircraft": [
+   "Tiger ARH"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/1st_Aviation_Regiment_(Australia)"
+  ],
+  "note": "Tiger ARH until retired; relocation to Townsville in progress"
+ },
+ {
+  "operator": "AU",
+  "base": "Holsworthy Barracks",
+  "icao": "",
+  "location": "AU",
+  "region": "New South Wales",
+  "command": "Army Aviation",
+  "units": [
+   "6th Aviation Regiment"
+  ],
+  "aircraft": [
+   "UH-60M Black Hawk"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/6th_Aviation_Regiment_(Australia)"
+  ],
+  "note": "Regiment HQ; page describes being equipped with UH-60M"
+ }
+]

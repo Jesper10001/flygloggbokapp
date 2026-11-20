@@ -1,0 +1,66 @@
+[
+ {
+  "operator": "UY",
+  "base": "Gen. Cesáreo L. Berisso Air Base (Carrasco)",
+  "icao": "",
+  "location": "UY",
+  "region": "Canelones",
+  "command": "Fuerza Aérea Uruguaya",
+  "units": [
+   "Air Brigade I",
+   "No. 3 Squadron (Transport)",
+   "No. 5 Squadron (Helicopters)"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Uruguayan_Air_Force"
+  ],
+  "note": "Page gives no per-unit types; air force fleet: KC-130H, C-212, EMB 120, Bell 212, UH-1H, AS365"
+ },
+ {
+  "operator": "UY",
+  "base": "Mario W. Parrallada Air Base (Santa Bernardina, Durazno)",
+  "icao": "",
+  "location": "UY",
+  "region": "Durazno",
+  "command": "Fuerza Aérea Uruguaya",
+  "units": [
+   "Air Brigade II",
+   "No. 1 Squadron (Attack)",
+   "No. 2 Squadron (Fighters)",
+   "Advanced Flight Squadron",
+   "Liaison Squadron"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Uruguayan_Air_Force"
+  ],
+  "note": "Page gives no per-unit types; fleet includes A-29 Super Tucano, PC-7, SF.260"
+ },
+ {
+  "operator": "UY",
+  "base": "Capitán Boiso Lanza Air Base (Montevideo)",
+  "icao": "",
+  "location": "UY",
+  "region": "Montevideo",
+  "command": "Fuerza Aérea Uruguaya",
+  "units": [
+   "Air Brigade III",
+   "No. 7 Squadron (Observation and Liaison)"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Uruguayan_Air_Force"
+  ],
+  "note": "Page gives no per-unit types"
+ }
+]

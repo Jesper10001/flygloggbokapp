@@ -1,0 +1,46 @@
+[
+ {
+  "operator": "LY",
+  "base": "Ghardabiya Air Base",
+  "icao": "HLGD",
+  "location": "LY",
+  "region": "Sirte",
+  "command": "Libyan Air Force",
+  "units": [
+   "1124th Bomber Squadron",
+   "1st Fighter-Bomber Squadron"
+  ],
+  "aircraft": [
+   "Su-22",
+   "L-39 Albatros"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Ghardabiya_Airbase"
+  ],
+  "note": "Long-established home base per Wikipedia (GlobalSecurity OOB, older); current status unverified"
+ },
+ {
+  "operator": "LY",
+  "base": "Al Jufra Air Base",
+  "icao": "HL69",
+  "location": "LY",
+  "region": "Jufra",
+  "command": "Libyan Air Force",
+  "units": [
+   "No. 1025 Squadron (1980s)"
+  ],
+  "aircraft": [
+   "MiG-25PD (historic)"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Al_Jufra_Airbase"
+  ],
+  "note": "Historic assignment only (pre-2011); current status unverified"
+ }
+]

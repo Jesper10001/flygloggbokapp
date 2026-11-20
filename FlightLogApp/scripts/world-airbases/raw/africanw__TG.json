@@ -1,0 +1,39 @@
+[
+ {
+  "operator": "TG",
+  "base": "Niamtougou Air Base (Base de Chasse)",
+  "icao": "",
+  "location": "TG",
+  "region": "Kara",
+  "command": "Togolese Air Force",
+  "units": [],
+  "aircraft": [
+   "Alpha Jet (stored)",
+   "EMB 314 A-29 (reported due 2026)"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/togolese-air-force/"
+  ],
+  "note": "From migflug.com (secondary source, derived from open reporting); not officially confirmed; page says no units published, aircraft attribution to base not confirmed"
+ },
+ {
+  "operator": "TG",
+  "base": "Lome Air Base (Base de Transport)",
+  "icao": "",
+  "location": "TG",
+  "region": "Maritime",
+  "command": "Togolese Air Force",
+  "units": [],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/togolese-air-force/"
+  ],
+  "note": "From migflug.com (secondary source, derived from open reporting); not officially confirmed; transport base at Tokoin airport, units/aircraft not published"
+ }
+]

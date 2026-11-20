@@ -1,0 +1,85 @@
+[
+ {
+  "operator": "HN",
+  "base": "José Enrique Soto Cano Air Base (Palmerola)",
+  "icao": "MHSC",
+  "location": "HN",
+  "region": "Comayagua",
+  "command": "Fuerza Aérea Hondureña",
+  "units": [
+   "Academia Militar de Aviación"
+  ],
+  "aircraft": [
+   "EMB-312 Tucano",
+   "CASA C-101 Aviojet",
+   "TH-55 Osage"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_Aérea_Hondureña"
+  ],
+  "note": "Also hosts US JTF-Bravo (not listed here)."
+ },
+ {
+  "operator": "HN",
+  "base": "Hernán Acosta Mejía Air Base (Tegucigalpa)",
+  "icao": "MHTG",
+  "location": "HN",
+  "region": "Francisco Morazán",
+  "command": "Fuerza Aérea Hondureña",
+  "units": [
+   "Presidential air transport squadron"
+  ],
+  "aircraft": [
+   "C-130 Hercules"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_Aérea_Hondureña"
+  ],
+  "note": "Department not stated by source."
+ },
+ {
+  "operator": "HN",
+  "base": "Coronel Armando Escalón Espinal Air Base (La Lima)",
+  "icao": "MHLM",
+  "location": "HN",
+  "region": "Cortés",
+  "command": "Fuerza Aérea Hondureña",
+  "units": [],
+  "aircraft": [
+   "A-37 Dragonfly"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_Aérea_Hondureña"
+  ],
+  "note": "No named squadron in source."
+ },
+ {
+  "operator": "HN",
+  "base": "Héctor Caraccioli Moncada Air Base (La Ceiba)",
+  "icao": "MHLC",
+  "location": "HN",
+  "region": "Atlántida",
+  "command": "Fuerza Aérea Hondureña",
+  "units": [],
+  "aircraft": [
+   "F-5E",
+   "F-5F"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_Aérea_Hondureña"
+  ],
+  "note": "No named squadron in source."
+ }
+]

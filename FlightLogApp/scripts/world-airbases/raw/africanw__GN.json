@@ -1,0 +1,21 @@
+[
+ {
+  "operator": "GN",
+  "base": "Conakry Air Base",
+  "icao": "GUCY",
+  "location": "GN",
+  "region": "Conakry",
+  "command": "Armée de l'Air",
+  "units": [
+   "Escadron de drones (ES-Dro), created July 2025"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/guinean-air-force/"
+  ],
+  "note": "From migflug.com (secondary source, derived from open reporting); not officially confirmed; drone types not published"
+ }
+]

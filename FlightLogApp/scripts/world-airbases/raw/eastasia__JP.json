@@ -1,0 +1,1158 @@
+[
+ {
+  "operator": "JP",
+  "base": "Chitose Air Base",
+  "icao": "",
+  "location": "JP",
+  "region": "Hokkaido",
+  "command": "Northern Air Defense Force",
+  "units": [
+   "2nd Air Wing (201SQ, 203SQ)",
+   "Special Airlift Group 701SQ",
+   "Air Rescue Wing Chitose Detachment"
+  ],
+  "aircraft": [
+   "F-15J/DJ",
+   "T-4",
+   "Boeing 777-300ER"
+  ],
+  "sources": [
+   "Wikipedia (JASDF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Japan_Air_Self-Defense_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Misawa Air Base",
+  "icao": "",
+  "location": "JP",
+  "region": "Aomori",
+  "command": "Northern Air Defense Force",
+  "units": [
+   "3rd Air Wing (301SQ, 302SQ)",
+   "Northern Air Command Support Flight",
+   "601SQ (Airborne Early Warning)",
+   "Misawa Helicopter Airlift Squadron"
+  ],
+  "aircraft": [
+   "F-35A",
+   "T-4",
+   "E-2C/D",
+   "CH-47J"
+  ],
+  "sources": [
+   "Wikipedia (JASDF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Japan_Air_Self-Defense_Force"
+  ],
+  "note": "Shared with US forces; JASDF units only listed"
+ },
+ {
+  "operator": "JP",
+  "base": "Komatsu Air Base",
+  "icao": "",
+  "location": "JP",
+  "region": "Ishikawa",
+  "command": "Central Air Defense Force",
+  "units": [
+   "6th Air Wing (303SQ, 306SQ)",
+   "Tactical Fighter Training Group"
+  ],
+  "aircraft": [
+   "F-15J/DJ",
+   "T-4"
+  ],
+  "sources": [
+   "Wikipedia (JASDF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Japan_Air_Self-Defense_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Hyakuri Air Base",
+  "icao": "",
+  "location": "JP",
+  "region": "Ibaraki",
+  "command": "Central Air Defense Force",
+  "units": [
+   "7th Air Wing (3SQ)",
+   "Air Rescue Wing Hyakuri Detachment"
+  ],
+  "aircraft": [
+   "F-2A/B",
+   "T-4"
+  ],
+  "sources": [
+   "Wikipedia (JASDF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Japan_Air_Self-Defense_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Iruma Air Base",
+  "icao": "",
+  "location": "JP",
+  "region": "Saitama",
+  "command": "Air Defense Command / Central Air Defense Force",
+  "units": [
+   "Central Air Command Support Squadron",
+   "2nd Tactical Airlift Group (402SQ)",
+   "Flight Check Squadron",
+   "Electronic Warfare Squadron",
+   "Electronic Intelligence Squadron",
+   "Iruma Helicopter Airlift Squadron"
+  ],
+  "aircraft": [
+   "T-4",
+   "U-4",
+   "C-1",
+   "U-125",
+   "EC-1",
+   "YS-11EB",
+   "CH-47J"
+  ],
+  "sources": [
+   "Wikipedia (JASDF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Japan_Air_Self-Defense_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Nyutabaru Air Base",
+  "icao": "",
+  "location": "JP",
+  "region": "Miyazaki",
+  "command": "Western Air Defense Force",
+  "units": [
+   "5th Air Wing (305SQ)",
+   "Fighter Training Group (23SQ)"
+  ],
+  "aircraft": [
+   "F-15J/DJ",
+   "T-4"
+  ],
+  "sources": [
+   "Wikipedia (JASDF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Japan_Air_Self-Defense_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Tsuiki Air Base",
+  "icao": "",
+  "location": "JP",
+  "region": "Fukuoka",
+  "command": "Western Air Defense Force",
+  "units": [
+   "8th Air Wing (6SQ, 8SQ)"
+  ],
+  "aircraft": [
+   "F-2A/B",
+   "T-4"
+  ],
+  "sources": [
+   "Wikipedia (JASDF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Japan_Air_Self-Defense_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Kasuga Air Base",
+  "icao": "",
+  "location": "JP",
+  "region": "Fukuoka",
+  "command": "Western Air Defense Force",
+  "units": [
+   "Western Air Command Support Squadron",
+   "Kasuga Helicopter Airlift Squadron"
+  ],
+  "aircraft": [
+   "T-4",
+   "CH-47J"
+  ],
+  "sources": [
+   "Wikipedia (JASDF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Japan_Air_Self-Defense_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Naha",
+  "icao": "",
+  "location": "JP",
+  "region": "Okinawa",
+  "command": "Southwestern Air Defense Force / JMSDF Fleet Air Force / Western Army",
+  "units": [
+   "9th Air Wing (204SQ, 304SQ)",
+   "Southwestern Air Command Support Squadron",
+   "603SQ (Airborne Early Warning)",
+   "5th Fleet Air Wing (5th Fleet Air Sqn)",
+   "15th Helicopter Unit"
+  ],
+  "aircraft": [
+   "F-15J/DJ",
+   "T-4",
+   "E-2C/D",
+   "P-3C",
+   "LR-2",
+   "UH-60JA",
+   "CH-47JA"
+  ],
+  "sources": [
+   "Wikipedia (JASDF)",
+   "j-hangarspace JMSDF order of battle (Apr 2025)",
+   "j-hangarspace JGSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Japan_Air_Self-Defense_Force",
+   "http://www.j-hangarspace.jp/jmsdf-order-of-battle",
+   "http://www.j-hangarspace.jp/jgsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Hamamatsu Air Base",
+  "icao": "",
+  "location": "JP",
+  "region": "Shizuoka",
+  "command": "Air Training Command / Air Defense Command",
+  "units": [
+   "1st Air Wing (31SQ, 32SQ, 41SQ)",
+   "Airborne Early Warning and Control Wing (602SQ)"
+  ],
+  "aircraft": [
+   "T-4",
+   "T-400",
+   "E-767"
+  ],
+  "sources": [
+   "Wikipedia (JASDF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Japan_Air_Self-Defense_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Komaki Air Base",
+  "icao": "",
+  "location": "JP",
+  "region": "Aichi",
+  "command": "Air Support Command",
+  "units": [
+   "1st Tactical Airlift Group (401SQ, 404SQ)"
+  ],
+  "aircraft": [
+   "C-130H",
+   "KC-130H",
+   "KC-767"
+  ],
+  "sources": [
+   "Wikipedia (JASDF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Japan_Air_Self-Defense_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Miho Air Base",
+  "icao": "",
+  "location": "JP",
+  "region": "Tottori",
+  "command": "Air Support Command",
+  "units": [
+   "3rd Tactical Airlift Group (403SQ, 405SQ)"
+  ],
+  "aircraft": [
+   "C-1",
+   "C-2",
+   "KC-46"
+  ],
+  "sources": [
+   "Wikipedia (JASDF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Japan_Air_Self-Defense_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Matsushima Air Field",
+  "icao": "",
+  "location": "JP",
+  "region": "Miyagi",
+  "command": "Air Training Command",
+  "units": [
+   "4th Air Wing (11SQ Blue Impulse, 21SQ)"
+  ],
+  "aircraft": [
+   "T-4",
+   "F-2B"
+  ],
+  "sources": [
+   "Wikipedia (JASDF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Japan_Air_Self-Defense_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Shizuhama Air Base",
+  "icao": "",
+  "location": "JP",
+  "region": "Shizuoka",
+  "command": "Air Training Command",
+  "units": [
+   "11th Flying Training Wing (1SQ, 2SQ)"
+  ],
+  "aircraft": [
+   "T-7"
+  ],
+  "sources": [
+   "Wikipedia (JASDF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Japan_Air_Self-Defense_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Hōfu Air Field",
+  "icao": "",
+  "location": "JP",
+  "region": "Yamaguchi",
+  "command": "Air Training Command",
+  "units": [
+   "12th Flight Training Wing (1SQ, 2SQ)"
+  ],
+  "aircraft": [
+   "T-7"
+  ],
+  "sources": [
+   "Wikipedia (JASDF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Japan_Air_Self-Defense_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Ashiya Air Field",
+  "icao": "",
+  "location": "JP",
+  "region": "Fukuoka",
+  "command": "Air Training Command",
+  "units": [
+   "13th Flight Training Wing (1SQ, 2SQ)",
+   "Air Rescue Wing Ashiya Detachment"
+  ],
+  "aircraft": [
+   "T-4"
+  ],
+  "sources": [
+   "Wikipedia (JASDF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Japan_Air_Self-Defense_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Gifu Air Field",
+  "icao": "",
+  "location": "JP",
+  "region": "Gifu",
+  "command": "Air Development and Test Command",
+  "units": [
+   "Air Development and Test Wing"
+  ],
+  "aircraft": [
+   "F-15J/DJ",
+   "F-2A/B",
+   "C-1FTB",
+   "C-2",
+   "T-7",
+   "T-4"
+  ],
+  "sources": [
+   "Wikipedia (JASDF)"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Japan_Air_Self-Defense_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Kanoya Air Base",
+  "icao": "",
+  "location": "JP",
+  "region": "Kagoshima",
+  "command": "JMSDF Fleet Air Force",
+  "units": [
+   "1st Fleet Air Wing (1st Fleet Air Sqn)",
+   "211th Air Training Sqn"
+  ],
+  "aircraft": [
+   "P-1",
+   "TH-135"
+  ],
+  "sources": [
+   "j-hangarspace JMSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jmsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Hachinohe Air Base",
+  "icao": "",
+  "location": "JP",
+  "region": "Aomori",
+  "command": "JMSDF Fleet Air Force",
+  "units": [
+   "2nd Fleet Air Wing (2nd Fleet Air Sqn)"
+  ],
+  "aircraft": [
+   "P-3C"
+  ],
+  "sources": [
+   "j-hangarspace JMSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jmsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Atsugi",
+  "icao": "",
+  "location": "JP",
+  "region": "Kanagawa",
+  "command": "JMSDF Fleet Air Force",
+  "units": [
+   "4th Fleet Air Wing (3rd Fleet Air Sqn)",
+   "51st Fleet Air Sqn",
+   "61st Fleet Air Sqn"
+  ],
+  "aircraft": [
+   "P-1",
+   "UP-1",
+   "P-3C",
+   "UP-3C",
+   "SH-60J/K/L",
+   "USH-60K",
+   "C-130R",
+   "LC-90"
+  ],
+  "sources": [
+   "j-hangarspace JMSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jmsdf-order-of-battle"
+  ],
+  "note": "Shared with US Navy"
+ },
+ {
+  "operator": "JP",
+  "base": "Tateyama",
+  "icao": "",
+  "location": "JP",
+  "region": "Chiba",
+  "command": "JMSDF Fleet Air Force",
+  "units": [
+   "21st Fleet Air Wing (21st Fleet Air Sqn)"
+  ],
+  "aircraft": [
+   "SH-60K"
+  ],
+  "sources": [
+   "j-hangarspace JMSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jmsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Maizuru",
+  "icao": "",
+  "location": "JP",
+  "region": "Kyoto",
+  "command": "JMSDF Fleet Air Force",
+  "units": [
+   "21st Fleet Air Wing (23rd Fleet Air Sqn)"
+  ],
+  "aircraft": [
+   "SH-60K"
+  ],
+  "sources": [
+   "j-hangarspace JMSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jmsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Ohminato",
+  "icao": "",
+  "location": "JP",
+  "region": "Aomori",
+  "command": "JMSDF Fleet Air Force",
+  "units": [
+   "21st Fleet Air Wing (25th Fleet Air Sqn)"
+  ],
+  "aircraft": [
+   "SH-60K"
+  ],
+  "sources": [
+   "j-hangarspace JMSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jmsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Omura",
+  "icao": "",
+  "location": "JP",
+  "region": "Nagasaki",
+  "command": "JMSDF Fleet Air Force",
+  "units": [
+   "22nd Fleet Air Wing (22nd Fleet Air Sqn)"
+  ],
+  "aircraft": [
+   "SH-60K",
+   "SH-60J"
+  ],
+  "sources": [
+   "j-hangarspace JMSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jmsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Komatsushima",
+  "icao": "",
+  "location": "JP",
+  "region": "Tokushima",
+  "command": "JMSDF Fleet Air Force",
+  "units": [
+   "22nd Fleet Air Wing (24th Fleet Air Sqn)"
+  ],
+  "aircraft": [
+   "SH-60K"
+  ],
+  "sources": [
+   "j-hangarspace JMSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jmsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Iwakuni",
+  "icao": "",
+  "location": "JP",
+  "region": "Yamaguchi",
+  "command": "JMSDF Fleet Air Force",
+  "units": [
+   "31st Fleet Air Wing (71st Fleet Air Sqn, 81st Fleet Air Sqn)",
+   "111th Fleet Air Sqn"
+  ],
+  "aircraft": [
+   "US-2",
+   "EP-3",
+   "OP-3C",
+   "UP-3D",
+   "MCH-101"
+  ],
+  "sources": [
+   "j-hangarspace JMSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jmsdf-order-of-battle"
+  ],
+  "note": "Shared with US forces"
+ },
+ {
+  "operator": "JP",
+  "base": "Shimofusa",
+  "icao": "",
+  "location": "JP",
+  "region": "Chiba",
+  "command": "JMSDF Air Training Command",
+  "units": [
+   "Shimofusa Air Training Wing (203rd Air Training Sqn)"
+  ],
+  "aircraft": [
+   "P-1",
+   "P-3C"
+  ],
+  "sources": [
+   "j-hangarspace JMSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jmsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Tokushima",
+  "icao": "",
+  "location": "JP",
+  "region": "Tokushima",
+  "command": "JMSDF Air Training Command",
+  "units": [
+   "Tokushima Air Training Wing (202nd Air Training Sqn)"
+  ],
+  "aircraft": [
+   "TC-90"
+  ],
+  "sources": [
+   "j-hangarspace JMSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jmsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Ozuki",
+  "icao": "",
+  "location": "JP",
+  "region": "Yamaguchi",
+  "command": "JMSDF Air Training Command",
+  "units": [
+   "Ozuki Air Training Wing (201st Air Training Sqn)"
+  ],
+  "aircraft": [
+   "T-5"
+  ],
+  "sources": [
+   "j-hangarspace JMSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jmsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Etajima",
+  "icao": "",
+  "location": "JP",
+  "region": "Hiroshima",
+  "command": "JMSDF Fleet Air Force",
+  "units": [
+   "Target Drone Unit"
+  ],
+  "aircraft": [
+   "BQM-34AJ"
+  ],
+  "sources": [
+   "j-hangarspace JMSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jmsdf-order-of-battle"
+  ],
+  "note": "Unmanned target drones"
+ },
+ {
+  "operator": "JP",
+  "base": "Okadama",
+  "icao": "",
+  "location": "JP",
+  "region": "Hokkaido",
+  "command": "Northern Army",
+  "units": [
+   "Aviation Group",
+   "Helicopter Sqn",
+   "7th Aviation Sqn"
+  ],
+  "aircraft": [
+   "LR-2",
+   "UH-1J"
+  ],
+  "sources": [
+   "j-hangarspace JGSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jgsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Obihiro",
+  "icao": "",
+  "location": "JP",
+  "region": "Hokkaido",
+  "command": "Northern Army",
+  "units": [
+   "1st Anti-Tank Helicopter Sqn",
+   "5th Aviation Sqn"
+  ],
+  "aircraft": [
+   "AH-1S",
+   "UH-1J"
+  ],
+  "sources": [
+   "j-hangarspace JGSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jgsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Asahikawa",
+  "icao": "",
+  "location": "JP",
+  "region": "Hokkaido",
+  "command": "Northern Army",
+  "units": [
+   "2nd Aviation Sqn"
+  ],
+  "aircraft": [
+   "UH-1J"
+  ],
+  "sources": [
+   "j-hangarspace JGSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jgsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Makonai",
+  "icao": "",
+  "location": "JP",
+  "region": "Hokkaido",
+  "command": "Northern Army",
+  "units": [
+   "11th Aviation Sqn"
+  ],
+  "aircraft": [],
+  "sources": [
+   "j-hangarspace JGSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jgsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Kasuminome",
+  "icao": "",
+  "location": "JP",
+  "region": "Miyagi",
+  "command": "Northeastern Army",
+  "units": [
+   "Aviation Group",
+   "Helicopter Sqn"
+  ],
+  "aircraft": [
+   "UH-1J"
+  ],
+  "sources": [
+   "j-hangarspace JGSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jgsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Hachinohe",
+  "icao": "",
+  "location": "JP",
+  "region": "Aomori",
+  "command": "Northeastern Army",
+  "units": [
+   "2nd Anti-Tank Helicopter Sqn",
+   "9th Aviation Sqn"
+  ],
+  "aircraft": [
+   "OH-1",
+   "AH-1S",
+   "UH-1J"
+  ],
+  "sources": [
+   "j-hangarspace JGSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jgsdf-order-of-battle"
+  ],
+  "note": "2nd ATH Sqn to disband by March 2026"
+ },
+ {
+  "operator": "JP",
+  "base": "Jinmachi",
+  "icao": "",
+  "location": "JP",
+  "region": "Yamagata",
+  "command": "Northeastern Army",
+  "units": [
+   "6th Aviation Sqn"
+  ],
+  "aircraft": [
+   "UH-1J"
+  ],
+  "sources": [
+   "j-hangarspace JGSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jgsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Tachikawa",
+  "icao": "",
+  "location": "JP",
+  "region": "Tokyo",
+  "command": "Eastern Army",
+  "units": [
+   "Aviation Group",
+   "Helicopter Sqn",
+   "1st Aviation Sqn"
+  ],
+  "aircraft": [
+   "OH-1",
+   "UH-1J",
+   "UH-2"
+  ],
+  "sources": [
+   "j-hangarspace JGSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jgsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Kisarazu",
+  "icao": "",
+  "location": "JP",
+  "region": "Chiba",
+  "command": "Eastern Army / 1st Helicopter Brigade",
+  "units": [
+   "4th Anti-Tank Helicopter Sqn",
+   "1st Helicopter Brigade (Transport Helicopter Group)"
+  ],
+  "aircraft": [
+   "OH-1",
+   "AH-1S",
+   "UH-60JA",
+   "CH-47J/JA",
+   "V-22B",
+   "EC225LP",
+   "LR-2"
+  ],
+  "sources": [
+   "j-hangarspace JGSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jgsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Soumagahara",
+  "icao": "",
+  "location": "JP",
+  "region": "Gunma",
+  "command": "Eastern Army",
+  "units": [
+   "12th Helicopter Unit"
+  ],
+  "aircraft": [
+   "UH-1J",
+   "UH-60JA",
+   "CH-47J/JA"
+  ],
+  "sources": [
+   "j-hangarspace JGSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jgsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Kita-Utsunomiya",
+  "icao": "",
+  "location": "JP",
+  "region": "Tochigi",
+  "command": "Eastern Army",
+  "units": [
+   "12th Helicopter Unit (1st Flight)",
+   "Branch Aviation School"
+  ],
+  "aircraft": [
+   "UH-1J",
+   "TH-480B"
+  ],
+  "sources": [
+   "j-hangarspace JGSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jgsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Yao",
+  "icao": "",
+  "location": "JP",
+  "region": "Osaka",
+  "command": "Central Army",
+  "units": [
+   "Aviation Group",
+   "Helicopter Sqn",
+   "3rd Aviation Sqn"
+  ],
+  "aircraft": [
+   "OH-1",
+   "UH-1J",
+   "UH-2",
+   "CH-47JA"
+  ],
+  "sources": [
+   "j-hangarspace JGSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jgsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Akeno",
+  "icao": "",
+  "location": "JP",
+  "region": "Mie",
+  "command": "Central Army",
+  "units": [
+   "5th Anti-Tank Helicopter Sqn",
+   "10th Aviation Sqn",
+   "Main Aviation School",
+   "Aviation Test & Evaluation Unit"
+  ],
+  "aircraft": [
+   "OH-1",
+   "AH-1S",
+   "UH-1J",
+   "UH-2",
+   "UH-60JA",
+   "CH-47JA",
+   "TH-480B"
+  ],
+  "sources": [
+   "j-hangarspace JGSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jgsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Hofu",
+  "icao": "",
+  "location": "JP",
+  "region": "Yamaguchi",
+  "command": "Central Army",
+  "units": [
+   "13th Aviation Sqn"
+  ],
+  "aircraft": [],
+  "sources": [
+   "j-hangarspace JGSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jgsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Kita-Tokushima",
+  "icao": "",
+  "location": "JP",
+  "region": "Tokushima",
+  "command": "Central Army",
+  "units": [
+   "14th Aviation Sqn"
+  ],
+  "aircraft": [
+   "UH-1J"
+  ],
+  "sources": [
+   "j-hangarspace JGSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jgsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Takayubaru",
+  "icao": "",
+  "location": "JP",
+  "region": "Kumamoto",
+  "command": "Western Army",
+  "units": [
+   "Aviation Group",
+   "8th Aviation Sqn",
+   "Helicopter Sqn (3rd Flight)"
+  ],
+  "aircraft": [
+   "LR-2",
+   "UH-60JA",
+   "CH-47J/JA"
+  ],
+  "sources": [
+   "j-hangarspace JGSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jgsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Metabaru",
+  "icao": "",
+  "location": "JP",
+  "region": "Saga",
+  "command": "Western Army",
+  "units": [
+   "Helicopter Sqn",
+   "1st Combat Helicopter Sqn",
+   "4th Aviation Sqn"
+  ],
+  "aircraft": [
+   "UH-1J",
+   "UH-60JA",
+   "UH-2",
+   "CH-47J/JA",
+   "OH-1",
+   "AH-64D"
+  ],
+  "sources": [
+   "j-hangarspace JGSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jgsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Kasumigaura",
+  "icao": "",
+  "location": "JP",
+  "region": "Ibaraki",
+  "command": "Army Aviation School",
+  "units": [
+   "Branch Aviation School"
+  ],
+  "aircraft": [
+   "AH-1S",
+   "AH-64D",
+   "CH-47J/JA",
+   "OH-1",
+   "UH-1J",
+   "UH-2",
+   "UH-60JA"
+  ],
+  "sources": [
+   "j-hangarspace JGSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jgsdf-order-of-battle"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "JP",
+  "base": "Takigahara",
+  "icao": "",
+  "location": "JP",
+  "region": "Shizuoka",
+  "command": "Army",
+  "units": [
+   "Training Support Flight"
+  ],
+  "aircraft": [
+   "UH-1J"
+  ],
+  "sources": [
+   "j-hangarspace JGSDF order of battle (Apr 2025)"
+  ],
+  "urls": [
+   "http://www.j-hangarspace.jp/jgsdf-order-of-battle"
+  ],
+  "note": ""
+ }
+]

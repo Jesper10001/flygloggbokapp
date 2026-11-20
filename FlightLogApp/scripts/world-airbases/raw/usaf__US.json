@@ -1,0 +1,1425 @@
+[
+ {
+  "operator": "US",
+  "base": "Altus Air Force Base",
+  "icao": "KLTS",
+  "location": "US",
+  "region": "Oklahoma",
+  "command": "AETC",
+  "units": [
+   "97th Air Mobility Wing",
+   "54th Air Refueling Squadron",
+   "56th Air Refueling Squadron",
+   "58th Airlift Squadron"
+  ],
+  "aircraft": [
+   "KC-135R Stratotanker",
+   "KC-46A Pegasus",
+   "C-17A Globemaster III"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Altus_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Andersen Air Force Base",
+  "icao": "PGUA",
+  "location": "GU",
+  "region": "Guam",
+  "command": "PACAF",
+  "units": [
+   "36th Wing",
+   "4th Reconnaissance Squadron (319th Reconnaissance Wing, seasonal)"
+  ],
+  "aircraft": [
+   "RQ-4B Global Hawk"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Andersen_Air_Force_Base"
+  ],
+  "note": "RQ-4B detachment listed as seasonal on Wikipedia; US Navy HSC-25 also based (not listed here)"
+ },
+ {
+  "operator": "US",
+  "base": "Barksdale Air Force Base",
+  "icao": "KBAD",
+  "location": "US",
+  "region": "Louisiana",
+  "command": "AFGSC",
+  "units": [
+   "2nd Bomb Wing",
+   "11th Bomb Squadron",
+   "20th Bomb Squadron",
+   "96th Bomb Squadron",
+   "49th Test and Evaluation Squadron (GSU)",
+   "340th Weapons Squadron (GSU)"
+  ],
+  "aircraft": [
+   "B-52H Stratofortress"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Barksdale_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Beale Air Force Base",
+  "icao": "KBAB",
+  "location": "US",
+  "region": "California",
+  "command": "ACC",
+  "units": [
+   "9th Reconnaissance Wing",
+   "1st Reconnaissance Squadron",
+   "74th Reconnaissance Squadron",
+   "99th Reconnaissance Squadron",
+   "427th Reconnaissance Squadron"
+  ],
+  "aircraft": [
+   "U-2S Dragon Lady",
+   "T-38A Talon",
+   "RQ-180"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Beale_Air_Force_Base"
+  ],
+  "note": "Aircraft per squadron as listed on Wikipedia; 74th RS has no aircraft listed there"
+ },
+ {
+  "operator": "US",
+  "base": "Cannon Air Force Base",
+  "icao": "KCVS",
+  "location": "US",
+  "region": "New Mexico",
+  "command": "AFSOC",
+  "units": [
+   "27th Special Operations Wing",
+   "3rd Special Operations Squadron",
+   "9th Special Operations Squadron",
+   "12th Special Operations Squadron",
+   "16th Special Operations Squadron",
+   "20th Special Operations Squadron",
+   "33rd Special Operations Squadron",
+   "318th Special Operations Squadron"
+  ],
+  "aircraft": [
+   "MQ-9A Reaper",
+   "MC-130J Commando II",
+   "AC-130J Ghostrider",
+   "CV-22B Osprey",
+   "U-28A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Cannon_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Columbus Air Force Base",
+  "icao": "KCBM",
+  "location": "US",
+  "region": "Mississippi",
+  "command": "AETC",
+  "units": [
+   "14th Flying Training Wing",
+   "37th Flying Training Squadron",
+   "41st Flying Training Squadron",
+   "48th Flying Training Squadron",
+   "49th Fighter Training Squadron",
+   "50th Flying Training Squadron"
+  ],
+  "aircraft": [
+   "T-6A Texan II",
+   "T-1A Jayhawk",
+   "T-38C Talon"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Columbus_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Creech Air Force Base",
+  "icao": "KINS",
+  "location": "US",
+  "region": "Nevada",
+  "command": "ACC",
+  "units": [
+   "432nd Wing",
+   "11th Attack Squadron",
+   "489th Attack Squadron",
+   "15th Attack Squadron",
+   "17th Attack Squadron",
+   "22nd Attack Squadron",
+   "867th Attack Squadron",
+   "30th Reconnaissance Squadron",
+   "44th Reconnaissance Squadron",
+   "556th Test and Evaluation Squadron (GSU)",
+   "26th Weapons Squadron (GSU)"
+  ],
+  "aircraft": [
+   "MQ-9A Reaper",
+   "MQ-1B Predator",
+   "RQ-170A Sentinel"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Creech_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Davis-Monthan Air Force Base",
+  "icao": "KDMA",
+  "location": "US",
+  "region": "Arizona",
+  "command": "ACC",
+  "units": [
+   "355th Wing",
+   "55th Rescue Squadron",
+   "79th Rescue Squadron",
+   "55th Electronic Combat Group (GSU)",
+   "41st Electronic Combat Squadron",
+   "42nd Electronic Combat Squadron",
+   "43rd Electronic Combat Squadron",
+   "418th Test and Evaluation Squadron (GSU)",
+   "88th Test and Evaluation Squadron (GSU)",
+   "34th Weapons Squadron (GSU)"
+  ],
+  "aircraft": [
+   "HH-60W Jolly Green II",
+   "HC-130J Combat King II",
+   "EA-37B Compass Call"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Davis%E2%80%93Monthan_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Dover Air Force Base",
+  "icao": "KDOV",
+  "location": "US",
+  "region": "Delaware",
+  "command": "AMC",
+  "units": [
+   "436th Airlift Wing",
+   "3rd Airlift Squadron",
+   "9th Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-17A Globemaster III",
+   "C-5M Super Galaxy"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Dover_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Dyess Air Force Base",
+  "icao": "KDYS",
+  "location": "US",
+  "region": "Texas",
+  "command": "AFGSC / AMC",
+  "units": [
+   "7th Bomb Wing",
+   "9th Bomb Squadron",
+   "28th Bomb Squadron",
+   "317th Airlift Wing",
+   "39th Airlift Squadron",
+   "40th Airlift Squadron",
+   "337th Test and Evaluation Squadron (GSU)",
+   "77th Weapons Squadron (GSU)"
+  ],
+  "aircraft": [
+   "B-1B Lancer",
+   "C-130J Super Hercules"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Dyess_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Edwards Air Force Base",
+  "icao": "KEDW",
+  "location": "US",
+  "region": "California",
+  "command": "AFMC",
+  "units": [
+   "412th Test Wing",
+   "411th Flight Test Squadron",
+   "416th Flight Test Squadron",
+   "418th Flight Test Squadron",
+   "419th Flight Test Squadron",
+   "452nd Flight Test Squadron",
+   "461st Flight Test Squadron",
+   "U.S. Air Force Test Pilot School",
+   "31st Test and Evaluation Squadron (GSU)"
+  ],
+  "aircraft": [
+   "F-22A Raptor",
+   "F-16C/D Fighting Falcon",
+   "NF-16D",
+   "T-38C Talon",
+   "C-17A Globemaster III",
+   "C-130 Hercules",
+   "CV-22 Osprey",
+   "KC-46 Pegasus",
+   "KC-135R Stratotanker",
+   "B-1B Lancer",
+   "B-2A Spirit",
+   "B-52H Stratofortress",
+   "C-12C Huron",
+   "RQ-4B Global Hawk",
+   "F-35A Lightning II"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Edwards_Air_Force_Base"
+  ],
+  "note": "Test units; NASA, Navy VX-9 and foreign test units also based (excluded)"
+ },
+ {
+  "operator": "US",
+  "base": "Eglin Air Force Base",
+  "icao": "KVPS",
+  "location": "US",
+  "region": "Florida",
+  "command": "AFMC / ACC",
+  "units": [
+   "96th Test Wing",
+   "40th Flight Test Squadron",
+   "33rd Fighter Wing",
+   "58th Fighter Squadron",
+   "60th Fighter Squadron",
+   "85th Test and Evaluation Squadron",
+   "486th Flight Test Squadron"
+  ],
+  "aircraft": [
+   "A-10C Thunderbolt II",
+   "F-15C/D Eagle",
+   "F-15E Strike Eagle",
+   "F-15EX Eagle II",
+   "F-16C/D Fighting Falcon",
+   "F-35A Lightning II",
+   "C-32B"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Eglin_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Eielson Air Force Base",
+  "icao": "PAEI",
+  "location": "US",
+  "region": "Alaska",
+  "command": "PACAF",
+  "units": [
+   "354th Fighter Wing",
+   "18th Fighter Interceptor Squadron",
+   "355th Fighter Squadron",
+   "356th Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-16C/D Fighting Falcon",
+   "F-35A Lightning II"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Eielson_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Ellsworth Air Force Base",
+  "icao": "KRCA",
+  "location": "US",
+  "region": "South Dakota",
+  "command": "AFGSC",
+  "units": [
+   "28th Bomb Wing",
+   "34th Bomb Squadron",
+   "37th Bomb Squadron",
+   "89th Attack Squadron (GSU)"
+  ],
+  "aircraft": [
+   "B-1B Lancer",
+   "MQ-9A Reaper"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Ellsworth_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Fairchild Air Force Base",
+  "icao": "KSKA",
+  "location": "US",
+  "region": "Washington",
+  "command": "AMC",
+  "units": [
+   "92nd Air Refueling Wing",
+   "92nd Air Refueling Squadron",
+   "93rd Air Refueling Squadron",
+   "97th Air Refueling Squadron",
+   "384th Air Refueling Squadron",
+   "36th Rescue Squadron (GSU)",
+   "509th Weapons Squadron (GSU)"
+  ],
+  "aircraft": [
+   "KC-135R/T Stratotanker",
+   "UH-1N Iroquois"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Fairchild_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Francis E. Warren Air Force Base",
+  "icao": "KFEW",
+  "location": "US",
+  "region": "Wyoming",
+  "command": "AFGSC",
+  "units": [
+   "90th Missile Wing",
+   "37th Helicopter Squadron"
+  ],
+  "aircraft": [
+   "UH-1N Iroquois"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Francis_E._Warren_Air_Force_Base"
+  ],
+  "note": "Helicopter squadron supports missile fields"
+ },
+ {
+  "operator": "US",
+  "base": "Grand Forks Air Force Base",
+  "icao": "KRDR",
+  "location": "US",
+  "region": "North Dakota",
+  "command": "ACC",
+  "units": [
+   "319th Reconnaissance Wing",
+   "348th Reconnaissance Squadron"
+  ],
+  "aircraft": [
+   "RQ-4B Global Hawk"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Grand_Forks_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Hill Air Force Base",
+  "icao": "KHIF",
+  "location": "US",
+  "region": "Utah",
+  "command": "ACC",
+  "units": [
+   "388th Fighter Wing",
+   "4th Fighter Squadron",
+   "34th Fighter Squadron",
+   "421st Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-35A Lightning II"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Hill_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Holloman Air Force Base",
+  "icao": "KHMN",
+  "location": "US",
+  "region": "New Mexico",
+  "command": "ACC",
+  "units": [
+   "49th Wing",
+   "6th Attack Squadron",
+   "9th Attack Squadron",
+   "29th Attack Squadron",
+   "8th Fighter Squadron",
+   "311th Fighter Squadron",
+   "314th Fighter Squadron",
+   "586th Flight Test Squadron (GSU)"
+  ],
+  "aircraft": [
+   "MQ-9A Reaper",
+   "F-16C/D Fighting Falcon",
+   "C-12J Huron",
+   "T-38C Talon"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Holloman_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Hurlburt Field",
+  "icao": "KHRT",
+  "location": "US",
+  "region": "Florida",
+  "command": "AFSOC",
+  "units": [
+   "1st Special Operations Wing",
+   "4th Special Operations Squadron",
+   "8th Special Operations Squadron",
+   "15th Special Operations Squadron",
+   "34th Special Operations Squadron",
+   "65th Special Operations Squadron",
+   "73rd Special Operations Squadron",
+   "319th Special Operations Squadron",
+   "19th Special Operations Squadron",
+   "14th Weapons Squadron (GSU)"
+  ],
+  "aircraft": [
+   "AC-130J Ghostrider",
+   "AC-130U Spooky",
+   "CV-22B Osprey",
+   "MC-130J Commando II",
+   "U-28A Draco",
+   "MQ-9A Reaper",
+   "MC-130H Combat Talon II",
+   "AC-130W Stinger II"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Hurlburt_Field"
+  ],
+  "note": "Some types may be retired; as listed on Wikipedia"
+ },
+ {
+  "operator": "US",
+  "base": "Joint Base Andrews",
+  "icao": "KADW",
+  "location": "US",
+  "region": "Maryland",
+  "command": "AFDW / AMC",
+  "units": [
+   "316th Wing",
+   "1st Helicopter Squadron",
+   "5th Helicopter Squadron",
+   "89th Airlift Wing",
+   "1st Airlift Squadron",
+   "99th Airlift Squadron",
+   "Presidential Airlift Squadron"
+  ],
+  "aircraft": [
+   "UH-1N Iroquois",
+   "C-32A",
+   "C-40B",
+   "C-37A",
+   "C-37B",
+   "VC-25A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Joint_Base_Andrews"
+  ],
+  "note": "HH-60W planned for the helicopter squadrons per Wikipedia"
+ },
+ {
+  "operator": "US",
+  "base": "Joint Base Elmendorf-Richardson",
+  "icao": "PAED",
+  "location": "US",
+  "region": "Alaska",
+  "command": "PACAF",
+  "units": [
+   "3rd Wing",
+   "90th Fighter Squadron",
+   "525th Fighter Squadron",
+   "517th Airlift Squadron",
+   "962nd Airborne Air Control Squadron"
+  ],
+  "aircraft": [
+   "F-22A Raptor",
+   "C-17 Globemaster III",
+   "C-12",
+   "E-3G Sentry"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Joint_Base_Elmendorf%E2%80%93Richardson",
+   "https://en.wikipedia.org/wiki/3rd_Wing"
+  ],
+  "note": "Squadron/aircraft detail from the 3rd Wing article"
+ },
+ {
+  "operator": "US",
+  "base": "Joint Base Charleston",
+  "icao": "KCHS",
+  "location": "US",
+  "region": "South Carolina",
+  "command": "AMC",
+  "units": [
+   "437th Airlift Wing"
+  ],
+  "aircraft": [
+   "C-17 Globemaster III"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Joint_Base_Charleston"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Joint Base Langley-Eustis",
+  "icao": "KLFI",
+  "location": "US",
+  "region": "Virginia",
+  "command": "ACC",
+  "units": [
+   "1st Fighter Wing",
+   "27th Fighter Squadron",
+   "94th Fighter Squadron",
+   "71st Fighter Training Squadron"
+  ],
+  "aircraft": [
+   "F-22 Raptor",
+   "T-38 Talon"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Joint_Base_Langley%E2%80%93Eustis"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Joint Base Lewis-McChord (McChord Field)",
+  "icao": "KTCM",
+  "location": "US",
+  "region": "Washington",
+  "command": "AMC",
+  "units": [
+   "62nd Airlift Wing",
+   "4th Airlift Squadron",
+   "7th Airlift Squadron",
+   "8th Airlift Squadron",
+   "10th Airlift Squadron"
+  ],
+  "aircraft": [
+   "C-17 Globemaster III"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Joint_Base_Lewis%E2%80%93McChord"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Joint Base McGuire-Dix-Lakehurst",
+  "icao": "KWRI",
+  "location": "US",
+  "region": "New Jersey",
+  "command": "AMC",
+  "units": [
+   "305th Air Mobility Wing"
+  ],
+  "aircraft": [
+   "C-17 Globemaster III",
+   "KC-46 Pegasus"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Joint_Base_McGuire%E2%80%93Dix%E2%80%93Lakehurst"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Joint Base Pearl Harbor-Hickam",
+  "icao": "PHNL",
+  "location": "US",
+  "region": "Hawaii",
+  "command": "PACAF",
+  "units": [
+   "15th Wing",
+   "535th Airlift Squadron",
+   "65th Airlift Squadron",
+   "19th Fighter Squadron"
+  ],
+  "aircraft": [
+   "C-17A Globemaster III",
+   "C-37B",
+   "F-22A Raptor"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Joint_Base_Pearl_Harbor%E2%80%93Hickam"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Randolph Air Force Base (JBSA-Randolph)",
+  "icao": "KRND",
+  "location": "US",
+  "region": "Texas",
+  "command": "AETC",
+  "units": [
+   "12th Flying Training Wing"
+  ],
+  "aircraft": [
+   "T-6A Texan II",
+   "T-38C Talon",
+   "T-1A Jayhawk"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Randolph_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Kirtland Air Force Base",
+  "icao": "KABQ",
+  "location": "US",
+  "region": "New Mexico",
+  "command": "AETC",
+  "units": [
+   "58th Special Operations Wing",
+   "71st Special Operations Squadron",
+   "415th Special Operations Squadron",
+   "512th Rescue Squadron"
+  ],
+  "aircraft": [
+   "CV-22B Osprey",
+   "HC-130J Combat King II",
+   "MC-130J Commando II",
+   "HH-60G Pave Hawk",
+   "UH-1N Iroquois"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Kirtland_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Laughlin Air Force Base",
+  "icao": "KDLF",
+  "location": "US",
+  "region": "Texas",
+  "command": "AETC",
+  "units": [
+   "47th Flying Training Wing",
+   "85th Flying Training Squadron",
+   "86th Flying Training Squadron",
+   "87th Flying Training Squadron",
+   "434th Flying Training Squadron"
+  ],
+  "aircraft": [
+   "T-6A Texan II",
+   "T-1A Jayhawk",
+   "T-38C Talon"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Laughlin_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Little Rock Air Force Base",
+  "icao": "KLRF",
+  "location": "US",
+  "region": "Arkansas",
+  "command": "AMC / AETC",
+  "units": [
+   "19th Airlift Wing",
+   "41st Airlift Squadron",
+   "61st Airlift Squadron",
+   "314th Airlift Wing",
+   "62nd Airlift Squadron",
+   "29th Weapons Squadron (GSU)"
+  ],
+  "aircraft": [
+   "C-130J Super Hercules",
+   "C-130H Hercules"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Little_Rock_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Luke Air Force Base",
+  "icao": "KLUF",
+  "location": "US",
+  "region": "Arizona",
+  "command": "ACC",
+  "units": [
+   "56th Fighter Wing",
+   "21st Fighter Squadron",
+   "61st Fighter Squadron",
+   "62nd Fighter Squadron",
+   "63rd Fighter Squadron",
+   "308th Fighter Squadron",
+   "309th Fighter Squadron",
+   "310th Fighter Squadron",
+   "425th Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-35A Lightning II",
+   "F-16A/B Fighting Falcon",
+   "F-16C/D Fighting Falcon"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Luke_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "MacDill Air Force Base",
+  "icao": "KMCF",
+  "location": "US",
+  "region": "Florida",
+  "command": "AMC",
+  "units": [
+   "6th Air Refueling Wing",
+   "50th Air Refueling Squadron",
+   "91st Air Refueling Squadron"
+  ],
+  "aircraft": [
+   "KC-135R Stratotanker"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/MacDill_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Malmstrom Air Force Base",
+  "icao": "KGFA",
+  "location": "US",
+  "region": "Montana",
+  "command": "AFGSC",
+  "units": [
+   "40th Helicopter Squadron (GSU)"
+  ],
+  "aircraft": [
+   "UH-1N Iroquois"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Malmstrom_Air_Force_Base"
+  ],
+  "note": "Helicopter squadron supports 341st Missile Wing"
+ },
+ {
+  "operator": "US",
+  "base": "McConnell Air Force Base",
+  "icao": "KIAB",
+  "location": "US",
+  "region": "Kansas",
+  "command": "AMC",
+  "units": [
+   "22nd Air Refueling Wing",
+   "344th Air Refueling Squadron",
+   "349th Air Refueling Squadron",
+   "350th Air Refueling Squadron"
+  ],
+  "aircraft": [
+   "KC-46A Pegasus",
+   "KC-135R Stratotanker"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/McConnell_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Minot Air Force Base",
+  "icao": "KMIB",
+  "location": "US",
+  "region": "North Dakota",
+  "command": "AFGSC",
+  "units": [
+   "5th Bomb Wing",
+   "23rd Bomb Squadron",
+   "69th Bomb Squadron",
+   "54th Helicopter Squadron (GSU)"
+  ],
+  "aircraft": [
+   "B-52H Stratofortress",
+   "UH-1N Iroquois"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Minot_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Moody Air Force Base",
+  "icao": "KVAD",
+  "location": "US",
+  "region": "Georgia",
+  "command": "ACC",
+  "units": [
+   "23rd Wing",
+   "74th Fighter Squadron",
+   "75th Fighter Squadron",
+   "41st Rescue Squadron",
+   "71st Rescue Squadron"
+  ],
+  "aircraft": [
+   "A-10C Thunderbolt II",
+   "HH-60W",
+   "HC-130J Combat King II"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Moody_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Mountain Home Air Force Base",
+  "icao": "KMUO",
+  "location": "US",
+  "region": "Idaho",
+  "command": "ACC",
+  "units": [
+   "366th Fighter Wing",
+   "389th Fighter Squadron",
+   "391st Fighter Squadron",
+   "428th Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-15E Strike Eagle",
+   "F-15SG Strike Eagle"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Mountain_Home_Air_Force_Base"
+  ],
+  "note": "428th FS operates the F-15SG in collaboration with the Republic of Singapore Air Force"
+ },
+ {
+  "operator": "US",
+  "base": "Nellis Air Force Base",
+  "icao": "KLSV",
+  "location": "US",
+  "region": "Nevada",
+  "command": "ACC",
+  "units": [
+   "USAF Warfare Center",
+   "88th Test and Evaluation Squadron",
+   "422nd Test and Evaluation Squadron",
+   "57th Wing",
+   "USAF Weapons School",
+   "64th Aggressor Squadron",
+   "65th Aggressor Squadron",
+   "USAF Air Demonstration Squadron (Thunderbirds)",
+   "66th Rescue Squadron"
+  ],
+  "aircraft": [
+   "F-16C/D Fighting Falcon",
+   "F-35A Lightning II",
+   "F-22A Raptor",
+   "F-15C/D Eagle",
+   "F-15E Strike Eagle",
+   "A-10C Thunderbolt II",
+   "HC-130J Combat King II",
+   "HH-60G Pave Hawk",
+   "MQ-9A Reaper",
+   "EC-130",
+   "RC-135",
+   "RQ-4 Global Hawk",
+   "U-2 Dragon Lady"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Nellis_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Offutt Air Force Base",
+  "icao": "KOFF",
+  "location": "US",
+  "region": "Nebraska",
+  "command": "ACC / AFGSC",
+  "units": [
+   "55th Wing",
+   "38th Reconnaissance Squadron",
+   "45th Reconnaissance Squadron",
+   "343rd Reconnaissance Squadron",
+   "1st Airborne Command Control Squadron"
+  ],
+  "aircraft": [
+   "RC-135V/W Rivet Joint",
+   "RC-135S Cobra Ball",
+   "RC-135U Combat Sent",
+   "WC-135W Constant Phoenix",
+   "OC-135B Open Skies",
+   "TC-135W",
+   "E-4B Advanced Airborne Command Post"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Offutt_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Robins Air Force Base",
+  "icao": "KWRB",
+  "location": "US",
+  "region": "Georgia",
+  "command": "ACC",
+  "units": [
+   "18th Airborne Command and Control Squadron (GSU, 319th Reconnaissance Wing)"
+  ],
+  "aircraft": [
+   "E-11A BACN"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Robins_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Scott Air Force Base",
+  "icao": "KBLV",
+  "location": "US",
+  "region": "Illinois",
+  "command": "AMC",
+  "units": [
+   "375th Air Mobility Wing",
+   "54th Airlift Squadron",
+   "458th Airlift Squadron",
+   "906th Air Refueling Squadron"
+  ],
+  "aircraft": [
+   "C-40C Clipper",
+   "C-21A Learjet",
+   "KC-135R Stratotanker"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Scott_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Seymour Johnson Air Force Base",
+  "icao": "KGSB",
+  "location": "US",
+  "region": "North Carolina",
+  "command": "ACC",
+  "units": [
+   "4th Fighter Wing",
+   "333rd Fighter Squadron",
+   "334th Fighter Squadron",
+   "335th Fighter Squadron",
+   "336th Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-15E Strike Eagle"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Seymour_Johnson_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Shaw Air Force Base",
+  "icao": "KSSC",
+  "location": "US",
+  "region": "South Carolina",
+  "command": "ACC",
+  "units": [
+   "20th Fighter Wing",
+   "55th Fighter Squadron",
+   "77th Fighter Squadron",
+   "79th Fighter Squadron",
+   "25th Attack Wing",
+   "50th Attack Squadron",
+   "482nd Attack Squadron"
+  ],
+  "aircraft": [
+   "F-16C/D Fighting Falcon",
+   "MQ-9A Reaper"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Shaw_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Sheppard Air Force Base",
+  "icao": "KSPS",
+  "location": "US",
+  "region": "Texas",
+  "command": "AETC",
+  "units": [
+   "80th Flying Training Wing",
+   "88th Fighter Training Squadron",
+   "89th Flying Training Squadron",
+   "90th Flying Training Squadron",
+   "459th Flying Training Squadron",
+   "469th Flying Training Squadron"
+  ],
+  "aircraft": [
+   "T-6A Texan II",
+   "T-38C Talon",
+   "AT-38C Talon"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Sheppard_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Tinker Air Force Base",
+  "icao": "KTIK",
+  "location": "US",
+  "region": "Oklahoma",
+  "command": "ACC",
+  "units": [
+   "552nd Air Control Wing",
+   "960th Airborne Air Control Squadron",
+   "963rd Airborne Air Control Squadron",
+   "964th Airborne Air Control Squadron",
+   "965th Airborne Air Control Squadron",
+   "966th Airborne Air Control Squadron"
+  ],
+  "aircraft": [
+   "E-3B/C/G Sentry"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Tinker_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Travis Air Force Base",
+  "icao": "KSUU",
+  "location": "US",
+  "region": "California",
+  "command": "AMC",
+  "units": [
+   "60th Air Mobility Wing",
+   "6th Air Refueling Squadron",
+   "9th Air Refueling Squadron",
+   "21st Airlift Squadron",
+   "22nd Airlift Squadron"
+  ],
+  "aircraft": [
+   "KC-46 Pegasus",
+   "C-17A Globemaster III",
+   "C-5M Super Galaxy"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Travis_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Tyndall Air Force Base",
+  "icao": "KPAM",
+  "location": "US",
+  "region": "Florida",
+  "command": "ACC",
+  "units": [
+   "325th Fighter Wing",
+   "2nd Fighter Training Squadron",
+   "43rd Fighter Squadron",
+   "95th Fighter Squadron",
+   "82nd Aerial Targets Squadron (GSU)"
+  ],
+  "aircraft": [
+   "T-38A/B/C Talon",
+   "F-22A Raptor",
+   "F-35A Lightning II",
+   "QF-16A/C Fighting Falcon",
+   "BQM-167 Streaker",
+   "BQM-34 Firebee",
+   "E-9A Widget"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Tyndall_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Vance Air Force Base",
+  "icao": "KEND",
+  "location": "US",
+  "region": "Oklahoma",
+  "command": "AETC",
+  "units": [
+   "71st Flying Training Wing",
+   "3rd Flying Training Squadron",
+   "8th Flying Training Squadron",
+   "25th Flying Training Squadron",
+   "33rd Flying Training Squadron"
+  ],
+  "aircraft": [
+   "T-1A Jayhawk",
+   "T-6A Texan II",
+   "T-38C Talon"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Vance_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "Whiteman Air Force Base",
+  "icao": "KSZL",
+  "location": "US",
+  "region": "Missouri",
+  "command": "AFGSC / ACC",
+  "units": [
+   "509th Bomb Wing",
+   "13th Bomb Squadron",
+   "393rd Bomb Squadron",
+   "20th Attack Squadron (GSU)",
+   "72nd Test and Evaluation Squadron (GSU)",
+   "325th Weapons Squadron (GSU)"
+  ],
+  "aircraft": [
+   "B-2A Spirit",
+   "T-38A Talon",
+   "MQ-9A Reaper"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Whiteman_Air_Force_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "US",
+  "base": "United States Air Force Academy",
+  "icao": "",
+  "location": "US",
+  "region": "Colorado",
+  "command": "AETC",
+  "units": [
+   "306th Flying Training Group (GSU, 12th Flying Training Wing)",
+   "94th Flying Training Squadron",
+   "98th Flying Training Squadron",
+   "557th Flying Training Squadron"
+  ],
+  "aircraft": [
+   "TG-15A Duo Discus",
+   "TG-15B Discus 2",
+   "TG-16A",
+   "UV-18B Twin Otter",
+   "T-53A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/United_States_Air_Force_Academy"
+  ],
+  "note": "ICAO not stated on the cited page"
+ },
+ {
+  "operator": "US",
+  "base": "Duke Field",
+  "icao": "KEGI",
+  "location": "US",
+  "region": "Florida",
+  "command": "AFSOC / AFMC",
+  "units": [
+   "524th Special Operations Squadron (GSU, 492nd Special Operations Wing)",
+   "413th Flight Test Squadron (GSU, 96th Test Wing)"
+  ],
+  "aircraft": [
+   "C-146A Wolfhound",
+   "CV-22 Osprey",
+   "HH-60W Jolly Green II",
+   "UH-1N Iroquois"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Duke_Field"
+  ],
+  "note": "Eglin auxiliary airfield; Air Force Reserve 919th SOW is host (excluded)"
+ }
+]

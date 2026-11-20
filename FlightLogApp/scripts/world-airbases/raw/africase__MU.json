@@ -1,0 +1,28 @@
+[
+ {
+  "operator": "MU",
+  "base": "Sir Seewoosagur Ramgoolam International Airport (Plaisance)",
+  "icao": "",
+  "location": "MU",
+  "region": "Grand Port",
+  "command": "",
+  "units": [
+   "Police Helicopter Squadron",
+   "National Coast Guard Maritime Air Squadron"
+  ],
+  "aircraft": [
+   "HAL Chetak",
+   "HAL Dhruv",
+   "AS555 Fennec",
+   "HAL Dornier 228"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/mauritius-police-force-air-wing/",
+   "https://en.wikipedia.org/wiki/Mauritius_Police_Force"
+  ],
+  "note": "Police/coast guard flying units (no military air force)."
+ }
+]

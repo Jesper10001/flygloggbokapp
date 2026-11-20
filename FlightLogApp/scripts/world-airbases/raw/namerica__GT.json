@@ -1,0 +1,71 @@
+[
+ {
+  "operator": "GT",
+  "base": "La Aurora Air Base (Guatemala City)",
+  "icao": "MGGT",
+  "location": "GT",
+  "region": "Guatemala",
+  "command": "Comando Aéreo Central",
+  "units": [
+   "Comando Aéreo Central",
+   "Presidential Transport Squadron",
+   "Escuela Técnica Militar de Aviación"
+  ],
+  "aircraft": [
+   "Cessna 208",
+   "Bell UH-1",
+   "Bell 206",
+   "Bell 212",
+   "Bell 412",
+   "Bell 429",
+   "PC-12",
+   "Super King Air"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Guatemalan_Air_Force"
+  ],
+  "note": "Wikipedia gives inventory for the whole force, not per base; aircraft list is force-wide so only indicative."
+ },
+ {
+  "operator": "GT",
+  "base": "Retalhuleu Air Base",
+  "icao": "MGRT",
+  "location": "GT",
+  "region": "Retalhuleu",
+  "command": "Comando Aéreo del Sur",
+  "units": [
+   "Comando Aéreo del Sur",
+   "Escuela Militar de Aviación"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Guatemalan_Air_Force"
+  ],
+  "note": "Aircraft by base not stated."
+ },
+ {
+  "operator": "GT",
+  "base": "Mundo Maya Air Base (Flores)",
+  "icao": "MGTK",
+  "location": "GT",
+  "region": "Petén",
+  "command": "Comando Aéreo del Norte",
+  "units": [
+   "Comando Aéreo del Norte"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Guatemalan_Air_Force"
+  ],
+  "note": "Region not stated by source; aircraft by base not stated."
+ }
+]

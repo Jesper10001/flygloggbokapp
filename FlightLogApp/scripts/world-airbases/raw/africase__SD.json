@@ -1,0 +1,135 @@
+[
+ {
+  "operator": "SD",
+  "base": "Wadi Seidna Air Base",
+  "icao": "",
+  "location": "SD",
+  "region": "Khartoum",
+  "command": "",
+  "units": [
+   "Sudanese Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Sudanese_Air_Force"
+  ],
+  "note": "Long-established base listed in encyclopedic article; units/aircraft not stated. No current-conflict information included."
+ },
+ {
+  "operator": "SD",
+  "base": "Kenana Air Base",
+  "icao": "",
+  "location": "SD",
+  "region": "White Nile",
+  "command": "",
+  "units": [
+   "Sudanese Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Sudanese_Air_Force"
+  ],
+  "note": "Long-established base listed in encyclopedic article; units/aircraft not stated. No current-conflict information included."
+ },
+ {
+  "operator": "SD",
+  "base": "Merowe Air Base",
+  "icao": "",
+  "location": "SD",
+  "region": "Northern",
+  "command": "",
+  "units": [
+   "Sudanese Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Sudanese_Air_Force"
+  ],
+  "note": "Long-established base listed in encyclopedic article; units/aircraft not stated. No current-conflict information included."
+ },
+ {
+  "operator": "SD",
+  "base": "Osman Digna Air Base (Port Sudan)",
+  "icao": "",
+  "location": "SD",
+  "region": "Red Sea",
+  "command": "",
+  "units": [
+   "Sudanese Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Sudanese_Air_Force"
+  ],
+  "note": "Long-established base listed in encyclopedic article; units/aircraft not stated. No current-conflict information included."
+ },
+ {
+  "operator": "SD",
+  "base": "Al-Nujoumi Air Base",
+  "icao": "",
+  "location": "SD",
+  "region": "Northern",
+  "command": "",
+  "units": [
+   "Sudanese Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Sudanese_Air_Force"
+  ],
+  "note": "Long-established base listed in encyclopedic article; units/aircraft not stated. No current-conflict information included."
+ },
+ {
+  "operator": "SD",
+  "base": "El Obeid Air Base",
+  "icao": "",
+  "location": "SD",
+  "region": "North Kordofan",
+  "command": "",
+  "units": [
+   "Sudanese Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Sudanese_Air_Force"
+  ],
+  "note": "Long-established base listed in encyclopedic article; units/aircraft not stated. No current-conflict information included."
+ },
+ {
+  "operator": "SD",
+  "base": "Atbara Air Base",
+  "icao": "",
+  "location": "SD",
+  "region": "River Nile",
+  "command": "",
+  "units": [
+   "Sudanese Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Sudanese_Air_Force"
+  ],
+  "note": "Long-established base listed in encyclopedic article; units/aircraft not stated. No current-conflict information included."
+ }
+]

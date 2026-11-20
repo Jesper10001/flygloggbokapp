@@ -1,0 +1,64 @@
+[
+ {
+  "operator": "TT",
+  "base": "Piarco International Airport",
+  "icao": "TTPP",
+  "location": "TT",
+  "region": "Trinidad",
+  "command": "Trinidad and Tobago Defence Force",
+  "units": [
+   "Trinidad and Tobago Air Guard"
+  ],
+  "aircraft": [
+   "C-26B Metro",
+   "AW139"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Trinidad_and_Tobago_Air_Guard"
+  ],
+  "note": "Aircraft force-wide; per-site assignment not stated."
+ },
+ {
+  "operator": "TT",
+  "base": "Crown Point International Airport",
+  "icao": "TTCP",
+  "location": "TT",
+  "region": "Tobago",
+  "command": "Trinidad and Tobago Defence Force",
+  "units": [
+   "Trinidad and Tobago Air Guard"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Trinidad_and_Tobago_Air_Guard"
+  ],
+  "note": "Per-site aircraft not stated."
+ },
+ {
+  "operator": "TT",
+  "base": "Chaguaramas heliport",
+  "icao": "",
+  "location": "TT",
+  "region": "Trinidad",
+  "command": "Trinidad and Tobago Defence Force",
+  "units": [
+   "Trinidad and Tobago Air Guard"
+  ],
+  "aircraft": [
+   "AW139"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Trinidad_and_Tobago_Air_Guard"
+  ],
+  "note": "Heliport; per-site aircraft not stated."
+ }
+]

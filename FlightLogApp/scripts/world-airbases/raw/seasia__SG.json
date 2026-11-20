@@ -1,0 +1,154 @@
+[
+ {
+  "operator": "SG",
+  "base": "Changi Air Base",
+  "icao": "WSSS",
+  "location": "SG",
+  "region": "",
+  "command": "RSAF",
+  "units": [
+   "121 Squadron",
+   "112 Squadron"
+  ],
+  "aircraft": [
+   "Fokker 50",
+   "Fokker 50 ME2",
+   "A330 MRTT"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Singapore_Air_Force",
+   "https://en.wikipedia.org/wiki/Changi_Air_Base"
+  ],
+  "note": "Page lists Changi West and Changi East"
+ },
+ {
+  "operator": "SG",
+  "base": "Paya Lebar Air Base",
+  "icao": "WSAP",
+  "location": "SG",
+  "region": "",
+  "command": "RSAF",
+  "units": [
+   "122 Squadron",
+   "142 Squadron",
+   "149 Squadron"
+  ],
+  "aircraft": [
+   "C-130H",
+   "F-15SG"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Singapore_Air_Force",
+   "https://en.wikipedia.org/wiki/Paya_Lebar_Air_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "SG",
+  "base": "Sembawang Air Base",
+  "icao": "WSAG",
+  "location": "SG",
+  "region": "",
+  "command": "RSAF Helicopter Group",
+  "units": [
+   "120 Squadron",
+   "123 Squadron",
+   "124 Squadron",
+   "125 Squadron",
+   "126 Squadron",
+   "127 Squadron"
+  ],
+  "aircraft": [
+   "AH-64D Apache",
+   "S-70B Seahawk",
+   "EC120",
+   "H225M",
+   "CH-47SD",
+   "CH-47F"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Singapore_Air_Force",
+   "https://en.wikipedia.org/wiki/Sembawang_Air_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "SG",
+  "base": "Tengah Air Base",
+  "icao": "WSAT",
+  "location": "SG",
+  "region": "",
+  "command": "RSAF",
+  "units": [
+   "111 Squadron",
+   "116 Squadron",
+   "140 Squadron",
+   "143 Squadron",
+   "145 Squadron"
+  ],
+  "aircraft": [
+   "G550 AEW&C",
+   "Hermes 450",
+   "F-16C/D"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Singapore_Air_Force",
+   "https://en.wikipedia.org/wiki/Tengah_Air_Base"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "SG",
+  "base": "RAAF Base Pearce",
+  "icao": "YPEA",
+  "location": "AU",
+  "region": "Western Australia",
+  "command": "RSAF Flying Training",
+  "units": [
+   "130 Squadron RSAF"
+  ],
+  "aircraft": [
+   "PC-21"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Singapore_Air_Force"
+  ],
+  "note": "Singapore overseas training unit"
+ },
+ {
+  "operator": "SG",
+  "base": "Oakey Army Aviation Centre",
+  "icao": "YBOK",
+  "location": "AU",
+  "region": "Queensland",
+  "command": "RSAF",
+  "units": [
+   "127 Squadron RSAF"
+  ],
+  "aircraft": [
+   "CH-47D"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Republic_of_Singapore_Air_Force"
+  ],
+  "note": "Singapore overseas training unit; page lists 6 x CH-47D (type may be dated)"
+ }
+]

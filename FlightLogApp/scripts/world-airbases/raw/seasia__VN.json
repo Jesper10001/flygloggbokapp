@@ -1,0 +1,286 @@
+[
+ {
+  "operator": "VN",
+  "base": "Yen Bai Air Base",
+  "icao": "",
+  "location": "VN",
+  "region": "Yen Bai",
+  "command": "371st Air Division",
+  "units": [
+   "921st Fighter Regiment"
+  ],
+  "aircraft": [
+   "Su-22M4/UM3K"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Vietnam_Air_Defence_-_Air_Force"
+  ],
+  "note": "Regiment base data from a table the page flags as user-generated (Vietnamese Wikipedia)"
+ },
+ {
+  "operator": "VN",
+  "base": "Tho Xuan Airport",
+  "icao": "",
+  "location": "VN",
+  "region": "Thanh Hoa",
+  "command": "371st Air Division",
+  "units": [
+   "923rd Fighter-Bomber Regiment"
+  ],
+  "aircraft": [
+   "Su-30MK2"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Vietnam_Air_Defence_-_Air_Force"
+  ],
+  "note": "Regiment base data from a table the page flags as user-generated (Vietnamese Wikipedia)"
+ },
+ {
+  "operator": "VN",
+  "base": "Kep Air Base",
+  "icao": "",
+  "location": "VN",
+  "region": "Bac Giang",
+  "command": "371st Air Division",
+  "units": [
+   "927th Fighter Regiment"
+  ],
+  "aircraft": [
+   "Su-30MK2"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Vietnam_Air_Defence_-_Air_Force"
+  ],
+  "note": "Regiment base data from a table the page flags as user-generated (Vietnamese Wikipedia)"
+ },
+ {
+  "operator": "VN",
+  "base": "Hoa Lac Air Base",
+  "icao": "",
+  "location": "VN",
+  "region": "Hanoi",
+  "command": "371st Air Division",
+  "units": [
+   "916th Helicopter Regiment"
+  ],
+  "aircraft": [
+   "Mi-8",
+   "Mi-171"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Vietnam_Air_Defence_-_Air_Force"
+  ],
+  "note": "Regiment base data from a table the page flags as user-generated (Vietnamese Wikipedia)"
+ },
+ {
+  "operator": "VN",
+  "base": "Gia Lam Airport",
+  "icao": "",
+  "location": "VN",
+  "region": "Hanoi",
+  "command": "371st Air Division",
+  "units": [
+   "918th Air Transport Regiment"
+  ],
+  "aircraft": [
+   "An-2",
+   "C-295M",
+   "C-212 Aviocar"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Vietnam_Air_Defence_-_Air_Force"
+  ],
+  "note": "Regiment base data from a table the page flags as user-generated (Vietnamese Wikipedia)"
+ },
+ {
+  "operator": "VN",
+  "base": "Chu Lai Airport",
+  "icao": "",
+  "location": "VN",
+  "region": "Quang Nam",
+  "command": "372nd Air Division",
+  "units": [
+   "929th Fighter-Bomber Regiment"
+  ],
+  "aircraft": [
+   "Su-22M4"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Vietnam_Air_Defence_-_Air_Force"
+  ],
+  "note": "Regiment base data from a table the page flags as user-generated (Vietnamese Wikipedia)"
+ },
+ {
+  "operator": "VN",
+  "base": "Da Nang International Airport",
+  "icao": "",
+  "location": "VN",
+  "region": "Da Nang",
+  "command": "372nd Air Division",
+  "units": [
+   "930th Helicopter Regiment"
+  ],
+  "aircraft": [
+   "Mi-8",
+   "Mi-171"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Vietnam_Air_Defence_-_Air_Force"
+  ],
+  "note": "Regiment base data from a table the page flags as user-generated (Vietnamese Wikipedia)"
+ },
+ {
+  "operator": "VN",
+  "base": "Phu Cat Airport",
+  "icao": "",
+  "location": "VN",
+  "region": "Binh Dinh",
+  "command": "372nd Air Division",
+  "units": [
+   "925th Fighter Regiment"
+  ],
+  "aircraft": [
+   "Su-27SK/UBK"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Vietnam_Air_Defence_-_Air_Force"
+  ],
+  "note": "Regiment base data from a table the page flags as user-generated (Vietnamese Wikipedia)"
+ },
+ {
+  "operator": "VN",
+  "base": "Thanh Son Air Base",
+  "icao": "",
+  "location": "VN",
+  "region": "Lam Dong",
+  "command": "370th Air Division",
+  "units": [
+   "937th Fighter-Bomber Regiment"
+  ],
+  "aircraft": [
+   "Su-22M4/UM3K"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Vietnam_Air_Defence_-_Air_Force"
+  ],
+  "note": "Regiment base data from a table the page flags as user-generated (Vietnamese Wikipedia)"
+ },
+ {
+  "operator": "VN",
+  "base": "Bien Hoa Air Base",
+  "icao": "",
+  "location": "VN",
+  "region": "Dong Nai",
+  "command": "370th Air Division",
+  "units": [
+   "935th Fighter Regiment"
+  ],
+  "aircraft": [
+   "Su-30MK2"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Vietnam_Air_Defence_-_Air_Force"
+  ],
+  "note": "Regiment base data from a table the page flags as user-generated (Vietnamese Wikipedia)"
+ },
+ {
+  "operator": "VN",
+  "base": "Can Tho International Airport",
+  "icao": "",
+  "location": "VN",
+  "region": "Can Tho",
+  "command": "370th Air Division",
+  "units": [
+   "917th Mixed Air Transport Regiment"
+  ],
+  "aircraft": [
+   "Mi-8",
+   "Mi-171"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Vietnam_Air_Defence_-_Air_Force"
+  ],
+  "note": "Regiment base data from a table the page flags as user-generated (Vietnamese Wikipedia)"
+ },
+ {
+  "operator": "VN",
+  "base": "Tuy Hoa Airport",
+  "icao": "",
+  "location": "VN",
+  "region": "Phu Yen",
+  "command": "Air training",
+  "units": [
+   "915th Air Training Regiment",
+   "910th Air Training Regiment",
+   "940th Air Training Regiment"
+  ],
+  "aircraft": [
+   "Mi-8",
+   "L-39C",
+   "L-39NG",
+   "Yak-130"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Vietnam_Air_Defence_-_Air_Force"
+  ],
+  "note": "Regiment base data from a table the page flags as user-generated (Vietnamese Wikipedia)"
+ },
+ {
+  "operator": "VN",
+  "base": "Phan Thiet Airport",
+  "icao": "",
+  "location": "VN",
+  "region": "Binh Thuan",
+  "command": "Air training",
+  "units": [
+   "920th Air Training Regiment"
+  ],
+  "aircraft": [
+   "Yak-52",
+   "T-6C Texan II"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Vietnam_Air_Defence_-_Air_Force"
+  ],
+  "note": "Regiment base data from a table the page flags as user-generated (Vietnamese Wikipedia)"
+ }
+]

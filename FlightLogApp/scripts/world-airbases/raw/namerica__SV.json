@@ -1,0 +1,47 @@
+[
+ {
+  "operator": "SV",
+  "base": "Ilopango International Airport (Primera Brigada Aérea)",
+  "icao": "MSSS",
+  "location": "SV",
+  "region": "San Salvador",
+  "command": "Fuerza Aérea Salvadoreña",
+  "units": [
+   "Primera Brigada Aérea",
+   "Escuadrón de Transporte"
+  ],
+  "aircraft": [
+   "IAI Arava 202"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_Aérea_Salvadoreña",
+   "https://en.wikipedia.org/wiki/Ilopango_International_Airport"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "SV",
+  "base": "Comalapa Air Base",
+  "icao": "MSLP",
+  "location": "SV",
+  "region": "La Paz",
+  "command": "Fuerza Aérea Salvadoreña",
+  "units": [
+   "Escuadrón Caza y Bombardeo"
+  ],
+  "aircraft": [
+   "A-37B Dragonfly",
+   "O-2A/B"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_Aérea_Salvadoreña"
+  ],
+  "note": "Base for the fighter-bomber group per history section; current basing not confirmed. Helicopter squadron (UH-1H/M, Bell 412, MD-500/530) base not stated in source."
+ }
+]

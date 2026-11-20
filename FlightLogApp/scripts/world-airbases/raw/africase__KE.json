@@ -1,0 +1,65 @@
+[
+ {
+  "operator": "KE",
+  "base": "Laikipia Air Base",
+  "icao": "",
+  "location": "KE",
+  "region": "Laikipia",
+  "command": "",
+  "units": [
+   "Fighter squadron",
+   "Rapid Deployment Squadron"
+  ],
+  "aircraft": [
+   "F-5EM",
+   "F-5FM"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Kenya_Air_Force",
+   "https://en.wikipedia.org/wiki/Laikipia_Air_Base"
+  ],
+  "note": "Main fighter base at Nanyuki; Rapid Deployment Squadron HQ here."
+ },
+ {
+  "operator": "KE",
+  "base": "Moi Air Base",
+  "icao": "",
+  "location": "KE",
+  "region": "Nairobi",
+  "command": "",
+  "units": [
+   "Kenya Air Force HQ"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Kenya_Air_Force",
+   "https://en.wikipedia.org/wiki/Moi_Air_Base"
+  ],
+  "note": "Air Force headquarters at Eastleigh, Nairobi; unit/aircraft allocation not stated."
+ },
+ {
+  "operator": "KE",
+  "base": "Wajir Airport (FOB)",
+  "icao": "",
+  "location": "KE",
+  "region": "Wajir",
+  "command": "",
+  "units": [
+   "Rapid Deployment Squadron (forward operating base)"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Kenya_Air_Force"
+  ],
+  "note": "Forward operating base; also FOB Mombasa, Mandera, Nyeri (mainly helicopters/small planes)."
+ }
+]

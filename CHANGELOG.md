@@ -29,13 +29,15 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: Global map filters are grouped into Airports, Air Bases, Airfields, Helicopter and Other, each with its own types, such as Helipads on rooftops, Offshore, Gliding, Skydiving and Spaceports.
 - Improved: A narrow filter on the Global map shows its airports without zooming far in, and they stay on the map as you zoom out and move around.
 - Improved: Airports without an ICAO code show their local code (such as ESVE or LF4051) instead of an internal ID like SE-0002, and you can type that code in Log flight.
-- New: Specific under Air Bases on the Global map shows military air bases in Europe and Russia by aircraft role, with role symbols on the map and a unit card listing the units and the aircraft based there.
+- New: Specific under Air Bases on the Global map shows military air bases around the world by aircraft role, with role symbols on the map and a unit card listing the units and the aircraft based there.
 - Improved: Long airport names wrap to two lines on the airport card instead of being cut off.
 - Fixed: Zooming in past the country flags on the Global map could show no airports until a filter was changed.
 - Improved: Air bases on the Global map show smaller role symbols that group into clusters like airports, and the unit card stays compact with scrolling lists and a Source button that shows where the data comes from.
 - Improved: The cluster boxes on the Global map are smaller.
 
 ### Alla ändringar
+
+- Air Bases → Specific omfattar nu hela världen: assets/world-airbases.json, 745 baser med plats (873 rader i scripts/world-airbases/flygbaser_varlden.csv/.xlsx, 107 förbandsländer), totalt 1 129 baser med Europa och Ryssland. Sökt i 15 grupper ur öppna källor (Wikipedia, flygvapnens sidor, J-Hangar Space, Migflug; aldrig Scramble). Rader skrivna ur minnet slängdes; verify.py hämtar varje rads källsidor (369) och behåller bara baser som står på sidan och förband/typer som står nära basnamnet (924/956 rader godkända). compile.py matchar mot OurAirports (kod bara om land + namn stämmer, exakt stavning för Östasien, delstat för USA; sammanslagningar granskade). build-eu-airbases.mjs --world bygger appfilen; rollmönster för ~335 nya typer (kinesiska, japanska, sydamerikanska, amerikanska specialtyper), Europa-filen oförändrad. Ukraina ej med; Syrien, Jemen, Afghanistan saknar nuvarande förband i källorna. Source-rutan har en text per datamängd (Ryssland/Europa/världen) med eget datum.
 
 - Förbandskortet (Air Bases → Specific) hålls lågt: UNIT och COMMAND visar högst tre rader och AIRCRAFT högst tre rader flygfarkoster; resten rullas fram (ScrollBox i components/UnitCard.tsx, nederkanten tonas ut tills man rullat till slutet, rullningslisten blinkar när kortet öppnas). ESCF gick från ungefär halva skärmen till ungefär EDDB-kortets höjd.
 - Global map: klusterrutorna ~30 % mindre (34×28 → 24×20 pt, siffran 12 → 9 pt).

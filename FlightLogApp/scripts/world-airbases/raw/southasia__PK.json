@@ -1,0 +1,282 @@
+[
+ {
+  "operator": "PK",
+  "base": "M.M. Alam",
+  "icao": "",
+  "location": "PK",
+  "region": "Punjab",
+  "command": "Northern Air Command",
+  "units": [
+   "No. 37 Combat Training Wing: 1 FCU",
+   "20 OCU",
+   "86 SAR Sqn"
+  ],
+  "aircraft": [
+   "K-8P",
+   "F-7PG",
+   "FT-7P",
+   "Alouette III"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia list of PAF bases; ICAO not in source",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Pakistan_Air_Force_bases"
+  ]
+ },
+ {
+  "operator": "PK",
+  "base": "Minhas",
+  "icao": "",
+  "location": "PK",
+  "region": "Punjab",
+  "command": "Northern Air Command",
+  "units": [
+   "No. 33 Tactical Wing: 15 Sqn",
+   "16 OCU",
+   "3 EW Sqn",
+   "87 SAR Sqn"
+  ],
+  "aircraft": [
+   "J-10CE",
+   "JF-17 Block III",
+   "Saab 2000 Erieye",
+   "Mi-171Sh",
+   "Alouette III"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia list of PAF bases; ICAO not in source",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Pakistan_Air_Force_bases"
+  ]
+ },
+ {
+  "operator": "PK",
+  "base": "Nur Khan",
+  "icao": "",
+  "location": "PK",
+  "region": "Punjab",
+  "command": "Air Headquarters / Northern Air Command",
+  "units": [
+   "No. 35 Composite Air Transport Wing: 6 ATS",
+   "10 Sqn",
+   "12 VIP Sqn",
+   "41 VIP Sqn",
+   "52 AM Sqn"
+  ],
+  "aircraft": [
+   "C-130",
+   "IL-78",
+   "Gulfstream IV",
+   "Phenom 100",
+   "Y-12",
+   "CN-235"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia list of PAF bases; ICAO not in source",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Pakistan_Air_Force_bases"
+  ]
+ },
+ {
+  "operator": "PK",
+  "base": "Academy Asghar Khan",
+  "icao": "",
+  "location": "PK",
+  "region": "Khyber Pakhtunkhwa",
+  "command": "Air University / Northern Air Command",
+  "units": [
+   "Flying Training Wing"
+  ],
+  "aircraft": [
+   "Mushshak",
+   "K-8"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia list of PAF bases; ICAO not in source",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Pakistan_Air_Force_bases"
+  ]
+ },
+ {
+  "operator": "PK",
+  "base": "Mushaf",
+  "icao": "",
+  "location": "PK",
+  "region": "Punjab",
+  "command": "Central Air Command",
+  "units": [
+   "No. 38 Tactical Wing: 9 Sqn",
+   "24 EW Sqn",
+   "29 Sqn",
+   "82 SAR Sqn",
+   "Combat Commanders School"
+  ],
+  "aircraft": [
+   "F-16A/B",
+   "F-16C/D",
+   "Falcon 20",
+   "F-7P",
+   "Mirage 5PA",
+   "JF-17",
+   "Alouette III"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia list of PAF bases; ICAO not in source",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Pakistan_Air_Force_bases"
+  ]
+ },
+ {
+  "operator": "PK",
+  "base": "Rafiqui",
+  "icao": "",
+  "location": "PK",
+  "region": "Punjab",
+  "command": "Central Air Command",
+  "units": [
+   "No. 34 Tactical Attack Wing: 14 Sqn",
+   "22 OCU",
+   "27 Sqn",
+   "83 SAR Sqn"
+  ],
+  "aircraft": [
+   "JF-17",
+   "Mirage III/5",
+   "Alouette III"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia list of PAF bases; ICAO not in source",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Pakistan_Air_Force_bases"
+  ]
+ },
+ {
+  "operator": "PK",
+  "base": "Masroor",
+  "icao": "",
+  "location": "PK",
+  "region": "Sindh",
+  "command": "Southern Air Command",
+  "units": [
+   "No. 32 Tactical Attack Wing: 8 Sqn",
+   "84 SAR Sqn"
+  ],
+  "aircraft": [
+   "JF-17 Block III",
+   "AW139"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia list of PAF bases; ICAO not in source",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Pakistan_Air_Force_bases"
+  ]
+ },
+ {
+  "operator": "PK",
+  "base": "Shahbaz",
+  "icao": "",
+  "location": "PK",
+  "region": "Sindh",
+  "command": "Southern Air Command",
+  "units": [
+   "No. 39 Tactical Wing: 5 Sqn",
+   "11 Sqn",
+   "88 SAR Sqn"
+  ],
+  "aircraft": [
+   "F-16C/D Block 52+",
+   "F-16A/B MLU",
+   "AW139"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia list of PAF bases; ICAO not in source",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Pakistan_Air_Force_bases"
+  ]
+ },
+ {
+  "operator": "PK",
+  "base": "Samungli",
+  "icao": "",
+  "location": "PK",
+  "region": "Balochistan",
+  "command": "Western / Southern Air Command",
+  "units": [
+   "No. 31 Air Superiority Wing: 28 Sqn",
+   "85 SAR Sqn"
+  ],
+  "aircraft": [
+   "JF-17",
+   "Alouette III"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia list of PAF bases; ICAO not in source",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Pakistan_Air_Force_bases"
+  ]
+ },
+ {
+  "operator": "PK",
+  "base": "Bholari",
+  "icao": "",
+  "location": "PK",
+  "region": "Sindh",
+  "command": "Southern Air Command",
+  "units": [
+   "No. 41 Tactical Wing: 19 Sqn",
+   "18 OCU",
+   "53 AEW&C Sqn"
+  ],
+  "aircraft": [
+   "F-16A/B ADF",
+   "JF-17",
+   "Saab 2000 Erieye"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia list of PAF bases; ICAO not in source",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Pakistan_Air_Force_bases"
+  ]
+ },
+ {
+  "operator": "PK",
+  "base": "Faisal",
+  "icao": "",
+  "location": "PK",
+  "region": "Sindh",
+  "command": "Southern Air Command",
+  "units": [
+   "No. 40 Air Mobility Wing: 21 ATS"
+  ],
+  "aircraft": [
+   "C-130"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia list of PAF bases; ICAO not in source",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Pakistan_Air_Force_bases"
+  ]
+ }
+]

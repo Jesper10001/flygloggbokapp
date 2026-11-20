@@ -1,0 +1,49 @@
+[
+ {
+  "operator": "GA",
+  "base": "Franceville Air Base (BA02)",
+  "icao": "",
+  "location": "GA",
+  "region": "Haut-Ogooué",
+  "command": "Gabonese Air Force",
+  "units": [
+   "Fighter Squadron 1-02 Leyou"
+  ],
+  "aircraft": [
+   "Mirage F1AZ",
+   "MB-326M Impala I"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Gabonese_Air_Force"
+  ],
+  "note": "Order of battle on Wikipedia; dated"
+ },
+ {
+  "operator": "GA",
+  "base": "Libreville Air Base (BA01)",
+  "icao": "",
+  "location": "GA",
+  "region": "Estuaire",
+  "command": "Gabonese Air Force",
+  "units": [
+   "Heavy Transport Squadron",
+   "Ministerial Air Liaison Group (GLAM)"
+  ],
+  "aircraft": [
+   "C-130 Hercules",
+   "CN-235",
+   "Falcon 900EX",
+   "Gulfstream III"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Gabonese_Air_Force"
+  ],
+  "note": "Order of battle on Wikipedia; dated"
+ }
+]

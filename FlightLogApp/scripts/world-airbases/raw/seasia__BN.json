@@ -1,0 +1,29 @@
+[
+ {
+  "operator": "BN",
+  "base": "Royal Brunei Air Force Base, Rimba",
+  "icao": "",
+  "location": "BN",
+  "region": "Brunei-Muara",
+  "command": "Royal Brunei Air Force",
+  "units": [
+   "No. 11 Squadron",
+   "No. 14 Squadron",
+   "No. 15 Squadron",
+   "No. 12 Squadron"
+  ],
+  "aircraft": [
+   "Bell 214ST",
+   "S-70i",
+   "C295MW",
+   "CN-235"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_Brunei_Air_Force"
+  ],
+  "note": "No. 12 Sqn formerly BO105 (decommissioned 2022); PC-7 Mk II and Bell 206 trainers and RQ-21 UAV also in infobox"
+ }
+]

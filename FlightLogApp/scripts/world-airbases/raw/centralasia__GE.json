@@ -1,0 +1,4 @@
+[
+{"operator":"GE","base":"Marneuli Air Base","icao":"","location":"GE","region":"Kvemo Kartli","command":"Aviation and Air Defence Command","units":["Su-25 attack squadron","L-39 training squadron"],"aircraft":["Su-25K/UB/KM","L-39C"],"sources":["Wikipedia","migflug.com"],"urls":["https://migflug.com/air-bases/marneuli/","https://en.wikipedia.org/wiki/Georgian_Air_Force"],"note":"Unit data traces to a 2008 CAST study; MoD does not publish basing."},
+{"operator":"GE","base":"Alekseevka (Tbilisi)","icao":"","location":"GE","region":"Tbilisi","command":"Aviation and Air Defence Command","units":["Mi-8 squadron","UH-1H squadron","Mixed helicopter squadron"],"aircraft":["Mi-8","UH-1H","Mi-14","Mi-24"],"sources":["migflug.com"],"urls":["https://migflug.com/air-forces/georgian-air-force/"],"note":"Command HQ and helicopter squadrons per migflug; dated, current basing unconfirmed."}
+]

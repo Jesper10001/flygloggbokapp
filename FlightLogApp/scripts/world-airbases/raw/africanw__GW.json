@@ -1,0 +1,25 @@
+[
+ {
+  "operator": "GW",
+  "base": "Osvaldo Vieira Air Base (Bissalanca)",
+  "icao": "GGOV",
+  "location": "GW",
+  "region": "Bissau",
+  "command": "Guinea-Bissau Air Force",
+  "units": [
+   "Guinea-Bissau Air Force"
+  ],
+  "aircraft": [
+   "Cessna 208B Grand Caravan",
+   "Alouette III",
+   "MiG-17 (unserviceable)"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/guinea-bissau-air-force/"
+  ],
+  "note": "From migflug.com (secondary source); not officially confirmed; page inconsistent on aircraft"
+ }
+]

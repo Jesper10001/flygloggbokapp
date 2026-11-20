@@ -1,0 +1,26 @@
+[
+ {
+  "operator": "LS",
+  "base": "Mejametalana Airbase (Maseru)",
+  "icao": "",
+  "location": "LS",
+  "region": "Maseru",
+  "command": "",
+  "units": [
+   "Lesotho Defence Force Air Wing"
+  ],
+  "aircraft": [
+   "Bell 412",
+   "H125",
+   "C-212 Aviocar",
+   "GA8 Airvan"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/lesotho-defence-force-air-wing/"
+  ],
+  "note": ""
+ }
+]

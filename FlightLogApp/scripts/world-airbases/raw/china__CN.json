@@ -1,0 +1,1515 @@
+[
+ {
+  "operator": "CN",
+  "base": "Jiaxing Airport",
+  "icao": "",
+  "location": "CN",
+  "region": "Zhejiang",
+  "command": "Eastern Theater Command Air Force",
+  "units": [
+   "7th Aviation Brigade"
+  ],
+  "aircraft": [
+   "J-16"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Eastern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Changxing 83 Airport",
+  "icao": "",
+  "location": "CN",
+  "region": "Zhejiang",
+  "command": "Eastern Theater Command Air Force",
+  "units": [
+   "8th Fighter Brigade"
+  ],
+  "aircraft": [
+   "J-20"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Eastern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Wuhu Wanli Airport",
+  "icao": "",
+  "location": "CN",
+  "region": "Anhui",
+  "command": "Eastern Theater Command Air Force",
+  "units": [
+   "9th Fighter Brigade"
+  ],
+  "aircraft": [
+   "J-20"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Eastern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Shantou Waisha Airport",
+  "icao": "",
+  "location": "CN",
+  "region": "Guangdong",
+  "command": "Eastern Theater Command Air Force",
+  "units": [
+   "25th Aviation Brigade"
+  ],
+  "aircraft": [
+   "J-10C"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Eastern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Nanchang Xiangtang Airport",
+  "icao": "",
+  "location": "CN",
+  "region": "Jiangxi",
+  "command": "Eastern Theater Command Air Force",
+  "units": [
+   "40th Aviation Brigade"
+  ],
+  "aircraft": [
+   "J-16"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Eastern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Wuyishan Airport",
+  "icao": "",
+  "location": "CN",
+  "region": "Fujian",
+  "command": "Eastern Theater Command Air Force",
+  "units": [
+   "41st Aviation Brigade"
+  ],
+  "aircraft": [
+   "J-11A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Eastern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Chongming Airport",
+  "icao": "",
+  "location": "CN",
+  "region": "Shanghai",
+  "command": "Eastern Theater Command Air Force",
+  "units": [
+   "78th Fighter Brigade"
+  ],
+  "aircraft": [
+   "J-16"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Eastern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Hangzhou Jianqiao Airport",
+  "icao": "",
+  "location": "CN",
+  "region": "Zhejiang",
+  "command": "Eastern Theater Command Air Force",
+  "units": [
+   "83rd Aviation Brigade"
+  ],
+  "aircraft": [
+   "JH-7A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Eastern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Quzhou Airport",
+  "icao": "",
+  "location": "CN",
+  "region": "Zhejiang",
+  "command": "Eastern Theater Command Air Force",
+  "units": [
+   "85th Fighter Brigade"
+  ],
+  "aircraft": [
+   "Su-30MKK"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Eastern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Lianyungang Baitabu Airport",
+  "icao": "",
+  "location": "CN",
+  "region": "Jiangsu",
+  "command": "Eastern Theater Command Air Force",
+  "units": [
+   "95th Aviation Brigade"
+  ],
+  "aircraft": [
+   "J-11B"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Eastern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Foshan Shadi",
+  "icao": "",
+  "location": "CN",
+  "region": "Guangdong",
+  "command": "Southern Theater Command Air Force",
+  "units": [
+   "4th Air Brigade"
+  ],
+  "aircraft": [
+   "J-20A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Southern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Guilin Qifengling",
+  "icao": "",
+  "location": "CN",
+  "region": "Guangxi",
+  "command": "Southern Theater Command Air Force",
+  "units": [
+   "5th Air Brigade"
+  ],
+  "aircraft": [
+   "J-20A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Southern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Zhanjiang Suixi",
+  "icao": "",
+  "location": "CN",
+  "region": "Guangdong",
+  "command": "Southern Theater Command Air Force",
+  "units": [
+   "6th Air Brigade"
+  ],
+  "aircraft": [
+   "J-16",
+   "Su-35"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Southern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Huizhou Pingtan",
+  "icao": "",
+  "location": "CN",
+  "region": "Guangdong",
+  "command": "Southern Theater Command Air Force",
+  "units": [
+   "26th Air Brigade"
+  ],
+  "aircraft": [
+   "J-16"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Southern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Changsha Tianxin",
+  "icao": "",
+  "location": "CN",
+  "region": "Hunan",
+  "command": "Southern Theater Command Air Force",
+  "units": [
+   "54th Air Brigade"
+  ],
+  "aircraft": [
+   "Su-30MKK"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Southern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Baise Tianyang",
+  "icao": "",
+  "location": "CN",
+  "region": "Guangxi",
+  "command": "Southern Theater Command Air Force",
+  "units": [
+   "124th Air Brigade"
+  ],
+  "aircraft": [
+   "J-10C"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Southern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Nanning Wuxu",
+  "icao": "",
+  "location": "CN",
+  "region": "Guangxi",
+  "command": "Southern Theater Command Air Force",
+  "units": [
+   "125th Air Brigade"
+  ],
+  "aircraft": [
+   "J-16"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Southern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Liuzhou Bailian",
+  "icao": "",
+  "location": "CN",
+  "region": "Guangxi",
+  "command": "Southern Theater Command Air Force",
+  "units": [
+   "126th Air Brigade"
+  ],
+  "aircraft": [
+   "JH-7A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Southern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Mengzi",
+  "icao": "",
+  "location": "CN",
+  "region": "Yunnan",
+  "command": "Southern Theater Command Air Force",
+  "units": [
+   "130th Air Brigade"
+  ],
+  "aircraft": [
+   "J-10C"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Southern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Qujing Luliang",
+  "icao": "",
+  "location": "CN",
+  "region": "Yunnan",
+  "command": "Southern Theater Command Air Force",
+  "units": [
+   "131st Air Brigade"
+  ],
+  "aircraft": [
+   "J-20A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Southern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Dali Yunnanyi",
+  "icao": "",
+  "location": "CN",
+  "region": "Yunnan",
+  "command": "Southern Theater Command Air Force",
+  "units": [
+   "132nd Air Brigade"
+  ],
+  "aircraft": [
+   "J-7E"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Southern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Lingao",
+  "icao": "",
+  "location": "CN",
+  "region": "Hainan",
+  "command": "Southern Theater Command Air Force",
+  "units": [
+   "808th Air Brigade"
+  ],
+  "aircraft": [
+   "J-11BH"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Southern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Ledong",
+  "icao": "",
+  "location": "CN",
+  "region": "Hainan",
+  "command": "Southern Theater Command Air Force",
+  "units": [
+   "809th Air Brigade"
+  ],
+  "aircraft": [
+   "JH-7A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Southern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Shaodong",
+  "icao": "",
+  "location": "CN",
+  "region": "Hunan",
+  "command": "Southern Theater Command Air Force",
+  "units": [
+   "22nd Air Brigade"
+  ],
+  "aircraft": [
+   "H-6K"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Southern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Leiyang",
+  "icao": "",
+  "location": "CN",
+  "region": "Hunan",
+  "command": "Southern Theater Command Air Force",
+  "units": [
+   "23rd Air Brigade",
+   "24th Air Regiment"
+  ],
+  "aircraft": [
+   "H-6U",
+   "H-6K"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Southern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Guiyang (Y-8G/Y-9 regiments)",
+  "icao": "",
+  "location": "CN",
+  "region": "Guizhou",
+  "command": "Southern Theater Command Air Force",
+  "units": [
+   "58th Air Regiment",
+   "60th Air Regiment"
+  ],
+  "aircraft": [
+   "Y-8G",
+   "Y-9G",
+   "Y-9X",
+   "Y-8X"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Southern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Zunyi",
+  "icao": "",
+  "location": "CN",
+  "region": "Guizhou",
+  "command": "Southern Theater Command Air Force",
+  "units": [
+   "59th Air Regiment"
+  ],
+  "aircraft": [
+   "Y-8G"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Southern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Yinchuan Xihuayuan",
+  "icao": "",
+  "location": "CN",
+  "region": "Ningxia",
+  "command": "Western Theater Command Air Force",
+  "units": [
+   "16th Air Brigade"
+  ],
+  "aircraft": [
+   "J-11B"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Western_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Lintao / Dingxi",
+  "icao": "",
+  "location": "CN",
+  "region": "Gansu",
+  "command": "Western Theater Command Air Force",
+  "units": [
+   "18th Air Brigade"
+  ],
+  "aircraft": [
+   "J-10C"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Western_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Dazu Dengyunqiao",
+  "icao": "",
+  "location": "CN",
+  "region": "Chongqing",
+  "command": "Western Theater Command Air Force",
+  "units": [
+   "97th Air Brigade"
+  ],
+  "aircraft": [
+   "J-20A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Western_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Chongqing Baishiyi",
+  "icao": "",
+  "location": "CN",
+  "region": "Chongqing",
+  "command": "Western Theater Command Air Force",
+  "units": [
+   "98th Air Brigade"
+  ],
+  "aircraft": [
+   "J-16"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Western_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Hotan",
+  "icao": "",
+  "location": "CN",
+  "region": "Xinjiang",
+  "command": "Western Theater Command Air Force",
+  "units": [
+   "99th Air Brigade"
+  ],
+  "aircraft": [
+   "J-16"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Western_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Changji",
+  "icao": "",
+  "location": "CN",
+  "region": "Xinjiang",
+  "command": "Western Theater Command Air Force",
+  "units": [
+   "109th Air Brigade"
+  ],
+  "aircraft": [
+   "J-11A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Western_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Urumqi Nanshan",
+  "icao": "",
+  "location": "CN",
+  "region": "Xinjiang",
+  "command": "Western Theater Command Air Force",
+  "units": [
+   "110th Air Brigade"
+  ],
+  "aircraft": [
+   "JH-7A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Western_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Korla",
+  "icao": "",
+  "location": "CN",
+  "region": "Xinjiang",
+  "command": "Western Theater Command Air Force",
+  "units": [
+   "111th Air Brigade"
+  ],
+  "aircraft": [
+   "J-11B",
+   "J-20A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Western_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Qionglai",
+  "icao": "",
+  "location": "CN",
+  "region": "Sichuan",
+  "command": "Western Theater Command Air Force",
+  "units": [
+   "10th Air Regiment",
+   "12th Air Regiment"
+  ],
+  "aircraft": [
+   "Y-9",
+   "Y-20"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Western_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Luzhou",
+  "icao": "",
+  "location": "CN",
+  "region": "Sichuan",
+  "command": "Western Theater Command Air Force",
+  "units": [
+   "11th Air Regiment"
+  ],
+  "aircraft": [
+   "Y-9"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Western_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Golmud",
+  "icao": "",
+  "location": "CN",
+  "region": "Qinghai",
+  "command": "Western Theater Command Air Force",
+  "units": [
+   "Special Mission Regiment"
+  ],
+  "aircraft": [
+   "KJ-500"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Western_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Anshan Teng'ao",
+  "icao": "",
+  "location": "CN",
+  "region": "Liaoning",
+  "command": "Northern Theater Command Air Force",
+  "units": [
+   "1st Air Brigade"
+  ],
+  "aircraft": [
+   "J-20A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Northern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Chifeng Yulong",
+  "icao": "",
+  "location": "CN",
+  "region": "Inner Mongolia",
+  "command": "Northern Theater Command Air Force",
+  "units": [
+   "2nd Air Brigade"
+  ],
+  "aircraft": [
+   "J-10C",
+   "J-20"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Northern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Qiqihar Sanjiazi",
+  "icao": "",
+  "location": "CN",
+  "region": "Heilongjiang",
+  "command": "Northern Theater Command Air Force",
+  "units": [
+   "3rd Air Brigade"
+  ],
+  "aircraft": [
+   "J-16"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Northern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Siping",
+  "icao": "",
+  "location": "CN",
+  "region": "Jilin",
+  "command": "Northern Theater Command Air Force",
+  "units": [
+   "31st Air Brigade"
+  ],
+  "aircraft": [
+   "JH-7A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Northern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Yanji Chaoyangchuan",
+  "icao": "",
+  "location": "CN",
+  "region": "Jilin",
+  "command": "Northern Theater Command Air Force",
+  "units": [
+   "61st Air Brigade"
+  ],
+  "aircraft": [
+   "J-10B"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Northern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Mudanjiang Hailang",
+  "icao": "",
+  "location": "CN",
+  "region": "Heilongjiang",
+  "command": "Northern Theater Command Air Force",
+  "units": [
+   "63rd Air Brigade"
+  ],
+  "aircraft": [
+   "J-7H"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Northern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Dandong Langtou",
+  "icao": "",
+  "location": "CN",
+  "region": "Liaoning",
+  "command": "Northern Theater Command Air Force",
+  "units": [
+   "88th Air Brigade"
+  ],
+  "aircraft": [
+   "J-7E"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Northern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Dalian Pulandian",
+  "icao": "",
+  "location": "CN",
+  "region": "Liaoning",
+  "command": "Northern Theater Command Air Force",
+  "units": [
+   "89th Air Brigade"
+  ],
+  "aircraft": [
+   "J-11B"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Northern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Weifang Nanyuan",
+  "icao": "",
+  "location": "CN",
+  "region": "Shandong",
+  "command": "Northern Theater Command Air Force",
+  "units": [
+   "15th Air Brigade"
+  ],
+  "aircraft": [
+   "J-16"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Northern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Weihai Daishuipo",
+  "icao": "",
+  "location": "CN",
+  "region": "Shandong",
+  "command": "Northern Theater Command Air Force",
+  "units": [
+   "34th Air Brigade"
+  ],
+  "aircraft": [
+   "J-10C"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Northern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Hohhot Bikeqi",
+  "icao": "",
+  "location": "CN",
+  "region": "Inner Mongolia",
+  "command": "Northern Theater Command Air Force",
+  "units": [
+   "44th Air Brigade"
+  ],
+  "aircraft": [
+   "J-7G"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Northern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Jining Qufu",
+  "icao": "",
+  "location": "CN",
+  "region": "Shandong",
+  "command": "Northern Theater Command Air Force",
+  "units": [
+   "55th Air Brigade"
+  ],
+  "aircraft": [
+   "J-20A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Northern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Yantai",
+  "icao": "",
+  "location": "CN",
+  "region": "Shandong",
+  "command": "Northern Theater Command Air Force",
+  "units": [
+   "805th Air Brigade"
+  ],
+  "aircraft": [
+   "JH-7A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Northern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Suizhong",
+  "icao": "",
+  "location": "CN",
+  "region": "Liaoning",
+  "command": "Northern Theater Command Air Force",
+  "units": [
+   "807th Air Brigade"
+  ],
+  "aircraft": [
+   "J-11B",
+   "JH-7A",
+   "JL-9",
+   "JL-10"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Northern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Shenyang (regiments)",
+  "icao": "",
+  "location": "CN",
+  "region": "Liaoning",
+  "command": "Northern Theater Command Air Force",
+  "units": [
+   "46th Air Regiment",
+   "47th Air Regiment"
+  ],
+  "aircraft": [
+   "JZ-8F",
+   "KJ-500",
+   "Y-8G"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Northern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Shuangliao",
+  "icao": "",
+  "location": "CN",
+  "region": "Jilin",
+  "command": "Northern Theater Command Air Force",
+  "units": [
+   "48th Air Regiment"
+  ],
+  "aircraft": [
+   "WZ-7"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Northern_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Zhangjiakou Ningyuan",
+  "icao": "",
+  "location": "CN",
+  "region": "Hebei",
+  "command": "Central Theater Command Air Force",
+  "units": [
+   "19th Air Brigade"
+  ],
+  "aircraft": [
+   "J-11B",
+   "J-20A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Central_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Yanqing",
+  "icao": "",
+  "location": "CN",
+  "region": "Beijing",
+  "command": "Central Theater Command Air Force",
+  "units": [
+   "21st Air Brigade"
+  ],
+  "aircraft": [
+   "J-11B/BG"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Central_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Shouzhou Huairen",
+  "icao": "",
+  "location": "CN",
+  "region": "Shanxi",
+  "command": "Central Theater Command Air Force",
+  "units": [
+   "43rd Air Brigade"
+  ],
+  "aircraft": [
+   "J-10A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Central_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Tangshan Zunhua",
+  "icao": "",
+  "location": "CN",
+  "region": "Hebei",
+  "command": "Central Theater Command Air Force",
+  "units": [
+   "70th Air Brigade"
+  ],
+  "aircraft": [
+   "J-10A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Central_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Wuqing Yangcun",
+  "icao": "",
+  "location": "CN",
+  "region": "Tianjin",
+  "command": "Central Theater Command Air Force",
+  "units": [
+   "72nd Air Brigade"
+  ],
+  "aircraft": [
+   "J-10C"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Central_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Wuhan Shanpo",
+  "icao": "",
+  "location": "CN",
+  "region": "Hubei",
+  "command": "Central Theater Command Air Force",
+  "units": [
+   "52nd Air Brigade"
+  ],
+  "aircraft": [
+   "J-7G"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Central_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Laohekou",
+  "icao": "",
+  "location": "CN",
+  "region": "Hubei",
+  "command": "Central Theater Command Air Force",
+  "units": [
+   "53rd Air Brigade"
+  ],
+  "aircraft": [
+   "J-10B"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Central_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Zhengzhou Matougang",
+  "icao": "",
+  "location": "CN",
+  "region": "Henan",
+  "command": "Central Theater Command Air Force",
+  "units": [
+   "56th Air Brigade"
+  ],
+  "aircraft": [
+   "J-20A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Central_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Neixiang",
+  "icao": "",
+  "location": "CN",
+  "region": "Henan",
+  "command": "Central Theater Command Air Force",
+  "units": [
+   "106th Air Brigade"
+  ],
+  "aircraft": [
+   "H-6N"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Central_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Xi'an Lingtong",
+  "icao": "",
+  "location": "CN",
+  "region": "Shaanxi",
+  "command": "Central Theater Command Air Force",
+  "units": [
+   "107th Air Brigade"
+  ],
+  "aircraft": [
+   "H-6H"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Central_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Wugong",
+  "icao": "",
+  "location": "CN",
+  "region": "Shaanxi",
+  "command": "Central Theater Command Air Force",
+  "units": [
+   "108th Air Regiment"
+  ],
+  "aircraft": [
+   "H-6K"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Central_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Kaifeng",
+  "icao": "",
+  "location": "CN",
+  "region": "Henan",
+  "command": "Central Theater Command Air Force",
+  "units": [
+   "37th Air Regiment"
+  ],
+  "aircraft": [
+   "Y-20"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Central_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Wuhan (transport)",
+  "icao": "",
+  "location": "CN",
+  "region": "Hubei",
+  "command": "Central Theater Command Air Force",
+  "units": [
+   "38th Air Regiment"
+  ],
+  "aircraft": [
+   "Y-20",
+   "YY-20"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Central_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Dangyang",
+  "icao": "",
+  "location": "CN",
+  "region": "Hubei",
+  "command": "Central Theater Command Air Force",
+  "units": [
+   "39th Air Regiment"
+  ],
+  "aircraft": [
+   "Il-76"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Central_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Beijing Xijiao",
+  "icao": "",
+  "location": "CN",
+  "region": "Beijing",
+  "command": "Central Theater Command Air Force",
+  "units": [
+   "100th Air Regiment"
+  ],
+  "aircraft": [
+   "Airbus A319",
+   "Boeing 737",
+   "CRJ700"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Central_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Shahe Airbase",
+  "icao": "",
+  "location": "CN",
+  "region": "Beijing",
+  "command": "Central Theater Command Air Force",
+  "units": [
+   "101st Air Regiment"
+  ],
+  "aircraft": [
+   "EC225",
+   "AS332"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Central_Theater_Command_Air_Force"
+  ]
+ },
+ {
+  "operator": "CN",
+  "base": "Cangzhou",
+  "icao": "",
+  "location": "CN",
+  "region": "Hebei",
+  "command": "Central Theater Command Air Force",
+  "units": [
+   "151st Air Brigade"
+  ],
+  "aircraft": [
+   "GJ-1 UAV"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia theater-command air force article; unit/type assignments may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Central_Theater_Command_Air_Force"
+  ]
+ }
+]

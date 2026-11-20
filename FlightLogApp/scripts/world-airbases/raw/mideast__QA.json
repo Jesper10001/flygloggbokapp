@@ -1,0 +1,81 @@
+[
+{
+"operator": "QA",
+"base": "Al Udeid Air Base",
+"icao": "",
+"location": "QA",
+"region": "",
+"command": "Qatar Emiri Air Force",
+"units": [
+"Wing 5 (51st, 52nd, 53rd Sqn)",
+"Wing 8 (10th Transport Sqn)",
+"Wing 10 (12th Transport Sqn)",
+"Wing 3 (20th, 21st, 22nd Sqn)",
+"Air College"
+],
+"aircraft": [
+"F-15QA",
+"C-17 Globemaster III",
+"C-130J-30",
+"AW139",
+"PC-21",
+"Super Mushshak",
+"M-346 Master"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "Also hosts foreign (incl. US, UK) units, not listed. Air College sited at Al Udeid per Wikipedia.",
+"urls": [
+"https://en.wikipedia.org/wiki/Qatar_Emiri_Air_Force"
+]
+},
+{
+"operator": "QA",
+"base": "Doha International Air Base",
+"icao": "",
+"location": "QA",
+"region": "",
+"command": "Qatar Emiri Air Force",
+"units": [
+"Wing 1 (7th, 11th, 12th Sqn)",
+"Wing 2 (6th, 8th, 9th Sqn)",
+"Wing 4 (41st, 42nd Sqn)"
+],
+"aircraft": [
+"Eurofighter Typhoon",
+"Hawk Mk.167",
+"SA342 Gazelle",
+"NH90",
+"AH-64E Apache"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "Source gives Doha IAP, now Hamad Intl area may differ; ICAO OTBD is the former Doha Intl.",
+"urls": [
+"https://en.wikipedia.org/wiki/Qatar_Emiri_Air_Force"
+]
+},
+{
+"operator": "QA",
+"base": "Dukhan (Tamim) Air Base",
+"icao": "",
+"location": "QA",
+"region": "",
+"command": "Qatar Emiri Air Force",
+"units": [
+"Wing 6 Al Adiyat (1st, 61st, 62nd Sqn)"
+],
+"aircraft": [
+"Rafale"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "Qatari Hawk Sqn at RAF Leeming (UK) omitted; belongs to Europe group.",
+"urls": [
+"https://en.wikipedia.org/wiki/Qatar_Emiri_Air_Force"
+]
+}
+]

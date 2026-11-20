@@ -2,7 +2,9 @@
 // flygplanstyper, sammanställd 2026-11-19 ur Wikipedia, flygvapnens/försvarsministeriernas sidor m.fl.; Ukraina ej med).
 // Samma form som ru-airbases.json: { nyckel: { n, r, s: 'eu', ops: [{ o, c, u, g }] } } — flera länders förband på
 // samma bas blir flera ops. Nyckel = flygplatsens nyckel i icao-airports.dat (OurAirports-ident, kod eller närmast ≤ 1,5 km).
-// Kör: node scripts/build-eu-airbases.mjs
+// Kör: node scripts/build-eu-airbases.mjs            (Europa → assets/eu-airbases.json, s: 'eu')
+//      node scripts/build-eu-airbases.mjs --world    (övriga världen ur scripts/world-airbases/flygbaser_varlden.csv,
+//                                                     kontrollerad mot källsidorna med verify.py → assets/world-airbases.json, s: 'world')
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -26,7 +28,10 @@ function parseCSV(text) {
   if (cur || row.length) { row.push(cur); rows.push(row); }
   return rows;
 }
-const [head, ...body] = parseCSV(fs.readFileSync(path.join(__dirname, 'eu-airbases', 'flygbaser_europa.csv'), 'utf8'));
+const WORLD = process.argv.includes('--world');
+const SRC = WORLD ? path.join(__dirname, 'world-airbases', 'flygbaser_varlden.csv') : path.join(__dirname, 'eu-airbases', 'flygbaser_europa.csv');
+const OUT = path.join(__dirname, '..', 'assets', WORLD ? 'world-airbases.json' : 'eu-airbases.json');
+const [head, ...body] = parseCSV(fs.readFileSync(SRC, 'utf8'));
 const ix = Object.fromEntries(head.map((h, i) => [h, i]));
 
 // Roll per flygplanstyp (första träff vinner; ordningen spelar roll: tankning/spaning före transport, skol före jakt).
@@ -40,7 +45,19 @@ const ROLE_RX = [
   ['attack', /\b(A-10|Thunderbolt|AMX|A-11|Su-25|Su-22|Ghibli|A-29|EMB-314|L-159|Super Galeb|Orao|J-22)/i],
   ['transport', /\b(C-130|Hercules|C-160|Transall|A400M|Atlas|C-27J|Spartan|CASA C-?295|C-?295|CN-?235|C-17|Globemaster|KC-390|C-390|Millennium|C-5|Galaxy|C-21|C-37|C-40|C-12|Huron|C-26|Learjet|Falcon|Dassault|Gulfstream|Global|Bombardier|Challenger|Embraer|EMB-1[23]|Legacy|Phenom|ERJ|E-190|E190|A3[0-4]\d|Airbus|Boeing|737|757|767|777|Tp 84|Tp 100|Tp 102|Tp 106|Saab 340|Saab 2000|King Air|Beech|Beechcraft|PC-12|PC12|Pilatus PC-12|PC-6|Porter|Dornier|Do ?228|Twin Otter|DHC-6|Dash 8|Q400|ATR|An-|PZL An-|M28|PZL M28|Skytruck|Bryza|L-410|Let 410|Turbolet|Il-76|Tu-134|Tu-154|Yak-40|Citation|Cessna|Piaggio|P\.180|P180|Avanti|Islander|Defender|BN-2|CASA 212|C-212|Aviocar|Sherpa|Caravan|Kodiak|Super King|Shorts|EMB-145|Lineage|Fokker|Hawker|BAe 146|Bae 146|Envoy|Avro RJ|TBM|Xingu|Dakota|C-47|Super Ventura)/i],
 ];
-const roleOf = (t) => (ROLE_RX.find(([, rx]) => rx.test(t)) || [null])[0];
+// Tillägg för resten av världen (2026-11-20): kinesiska, japanska, sydamerikanska, indiska och amerikanska special-
+// typer m.m. Läggs till i slutet av respektive rolls mönster, så ordningen mellan rollerna är densamma (Europa oförändrad).
+const EXTRA = {
+  special: String.raw`KJ-|Y-8G|Y-9G|Y-9X|Y-8X|Y-8-F200W|JZ-|H-6U|YY-20|Il-78|R-99|P-99|R-35|P-95|EC-95|EU-93|CP-140|Aurora|Wing Loong|HARPY|BQM-|Orlan|RC-800|RC-7\b|EP-3|OP-3|UP-3|NP-3|P-1\b|UP-1\b|US-2\b|EC-1\b|YS-11EB|U-2\b|U-2S|Dragon Lady|U-28|Draco|U-125|OC-135|TC-135|E-4B|E-6B|E-9A|E-11A|EC-130|EA-37|Compass Call|EA-18G|Growler|MC-12|S-100|Argus|SR-560|MXP-650|S-2T|Tracker|UAS|ECN-235|Phobos|SA2-37|Vampiro|WC-130|HC-130|LR-2\b|O-2A|Skymaster|RTAF U-1`,
+  heli: String.raw`UH-\d|AH-\d|MH-\d|TH-\d|TAH-|VH-\d|CH-\d{2,3}\b|HM-\d|H-36|H-60|USH-|MCH-|OH-\d|Z-(?:8|9|10|11|18|19|20)(?!\d)|NBo|Dhruv|Rudra|Chetak|Rooivalk|Oryx|BK ?117|Enstrom|R44|Hughes|MD ?-?5\d\d|500MD|SH-2G|Seasprite|Commando|Lama|SA ?-?315|AS ?550|AS ?355|IAR-?330|AB\.?412|Bell ?\d{3}|EC130\b|V-22`,
+  training: String.raw`L-29|EMB-312|IA-63|Pampa|T-34|Mentor|CJ-6|PT-6\b|K-8|Karakorum|T-25|T-27|AT-26|Xavante|T-90|Calima|T-41|Mescalero|T-4\b|T-400|T-5\b|T-50|Brave Eagle|T-54|JL-\d|FT-[57]|Mushshak|CT-4|CT-156|Harvard|L-90|TA-50|Alarus|CH-?2000|Lancair|T-1A|Jayhawk|AT-38|S-211|SZD|S10VT|F-260|MB-326|Impala|trainers`,
+  fighter: String.raw`MiG-(?!27)\d|J-(?:5|6|7|8|10|11|15|16|20|31|35)|F-7|JF-17|Tejas|Mirage ?(?:F1|5|III|IV)|F-14|F-22|Raptor|NF-16|KF-16|RF-16|KF-21|KF-5|CF-5|F-2[AB]|Ching-kuo|F-CK|Cheetah`,
+  bomber: String.raw`H-6|JH-7|Il-28|H-5\b`,
+  attack: String.raw`Super .tendard|Etendard|A-4|Fightinghawk|Skyhawk|A-1B?\b|RA-1|A-37|Dragonfly|AC-47|Fantasma|AC-130|Ghostrider|Spooky|Stinger|AC-235|Jaguar|MiG-27|AT-6|OA-1K|attack aircraft`,
+  transport: String.raw`L-100|Piper|Aero ?Commander|Aerocommander|Twin Commander|RC695|C-9[5-9]|VC-9\d|VC-1A|VU-\d|XU-93|C-105|SC-105|CC-\d{3}|CRJ|Y-20|Y-9\b|Y-12|MA60|MA600|Arava|IAI 201|C212|NC-212|CN-295|Il-62|HS ?748|Sabre|JetStar|DHC-8|PAC-750|Airvan|BT-67|Basler|AU-23|Aerostar|B7\d7|SSJ|U-4\b|C-146|Wolfhound|C-32|VC-25|UC-35|C-2A?\b|Greyhound|C-1\b|C-1FTB|UC-12|TC-90|LC-90|YS-11|Short ?360|MX-7|transport aircraft|liaison aircraft`,
+};
+const RX = ROLE_RX.map(([k, rx]) => [k, new RegExp(rx.source.replace(/\)$/, `|${EXTRA[k]})`), 'i')]);
+const roleOf = (t) => (RX.find(([, rx]) => rx.test(t)) || [null])[0];
 
 const km = (a, b, c, d) => Math.hypot(a - c, (b - d) * Math.cos((a * Math.PI) / 180)) * 111;
 const out = {}, skipped = [], unmatched = new Map();
@@ -64,9 +81,9 @@ for (const r of body) {
   }
   const op = { o: r[ix.forband_land], c: r[ix.kommando], u: r[ix.forband].split(';').map((s) => s.trim()).filter(Boolean), g: groups };
   if (out[key]) out[key].ops.push(op);
-  else out[key] = { n: name, r: r[ix.region], s: 'eu', ops: [op] };
+  else out[key] = { n: name, r: r[ix.region], s: WORLD ? 'world' : 'eu', ops: [op] };
 }
-fs.writeFileSync(path.join(__dirname, '..', 'assets', 'eu-airbases.json'), JSON.stringify(out));
+fs.writeFileSync(OUT, JSON.stringify(out));
 const multi = Object.values(out).filter((b) => b.ops.length > 1).map((b) => `${b.n} (${b.ops.map((o) => o.o).join('+')})`);
 console.log(`Skrev ${Object.keys(out).length} baser (${body.filter((r) => r[ix.namn]).length} rader). Flera länder: ${multi.join(', ') || '–'}`);
 console.log(`Utan position/nyckel (${skipped.length}): ${skipped.join(', ') || '–'}`);

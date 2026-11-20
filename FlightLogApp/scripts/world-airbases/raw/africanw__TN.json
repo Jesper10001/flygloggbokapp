@@ -1,0 +1,119 @@
+[
+ {
+  "operator": "TN",
+  "base": "Tunis-Laouina Air Base",
+  "icao": "",
+  "location": "TN",
+  "region": "Tunis",
+  "command": "Tunisian Air Force",
+  "units": [
+   "No. 12 Squadron"
+  ],
+  "aircraft": [
+   "L-410 Turbolet"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Tunisian_Air_Force"
+  ],
+  "note": "Order of battle section of Wikipedia (older Scramble-derived); dated"
+ },
+ {
+  "operator": "TN",
+  "base": "Bizerte-Sidi Ahmed Air Base",
+  "icao": "",
+  "location": "TN",
+  "region": "Bizerte",
+  "command": "Tunisian Air Force",
+  "units": [
+   "No. 15 Squadron",
+   "No. 21 Squadron"
+  ],
+  "aircraft": [
+   "F-5 Tiger",
+   "C-130 Hercules"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Tunisian_Air_Force"
+  ],
+  "note": "Order of battle section of Wikipedia (older Scramble-derived); dated"
+ },
+ {
+  "operator": "TN",
+  "base": "Bizerte-La Karouba Air Base",
+  "icao": "",
+  "location": "TN",
+  "region": "Bizerte",
+  "command": "Tunisian Air Force",
+  "units": [
+   "No. 31 Squadron",
+   "No. 32 Squadron",
+   "No. 33 Squadron",
+   "No. 36 Squadron"
+  ],
+  "aircraft": [
+   "Bell 205",
+   "UH-1 Iroquois",
+   "Alouette II",
+   "AS350 Ecureuil"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Tunisian_Air_Force"
+  ],
+  "note": "Order of battle section of Wikipedia (older Scramble-derived); dated"
+ },
+ {
+  "operator": "TN",
+  "base": "Sfax-Thyna Air Base",
+  "icao": "",
+  "location": "TN",
+  "region": "Sfax",
+  "command": "Tunisian Air Force",
+  "units": [
+   "No. 31 Squadron"
+  ],
+  "aircraft": [
+   "helicopters"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Tunisian_Air_Force"
+  ],
+  "note": "Order of battle section of Wikipedia (older Scramble-derived); dated"
+ },
+ {
+  "operator": "TN",
+  "base": "Gafsa Air Base",
+  "icao": "",
+  "location": "TN",
+  "region": "Gafsa",
+  "command": "Tunisian Air Force",
+  "units": [
+   "No. 34 Squadron",
+   "No. 51 Squadron",
+   "No. 42 Squadron"
+  ],
+  "aircraft": [
+   "OH-58D Kiowa",
+   "MQ-27 ScanEagle",
+   "Cessna 208EX"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Tunisian_Air_Force"
+  ],
+  "note": "Order of battle section of Wikipedia (older Scramble-derived); dated"
+ }
+]

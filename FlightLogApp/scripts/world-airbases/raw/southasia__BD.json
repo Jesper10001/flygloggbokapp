@@ -1,0 +1,157 @@
+[
+ {
+  "operator": "BD",
+  "base": "Tejgaon",
+  "icao": "",
+  "location": "BD",
+  "region": "Dhaka",
+  "command": "Dhaka",
+  "units": [
+   "No. 9 Squadron",
+   "No. 31 Squadron",
+   "No. 101 Squadron",
+   "No. 103 Squadron (ATTU)"
+  ],
+  "aircraft": [
+   "Bell 212",
+   "Mi-171Sh",
+   "C-130B",
+   "C-130J Hercules",
+   "L-410"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia; ICAO not in source",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Bangladesh_Air_Force"
+  ]
+ },
+ {
+  "operator": "BD",
+  "base": "Kurmitola",
+  "icao": "",
+  "location": "BD",
+  "region": "Dhaka",
+  "command": "Dhaka",
+  "units": [
+   "No. 8 Squadron",
+   "No. 25 Squadron",
+   "No. 35 Squadron"
+  ],
+  "aircraft": [
+   "MiG-29B/UB",
+   "MiG-29BM/UBM",
+   "FT-7A/B",
+   "F-7BG1",
+   "FT-7BG1"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia; ICAO not in source",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Bangladesh_Air_Force"
+  ]
+ },
+ {
+  "operator": "BD",
+  "base": "Chattogram",
+  "icao": "",
+  "location": "BD",
+  "region": "Chattogram",
+  "command": "Southern Air Command",
+  "units": [
+   "No. 1 Squadron",
+   "No. 3 Squadron",
+   "No. 5 Squadron",
+   "No. 21 Squadron",
+   "No. 105 Squadron (AJTU)"
+  ],
+  "aircraft": [
+   "Mi-17",
+   "Mi-171Sh",
+   "AW139",
+   "Bell 212",
+   "An-32B",
+   "F-7BG",
+   "FT-7BG",
+   "Yak-130"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia; ICAO not in source",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Bangladesh_Air_Force"
+  ]
+ },
+ {
+  "operator": "BD",
+  "base": "Jashore",
+  "icao": "",
+  "location": "BD",
+  "region": "Khulna",
+  "command": "Combat/Training",
+  "units": [
+   "Bangladesh Air Force Academy",
+   "No. 11 Squadron",
+   "No. 12 Squadron",
+   "No. 15 Squadron",
+   "No. 18 Squadron"
+  ],
+  "aircraft": [
+   "PT-6",
+   "Grob G 120",
+   "K-8W",
+   "Bell 206L-2"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia; ICAO not in source",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Bangladesh_Air_Force"
+  ]
+ },
+ {
+  "operator": "BD",
+  "base": "Bogura",
+  "icao": "",
+  "location": "BD",
+  "region": "Rajshahi",
+  "command": "Training",
+  "units": [
+   "Flying Instructor School"
+  ],
+  "aircraft": [
+   "CJ-6"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia; ICAO not in source",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Bangladesh_Air_Force"
+  ]
+ },
+ {
+  "operator": "BD",
+  "base": "Shamshernagar",
+  "icao": "",
+  "location": "BD",
+  "region": "Sylhet",
+  "command": "Combat air command",
+  "units": [
+   "No. 41 Squadron (Airborne)"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia; ICAO not in source",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Bangladesh_Air_Force"
+  ]
+ }
+]

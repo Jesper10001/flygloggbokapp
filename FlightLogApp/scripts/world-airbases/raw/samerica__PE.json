@@ -1,0 +1,249 @@
+[
+ {
+  "operator": "PE",
+  "base": "Chiclayo Air Base",
+  "icao": "",
+  "location": "PE",
+  "region": "Lambayeque",
+  "command": "Ala Aérea N.º 1",
+  "units": [
+   "Grupo Aéreo N.º 6",
+   "Escuadrón Aéreo 611"
+  ],
+  "aircraft": [
+   "MiG-29",
+   "Zlín Z-242"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_del_Per%C3%BA"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "PE",
+  "base": "Piura Air Base",
+  "icao": "",
+  "location": "PE",
+  "region": "Piura",
+  "command": "Ala Aérea N.º 1",
+  "units": [
+   "Grupo Aéreo N.º 7",
+   "Escuadrón Aéreo 711"
+  ],
+  "aircraft": [
+   "KT-1P"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_del_Per%C3%BA"
+  ],
+  "note": "Page caption shows an Su-25"
+ },
+ {
+  "operator": "PE",
+  "base": "Talara Air Base",
+  "icao": "",
+  "location": "PE",
+  "region": "Piura",
+  "command": "Ala Aérea N.º 1",
+  "units": [
+   "Grupo Aéreo N.º 11",
+   "Escuadrón Aéreo 112"
+  ],
+  "aircraft": [
+   "Su-25",
+   "Su-25UB"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_del_Per%C3%BA"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "PE",
+  "base": "Callao Air Base (Grupo Aéreo N.º 3)",
+  "icao": "",
+  "location": "PE",
+  "region": "Lima/Callao",
+  "command": "Ala Aérea N.º 2",
+  "units": [
+   "Grupo Aéreo N.º 3",
+   "Escuadrón de Helicópteros 315",
+   "Escuadrón de Helicópteros 332",
+   "Escuadrón de Helicópteros 341"
+  ],
+  "aircraft": [
+   "MBB Bo 105",
+   "Bell 212",
+   "Bell 412",
+   "Mi-8 MTV-1",
+   "Mi-17-1V",
+   "Mi-171Sh"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_del_Per%C3%BA"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "PE",
+  "base": "Jorge Chávez Air Base (Callao)",
+  "icao": "",
+  "location": "PE",
+  "region": "Lima/Callao",
+  "command": "Ala Aérea N.º 2",
+  "units": [
+   "Grupo Aéreo N.º 8",
+   "Escuadrones de Transporte 841-845"
+  ],
+  "aircraft": [
+   "Boeing 737-200",
+   "Boeing 737-500",
+   "L-100-20 Hercules",
+   "An-32B",
+   "C-27J Spartan",
+   "KC-130 Hercules"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_del_Per%C3%BA"
+  ],
+  "note": "At Jorge Chávez International Airport"
+ },
+ {
+  "operator": "PE",
+  "base": "Las Palmas Air Base (Lima)",
+  "icao": "",
+  "location": "PE",
+  "region": "Lima",
+  "command": "DIVRA / EDACI",
+  "units": [
+   "DIVRA: Escuadrón Aéreo 330, 331, 334",
+   "EDACI"
+  ],
+  "aircraft": [
+   "FAP UAS Mk1-Mk6",
+   "Learjet 36AM",
+   "C-26 Metroliner",
+   "Twin Commander 690B",
+   "T-41 Mescalero",
+   "Piper PA-34 Seneca"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_del_Per%C3%BA"
+  ],
+  "note": "DIVRA linked to Las Palmas by page"
+ },
+ {
+  "operator": "PE",
+  "base": "Pisco Air Base (EFOPI)",
+  "icao": "",
+  "location": "PE",
+  "region": "Ica",
+  "command": "Escuela de Formación de Pilotos",
+  "units": [
+   "EFOPI",
+   "Escuadrón Aéreo 510",
+   "511",
+   "512",
+   "513"
+  ],
+  "aircraft": [
+   "Enstrom 280FX",
+   "Alarus CH-2000",
+   "KT-1P"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_del_Per%C3%BA"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "PE",
+  "base": "Vítor Air Base (Arequipa)",
+  "icao": "",
+  "location": "PE",
+  "region": "Arequipa",
+  "command": "Ala Aérea N.º 3",
+  "units": [
+   "Grupo Aéreo N.º 2",
+   "Escuadrón Aéreo 211"
+  ],
+  "aircraft": [
+   "Mi-25 D/DU",
+   "Mi-35P"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_del_Per%C3%BA"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "PE",
+  "base": "La Joya Air Base (Arequipa)",
+  "icao": "",
+  "location": "PE",
+  "region": "Arequipa",
+  "command": "Ala Aérea N.º 3",
+  "units": [
+   "Grupo Aéreo N.º 4",
+   "Escuadrón Aéreo 412"
+  ],
+  "aircraft": [
+   "Mirage 2000P/DP"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_del_Per%C3%BA"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "PE",
+  "base": "Iquitos Air Base",
+  "icao": "",
+  "location": "PE",
+  "region": "Loreto",
+  "command": "Ala Aérea N.º 5",
+  "units": [
+   "Grupo Aéreo N.º 42",
+   "Escuadrón Aéreo 421",
+   "Escuadrón Aéreo 422"
+  ],
+  "aircraft": [
+   "DHC-6",
+   "PC-6"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_del_Per%C3%BA"
+  ],
+  "note": ""
+ }
+]

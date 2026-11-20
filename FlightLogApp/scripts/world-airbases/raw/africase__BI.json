@@ -1,0 +1,21 @@
+[
+ {
+  "operator": "BI",
+  "base": "Melchior Ndadaye International Airport (Bujumbura)",
+  "icao": "",
+  "location": "BI",
+  "region": "Bujumbura Mairie",
+  "command": "",
+  "units": [
+   "Burundi National Defence Force aviation command"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/burundi-air-force/"
+  ],
+  "note": "Main airfield only; no source names a base for the aircraft (Mi-24, Mi-8, Alouette III, SF.260 on charge)."
+ }
+]

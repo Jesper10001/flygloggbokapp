@@ -1,0 +1,299 @@
+[
+ {
+  "operator": "US",
+  "base": "Kadena Air Base",
+  "icao": "RODN",
+  "location": "JP",
+  "region": "Okinawa",
+  "command": "Pacific Air Forces (Fifth Air Force)",
+  "units": [
+   "18th Wing: 44th Fighter Squadron, 67th Fighter Squadron",
+   "909th Air Refueling Squadron",
+   "961st Airborne Air Control Squadron",
+   "33rd Rescue Squadron",
+   "353rd Special Operations Wing: 1st Special Operations Squadron",
+   "374th Airlift Wing: 319th Expeditionary Reconnaissance Squadron",
+   "55th Wing: 82nd Reconnaissance Squadron"
+  ],
+  "aircraft": [
+   "F-15EX Eagle II",
+   "KC-135R Stratotanker",
+   "E-3B/C Sentry",
+   "HH-60W Jolly Green II",
+   "MC-130J Commando II",
+   "MQ-9 Reaper",
+   "RC-135"
+  ],
+  "sources": [
+   "Wikipedia (en)"
+  ],
+  "note": "F-15C/D retired (last operational flight 2025-01-24); first two permanent F-15EX (67th FS) arrived 2026-11-15, 36 planned across 44th and 67th FS (Wikipedia article on Kadena; news search results, headlines only, not opened). Fighter squadron names/aircraft per search summary; units not from the Wikipedia fetch alone.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Kadena_Air_Base"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Misawa Air Base",
+  "icao": "RJSM",
+  "location": "JP",
+  "region": "Aomori",
+  "command": "Pacific Air Forces (Fifth Air Force)",
+  "units": [
+   "35th Fighter Wing: 13th Fighter Squadron, 14th Fighter Squadron",
+   "Naval Air Facility Misawa (air operations)"
+  ],
+  "aircraft": [
+   "F-16CJ/DJ Fighting Falcon",
+   "UC-12F Huron"
+  ],
+  "sources": [
+   "Wikipedia (en)"
+  ],
+  "note": "Navy P-8A and EA-18G squadrons are rotational and not listed as based.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Misawa_Air_Base"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Yokota Air Base",
+  "icao": "RJTY",
+  "location": "JP",
+  "region": "Tokyo",
+  "command": "Pacific Air Forces (Fifth Air Force)",
+  "units": [
+   "374th Airlift Wing: 36th Airlift Squadron, 459th Airlift Squadron, 1403rd Military Airlift Squadron",
+   "353rd Special Operations Wing: 21st Special Operations Squadron"
+  ],
+  "aircraft": [
+   "C-130J Super Hercules",
+   "UH-1N Iroquois",
+   "C-12J Huron",
+   "C-21A",
+   "CV-22B Osprey"
+  ],
+  "sources": [
+   "Wikipedia (en)"
+  ],
+  "note": "RQ-4B Global Hawk (4th Reconnaissance Squadron) is seasonal and left out.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Yokota_Air_Base"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Marine Corps Air Station Iwakuni",
+  "icao": "RJOI",
+  "location": "JP",
+  "region": "Yamaguchi",
+  "command": "US Marine Corps Installations Pacific; Naval Air Force Pacific",
+  "units": [
+   "Marine Aircraft Group 12: VMFA-242, VMFA-121, VMGR-152",
+   "Carrier Air Wing Five: VFA-147, VFA-195, VFA-27, VFA-102, VAQ-141, VAW-125, VRC-40 Det 5",
+   "HSC-25 Det 6",
+   "Headquarters and Headquarters Squadron (MCIPAC)"
+  ],
+  "aircraft": [
+   "F-35B Lightning II",
+   "KC-130J Super Hercules",
+   "F-35C Lightning II",
+   "F/A-18E/F Super Hornet",
+   "EA-18G Growler",
+   "E-2D Advanced Hawkeye",
+   "C-2A Greyhound",
+   "MH-60S Seahawk",
+   "UC-12W Huron"
+  ],
+  "sources": [
+   "Wikipedia (en)"
+  ],
+  "note": "JMSDF Fleet Air Wing 31 also here (not US). Article gives no verification date.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Marine_Corps_Air_Station_Iwakuni"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Naval Air Facility Atsugi",
+  "icao": "RJTA",
+  "location": "JP",
+  "region": "Kanagawa",
+  "command": "US Navy (Commander, Fleet Activities Yokosuka / Naval Air Force Pacific)",
+  "units": [
+   "HSM-51 Warlords",
+   "HSM-77 Saberhawks",
+   "HSC-12 Golden Falcons",
+   "Fleet Logistics Support Wing Clipper"
+  ],
+  "aircraft": [
+   "MH-60R Seahawk",
+   "MH-60S Seahawk",
+   "C-40 Clipper"
+  ],
+  "sources": [
+   "Wikipedia (en)"
+  ],
+  "note": "Tenant list marked 'as of 2018' in the article; CVW-5 helicopter presence tied to carrier; fixed-wing CVW-5 moved to Iwakuni 2017-18. Shared with JMSDF.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Air_Facility_Atsugi"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Marine Corps Air Station Futenma",
+  "icao": "ROTM",
+  "location": "JP",
+  "region": "Okinawa",
+  "command": "1st Marine Aircraft Wing; Marine Corps Installations Pacific",
+  "units": [
+   "Marine Aircraft Group 36: VMM-262, VMM-265",
+   "Headquarters and Headquarters Squadron (MCIPAC)"
+  ],
+  "aircraft": [
+   "MV-22B Osprey",
+   "UC-12W Huron",
+   "UC-35D Encore"
+  ],
+  "sources": [
+   "Wikipedia (en)"
+  ],
+  "note": "Planned relocation to Henoko. ICAO as given in the Wikipedia article.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Marine_Corps_Air_Station_Futenma"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Camp Zama",
+  "icao": "RJTR",
+  "location": "JP",
+  "region": "Kanagawa",
+  "command": "US Army Japan",
+  "units": [
+   "US Army Aviation Battalion Japan (Ninjas)"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia (en)"
+  ],
+  "note": "Aircraft types not stated in the source opened.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Camp_Zama"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Osan Air Base",
+  "icao": "RKSO",
+  "location": "KR",
+  "region": "Gyeonggi",
+  "command": "Pacific Air Forces (Seventh Air Force)",
+  "units": [
+   "51st Fighter Wing: 25th Fighter Squadron, 36th Fighter Squadron",
+   "9th Reconnaissance Wing: 5th Reconnaissance Squadron",
+   "18th Wing: 33rd Rescue Squadron Det 1"
+  ],
+  "aircraft": [
+   "A-10C Thunderbolt II",
+   "F-16C/D Fighting Falcon",
+   "U-2S Dragon Lady",
+   "HH-60G Pave Hawk"
+  ],
+  "sources": [
+   "Wikipedia (en)"
+  ],
+  "note": "Unit list sourced in the article to a 2020 archived page; HH-60G may now be HH-60W.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Osan_Air_Base"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Kunsan Air Base",
+  "icao": "RKJK",
+  "location": "KR",
+  "region": "Jeollabuk-do",
+  "command": "Pacific Air Forces (Seventh Air Force)",
+  "units": [
+   "8th Fighter Wing: 35th Fighter Squadron, 80th Fighter Squadron"
+  ],
+  "aircraft": [
+   "F-16C/D Fighting Falcon"
+  ],
+  "sources": [
+   "Wikipedia (en)"
+  ],
+  "note": "Unit list cites a 2020 source.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Kunsan_Air_Base"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Camp Humphreys",
+  "icao": "RKSG",
+  "location": "KR",
+  "region": "Gyeonggi",
+  "command": "US Army (Eighth Army)",
+  "units": [
+   "2nd Combat Aviation Brigade",
+   "4th Attack Reconnaissance Battalion, 2nd Aviation Regiment",
+   "2nd Assault Battalion, 2nd Aviation Regiment",
+   "3rd General Support Aviation Battalion, 2nd Aviation Regiment",
+   "3rd Military Intelligence Battalion (aerial)"
+  ],
+  "aircraft": [
+   "RC-12X Huron",
+   "RC-7 (Dash 7)"
+  ],
+  "sources": [
+   "Wikipedia (en)"
+  ],
+  "note": "Aircraft types stated only for the 3rd MI Battalion; a heavy attack reconnaissance squadron is rotational and left out.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Camp_Humphreys"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Soto Cano Air Base",
+  "icao": "MHSC",
+  "location": "HN",
+  "region": "Comayagua",
+  "command": "US Southern Command (Joint Task Force-Bravo)",
+  "units": [
+   "1st Battalion, 228th Aviation Regiment"
+  ],
+  "aircraft": [
+   "UH-60 Black Hawk",
+   "CH-47 Chinook"
+  ],
+  "sources": [
+   "Wikipedia (en)"
+  ],
+  "note": "Shared with the Honduran Air Force.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Soto_Cano_Air_Base"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Naval Station Guantanamo Bay",
+  "icao": "MUGM",
+  "location": "CU",
+  "region": "Guantanamo Bay",
+  "command": "US Coast Guard / US Navy",
+  "units": [
+   "US Coast Guard Aviation Detachment Guantanamo Bay"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia (en)"
+  ],
+  "note": "Aircraft types not stated in the source opened; article says the field operates several aircraft and helicopters supporting base ops. Low confidence.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Station_Guantanamo_Bay"
+  ]
+ }
+]

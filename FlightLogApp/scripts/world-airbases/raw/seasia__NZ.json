@@ -1,0 +1,57 @@
+[
+ {
+  "operator": "NZ",
+  "base": "RNZAF Base Auckland (Whenuapai)",
+  "icao": "NZWP",
+  "location": "NZ",
+  "region": "Auckland",
+  "command": "RNZAF",
+  "units": [
+   "No. 6 Squadron",
+   "No. 40 Squadron"
+  ],
+  "aircraft": [
+   "SH-2G Super Seasprite",
+   "C-130J Super Hercules",
+   "Boeing 757"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_New_Zealand_Air_Force",
+   "https://en.wikipedia.org/wiki/RNZAF_Base_Auckland"
+  ],
+  "note": "Page lists SH-2 Super Seasprite; 757s planned for replacement by A321XLR"
+ },
+ {
+  "operator": "NZ",
+  "base": "RNZAF Base Ohakea",
+  "icao": "NZOH",
+  "location": "NZ",
+  "region": "Manawatu-Whanganui",
+  "command": "RNZAF",
+  "units": [
+   "No. 3 Squadron",
+   "No. 5 Squadron",
+   "No. 14 Squadron",
+   "No. 42 Squadron",
+   "Central Flying School"
+  ],
+  "aircraft": [
+   "NH90",
+   "AW109",
+   "P-8A Poseidon",
+   "T-6 Texan II",
+   "King Air 350"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Royal_New_Zealand_Air_Force",
+   "https://en.wikipedia.org/wiki/RNZAF_Base_Ohakea"
+  ],
+  "note": ""
+ }
+]

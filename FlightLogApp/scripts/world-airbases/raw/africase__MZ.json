@@ -1,0 +1,64 @@
+[
+ {
+  "operator": "MZ",
+  "base": "Maputo-Mavalane Airport",
+  "icao": "",
+  "location": "MZ",
+  "region": "Maputo",
+  "command": "",
+  "units": [
+   "School of Practical Aviation (EPA)"
+  ],
+  "aircraft": [
+   "Aerostar Festival",
+   "Cessna 152",
+   "Cessna 172",
+   "Piper Seneca"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/mozambique-air-force/"
+  ],
+  "note": "Per 2014 listing on cited page; current status unconfirmed."
+ },
+ {
+  "operator": "MZ",
+  "base": "Nacala Airport",
+  "icao": "",
+  "location": "MZ",
+  "region": "Nampula",
+  "command": "",
+  "units": [
+   "Mozambique Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/mozambique-air-force/"
+  ],
+  "note": "Listed as active airfield; no unit/aircraft stated."
+ },
+ {
+  "operator": "MZ",
+  "base": "Nampula Airport",
+  "icao": "",
+  "location": "MZ",
+  "region": "Nampula",
+  "command": "",
+  "units": [
+   "Mozambique Air Force"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/mozambique-air-force/"
+  ],
+  "note": "Listed as active airfield; no unit/aircraft stated."
+ }
+]

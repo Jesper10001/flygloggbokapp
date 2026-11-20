@@ -1,0 +1,531 @@
+[
+ {
+  "operator": "BR",
+  "base": "Brasília Air Base",
+  "icao": "",
+  "location": "BR",
+  "region": "Federal District",
+  "command": "Brazilian Air Force (FAB)",
+  "units": [
+   "6º ETA",
+   "GTE"
+  ],
+  "aircraft": [
+   "C-95C",
+   "VC-97",
+   "C-98A",
+   "VU-35",
+   "VC-1A",
+   "VC-96",
+   "VU-93",
+   "VH-34",
+   "VH-55"
+  ],
+  "sources": [
+   "Wikipedia (pt)"
+  ],
+  "urls": [
+   "https://pt.wikipedia.org/wiki/Lista_de_unidades_a%C3%A9reas_da_For%C3%A7a_A%C3%A9rea_Brasileira"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "BR",
+  "base": "Anápolis Air Base",
+  "icao": "",
+  "location": "BR",
+  "region": "Goiás",
+  "command": "Brazilian Air Force (FAB)",
+  "units": [
+   "1º/6º GAv",
+   "2º/6º GAv",
+   "1º GTT",
+   "1º GDA"
+  ],
+  "aircraft": [
+   "R-35A",
+   "R-99A/B",
+   "C-98",
+   "C-130E/H",
+   "KC-390",
+   "F-5EM"
+  ],
+  "sources": [
+   "Wikipedia (pt)"
+  ],
+  "urls": [
+   "https://pt.wikipedia.org/wiki/Lista_de_unidades_a%C3%A9reas_da_For%C3%A7a_A%C3%A9rea_Brasileira"
+  ],
+  "note": "Page says F-5EM to be replaced by F-39E"
+ },
+ {
+  "operator": "BR",
+  "base": "Canoas Air Base",
+  "icao": "",
+  "location": "BR",
+  "region": "Rio Grande do Sul",
+  "command": "Brazilian Air Force (FAB)",
+  "units": [
+   "1º/14º GAv",
+   "2º/7º GAv",
+   "5º ETA"
+  ],
+  "aircraft": [
+   "F-5EM",
+   "F-5FM",
+   "P-95B",
+   "C-95M",
+   "C-97",
+   "C-98A"
+  ],
+  "sources": [
+   "Wikipedia (pt)"
+  ],
+  "urls": [
+   "https://pt.wikipedia.org/wiki/Lista_de_unidades_a%C3%A9reas_da_For%C3%A7a_A%C3%A9rea_Brasileira"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "BR",
+  "base": "Santa Maria Air Base",
+  "icao": "",
+  "location": "BR",
+  "region": "Rio Grande do Sul",
+  "command": "Brazilian Air Force (FAB)",
+  "units": [
+   "1º/10º GAv",
+   "1º/12º GAv",
+   "3º/10º GAv",
+   "5º/8º GAv"
+  ],
+  "aircraft": [
+   "A-1",
+   "A-1B",
+   "RA-1",
+   "RA-1B",
+   "Hermes 450",
+   "Hermes 900",
+   "H-60L"
+  ],
+  "sources": [
+   "Wikipedia (pt)"
+  ],
+  "urls": [
+   "https://pt.wikipedia.org/wiki/Lista_de_unidades_a%C3%A9reas_da_For%C3%A7a_A%C3%A9rea_Brasileira"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "BR",
+  "base": "Campo Grande Air Base",
+  "icao": "",
+  "location": "BR",
+  "region": "Mato Grosso do Sul",
+  "command": "Brazilian Air Force (FAB)",
+  "units": [
+   "1º/15º GAv",
+   "2º/10º GAv",
+   "3º/3º GAv"
+  ],
+  "aircraft": [
+   "C-105",
+   "C-98A",
+   "H-60L",
+   "SC-105",
+   "A-29A"
+  ],
+  "sources": [
+   "Wikipedia (pt)"
+  ],
+  "urls": [
+   "https://pt.wikipedia.org/wiki/Lista_de_unidades_a%C3%A9reas_da_For%C3%A7a_A%C3%A9rea_Brasileira"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "BR",
+  "base": "Porto Velho Air Base",
+  "icao": "",
+  "location": "BR",
+  "region": "Rondônia",
+  "command": "Brazilian Air Force (FAB)",
+  "units": [
+   "2º/8º GAv",
+   "2º/3º GAv"
+  ],
+  "aircraft": [
+   "AH-2",
+   "A-29A"
+  ],
+  "sources": [
+   "Wikipedia (pt)"
+  ],
+  "urls": [
+   "https://pt.wikipedia.org/wiki/Lista_de_unidades_a%C3%A9reas_da_For%C3%A7a_A%C3%A9rea_Brasileira"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "BR",
+  "base": "Boa Vista Air Base",
+  "icao": "",
+  "location": "BR",
+  "region": "Roraima",
+  "command": "Brazilian Air Force (FAB)",
+  "units": [
+   "1º/3º GAv"
+  ],
+  "aircraft": [
+   "A-29A"
+  ],
+  "sources": [
+   "Wikipedia (pt)"
+  ],
+  "urls": [
+   "https://pt.wikipedia.org/wiki/Lista_de_unidades_a%C3%A9reas_da_For%C3%A7a_A%C3%A9rea_Brasileira"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "BR",
+  "base": "Manaus Air Base",
+  "icao": "",
+  "location": "BR",
+  "region": "Amazonas",
+  "command": "Brazilian Air Force (FAB)",
+  "units": [
+   "1º/4º GAv",
+   "1º/9º GAv",
+   "7º/8º GAv",
+   "7º ETA"
+  ],
+  "aircraft": [
+   "F-5M",
+   "C-105",
+   "H-60L",
+   "C-97",
+   "C-98"
+  ],
+  "sources": [
+   "Wikipedia (pt)"
+  ],
+  "urls": [
+   "https://pt.wikipedia.org/wiki/Lista_de_unidades_a%C3%A9reas_da_For%C3%A7a_A%C3%A9rea_Brasileira"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "BR",
+  "base": "Belém Air Base",
+  "icao": "",
+  "location": "BR",
+  "region": "Pará",
+  "command": "Brazilian Air Force (FAB)",
+  "units": [
+   "3º/7º GAv",
+   "1º ETA"
+  ],
+  "aircraft": [
+   "P-95A",
+   "C-95B",
+   "C-97",
+   "C-98"
+  ],
+  "sources": [
+   "Wikipedia (pt)"
+  ],
+  "urls": [
+   "https://pt.wikipedia.org/wiki/Lista_de_unidades_a%C3%A9reas_da_For%C3%A7a_A%C3%A9rea_Brasileira"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "BR",
+  "base": "Natal Air Base",
+  "icao": "",
+  "location": "BR",
+  "region": "Rio Grande do Norte",
+  "command": "Brazilian Air Force (FAB)",
+  "units": [
+   "1º/5º GAv",
+   "2º/5º GAv",
+   "1º/8º GAv",
+   "1º/11º GAv",
+   "2º ETA"
+  ],
+  "aircraft": [
+   "C-95",
+   "A-29A",
+   "A-29B",
+   "H-36",
+   "UH-50",
+   "C-97"
+  ],
+  "sources": [
+   "Wikipedia (pt)"
+  ],
+  "urls": [
+   "https://pt.wikipedia.org/wiki/Lista_de_unidades_a%C3%A9reas_da_For%C3%A7a_A%C3%A9rea_Brasileira"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "BR",
+  "base": "Galeão Air Base",
+  "icao": "",
+  "location": "BR",
+  "region": "Rio de Janeiro",
+  "command": "Brazilian Air Force (FAB)",
+  "units": [
+   "1º/1º GT",
+   "1º/2º GT",
+   "2º/2º GT",
+   "3º ETA"
+  ],
+  "aircraft": [
+   "C-130H",
+   "KC-130H",
+   "C-99",
+   "KC-30",
+   "C-95B",
+   "C-97"
+  ],
+  "sources": [
+   "Wikipedia (pt)"
+  ],
+  "urls": [
+   "https://pt.wikipedia.org/wiki/Lista_de_unidades_a%C3%A9reas_da_For%C3%A7a_A%C3%A9rea_Brasileira"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "BR",
+  "base": "Santa Cruz Air Base",
+  "icao": "",
+  "location": "BR",
+  "region": "Rio de Janeiro",
+  "command": "Brazilian Air Force (FAB)",
+  "units": [
+   "1º GAvCa",
+   "1º/7º GAv",
+   "3º/8º GAv"
+  ],
+  "aircraft": [
+   "F-5M",
+   "P-3M",
+   "H-36"
+  ],
+  "sources": [
+   "Wikipedia (pt)"
+  ],
+  "urls": [
+   "https://pt.wikipedia.org/wiki/Lista_de_unidades_a%C3%A9reas_da_For%C3%A7a_A%C3%A9rea_Brasileira"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "BR",
+  "base": "Pirassununga Air Force Academy (AFA)",
+  "icao": "",
+  "location": "BR",
+  "region": "São Paulo",
+  "command": "Brazilian Air Force (FAB) / DEPENS",
+  "units": [
+   "1º EIA",
+   "2º EIA",
+   "Esquadrilha da Fumaça (EDA)"
+  ],
+  "aircraft": [
+   "T-27",
+   "T-25A/C",
+   "A-29A/B",
+   "C-95A",
+   "UH-50",
+   "U-7"
+  ],
+  "sources": [
+   "Wikipedia (pt)"
+  ],
+  "urls": [
+   "https://pt.wikipedia.org/wiki/Lista_de_unidades_a%C3%A9reas_da_For%C3%A7a_A%C3%A9rea_Brasileira"
+  ],
+  "note": "Air Force Academy airfield"
+ },
+ {
+  "operator": "BR",
+  "base": "Santos Dumont Airport",
+  "icao": "",
+  "location": "BR",
+  "region": "Rio de Janeiro",
+  "command": "Brazilian Air Force (FAB) / DECEA",
+  "units": [
+   "GEIV"
+  ],
+  "aircraft": [
+   "EC-95B/C",
+   "EU-93/A"
+  ],
+  "sources": [
+   "Wikipedia (pt)"
+  ],
+  "urls": [
+   "https://pt.wikipedia.org/wiki/Lista_de_unidades_a%C3%A9reas_da_For%C3%A7a_A%C3%A9rea_Brasileira"
+  ],
+  "note": "Civil airport; flight inspection group"
+ },
+ {
+  "operator": "BR",
+  "base": "São José dos Campos",
+  "icao": "",
+  "location": "BR",
+  "region": "São Paulo",
+  "command": "Brazilian Air Force (FAB) / CTA",
+  "units": [
+   "GEEV"
+  ],
+  "aircraft": [
+   "A-1",
+   "XU-93",
+   "C-95",
+   "C-97",
+   "T-25",
+   "AT-26",
+   "T-27",
+   "CH-55"
+  ],
+  "sources": [
+   "Wikipedia (pt)"
+  ],
+  "urls": [
+   "https://pt.wikipedia.org/wiki/Lista_de_unidades_a%C3%A9reas_da_For%C3%A7a_A%C3%A9rea_Brasileira"
+  ],
+  "note": "Flight test group"
+ },
+ {
+  "operator": "BR",
+  "base": "São Pedro da Aldeia Naval Air Base",
+  "icao": "",
+  "location": "BR",
+  "region": "Rio de Janeiro",
+  "command": "Brazilian Navy",
+  "units": [
+   "HI-1",
+   "HS-1",
+   "HA-1",
+   "HU-1",
+   "HU-2",
+   "VF-1"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia (pt)"
+  ],
+  "urls": [
+   "https://pt.wikipedia.org/wiki/Base_A%C3%A9rea_Naval_de_S%C3%A3o_Pedro_da_Aldeia"
+  ],
+  "note": "Page (as of 2020) names squadrons only; no aircraft types stated"
+ },
+ {
+  "operator": "BR",
+  "base": "Taubaté (Army aviation)",
+  "icao": "",
+  "location": "BR",
+  "region": "São Paulo",
+  "command": "Brazilian Army Aviation",
+  "units": [
+   "1º BAvEx",
+   "2º BAvEx",
+   "CIAvEx"
+  ],
+  "aircraft": [
+   "HA-1A Fennec",
+   "HM-1A Pantera",
+   "HM-2 Black Hawk",
+   "HM-3 Cougar",
+   "HM-4 Jaguar"
+  ],
+  "sources": [
+   "Wikipedia (pt)"
+  ],
+  "urls": [
+   "https://pt.wikipedia.org/wiki/Avia%C3%A7%C3%A3o_do_Ex%C3%A9rcito_Brasileiro"
+  ],
+  "note": "Fleet types are army-wide; per-unit assignment not stated"
+ },
+ {
+  "operator": "BR",
+  "base": "Campo Grande (Army aviation)",
+  "icao": "",
+  "location": "BR",
+  "region": "Mato Grosso do Sul",
+  "command": "Brazilian Army Aviation",
+  "units": [
+   "3º BAvEx"
+  ],
+  "aircraft": [
+   "HA-1A Fennec",
+   "HM-1A Pantera",
+   "HM-2 Black Hawk",
+   "HM-3 Cougar",
+   "HM-4 Jaguar"
+  ],
+  "sources": [
+   "Wikipedia (pt)"
+  ],
+  "urls": [
+   "https://pt.wikipedia.org/wiki/Avia%C3%A7%C3%A3o_do_Ex%C3%A9rcito_Brasileiro"
+  ],
+  "note": "Fleet types are army-wide; per-unit assignment not stated"
+ },
+ {
+  "operator": "BR",
+  "base": "Manaus (Army aviation)",
+  "icao": "",
+  "location": "BR",
+  "region": "Amazonas",
+  "command": "Brazilian Army Aviation",
+  "units": [
+   "4º BAvEx"
+  ],
+  "aircraft": [
+   "HA-1A Fennec",
+   "HM-1A Pantera",
+   "HM-2 Black Hawk",
+   "HM-3 Cougar",
+   "HM-4 Jaguar"
+  ],
+  "sources": [
+   "Wikipedia (pt)"
+  ],
+  "urls": [
+   "https://pt.wikipedia.org/wiki/Avia%C3%A7%C3%A3o_do_Ex%C3%A9rcito_Brasileiro"
+  ],
+  "note": "Fleet types are army-wide; per-unit assignment not stated"
+ },
+ {
+  "operator": "BR",
+  "base": "Belém (Army aviation)",
+  "icao": "",
+  "location": "BR",
+  "region": "Pará",
+  "command": "Brazilian Army Aviation",
+  "units": [
+   "DstAvEx/CMN"
+  ],
+  "aircraft": [
+   "HA-1A Fennec",
+   "HM-1A Pantera",
+   "HM-2 Black Hawk",
+   "HM-3 Cougar",
+   "HM-4 Jaguar"
+  ],
+  "sources": [
+   "Wikipedia (pt)"
+  ],
+  "urls": [
+   "https://pt.wikipedia.org/wiki/Avia%C3%A7%C3%A3o_do_Ex%C3%A9rcito_Brasileiro"
+  ],
+  "note": "Fleet types are army-wide; per-unit assignment not stated"
+ }
+]

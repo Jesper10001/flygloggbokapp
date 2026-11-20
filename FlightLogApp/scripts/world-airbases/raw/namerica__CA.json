@@ -1,0 +1,354 @@
+[
+ {
+  "operator": "CA",
+  "base": "CFB Bagotville (3 Wing)",
+  "icao": "CYBG",
+  "location": "CA",
+  "region": "Quebec",
+  "command": "1 Canadian Air Division",
+  "units": [
+   "425 Tactical Fighter Squadron",
+   "433 Tactical Fighter Squadron",
+   "439 Combat Support Squadron"
+  ],
+  "aircraft": [
+   "CF-188 Hornet",
+   "CH-146 Griffon"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/CFB_Bagotville"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CA",
+  "base": "CFB Cold Lake (4 Wing)",
+  "icao": "CYOD",
+  "location": "CA",
+  "region": "Alberta",
+  "command": "1 Canadian Air Division",
+  "units": [
+   "401 Tactical Fighter Squadron",
+   "409 Tactical Fighter Squadron",
+   "410 Tactical Fighter Operational Training Squadron",
+   "417 Combat Support Squadron"
+  ],
+  "aircraft": [
+   "CF-188 Hornet",
+   "CH-146 Griffon"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/CFB_Cold_Lake"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CA",
+  "base": "CFB Goose Bay (5 Wing)",
+  "icao": "CYYR",
+  "location": "CA",
+  "region": "Newfoundland and Labrador",
+  "command": "1 Canadian Air Division",
+  "units": [
+   "444 Combat Support Squadron"
+  ],
+  "aircraft": [
+   "CH-146 Griffon"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/CFB_Goose_Bay",
+   "https://en.wikipedia.org/wiki/444_Combat_Support_Squadron"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CA",
+  "base": "CFB Trenton (8 Wing)",
+  "icao": "CYTR",
+  "location": "CA",
+  "region": "Ontario",
+  "command": "1 Canadian Air Division",
+  "units": [
+   "424 Transport and Rescue Squadron",
+   "426 Transport Training Squadron",
+   "429 Transport Squadron",
+   "436 Transport Squadron",
+   "437 Transport Squadron"
+  ],
+  "aircraft": [
+   "CC-130J Hercules",
+   "CC-177 Globemaster III",
+   "CC-150 Polaris / CC-330 Husky",
+   "CH-146 Griffon"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/CFB_Trenton"
+  ],
+  "note": "412 Sqn (Ottawa) and 440 Sqn (Yellowknife) are geographically separated units of 8 Wing, not listed here."
+ },
+ {
+  "operator": "CA",
+  "base": "CFB Gander (9 Wing)",
+  "icao": "CYQX",
+  "location": "CA",
+  "region": "Newfoundland and Labrador",
+  "command": "1 Canadian Air Division",
+  "units": [
+   "103 Search and Rescue Squadron"
+  ],
+  "aircraft": [
+   "CH-149 Cormorant"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/CFB_Gander",
+   "https://en.wikipedia.org/wiki/103_Search_and_Rescue_Squadron"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CA",
+  "base": "Shearwater Heliport (12 Wing)",
+  "icao": "CYAW",
+  "location": "CA",
+  "region": "Nova Scotia",
+  "command": "1 Canadian Air Division",
+  "units": [
+   "406 Maritime Operational Training Squadron",
+   "423 Maritime Helicopter Squadron"
+  ],
+  "aircraft": [
+   "CH-148 Cyclone"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Shearwater_Heliport"
+  ],
+  "note": "12 Wing also operates 443 Maritime Helicopter Squadron at Victoria/Patricia Bay, BC."
+ },
+ {
+  "operator": "CA",
+  "base": "CFB Greenwood (14 Wing)",
+  "icao": "CYZX",
+  "location": "CA",
+  "region": "Nova Scotia",
+  "command": "1 Canadian Air Division",
+  "units": [
+   "405 Long Range Patrol Squadron",
+   "413 Transport and Rescue Squadron",
+   "415 Long Range Patrol Operational Training Squadron",
+   "14 Wing units"
+  ],
+  "aircraft": [
+   "CP-140 Aurora",
+   "CH-149 Cormorant",
+   "CC-130 Hercules",
+   "CC-295 Kingfisher"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/CFB_Greenwood"
+  ],
+  "note": "Page lists aircraft types stationed; squadron names from history text."
+ },
+ {
+  "operator": "CA",
+  "base": "CFB Moose Jaw (15 Wing)",
+  "icao": "CYMJ",
+  "location": "CA",
+  "region": "Saskatchewan",
+  "command": "2 Canadian Air Division",
+  "units": [
+   "2 Canadian Forces Flying Training School",
+   "431 Air Demonstration Squadron (Snowbirds)"
+  ],
+  "aircraft": [
+   "CT-114 Tutor",
+   "CT-156 Harvard II"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/CFB_Moose_Jaw",
+   "https://en.wikipedia.org/wiki/Royal_Canadian_Air_Force"
+  ],
+  "note": "Tutor fleet scheduled to be retired Nov 2026 per Wikipedia RCAF page."
+ },
+ {
+  "operator": "CA",
+  "base": "CFB Borden",
+  "icao": "CYBN",
+  "location": "CA",
+  "region": "Ontario",
+  "command": "1 Wing (1 Canadian Air Division)",
+  "units": [
+   "400 Tactical Helicopter and Training Squadron"
+  ],
+  "aircraft": [
+   "CH-146 Griffon"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/CFB_Borden",
+   "https://en.wikipedia.org/wiki/400_Tactical_Helicopter_Squadron"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CA",
+  "base": "CFB Winnipeg (17 Wing)",
+  "icao": "CYWG",
+  "location": "CA",
+  "region": "Manitoba",
+  "command": "2 Canadian Air Division",
+  "units": [
+   "402 Squadron",
+   "435 Transport and Rescue Squadron"
+  ],
+  "aircraft": [
+   "CT-142 Dash 8",
+   "CC-130H Hercules"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/CFB_Winnipeg",
+   "https://en.wikipedia.org/wiki/435_Transport_and_Rescue_Squadron"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CA",
+  "base": "CFB Comox (19 Wing)",
+  "icao": "CYQQ",
+  "location": "CA",
+  "region": "British Columbia",
+  "command": "1 Canadian Air Division",
+  "units": [
+   "407 Long Range Patrol Squadron",
+   "442 Transport and Rescue Squadron",
+   "418 Search and Rescue Operational Training Squadron"
+  ],
+  "aircraft": [
+   "CP-140 Aurora",
+   "CC-295 Kingfisher",
+   "CH-149 Cormorant"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/CFB_Comox"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CA",
+  "base": "CFB Edmonton (Namao)",
+  "icao": "CYED",
+  "location": "CA",
+  "region": "Alberta",
+  "command": "1 Wing (1 Canadian Air Division)",
+  "units": [
+   "408 Tactical Helicopter Squadron"
+  ],
+  "aircraft": [
+   "CH-146 Griffon"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/CFB_Edmonton",
+   "https://en.wikipedia.org/wiki/408_Tactical_Helicopter_Squadron"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CA",
+  "base": "CFB Valcartier",
+  "icao": "CYOY",
+  "location": "CA",
+  "region": "Quebec",
+  "command": "1 Wing (1 Canadian Air Division)",
+  "units": [
+   "430 Tactical Helicopter Squadron"
+  ],
+  "aircraft": [
+   "CH-146 Griffon"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/CFB_Valcartier",
+   "https://en.wikipedia.org/wiki/430_Tactical_Helicopter_Squadron"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CA",
+  "base": "CFB Gagetown",
+  "icao": "CYCX",
+  "location": "CA",
+  "region": "New Brunswick",
+  "command": "1 Wing (1 Canadian Air Division)",
+  "units": [
+   "403 Helicopter Operational Training Squadron"
+  ],
+  "aircraft": [
+   "CH-146 Griffon"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/CFB_Gagetown",
+   "https://en.wikipedia.org/wiki/403_Helicopter_Operational_Training_Squadron"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CA",
+  "base": "CFB Petawawa",
+  "icao": "CYWA",
+  "location": "CA",
+  "region": "Ontario",
+  "command": "1 Wing (1 Canadian Air Division)",
+  "units": [
+   "450 Tactical Helicopter Squadron"
+  ],
+  "aircraft": [
+   "CH-147F Chinook"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/450_Tactical_Helicopter_Squadron"
+  ],
+  "note": "Only the 450 Squadron page was fetched for this base."
+ }
+]

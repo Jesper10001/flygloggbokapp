@@ -1,0 +1,181 @@
+[
+{
+"operator": "AE",
+"base": "Al Dhafra Air Base",
+"icao": "",
+"location": "AE",
+"region": "",
+"command": "UAE Air Force",
+"units": [
+"Fighter Wing: 1st, 2nd, 3rd Shaheen Sqn",
+"71st, 76th Fighter Sqn",
+"JAC Group 10"
+],
+"aircraft": [
+"F-16E/F Block 60",
+"Mirage 2000-9EAD/DAD",
+"AH-64D"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "Also hosts foreign (incl. US, French) units not listed.",
+"urls": [
+"https://en.wikipedia.org/wiki/United_Arab_Emirates_Air_Force"
+]
+},
+{
+"operator": "AE",
+"base": "Al Safran Air Base",
+"icao": "",
+"location": "AE",
+"region": "",
+"command": "UAE Air Force",
+"units": [
+"86th Fighter Sqn"
+],
+"aircraft": [
+"Mirage 2000-9EAD/DAD"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "",
+"urls": [
+"https://en.wikipedia.org/wiki/United_Arab_Emirates_Air_Force"
+]
+},
+{
+"operator": "AE",
+"base": "Al Bateen Air Base",
+"icao": "",
+"location": "AE",
+"region": "",
+"command": "UAE Air Force",
+"units": [
+"Transport Wing: 4th Sqn",
+"Puma Sqn",
+"6th Sqn",
+"Naval Sqn"
+],
+"aircraft": [
+"C-130H",
+"CN-235M-110",
+"IAR-330SM",
+"AB.412",
+"Bell 214B",
+"AS332B/M",
+"AS565SB"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "4th Sqn also listed at Al Minhad.",
+"urls": [
+"https://en.wikipedia.org/wiki/United_Arab_Emirates_Air_Force"
+]
+},
+{
+"operator": "AE",
+"base": "Al Minhad Air Base",
+"icao": "",
+"location": "AE",
+"region": "",
+"command": "UAE Air Force",
+"units": [
+"102nd CAS Sqn",
+"4th Sqn",
+"11th Special Electronic Missions Sqn",
+"Air-to-air refuelling Sqn",
+"JAC Group 26"
+],
+"aircraft": [
+"BAE Hawk Mk 102",
+"C-130H-30",
+"L-100-30",
+"Saab 340 AEW&C",
+"A330 MRTT",
+"UH-60L/M"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "Also hosts foreign units (e.g. Australian, French) not listed.",
+"urls": [
+"https://en.wikipedia.org/wiki/United_Arab_Emirates_Air_Force"
+]
+},
+{
+"operator": "AE",
+"base": "Sas Al Nakheel Air Base",
+"icao": "",
+"location": "AE",
+"region": "",
+"command": "Joint Aviation Command",
+"units": [
+"JAC Group 18",
+"Group 21 (Navy)",
+"Group 23",
+"Group 25",
+"Group 26"
+],
+"aircraft": [
+"UH-60M",
+"CH-47F",
+"AS332B1/M1",
+"AS565MB/SB",
+"AS550C3"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "",
+"urls": [
+"https://en.wikipedia.org/wiki/United_Arab_Emirates_Air_Force"
+]
+},
+{
+"operator": "AE",
+"base": "Swaihan Air Base",
+"icao": "",
+"location": "AE",
+"region": "",
+"command": "Joint Aviation Command",
+"units": [
+"JAC Group 22"
+],
+"aircraft": [
+"Cessna 208B",
+"DHC-6-300/400",
+"Thrush S2R-T660"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "",
+"urls": [
+"https://en.wikipedia.org/wiki/United_Arab_Emirates_Air_Force"
+]
+},
+{
+"operator": "AE",
+"base": "Al Ain",
+"icao": "",
+"location": "AE",
+"region": "",
+"command": "Joint Aviation Command",
+"units": [
+"JAC Group 28"
+],
+"aircraft": [
+"Bell 407GX"
+],
+"sources": [
+"Wikipedia"
+],
+"note": "Facility name as given by source.",
+"urls": [
+"https://en.wikipedia.org/wiki/United_Arab_Emirates_Air_Force"
+]
+}
+]

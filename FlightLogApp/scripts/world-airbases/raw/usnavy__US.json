@@ -1,0 +1,984 @@
+[
+ {
+  "operator": "US",
+  "base": "Naval Air Station Lemoore",
+  "icao": "KNLC",
+  "location": "US",
+  "region": "California",
+  "command": "Naval Air Force Pacific / CVW",
+  "units": [
+   "VFA-2",
+   "VFA-14",
+   "VFA-22",
+   "VFA-25",
+   "VFA-41",
+   "VFA-86",
+   "VFA-94",
+   "VFA-97",
+   "VFA-113",
+   "VFA-115",
+   "VFA-122",
+   "VFA-125",
+   "VFA-136",
+   "VFA-137",
+   "VFA-146",
+   "VFA-151",
+   "VFA-154",
+   "VFA-192"
+  ],
+  "aircraft": [
+   "F/A-18E/F Super Hornet",
+   "F-35C"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Air_Station_Lemoore",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Naval Air Station Oceana",
+  "icao": "KNTU",
+  "location": "US",
+  "region": "Virginia",
+  "command": "Naval Air Force Atlantic / CVW",
+  "units": [
+   "VFA-11",
+   "VFA-31",
+   "VFA-32",
+   "VFA-34",
+   "VFA-37",
+   "VFA-81",
+   "VFA-83",
+   "VFA-87",
+   "VFA-103",
+   "VFA-105",
+   "VFA-106",
+   "VFA-131",
+   "VFA-143",
+   "VFA-211",
+   "VFA-213",
+   "VFC-12",
+   "VR-56"
+  ],
+  "aircraft": [
+   "F/A-18E/F Super Hornet",
+   "C-40A Clipper"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "VFC-12 is Navy Reserve; VR-56 Reserve (C-40A) per Wikipedia list",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Air_Station_Oceana",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Naval Air Station Whidbey Island",
+  "icao": "KNUW",
+  "location": "US",
+  "region": "Washington",
+  "command": "Commander Electronic Attack Wing Pacific / Patrol and Reconnaissance Group",
+  "units": [
+   "VAQ-129",
+   "VAQ-130",
+   "VAQ-131",
+   "VAQ-132",
+   "VAQ-133",
+   "VAQ-134",
+   "VAQ-135",
+   "VAQ-136",
+   "VAQ-137",
+   "VAQ-138",
+   "VAQ-139",
+   "VAQ-140",
+   "VAQ-142",
+   "VP-1",
+   "VP-4",
+   "VP-9",
+   "VP-40",
+   "VP-46",
+   "VP-47",
+   "VP-69",
+   "VUP-11 (command)",
+   "VR-61"
+  ],
+  "aircraft": [
+   "EA-18G Growler",
+   "P-8A Poseidon",
+   "C-40A Clipper",
+   "MQ-4C Triton"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "VP-69 and VR-61 are Navy Reserve; VUP-11 aircraft based at Point Mugu",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Air_Station_Whidbey_Island",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Naval Station Norfolk (Chambers Field)",
+  "icao": "KNGU",
+  "location": "US",
+  "region": "Virginia",
+  "command": "Naval Air Force Atlantic",
+  "units": [
+   "VAW-120",
+   "VAW-121",
+   "VAW-123",
+   "VAW-124",
+   "VAW-126",
+   "VRM-40",
+   "HSC-2",
+   "HSC-5",
+   "HSC-7",
+   "HSC-9",
+   "HSC-11",
+   "HSC-22",
+   "HSC-26",
+   "HSC-28",
+   "HM-15"
+  ],
+  "aircraft": [
+   "E-2D Advanced Hawkeye",
+   "CMV-22B Osprey",
+   "MH-60S Knighthawk",
+   "MH-53E Sea Dragon"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "HSC unit stations per Wikipedia list; verify individually",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Station_Norfolk",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Naval Base Ventura County, Point Mugu",
+  "icao": "KNTD",
+  "location": "US",
+  "region": "California",
+  "command": "Naval Air Force Pacific",
+  "units": [
+   "VAW-113",
+   "VAW-115",
+   "VAW-116",
+   "VAW-117",
+   "VX-30",
+   "VR-55",
+   "VUP-11 (aircraft)"
+  ],
+  "aircraft": [
+   "E-2D Advanced Hawkeye",
+   "P-3C Orion",
+   "NP-3D",
+   "C-130T Hercules",
+   "MQ-4C Triton"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "VAW-115/-113/-116/-117 also at Pt Mugu per Wikipedia list; VR-55 Reserve; carrier-based VAW squadrons deploy with CVWs",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Base_Ventura_County",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Naval Air Station North Island",
+  "icao": "KNZY",
+  "location": "US",
+  "region": "California",
+  "command": "Naval Air Force Pacific",
+  "units": [
+   "VRM-30",
+   "VRM-50",
+   "VR-57",
+   "HSM-35",
+   "HSM-41",
+   "HSM-49",
+   "HSM-61",
+   "HSM-71",
+   "HSM-73",
+   "HSM-75",
+   "HSM-78",
+   "HSC-3",
+   "HSC-4",
+   "HSC-6",
+   "HSC-8",
+   "HSC-14",
+   "HSC-21",
+   "HSC-23"
+  ],
+  "aircraft": [
+   "CMV-22B Osprey",
+   "MH-60R Seahawk",
+   "MH-60S Knighthawk",
+   "C-40A Clipper"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "HSM-61 and VR-57 Navy Reserve; verify HSC/HSM stations individually",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Air_Station_North_Island",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Naval Air Station Patuxent River",
+  "icao": "KNHK",
+  "location": "US",
+  "region": "Maryland",
+  "command": "Naval Air Warfare Center Aircraft Division",
+  "units": [
+   "VX-1",
+   "VX-20",
+   "HX-21",
+   "VX-23",
+   "UX-24",
+   "VXS-1",
+   "Test Pilot School"
+  ],
+  "aircraft": [
+   "P-8A Poseidon",
+   "E-2D",
+   "E-6B Mercury",
+   "MH-60R/S",
+   "F/A-18E/F",
+   "F-35B/C",
+   "EA-18G",
+   "T-45",
+   "MQ-4C",
+   "MQ-25",
+   "CH-53K",
+   "MV-22/CMV-22B",
+   "KC-130J",
+   "NP-3C"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Test and evaluation units",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Air_Station_Patuxent_River",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Naval Air Station Jacksonville",
+  "icao": "KNIP",
+  "location": "US",
+  "region": "Florida",
+  "command": "Patrol and Reconnaissance Group / Helicopter Maritime Strike Wing Atlantic",
+  "units": [
+   "VR-58",
+   "VR-62",
+   "HSM-46",
+   "HSM-60",
+   "HSM-70",
+   "HSM-72",
+   "HSM-74",
+   "VP-5",
+   "VP-8",
+   "VP-10",
+   "VP-16",
+   "VP-26",
+   "VP-30",
+   "VP-45",
+   "VP-62",
+   "VPU-2",
+   "VUP-19 (command)"
+  ],
+  "aircraft": [
+   "P-8A Poseidon",
+   "MQ-4C Triton",
+   "MH-60R Seahawk",
+   "C-40A Clipper",
+   "C-130T Hercules"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "VP-62, VR-62, HSM-60 Reserve; HSM-70/72/74 may be based at NS Mayport - Wikipedia list conflicting, verify",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Air_Station_Jacksonville",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Naval Station Mayport",
+  "icao": "KNRB",
+  "location": "US",
+  "region": "Florida",
+  "command": "Helicopter Maritime Strike Wing Atlantic",
+  "units": [
+   "HSM-40",
+   "HSM-48",
+   "HSM-50",
+   "VUP-19 (aircraft)"
+  ],
+  "aircraft": [
+   "MH-60R Seahawk",
+   "MQ-4C Triton"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "HSM-48 station uncertain (may be Norfolk)",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Station_Mayport",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Marine Corps Base Hawaii (Kaneohe Bay)",
+  "icao": "PHNG",
+  "location": "US",
+  "region": "Hawaii",
+  "command": "MAG-24, 1st MAW / Navy",
+  "units": [
+   "VMM-268",
+   "VMM-363",
+   "VMGR-153",
+   "VMU-3",
+   "VR-51",
+   "HSM-37"
+  ],
+  "aircraft": [
+   "MV-22B Osprey",
+   "KC-130J Hercules",
+   "MQ-9A Reaper",
+   "C-40A Clipper",
+   "MH-60R Seahawk"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Marine_Corps_Base_Hawaii",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Naval Air Station Fallon",
+  "icao": "KNFL",
+  "location": "US",
+  "region": "Nevada",
+  "command": "Naval Aviation Warfare Development Center",
+  "units": [
+   "VFC-13"
+  ],
+  "aircraft": [
+   "F-16C/D",
+   "F-5N"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "VFC-13 Navy Reserve adversary; NAWDC also hosts visiting air wings",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Air_Station_Fallon",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Naval Air Station Key West",
+  "icao": "KNQX",
+  "location": "US",
+  "region": "Florida",
+  "command": "Navy Reserve",
+  "units": [
+   "VFC-111"
+  ],
+  "aircraft": [
+   "F-5N/F"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Navy Reserve adversary squadron",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Air_Station_Key_West",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Naval Air Station Joint Reserve Base New Orleans (Belle Chasse)",
+  "icao": "KNBG",
+  "location": "US",
+  "region": "Louisiana",
+  "command": "Navy / Marine Forces Reserve",
+  "units": [
+   "VFC-204",
+   "VR-54",
+   "VMR Belle Chasse"
+  ],
+  "aircraft": [
+   "F-5N/F",
+   "C-130T Hercules",
+   "UC-12W"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Navy Reserve, USMC Reserve",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Air_Station_Joint_Reserve_Base_New_Orleans",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Joint Base Andrews",
+  "icao": "KADW",
+  "location": "US",
+  "region": "Maryland",
+  "command": "Navy Reserve / MAG-49",
+  "units": [
+   "VR-1",
+   "VR-53",
+   "VMR Andrews",
+   "VAQ-209"
+  ],
+  "aircraft": [
+   "C-37B",
+   "C-130T Hercules",
+   "UC-35D",
+   "EA-18G Growler"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "VAQ-209 listed under Whidbey Island in Wikipedia list; its home is generally given as Andrews - verify",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Joint_Base_Andrews",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Joint Base McGuire-Dix-Lakehurst",
+  "icao": "KWRI",
+  "location": "US",
+  "region": "New Jersey",
+  "command": "Navy Reserve / MAG-49",
+  "units": [
+   "VR-64",
+   "HMH-772",
+   "HMLA-773"
+  ],
+  "aircraft": [
+   "C-130T Hercules",
+   "CH-53E Super Stallion",
+   "UH-1Y Venom",
+   "AH-1Z Viper"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Reserve units",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Naval Air Station Joint Reserve Base Fort Worth (Carswell Field)",
+  "icao": "KNFW",
+  "location": "US",
+  "region": "Texas",
+  "command": "Marine Forces Reserve / Navy Reserve",
+  "units": [
+   "VMFA-112",
+   "VMGR-234",
+   "VMR-1 (per Wikipedia list)",
+   "VR-59"
+  ],
+  "aircraft": [
+   "F/A-18C Hornet",
+   "KC-130J Hercules",
+   "C-40A Clipper"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Reserve units; VMR-1 station and type uncertain",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Air_Station_Joint_Reserve_Base_Fort_Worth",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Naval Air Weapons Station China Lake",
+  "icao": "KNID",
+  "location": "US",
+  "region": "California",
+  "command": "NAWCWD / OPTEVFOR",
+  "units": [
+   "VX-9",
+   "VX-31"
+  ],
+  "aircraft": [
+   "F/A-18C/D/E/F",
+   "F-35C",
+   "EA-18G",
+   "MH-60S"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Test and evaluation",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Air_Weapons_Station_China_Lake",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Andersen Air Force Base",
+  "icao": "PGUA",
+  "location": "GU",
+  "region": "Guam",
+  "command": "Navy",
+  "units": [
+   "HSC-25"
+  ],
+  "aircraft": [
+   "MH-60S Knighthawk"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Navy squadron at an Air Force base in Guam (US territory)",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Andersen_Air_Force_Base",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Marine Corps Air Station Miramar",
+  "icao": "KNKX",
+  "location": "US",
+  "region": "California",
+  "command": "3rd Marine Aircraft Wing (MAG-11, MAG-16)",
+  "units": [
+   "HMH-361",
+   "HMH-462",
+   "HMH-465",
+   "HMH-466",
+   "VMM-161",
+   "VMM-163",
+   "VMM-165",
+   "VMM-362",
+   "VMM-764",
+   "VMFA-232",
+   "VMFA-311",
+   "VMFA-314",
+   "VMFA-323",
+   "VMFAT-502",
+   "VMGR-352"
+  ],
+  "aircraft": [
+   "F-35C",
+   "F/A-18C Hornet",
+   "F-35B",
+   "MV-22B Osprey",
+   "CH-53E Super Stallion",
+   "KC-130J Hercules"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "VMM-764 is Reserve; VMFA-232/323 Hornet units transitioning",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Marine_Corps_Air_Station_Miramar",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Marine Corps Air Station New River",
+  "icao": "KNCA",
+  "location": "US",
+  "region": "North Carolina",
+  "command": "2nd Marine Aircraft Wing (MAG-26, MAG-29)",
+  "units": [
+   "HMH-461",
+   "HMH-464",
+   "HMHT-302",
+   "HMLA-167",
+   "HMLA-269",
+   "VMM-162",
+   "VMM-261",
+   "VMM-263",
+   "VMM-264",
+   "VMM-266",
+   "VMM-365",
+   "VMM-774",
+   "VMMT-204"
+  ],
+  "aircraft": [
+   "MV-22B Osprey",
+   "CH-53K King Stallion",
+   "CH-53E",
+   "UH-1Y Venom",
+   "AH-1Z Viper"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "VMM-774 Reserve; VMM-265 is at Futenma Japan - excluded here. HMHT-302 training",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Marine_Corps_Air_Station_New_River",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Marine Corps Air Station Camp Pendleton (Munn Field)",
+  "icao": "KNFG",
+  "location": "US",
+  "region": "California",
+  "command": "3rd Marine Aircraft Wing (MAG-39)",
+  "units": [
+   "HMLA-169",
+   "HMLA-267",
+   "HMLA-367",
+   "HMLA-369",
+   "HMLA-775",
+   "HMLAT-303",
+   "VMM-164",
+   "VMM-364"
+  ],
+  "aircraft": [
+   "UH-1Y Venom",
+   "AH-1Z Viper",
+   "MV-22B Osprey"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "HMLA-775 Reserve",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Marine_Corps_Air_Station_Camp_Pendleton",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Marine Corps Air Station Yuma",
+  "icao": "KNYL",
+  "location": "US",
+  "region": "Arizona",
+  "command": "3rd Marine Aircraft Wing (MAG-13) / OPTEVFOR",
+  "units": [
+   "VMFA-122",
+   "VMFA-211",
+   "VMFA-214",
+   "VMFA-225",
+   "VMFT-401",
+   "VMX-1",
+   "VMU-1"
+  ],
+  "aircraft": [
+   "F-35B",
+   "F-5N",
+   "MQ-9A Reaper",
+   "MV-22B",
+   "UH-1Y",
+   "AH-1Z",
+   "CH-53K",
+   "RQ-21"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "VMFT-401 Reserve; VMX-1 test squadron",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Marine_Corps_Air_Station_Yuma",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Marine Corps Air Station Cherry Point",
+  "icao": "KNKT",
+  "location": "US",
+  "region": "North Carolina",
+  "command": "2nd Marine Aircraft Wing (MAG-14)",
+  "units": [
+   "VMFA-115",
+   "VMFA-231",
+   "VMFA-251",
+   "VMFA-542",
+   "VMGR-252",
+   "VMUT-2"
+  ],
+  "aircraft": [
+   "F-35B",
+   "F-35C",
+   "KC-130J Hercules",
+   "MQ-9A Reaper"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Marine_Corps_Air_Station_Cherry_Point",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Marine Corps Air Station Beaufort",
+  "icao": "KNBC",
+  "location": "US",
+  "region": "South Carolina",
+  "command": "2nd Marine Aircraft Wing (MAG-31)",
+  "units": [
+   "VMFA-224",
+   "VMFA-312",
+   "VMFA-533",
+   "VMFAT-501",
+   "VMFT-402"
+  ],
+  "aircraft": [
+   "F-35B",
+   "F/A-18C Hornet",
+   "F-5N"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "VMFT-402 Reserve",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Marine_Corps_Air_Station_Beaufort",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Marine Corps Air Facility Quantico (Turner Field)",
+  "icao": "KNYG",
+  "location": "US",
+  "region": "Virginia",
+  "command": "HQMC / HMX-1",
+  "units": [
+   "HMX-1"
+  ],
+  "aircraft": [
+   "VH-3D",
+   "VH-60N",
+   "MV-22B"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Presidential helicopter squadron",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Marine_Corps_Air_Facility_Quantico",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Naval Air Station Whiting Field",
+  "icao": "KNDZ",
+  "location": "US",
+  "region": "Florida",
+  "command": "Chief of Naval Air Training",
+  "units": [
+   "VT-2",
+   "VT-3",
+   "VT-6",
+   "HT-8",
+   "HT-18",
+   "HT-28"
+  ],
+  "aircraft": [
+   "T-6B Texan II",
+   "TH-73A Thrasher"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Wikipedia fetch truncated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Air_Station_Whiting_Field",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Naval Air Station Pensacola",
+  "icao": "KNPA",
+  "location": "US",
+  "region": "Florida",
+  "command": "Chief of Naval Air Training",
+  "units": [
+   "VT-10"
+  ],
+  "aircraft": [
+   "T-6A Texan II"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "verify",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Air_Station_Pensacola",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Naval Air Station Corpus Christi",
+  "icao": "KNGP",
+  "location": "US",
+  "region": "Texas",
+  "command": "Chief of Naval Air Training",
+  "units": [
+   "VT-27",
+   "VT-28",
+   "VT-31",
+   "VT-35"
+  ],
+  "aircraft": [
+   "T-6B Texan II",
+   "T-54A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "VT-29 and VT-31 aircraft T-44C/T-54A; verify stations",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Air_Station_Corpus_Christi",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Naval Air Station Kingsville",
+  "icao": "KNQI",
+  "location": "US",
+  "region": "Texas",
+  "command": "Chief of Naval Air Training",
+  "units": [
+   "VT-21",
+   "VT-22"
+  ],
+  "aircraft": [
+   "T-45C Goshawk"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Air_Station_Kingsville",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Naval Air Station Meridian (McCain Field)",
+  "icao": "KNMM",
+  "location": "US",
+  "region": "Mississippi",
+  "command": "Chief of Naval Air Training",
+  "units": [
+   "VT-7",
+   "VT-9"
+  ],
+  "aircraft": [
+   "T-45C Goshawk"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Naval_Air_Station_Meridian",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ },
+ {
+  "operator": "US",
+  "base": "Tinker Air Force Base",
+  "icao": "KTIK",
+  "location": "US",
+  "region": "Oklahoma",
+  "command": "Strategic Communications Wing ONE (Navy)",
+  "units": [
+   "VQ-3",
+   "VQ-4",
+   "VQ-7"
+  ],
+  "aircraft": [
+   "E-6B Mercury"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Navy TACAMO squadrons at an Air Force base",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Tinker_Air_Force_Base",
+   "https://en.wikipedia.org/wiki/List_of_United_States_Navy_aircraft_squadrons",
+   "https://en.wikipedia.org/wiki/List_of_active_United_States_Marine_Corps_aircraft_squadrons"
+  ]
+ }
+]

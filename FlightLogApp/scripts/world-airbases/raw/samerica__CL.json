@@ -1,0 +1,237 @@
+[
+ {
+  "operator": "CL",
+  "base": "Los Cóndores Air Base (Iquique)",
+  "icao": "",
+  "location": "CL",
+  "region": "Tarapacá",
+  "command": "Fuerza Aérea de Chile",
+  "units": [
+   "I Brigada Aérea",
+   "Grupo de Aviación N.º 1",
+   "Grupo de Aviación N.º 2",
+   "Grupo de Aviación N.º 3"
+  ],
+  "aircraft": [
+   "A-29B Super Tucano",
+   "C-212-200 Aviocar",
+   "PA-28 236 Dakota",
+   "Hermes 900",
+   "Bell 412EP",
+   "F-16C/D Block 50"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_de_Chile"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CL",
+  "base": "Pudahuel Air Base (Santiago)",
+  "icao": "",
+  "location": "CL",
+  "region": "Santiago Metropolitan",
+  "command": "Fuerza Aérea de Chile",
+  "units": [
+   "II Brigada Aérea",
+   "Grupo de Aviación N.º 9",
+   "Grupo de Aviación N.º 10",
+   "Escuadrilla SAR Isla de Pascua"
+  ],
+  "aircraft": [
+   "UH-1H",
+   "Bell 206B",
+   "Bell 412EP",
+   "UH-60 Black Hawk",
+   "C-130H",
+   "KC-130R",
+   "Boeing 767",
+   "Boeing 737",
+   "KC-135E",
+   "E-3D Sentry",
+   "Gulfstream IV",
+   "O-2A Skymaster"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_de_Chile"
+  ],
+  "note": "Easter Island SAR flight (O-2A) listed under this brigade by the page"
+ },
+ {
+  "operator": "CL",
+  "base": "El Tepual Air Base (Puerto Montt)",
+  "icao": "",
+  "location": "CL",
+  "region": "Los Lagos",
+  "command": "Fuerza Aérea de Chile",
+  "units": [
+   "III Brigada Aérea",
+   "Grupo de Aviación N.º 5"
+  ],
+  "aircraft": [
+   "CJ-1 Citation",
+   "DHC-6 Twin Otter",
+   "UH-60 Black Hawk",
+   "UH-1H"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_de_Chile"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CL",
+  "base": "Chabunco Air Base (Punta Arenas)",
+  "icao": "",
+  "location": "CL",
+  "region": "Magallanes",
+  "command": "Fuerza Aérea de Chile",
+  "units": [
+   "IV Brigada Aérea",
+   "Grupo de Aviación N.º 6",
+   "Grupo de Aviación N.º 12",
+   "Grupo de Exploración Antártica N.º 19"
+  ],
+  "aircraft": [
+   "Bell 412EP",
+   "DHC-6-300 Twin Otter",
+   "F-5 Tigre III"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_de_Chile"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CL",
+  "base": "Cerro Moreno Air Base (Antofagasta)",
+  "icao": "",
+  "location": "CL",
+  "region": "Antofagasta",
+  "command": "Fuerza Aérea de Chile",
+  "units": [
+   "V Brigada Aérea",
+   "Grupo de Aviación N.º 7",
+   "Grupo de Aviación N.º 8"
+  ],
+  "aircraft": [
+   "F-16A/B Block 20 MLU",
+   "Bell 412EP",
+   "C-212-300 Aviocar"
+  ],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Fuerza_A%C3%A9rea_de_Chile"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CL",
+  "base": "Concón Naval Air Base",
+  "icao": "",
+  "location": "CL",
+  "region": "Valparaíso",
+  "command": "Aviación Naval de Chile",
+  "units": [
+   "operations base"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Aviaci%C3%B3n_Naval_de_Chile"
+  ],
+  "note": "Page gives navy fleet only (P-3ACH, P-295 ASW, AS532 Cougar, AS365 Dauphin, PC-7, etc.), not per-base; aircraft left blank"
+ },
+ {
+  "operator": "CL",
+  "base": "Diego Aracena Airport (Iquique) naval air group",
+  "icao": "",
+  "location": "CL",
+  "region": "Tarapacá",
+  "command": "Aviación Naval de Chile",
+  "units": [
+   "Grupo Aeronaval Norte"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Aviaci%C3%B3n_Naval_de_Chile"
+  ],
+  "note": "Page gives navy fleet only (P-3ACH, P-295 ASW, AS532 Cougar, AS365 Dauphin, PC-7, etc.), not per-base; aircraft left blank"
+ },
+ {
+  "operator": "CL",
+  "base": "Carriel Sur Airport (Concepción) naval air group",
+  "icao": "",
+  "location": "CL",
+  "region": "Biobío",
+  "command": "Aviación Naval de Chile",
+  "units": [
+   "Grupo Aeronaval Talcahuano"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Aviaci%C3%B3n_Naval_de_Chile"
+  ],
+  "note": "Page gives navy fleet only (P-3ACH, P-295 ASW, AS532 Cougar, AS365 Dauphin, PC-7, etc.), not per-base; aircraft left blank"
+ },
+ {
+  "operator": "CL",
+  "base": "El Tepual Airport (Puerto Montt) naval air group",
+  "icao": "",
+  "location": "CL",
+  "region": "Los Lagos",
+  "command": "Aviación Naval de Chile",
+  "units": [
+   "Grupo Aeronaval Puerto Montt"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Aviaci%C3%B3n_Naval_de_Chile"
+  ],
+  "note": "Page gives navy fleet only (P-3ACH, P-295 ASW, AS532 Cougar, AS365 Dauphin, PC-7, etc.), not per-base; aircraft left blank"
+ },
+ {
+  "operator": "CL",
+  "base": "Carlos Ibáñez del Campo Airport (Punta Arenas) naval air group",
+  "icao": "",
+  "location": "CL",
+  "region": "Magallanes",
+  "command": "Aviación Naval de Chile",
+  "units": [
+   "Grupo Aeronaval Sur"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia (es)"
+  ],
+  "urls": [
+   "https://es.wikipedia.org/wiki/Aviaci%C3%B3n_Naval_de_Chile"
+  ],
+  "note": "Page gives navy fleet only (P-3ACH, P-295 ASW, AS532 Cougar, AS365 Dauphin, PC-7, etc.), not per-base; aircraft left blank"
+ }
+]

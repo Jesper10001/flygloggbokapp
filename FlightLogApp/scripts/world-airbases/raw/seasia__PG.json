@@ -1,0 +1,26 @@
+[
+ {
+  "operator": "PG",
+  "base": "Jacksons International Airport (Port Moresby)",
+  "icao": "",
+  "location": "PG",
+  "region": "National Capital District",
+  "command": "PNGDF Air Element",
+  "units": [
+   "Air Transport Squadron (Air Transport Wing)"
+  ],
+  "aircraft": [
+   "CN-235",
+   "IAI Arava",
+   "UH-1H",
+   "PAC-750 XSTOL"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Papua_New_Guinea_Defence_Force"
+  ],
+  "note": "Small fleet with serviceability problems; CN-235s grounded per 2025 text; leased civil helicopters"
+ }
+]

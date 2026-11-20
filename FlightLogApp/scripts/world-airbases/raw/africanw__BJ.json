@@ -1,0 +1,36 @@
+[
+ {
+  "operator": "BJ",
+  "base": "Cotonou Air Base (BACO)",
+  "icao": "DBBB",
+  "location": "BJ",
+  "region": "Littoral",
+  "command": "Armée de l'Air",
+  "units": [],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/benin-air-force/"
+  ],
+  "note": "From migflug.com (secondary source); not officially confirmed; air force HQ base at Cadjehoun; page lists no units or aircraft per base"
+ },
+ {
+  "operator": "BJ",
+  "base": "Cana Air Base (BACA)",
+  "icao": "DBBC",
+  "location": "BJ",
+  "region": "Zou",
+  "command": "Armée de l'Air",
+  "units": [],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/benin-air-force/"
+  ],
+  "note": "From migflug.com (secondary source); not officially confirmed; near Bohicon; page lists no units or aircraft per base"
+ }
+]

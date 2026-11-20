@@ -1,0 +1,4 @@
+[
+{"operator":"TM","base":"Mary-2 Air Base","icao":"","location":"TM","region":"Mary","command":"Turkmen Air Force","units":["99th Aviation Base"],"aircraft":["MiG-29","Su-25"],"sources":["Wikipedia"],"urls":["https://en.wikipedia.org/wiki/Turkmen_Air_Force"],"note":"Dated order-of-battle; current status unconfirmed."},
+{"operator":"TM","base":"Akdepe Airfield (Ashgabat)","icao":"","location":"TM","region":"Ashgabat","command":"Turkmen Air Force","units":["47th Separate Mixed Aviation Squadron","107th Fighter Aviation Regiment"],"aircraft":["An-26","An-24","Mi-24","Mi-8","MiG-23","MiG-25"],"sources":["Wikipedia"],"urls":["https://en.wikipedia.org/wiki/Turkmen_Air_Force"],"note":"Dated; MiG-25 noted as not operational; fighters of 107th likely obsolete."}
+]

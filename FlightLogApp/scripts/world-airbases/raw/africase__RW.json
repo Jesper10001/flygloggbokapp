@@ -1,0 +1,21 @@
+[
+ {
+  "operator": "RW",
+  "base": "Kigali International Airport (Kanombe)",
+  "icao": "",
+  "location": "RW",
+  "region": "Kigali",
+  "command": "",
+  "units": [
+   "Rwandan Air Force helicopter element"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/pt/forcas-aereas/forca-aerea-ruandesa/"
+  ],
+  "note": "Military helicopters use two pads on the south side; types not disclosed on the cited page."
+ }
+]

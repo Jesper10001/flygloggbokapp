@@ -1,0 +1,24 @@
+[
+ {
+  "operator": "MR",
+  "base": "Atar Air Base",
+  "icao": "GQPA",
+  "location": "MR",
+  "region": "Adrar",
+  "command": "Mauritania Islamic Air Force",
+  "units": [
+   "Ecole de l'air (Air Force School)",
+   "Tucano flight"
+  ],
+  "aircraft": [
+   "EMB 312F Tucano"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/mauritania-islamic-air-force/"
+  ],
+  "note": "From migflug.com (secondary source, derived from open reporting); not officially confirmed"
+ }
+]

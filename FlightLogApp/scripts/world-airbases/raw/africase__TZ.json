@@ -1,0 +1,62 @@
+[
+ {
+  "operator": "TZ",
+  "base": "Ukonga Air Base",
+  "icao": "",
+  "location": "TZ",
+  "region": "Dar es Salaam",
+  "command": "",
+  "units": [
+   "Tanzania Air Force Command"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Tanzania_Air_Force_Command"
+  ],
+  "note": "Listed as air force base; units/aircraft not stated."
+ },
+ {
+  "operator": "TZ",
+  "base": "Mwanza Air Base",
+  "icao": "",
+  "location": "TZ",
+  "region": "Mwanza",
+  "command": "",
+  "units": [
+   "Tanzania Air Force Command"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Tanzania_Air_Force_Command"
+  ],
+  "note": "Listed as air force base; units/aircraft not stated."
+ },
+ {
+  "operator": "TZ",
+  "base": "Ngerengere Air Force Base",
+  "icao": "",
+  "location": "TZ",
+  "region": "Morogoro",
+  "command": "",
+  "units": [
+   "Tanzania Air Force Command"
+  ],
+  "aircraft": [
+   "FT-5"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Tanzania_Air_Force_Command",
+   "https://en.wikipedia.org/wiki/Ngerengere_Air_Force_Base"
+  ],
+  "note": "Training base (FT-5 accident cited there); units not stated."
+ }
+]

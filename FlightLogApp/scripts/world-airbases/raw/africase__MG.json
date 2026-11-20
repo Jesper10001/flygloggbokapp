@@ -1,0 +1,26 @@
+[
+ {
+  "operator": "MG",
+  "base": "Arivonimamo Air Base",
+  "icao": "",
+  "location": "MG",
+  "region": "Itasy",
+  "command": "",
+  "units": [
+   "Malagasy Air Force"
+  ],
+  "aircraft": [
+   "Let L-410",
+   "Alouette II",
+   "AS350",
+   "EC130"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Malagasy_Air_Force"
+  ],
+  "note": "Page says the Air Force operates out of its bases at Arivonimamo near Antananarivo; aircraft types as in page infobox; per-unit allocation not stated."
+ }
+]

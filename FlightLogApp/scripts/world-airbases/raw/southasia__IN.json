@@ -1,0 +1,868 @@
+[
+ {
+  "operator": "IN",
+  "base": "Adampur",
+  "icao": "VIAX",
+  "location": "IN",
+  "region": "Punjab",
+  "command": "Western Air Command",
+  "units": [
+   "No. 47 Squadron",
+   "No. 223 Squadron"
+  ],
+  "aircraft": [
+   "MiG-29"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Ambala",
+  "icao": "VIAM",
+  "location": "IN",
+  "region": "Haryana",
+  "command": "Western Air Command",
+  "units": [
+   "No. 5 Squadron",
+   "No. 14 Squadron",
+   "No. 17 Squadron"
+  ],
+  "aircraft": [
+   "Jaguar",
+   "Rafale"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Bathinda",
+  "icao": "VIBT",
+  "location": "IN",
+  "region": "Punjab",
+  "command": "Western Air Command",
+  "units": [
+   "No. 17 Squadron"
+  ],
+  "aircraft": [
+   "Rafale"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Chandigarh",
+  "icao": "VICG",
+  "location": "IN",
+  "region": "Chandigarh",
+  "command": "Western Air Command",
+  "units": [
+   "No. 44 Squadron",
+   "No. 48 Squadron",
+   "No. 126 Helicopter Flight"
+  ],
+  "aircraft": [
+   "An-32",
+   "Il-76",
+   "Mi-26",
+   "CH-47"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Halwara",
+  "icao": "VIHX",
+  "location": "IN",
+  "region": "Punjab",
+  "command": "Western Air Command",
+  "units": [
+   "No. 220 Squadron",
+   "No. 221 Squadron"
+  ],
+  "aircraft": [
+   "Su-30MKI"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Hindon",
+  "icao": "VIDX",
+  "location": "IN",
+  "region": "Uttar Pradesh",
+  "command": "Western Air Command",
+  "units": [
+   "No. 77 Squadron",
+   "No. 81 Squadron",
+   "No. 129 Helicopter Unit"
+  ],
+  "aircraft": [
+   "C-130J Hercules",
+   "C-17 Globemaster III",
+   "Mi-17"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Jammu",
+  "icao": "VIJU",
+  "location": "IN",
+  "region": "Jammu and Kashmir",
+  "command": "Western Air Command",
+  "units": [
+   "No. 153 Helicopter Unit",
+   "No. 154 Helicopter Unit"
+  ],
+  "aircraft": [
+   "Mi-17"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Leh",
+  "icao": "VILH",
+  "location": "IN",
+  "region": "Ladakh",
+  "command": "Western Air Command",
+  "units": [
+   "No. 114 Helicopter Unit",
+   "No. 130 Helicopter Unit"
+  ],
+  "aircraft": [
+   "Mi-17",
+   "Chetak/Cheetah"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Palam",
+  "icao": "VIDP",
+  "location": "IN",
+  "region": "Delhi",
+  "command": "Western Air Command",
+  "units": [
+   "No. 41 Squadron (Communication Squadron)"
+  ],
+  "aircraft": [
+   "HS 748",
+   "Dornier 228",
+   "Boeing 777-300ER",
+   "Boeing 737 BBJ",
+   "Embraer 145/135",
+   "Mi-17"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Pathankot",
+  "icao": "VIPK",
+  "location": "IN",
+  "region": "Punjab",
+  "command": "Western Air Command",
+  "units": [
+   "No. 125 Helicopter Squadron",
+   "No. 137 Helicopter Squadron"
+  ],
+  "aircraft": [
+   "AH-64E Apache"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Sarsawa",
+  "icao": "VISP",
+  "location": "IN",
+  "region": "Uttar Pradesh",
+  "command": "Western Air Command",
+  "units": [
+   "No. 117 Helicopter Unit",
+   "No. 152 Helicopter Unit"
+  ],
+  "aircraft": [
+   "Mi-17",
+   "Dhruv"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Srinagar",
+  "icao": "VISR",
+  "location": "IN",
+  "region": "Jammu and Kashmir",
+  "command": "Western Air Command",
+  "units": [
+   "No. 223 Squadron",
+   "No. 154 Helicopter Unit"
+  ],
+  "aircraft": [
+   "MiG-29",
+   "Mi-17"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Bagdogra",
+  "icao": "VEBD",
+  "location": "IN",
+  "region": "West Bengal",
+  "command": "Eastern Air Command",
+  "units": [
+   "No. 156 Helicopter Unit"
+  ],
+  "aircraft": [
+   "Mi-17"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Barrackpore",
+  "icao": "VEBR",
+  "location": "IN",
+  "region": "West Bengal",
+  "command": "Eastern Air Command",
+  "units": [
+   "No. 157 Helicopter Unit"
+  ],
+  "aircraft": [
+   "Mi-17"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Chabua",
+  "icao": "VECA",
+  "location": "IN",
+  "region": "Assam",
+  "command": "Eastern Air Command",
+  "units": [
+   "No. 102 Squadron"
+  ],
+  "aircraft": [
+   "Su-30MKI"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Hasimara",
+  "icao": "VEHX",
+  "location": "IN",
+  "region": "West Bengal",
+  "command": "Eastern Air Command",
+  "units": [
+   "No. 101 Squadron"
+  ],
+  "aircraft": [
+   "Rafale"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Jorhat",
+  "icao": "VEJT",
+  "location": "IN",
+  "region": "Assam",
+  "command": "Eastern Air Command",
+  "units": [
+   "No. 43 Squadron",
+   "No. 49 Squadron"
+  ],
+  "aircraft": [
+   "An-32"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Kalaikunda",
+  "icao": "VEDX",
+  "location": "IN",
+  "region": "West Bengal",
+  "command": "Eastern Air Command",
+  "units": [
+   "No. 18 Squadron (OCU)"
+  ],
+  "aircraft": [
+   "MiG-27",
+   "MiG-21"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Mohanbari (Dibrugarh)",
+  "icao": "VEMN",
+  "location": "IN",
+  "region": "Assam",
+  "command": "Eastern Air Command",
+  "units": [
+   "No. 127 Helicopter Unit",
+   "No. 128 Helicopter Unit"
+  ],
+  "aircraft": [
+   "Mi-17"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Panagarh",
+  "icao": "VEPH",
+  "location": "IN",
+  "region": "West Bengal",
+  "command": "Eastern Air Command",
+  "units": [
+   "No. 87 Squadron"
+  ],
+  "aircraft": [
+   "C-130J Hercules"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Tezpur",
+  "icao": "VETZ",
+  "location": "IN",
+  "region": "Assam",
+  "command": "Eastern Air Command",
+  "units": [
+   "No. 2 Squadron",
+   "No. 106 Squadron"
+  ],
+  "aircraft": [
+   "Su-30MKI"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Agra",
+  "icao": "VIAG",
+  "location": "IN",
+  "region": "Uttar Pradesh",
+  "command": "Central Air Command",
+  "units": [
+   "No. 12 Squadron",
+   "No. 50 Squadron",
+   "No. 78 Squadron"
+  ],
+  "aircraft": [
+   "An-32",
+   "Il-78MKI",
+   "A-50EI"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Bareilly",
+  "icao": "VIBY",
+  "location": "IN",
+  "region": "Uttar Pradesh",
+  "command": "Central Air Command",
+  "units": [
+   "No. 8 Squadron",
+   "No. 24 Squadron",
+   "No. 111 Helicopter Unit"
+  ],
+  "aircraft": [
+   "Su-30MKI",
+   "Dhruv"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Gorakhpur",
+  "icao": "VEGK",
+  "location": "IN",
+  "region": "Uttar Pradesh",
+  "command": "Central Air Command",
+  "units": [
+   "No. 16 Squadron",
+   "No. 27 Squadron",
+   "No. 105 Helicopter Unit"
+  ],
+  "aircraft": [
+   "Jaguar",
+   "Mi-17"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Gwalior",
+  "icao": "VIGR",
+  "location": "IN",
+  "region": "Madhya Pradesh",
+  "command": "Central Air Command",
+  "units": [
+   "No. 1 Squadron",
+   "No. 7 Squadron",
+   "No. 9 Squadron",
+   "TACDE"
+  ],
+  "aircraft": [
+   "Mirage 2000"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Sulur",
+  "icao": "VOSX",
+  "location": "IN",
+  "region": "Tamil Nadu",
+  "command": "Southern Air Command",
+  "units": [
+   "No. 33 Squadron",
+   "No. 45 Squadron",
+   "No. 109 Helicopter Unit"
+  ],
+  "aircraft": [
+   "An-32",
+   "Mi-17",
+   "Tejas"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Thanjavur",
+  "icao": "VOTJ",
+  "location": "IN",
+  "region": "Tamil Nadu",
+  "command": "Southern Air Command",
+  "units": [
+   "No. 222 Squadron"
+  ],
+  "aircraft": [
+   "Su-30MKI"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Suratgarh",
+  "icao": "VISG",
+  "location": "IN",
+  "region": "Rajasthan",
+  "command": "South Western Air Command",
+  "units": [
+   "No. 104 Helicopter Squadron"
+  ],
+  "aircraft": [
+   "Mi-35"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Jamnagar",
+  "icao": "VAJM",
+  "location": "IN",
+  "region": "Gujarat",
+  "command": "South Western Air Command",
+  "units": [
+   "No. 6 Squadron",
+   "No. 28 Squadron"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Jodhpur",
+  "icao": "VIJO",
+  "location": "IN",
+  "region": "Rajasthan",
+  "command": "South Western Air Command",
+  "units": [
+   "No. 31 Squadron",
+   "No. 107 Helicopter Unit",
+   "No. 116 Helicopter Unit",
+   "No. 143 Helicopter Unit"
+  ],
+  "aircraft": [
+   "Su-30MKI",
+   "Mi-17",
+   "Rudra",
+   "Chetak",
+   "LCH Prachand"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Pune (Lohegaon)",
+  "icao": "VAPO",
+  "location": "IN",
+  "region": "Maharashtra",
+  "command": "South Western Air Command",
+  "units": [
+   "No. 20 Squadron",
+   "No. 30 Squadron"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Nal (Bikaner)",
+  "icao": "VIBK",
+  "location": "IN",
+  "region": "Rajasthan",
+  "command": "South Western Air Command",
+  "units": [
+   "No. 3 Squadron",
+   "No. 23 Squadron"
+  ],
+  "aircraft": [
+   "MiG-21 (type may be outdated)"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Naliya",
+  "icao": "VANY",
+  "location": "IN",
+  "region": "Gujarat",
+  "command": "South Western Air Command",
+  "units": [
+   "No. 18 Squadron"
+  ],
+  "aircraft": [
+   "Tejas"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Uttarlai",
+  "icao": "VIUT",
+  "location": "IN",
+  "region": "Rajasthan",
+  "command": "South Western Air Command",
+  "units": [
+   "No. 4 Squadron"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "Makarpura (Vadodara)",
+  "icao": "VABO",
+  "location": "IN",
+  "region": "Gujarat",
+  "command": "South Western Air Command",
+  "units": [
+   "No. 11 Squadron",
+   "No. 25 Squadron"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Source list states its station data is dated (2009); verify current units.",
+  "urls": [
+   "https://en.wikipedia.org/wiki/List_of_Indian_Air_Force_stations"
+  ]
+ },
+ {
+  "operator": "IN",
+  "base": "INS Garuda",
+  "icao": "",
+  "location": "IN",
+  "region": "Kerala",
+  "command": "Southern Naval Command",
+  "units": [
+   "INAS 550"
+  ],
+  "aircraft": [
+   "Dornier 228"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Indian_Naval_Air_Arm"
+  ],
+  "note": "Kochi; INAS 550 operational flying training"
+ },
+ {
+  "operator": "IN",
+  "base": "INS Rajali",
+  "icao": "",
+  "location": "IN",
+  "region": "Tamil Nadu",
+  "command": "",
+  "units": [
+   "INAS 561"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Indian_Naval_Air_Arm"
+  ],
+  "note": "Helicopter training school"
+ },
+ {
+  "operator": "IN",
+  "base": "INS Dega",
+  "icao": "",
+  "location": "IN",
+  "region": "Andhra Pradesh",
+  "command": "",
+  "units": [
+   "INAS 551"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Indian_Naval_Air_Arm"
+  ],
+  "note": "Shore-based fighter training"
+ },
+ {
+  "operator": "IN",
+  "base": "Porbandar",
+  "icao": "",
+  "location": "IN",
+  "region": "Gujarat",
+  "command": "Western Naval Command",
+  "units": [
+   "INAS 343"
+  ],
+  "aircraft": [
+   "Heron"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Indian_Naval_Air_Arm"
+  ],
+  "note": "UAV squadron"
+ }
+]

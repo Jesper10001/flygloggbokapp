@@ -1,0 +1,370 @@
+[
+ {
+  "operator": "AR",
+  "base": "El Palomar Military Air Base",
+  "icao": "",
+  "location": "AR",
+  "region": "Buenos Aires",
+  "command": "Argentine Air Force",
+  "units": [
+   "I Air Brigade",
+   "1st Air Transport Squadron",
+   "2nd Air Transport Squadron"
+  ],
+  "aircraft": [
+   "C-130H",
+   "KC-130H",
+   "L-100-30 Hercules",
+   "Fokker F-28"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Argentine_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "AR",
+  "base": "Paraná Military Air Base",
+  "icao": "",
+  "location": "AR",
+  "region": "Entre Ríos",
+  "command": "Argentine Air Force",
+  "units": [
+   "II Air Brigade",
+   "2nd Reconnaissance Squadron"
+  ],
+  "aircraft": [
+   "Learjet 35A",
+   "Cessna 182"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Argentine_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "AR",
+  "base": "Reconquista Military Air Base",
+  "icao": "",
+  "location": "AR",
+  "region": "Santa Fe",
+  "command": "Argentine Air Force",
+  "units": [
+   "III Air Brigade (Services Squadron)"
+  ],
+  "aircraft": [
+   "Cessna 182"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Argentine_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "AR",
+  "base": "El Plumerillo Military Air Base",
+  "icao": "",
+  "location": "AR",
+  "region": "Mendoza",
+  "command": "Argentine Air Force",
+  "units": [
+   "IV Air Brigade",
+   "1st Training Squadron",
+   "3rd Search and Rescue Squadron"
+  ],
+  "aircraft": [
+   "IA-63 Pampa",
+   "SA-315B Lama"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Argentine_Air_Force"
+  ],
+  "note": "Page nesting ambiguous; attribution inferred"
+ },
+ {
+  "operator": "AR",
+  "base": "Villa Reynolds Military Air Base",
+  "icao": "",
+  "location": "AR",
+  "region": "San Luis",
+  "command": "Argentine Air Force",
+  "units": [
+   "V Air Brigade",
+   "Services Squadron"
+  ],
+  "aircraft": [
+   "Cessna 182",
+   "Hughes 500D",
+   "A-4AR Fightinghawk"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Argentine_Air_Force"
+  ],
+  "note": "A-4AR described as retired/not flying per page"
+ },
+ {
+  "operator": "AR",
+  "base": "Tandil Military Air Base",
+  "icao": "",
+  "location": "AR",
+  "region": "Buenos Aires",
+  "command": "Argentine Air Force",
+  "units": [
+   "VI Air Brigade",
+   "Grupo 6 de Caza"
+  ],
+  "aircraft": [
+   "IA-63 Pampa II/III",
+   "Cessna 182",
+   "Aerocommander 500"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Argentine_Air_Force"
+  ],
+  "note": "Converting to F-16A/B MLU from Dec 2025 per page"
+ },
+ {
+  "operator": "AR",
+  "base": "Moreno Military Air Base",
+  "icao": "",
+  "location": "AR",
+  "region": "Buenos Aires",
+  "command": "Argentine Air Force",
+  "units": [
+   "VII Air Brigade",
+   "1st Search and Rescue Squadron",
+   "2nd Tactical Squadron",
+   "3rd Squadron"
+  ],
+  "aircraft": [
+   "Bell 212",
+   "Bell 412EP",
+   "Hughes 500D",
+   "Mi-171E"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Argentine_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "AR",
+  "base": "Comodoro Rivadavia Military Air Base",
+  "icao": "",
+  "location": "AR",
+  "region": "Chubut",
+  "command": "Argentine Air Force",
+  "units": [
+   "IX Air Brigade",
+   "6th Air Transport Squadron",
+   "7th Air Transport Squadron"
+  ],
+  "aircraft": [
+   "SAAB 340B",
+   "DHC-6 Twin Otter"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Argentine_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "AR",
+  "base": "Río Gallegos Military Air Base",
+  "icao": "",
+  "location": "AR",
+  "region": "Santa Cruz",
+  "command": "Argentine Air Force",
+  "units": [
+   "X Air Brigade"
+  ],
+  "aircraft": [
+   "IA-63 Pampa III"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Argentine_Air_Force"
+  ],
+  "note": "Re-established 2022-23; 3 Pampa III reported as of 2023"
+ },
+ {
+  "operator": "AR",
+  "base": "Morón Military Air Base",
+  "icao": "",
+  "location": "AR",
+  "region": "Buenos Aires",
+  "command": "Argentine Air Force",
+  "units": [
+   "Unnamed squadron"
+  ],
+  "aircraft": [
+   "Piper PA-34-220T Seneca",
+   "Piper PA-28RT-201 Arrow",
+   "Piper PA-28-236 Dakota",
+   "Cessna 182"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Argentine_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "AR",
+  "base": "Córdoba (Military Aviation School)",
+  "icao": "",
+  "location": "AR",
+  "region": "Córdoba",
+  "command": "Argentine Air Force",
+  "units": [
+   "Escuela de Aviación Militar - School Air Squadron"
+  ],
+  "aircraft": [
+   "Grob G 120TP",
+   "EMB-312 Tucano",
+   "T-6C Texan II"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Argentine_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "AR",
+  "base": "Punta Indio Naval Air Base",
+  "icao": "",
+  "location": "AR",
+  "region": "Buenos Aires",
+  "command": "Argentine Naval Aviation",
+  "units": [
+   "Escuela de Aviación Naval (ESAN)",
+   "EA1V"
+  ],
+  "aircraft": [
+   "T-34C-1 Turbo Mentor",
+   "Beechcraft B200 Cormorán",
+   "TC-12B Huron"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Argentine_Naval_Aviation"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "AR",
+  "base": "Comandante Espora Naval Air Base",
+  "icao": "",
+  "location": "AR",
+  "region": "Buenos Aires",
+  "command": "Argentine Naval Aviation",
+  "units": [
+   "Fuerza Aeronaval 2",
+   "EA32",
+   "EA2S",
+   "EAH1",
+   "EAH2"
+  ],
+  "aircraft": [
+   "Super Étendard",
+   "S-2T Turbo Tracker",
+   "PC-6 Turbo Porter",
+   "AS-555 Fennec",
+   "Sea King"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Argentine_Naval_Aviation"
+  ],
+  "note": "Super Étendard not operational; EA2S in reserve since 2026 per page"
+ },
+ {
+  "operator": "AR",
+  "base": "Almirante Zar Naval Air Base",
+  "icao": "",
+  "location": "AR",
+  "region": "Chubut",
+  "command": "Argentine Naval Aviation",
+  "units": [
+   "Fuerza Aeronaval 3",
+   "EA6E"
+  ],
+  "aircraft": [
+   "P-3C Orion"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Argentine_Naval_Aviation"
+  ],
+  "note": "Trelew"
+ },
+ {
+  "operator": "AR",
+  "base": "Campo de Mayo Military Airfield",
+  "icao": "",
+  "location": "AR",
+  "region": "Buenos Aires",
+  "command": "Argentine Army Aviation",
+  "units": [
+   "Army Aviation Group 601",
+   "601st Assault Helicopter Battalion",
+   "602nd Attack/Scout Aviation Squadron",
+   "603rd General Support Aviation Squadron",
+   "604th Support Aviation Squadron"
+  ],
+  "aircraft": [
+   "UH-1H",
+   "Bell 407GXi",
+   "AB-206B1",
+   "SA315B Lama",
+   "AS332B Super Puma",
+   "Cessna 208 Caravan",
+   "CASA C-212",
+   "DHC-6 Twin Otter"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Argentine_Army_Aviation"
+  ],
+  "note": "Types are army-wide inventory; per-unit assignment not stated"
+ }
+]

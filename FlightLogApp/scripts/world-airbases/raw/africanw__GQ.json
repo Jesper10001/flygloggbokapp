@@ -1,0 +1,26 @@
+[
+ {
+  "operator": "GQ",
+  "base": "Malabo Air Base (military side of Malabo International Airport)",
+  "icao": "FGSL",
+  "location": "GQ",
+  "region": "Bioko Norte",
+  "command": "Equatorial Guinea Air Force",
+  "units": [
+   "Equatorial Guinea Air Force"
+  ],
+  "aircraft": [
+   "Su-25",
+   "Su-25UB",
+   "Mi-24 Hind",
+   "Z-9WE"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://migflug.com/air-forces/equatorial-guinea-air-force/"
+  ],
+  "note": "From migflug.com (secondary source); not officially confirmed; page says all aircraft reported at Malabo"
+ }
+]

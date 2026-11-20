@@ -1,0 +1,516 @@
+[
+ {
+  "operator": "KP",
+  "base": "Uiju Airfield",
+  "icao": "",
+  "location": "KP",
+  "region": "North Pyongan",
+  "command": "1st Air Combat Division",
+  "units": [
+   "24th Bomber Regiment"
+  ],
+  "aircraft": [
+   "Il-28 (H-5)",
+   "MiG-21PFM"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Panghyon Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "North Pyongan",
+  "command": "1st Air Combat Division",
+  "units": [
+   "49th Fighter Regiment"
+  ],
+  "aircraft": [
+   "MiG-21PFM",
+   "F-5",
+   "Mi-2"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Kaechon Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "South Pyongan",
+  "command": "1st Air Combat Division",
+  "units": [
+   "35th Fighter Regiment"
+  ],
+  "aircraft": [
+   "MiG-19/J-6"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Onchon Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "South Pyongan",
+  "command": "1st Air Combat Division",
+  "units": [
+   "36th Fighter Regiment"
+  ],
+  "aircraft": [
+   "MiG-19/J-6"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Pukchang Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "South Pyongan",
+  "command": "1st Air Combat Division",
+  "units": [
+   "58th Fighter Regiment",
+   "60th Fighter-Bomber Regiment"
+  ],
+  "aircraft": [
+   "MiG-23ML/UB",
+   "MiG-21bis",
+   "MiG-29"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Sunchon Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "South Pyongan",
+  "command": "1st Air Combat Division",
+  "units": [
+   "55th Attack Regiment",
+   "57th Fighter Regiment"
+  ],
+  "aircraft": [
+   "Su-25K",
+   "MiG-29"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Pukchang East Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "South Pyongan",
+  "command": "5th Transport Division",
+  "units": [
+   "64th Helicopter Regiment",
+   "65th Helicopter Regiment"
+  ],
+  "aircraft": [
+   "Mi-8T",
+   "Mi-26",
+   "MD-500"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Taechon Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "North Pyongan",
+  "command": "5th Transport Division",
+  "units": [
+   "Air Transport Regiment"
+  ],
+  "aircraft": [
+   "An-2/Y-5"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Kwaksan Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "North Pyongan",
+  "command": "5th Transport Division",
+  "units": [
+   "Air Transport Regiment"
+  ],
+  "aircraft": [
+   "An-2/Y-5"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Pyongyang Sunan Airport",
+  "icao": "",
+  "location": "KP",
+  "region": "Pyongyang",
+  "command": "",
+  "units": [
+   "Special Service Air Transport Wing (Air Koryo)"
+  ],
+  "aircraft": [
+   "Il-76MD",
+   "Il-62M",
+   "Tu-154B",
+   "Tu-134B",
+   "An-148"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Shared civil/military; Wikipedia",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Taetan Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "South Hwanghae",
+  "command": "3rd Air Combat Division",
+  "units": [
+   "4th Fighter-Bomber Regiment"
+  ],
+  "aircraft": [
+   "MiG-17/J-5",
+   "MiG-21PFM",
+   "Mi-2"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Nuchon-ni Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "South Hwanghae",
+  "command": "3rd Air Combat Division",
+  "units": [
+   "32nd Fighter-Bomber Regiment"
+  ],
+  "aircraft": [
+   "MiG-17/J-5",
+   "MiG-21PFM",
+   "Mi-2"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Kwail Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "South Hwanghae",
+  "command": "3rd Air Combat Division",
+  "units": [
+   "33rd Fighter-Bomber Regiment",
+   "11th Fighter-Bomber Regiment"
+  ],
+  "aircraft": [
+   "MiG-17/J-5"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Hwangju Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "North Hwanghae",
+  "command": "3rd Air Combat Division",
+  "units": [
+   "50th Fighter Regiment"
+  ],
+  "aircraft": [
+   "MiG-21PFM"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Ayang-ni Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "South Hwanghae",
+  "command": "3rd Air Combat Division",
+  "units": [
+   "63rd Attack Helicopter Regiment"
+  ],
+  "aircraft": [
+   "Mi-24D"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Toksan Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "South Hamgyong",
+  "command": "2nd Air Combat Division",
+  "units": [
+   "56th Fighter Regiment"
+  ],
+  "aircraft": [
+   "MiG-21PF",
+   "J-7/F-7"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Chanjin Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "South Hamgyong",
+  "command": "2nd Air Combat Division",
+  "units": [
+   "25th Bomber Regiment"
+  ],
+  "aircraft": [
+   "Il-28 (H-5)",
+   "MiG-21PFM"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Wonsan Kalma Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "Kangwon",
+  "command": "2nd Air Combat Division",
+  "units": [
+   "46th Fighter Regiment",
+   "66th Helicopter Regiment"
+  ],
+  "aircraft": [
+   "MiG-21PFM",
+   "F-5",
+   "Mi-14PL"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Kuum-ni Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "Kangwon",
+  "command": "2nd Air Combat Division",
+  "units": [
+   "71st Fighter Regiment"
+  ],
+  "aircraft": [
+   "MiG-21PFM"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Hwangsuwon Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "South Hamgyong",
+  "command": "2nd Air Combat Division",
+  "units": [
+   "72nd Fighter Regiment"
+  ],
+  "aircraft": [
+   "MiG-21PFM"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Orang Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "North Hamgyong",
+  "command": "8th Training Division",
+  "units": [
+   "41st Fighter Training Regiment"
+  ],
+  "aircraft": [
+   "MiG-15UTI",
+   "MiG-15"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Kowon Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "South Hamgyong",
+  "command": "6th Transport Division",
+  "units": [
+   "Air Transport Wing"
+  ],
+  "aircraft": [
+   "Mi-4",
+   "Mi-8",
+   "Z-5"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ },
+ {
+  "operator": "KP",
+  "base": "Pakhon Air Base",
+  "icao": "",
+  "location": "KP",
+  "region": "South Hamgyong",
+  "command": "6th Transport Division",
+  "units": [
+   "Air Transport Wing"
+  ],
+  "aircraft": [
+   "Mi-4",
+   "Mi-8",
+   "Mi-17",
+   "Mi-2"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "note": "Dated Wikipedia order of battle; unit numbers/types may be outdated",
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People's_Army_Air_Force"
+  ]
+ }
+]

@@ -1,0 +1,242 @@
+[
+ {
+  "operator": "ZA",
+  "base": "AFB Makhado",
+  "icao": "",
+  "location": "ZA",
+  "region": "Limpopo",
+  "command": "",
+  "units": [
+   "2 Squadron",
+   "85 Combat Flying School"
+  ],
+  "aircraft": [
+   "Gripen C/D",
+   "Hawk Mk.120"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/South_African_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "ZA",
+  "base": "AFB Durban",
+  "icao": "",
+  "location": "ZA",
+  "region": "KwaZulu-Natal",
+  "command": "",
+  "units": [
+   "15 Squadron"
+  ],
+  "aircraft": [
+   "Atlas Oryx",
+   "BK 117"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/South_African_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "ZA",
+  "base": "AFS Port Elizabeth",
+  "icao": "",
+  "location": "ZA",
+  "region": "Eastern Cape",
+  "command": "",
+  "units": [
+   "15 Squadron C Flight"
+  ],
+  "aircraft": [
+   "BK 117",
+   "A109"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/South_African_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "ZA",
+  "base": "AFB Bloemspruit",
+  "icao": "",
+  "location": "ZA",
+  "region": "Free State",
+  "command": "",
+  "units": [
+   "16 Squadron",
+   "87 Helicopter Flying School"
+  ],
+  "aircraft": [
+   "Rooivalk",
+   "Oryx",
+   "A109",
+   "BK 117"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/South_African_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "ZA",
+  "base": "AFB Swartkop",
+  "icao": "",
+  "location": "ZA",
+  "region": "Gauteng",
+  "command": "",
+  "units": [
+   "17 Squadron",
+   "SAAF Museum Historic Flight"
+  ],
+  "aircraft": [
+   "Oryx",
+   "A109"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/South_African_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "ZA",
+  "base": "AFB Hoedspruit",
+  "icao": "",
+  "location": "ZA",
+  "region": "Limpopo",
+  "command": "",
+  "units": [
+   "19 Squadron"
+  ],
+  "aircraft": [
+   "Oryx",
+   "A109"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/South_African_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "ZA",
+  "base": "AFB Waterkloof",
+  "icao": "",
+  "location": "ZA",
+  "region": "Gauteng",
+  "command": "",
+  "units": [
+   "21 Squadron",
+   "28 Squadron",
+   "41 Squadron",
+   "44 Squadron"
+  ],
+  "aircraft": [
+   "Boeing BBJ",
+   "Falcon 50",
+   "Falcon 900",
+   "Citation I",
+   "C-130BZ Hercules",
+   "Cessna 208",
+   "PC-12",
+   "King Air 200",
+   "C-212 Aviocar",
+   "CN-235"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/South_African_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "ZA",
+  "base": "AFB Ysterplaat",
+  "icao": "",
+  "location": "ZA",
+  "region": "Western Cape",
+  "command": "",
+  "units": [
+   "22 Squadron",
+   "35 Squadron",
+   "80 Air Navigation School"
+  ],
+  "aircraft": [
+   "Oryx",
+   "Super Lynx 300",
+   "C-47TP Dakota"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/South_African_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "ZA",
+  "base": "AFB Langebaanweg",
+  "icao": "",
+  "location": "ZA",
+  "region": "Western Cape",
+  "command": "",
+  "units": [
+   "Central Flying School"
+  ],
+  "aircraft": [
+   "PC-7 Mk II"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/South_African_Air_Force"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "ZA",
+  "base": "AFB Overberg",
+  "icao": "",
+  "location": "ZA",
+  "region": "Western Cape",
+  "command": "",
+  "units": [
+   "Test Flight and Development Centre"
+  ],
+  "aircraft": [
+   "A109",
+   "Gripen D",
+   "Hawk Mk.120",
+   "Oryx"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/South_African_Air_Force"
+  ],
+  "note": ""
+ }
+]
