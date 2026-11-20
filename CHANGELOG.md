@@ -37,12 +37,14 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: Global map filters are simpler: Properties is one row per setting, Closed airports are under Access, and a Clear button resets all filters.
 - Improved: A compact Airport Info card: PPR, fuel and fees in one row, tap for details. Opening hours come from the NOTAMs, shown as a week in UTC or local time, and NOTAMs are written out in plain English.
 - New: Airport Info shows the latest NOTAMs for Swedish airfields from LFV's official bulletin, free. Landing and parking fees where the airfield publishes them.
+- New: Weather on the map in Find airport: wind, visibility, cloud and QNH, and the TAF as a timeline with the coming changes.
 - New: AD info has the phone number to the tower or AFIS at 46 Swedish airports, from the AIP.
 - New: Update an airfield's info from its official sources with the refresh button on the Info card (3 coins).
 - New: Airport Info for Swedish airfields: PPR, fuel, opening hours and contacts, from the AIP or the airfield's own website. Tap Info on the Global map or in Find airport.
 
 ### Alla ändringar
 
+- Find airport: Weather-knapp uppe till vänster på kartan (prick i flygkategorins färg) öppnar components/MapWxPanel.tsx över kartrutan (design artifact Fcsm4ESifWgX5PVu9ptoGM): kategori + METAR-tid/ålder + Map, fyra värden som dashboardens WxCard, TAF med giltighet, tidslinje per flygkategori (nu-markör) och upp till tre ändringar (utils/tafTimeline.ts: tafBar/tafTicks/tafChanges, test-taf-timeline.cjs med riktiga TAF:ar). Samma färger som dashboarden. AD info-knappen ~30 % mindre (28 pt). Flygplatskortets rad 2 (IATA · typ · väder) dold i Find airport (AirportInfoCard hideWxRow), kartrutan 315 → 345 pt (MAP_H). weather.ts exporterar hourZ och tafPeriodBrief.
 - AD info (proxydata): tornens/AFIS telefonnummer för 46 av 48 AIP-fält ur AIP GEN 3.3 (scripts/airport-info/fetch-gen33.py; kopplas via AFS-adressen, bara första telefonnumret, Uppsalas trasiga nummer överhoppat, Säve saknas i GEN 3.3; korskontrollerat mot agentsökning 22/22), först bland kontakterna med GEN 3.3 som källa. "Verified" = dagen citaten kontrollerades (verified/-filernas tid), inte AIRAC-datum eller sidans egen datering. Kräver proxydeploy, ingen appuppdatering.
 - AD info: källänken (t.ex. AIP Sweden AD 2 ESSA) syns alltid under rubriken; ⓘ-knappen borttagen.
 - AD info NOTAM: en gemensam knapp "Original NOTAM"/"Plain text" i NOTAM-raden växlar alla NOTAM (och SNOWTAM) till originaltext; knapparna under varje NOTAM borta; UTC/Local flyttad till första öppettidsraden.

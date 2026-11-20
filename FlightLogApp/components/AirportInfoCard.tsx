@@ -42,7 +42,7 @@ const subLabel = (sub?: string) => (sub ? sub.split(',').map((c) => SUB_LABEL[c]
 const fmtFreq = (v: number) => v.toFixed(3);
 const fmtM = (m: number) => `${Math.round(m).toLocaleString('en-US')} m`;
 
-export function AirportInfoCard({ icao, name, iata, alt, type, sub, country, accent = Colors.info, landingCount, lastText, onLastPress, onClose, isFavorite, onToggleFavorite, onMetar, onOpenMetar, solid = false, onPlay, playing = false }: {
+export function AirportInfoCard({ icao, name, iata, alt, type, sub, country, accent = Colors.info, landingCount, lastText, onLastPress, onClose, isFavorite, onToggleFavorite, onMetar, onOpenMetar, solid = false, onPlay, playing = false, hideWxRow = false }: {
   icao: string;
   name?: string;
   country?: string | null;    // ISO alpha-2 landskod → landets namn på rad 2
@@ -59,6 +59,7 @@ export function AirportInfoCard({ icao, name, iata, alt, type, sub, country, acc
   onToggleFavorite?: () => void;
   onMetar?: (m: AirportMetar | null) => void; // rapporterar hämtad METAR uppåt (t.ex. vind → aktiv bana i snippeten)
   onOpenMetar?: (m: AirportMetar) => void;    // satt → föräldern visar METAR-rutan (MetarPopup) i stället för en egen Modal
+  hideWxRow?: boolean;        // Find airport: rad 2 (IATA · typ · väder) döljs — vädret visas via Weather-knappen på kartan
   onPlay?: () => void;        // satt → Play i landningsraden (Visited airports: spela upp senaste flygningen hit)
   playing?: boolean;          // uppspelningen pågår → knappen blir Stop (samma onPlay växlar)
   solid?: boolean;            // tät bakgrund (Find airport: kortet ligger inte på en karta utan bredvid täta paneler)
@@ -133,6 +134,7 @@ export function AirportInfoCard({ icao, name, iata, alt, type, sub, country, acc
       </View>
 
       {/* Rad 2: IATA · storlek (· land) · väder */}
+      {!hideWxRow && (
       <TouchableOpacity onPress={openMetar} disabled={!metar} activeOpacity={0.7} accessibilityRole={metar ? 'button' : undefined}
         accessibilityLabel={metar ? `Weather at ${icao}: ${metar.brief}` : undefined}
         style={{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 14, paddingBottom: 10 }}>
@@ -154,6 +156,7 @@ export function AirportInfoCard({ icao, name, iata, alt, type, sub, country, acc
           <Text style={{ flex: 1, fontSize: 12, color: MUTED }} numberOfLines={1}>No weather</Text>
         )}
       </TouchableOpacity>
+      )}
 
       {/* Remsan */}
       {cells.length > 0 && (

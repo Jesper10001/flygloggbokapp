@@ -10,7 +10,7 @@ import { Colors } from '../constants/colors';
 import { searchAirports, getNearbyAirports } from '../db/icao';
 import { getLastFlownAircraftType, getAircraftPerf, getAllAircraftTypes } from '../db/flights';
 import type { IcaoAirport } from '../types/flight';
-import { fetchAirportMetar, type AirportMetar } from '../services/weather';
+import { fetchAirportMetar, categoryColor, type AirportMetar } from '../services/weather';
 import { useRegulationStandardStore } from '../store/regulationStandardStore';
 import { useFlightStore } from '../store/flightStore';
 import { presentPaywall } from '../services/purchases';
@@ -18,6 +18,7 @@ import { useRouter } from 'expo-router';
 import { AirportInfoCard } from './AirportInfoCard';
 import { RouteStatsCard } from './RouteStatsCard';
 import { AirportInfoPanel } from './AirportInfoPanel';
+import { MapWxPanel } from './MapWxPanel';
 import { useAirportInfo, useAirportInfoStore } from '../store/airportInfoStore';
 import { AirportRunwaySnippet } from './AirportRunwaySnippet';
 import { displayCode } from '../utils/airportCodes';
@@ -111,6 +112,9 @@ function matchesWxFilter(cat: string | null | undefined, f: WxFilter): boolean {
   return true;
 }
 
+// Kartrutans höjd i popupen (väderraden i flygplatskortet är borta → kartan fick ~30 pt till)
+const MAP_H = 345;
+
 export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShift }: {
   accent?: string;
   onPick?: () => void;               // anropas när en flygplats valts (t.ex. stäng globmenyn)
@@ -144,9 +148,10 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
   const [fleetList, setFleetList] = useState<Perf[]>([]);        // fleet för att byta beräknings-farkost
   const [pickerOpen, setPickerOpen] = useState(false);
   const [showInfo, setShowInfo] = useState(false); // Airport Info över kartrutan
+  const [showWx, setShowWx] = useState(false);     // väderkortet över kartrutan (Weather)
   const info = useAirportInfo(selected?.icao);
   useEffect(() => { useAirportInfoStore.getState().load(); }, []);
-  useEffect(() => { setShowInfo(false); }, [selected]);
+  useEffect(() => { setShowInfo(false); setShowWx(false); }, [selected]);
   const [showMap, setShowMap] = useState(false); // MapView monteras bara medan popupen är öppen (avmonteras FÖRE stängning)
   const [snippetFrozen, setSnippetFrozen] = useState(false); // fryser marker-tracking strax före avmontering
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -460,25 +465,35 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
                 onClose={closeSelected}
                 onMetar={setMetar}
                 solid
+                hideWxRow
               />
               {/* MapView monteras bara medan popupen är öppen; vid stängning avmonteras den FÖRST (placeholder
                   behåller höjden) så native-kartan inte rivs mitt i modalens fade → undviker krasch. */}
               {showInfo && info ? (
                 // Airport Info lägger sig exakt över kartrutan (samma höjd) → skärmdump med kort, Info och rutt
-                <AirportInfoPanel info={info} infoKey={selected!.icao} accent={accent} height={315} onMap={() => setShowInfo(false)} solid />
+                <AirportInfoPanel info={info} infoKey={selected!.icao} accent={accent} height={MAP_H} onMap={() => setShowInfo(false)} solid />
+              ) : showWx ? (
+                // Väderkortet lägger sig över kartrutan på samma sätt (design: artifact Fcsm4ESifWgX5PVu9ptoGM)
+                <MapWxPanel icao={selected.icao} height={MAP_H} onMap={() => setShowWx(false)} />
               ) : showMap ? (
                 <View>
-                  <AirportRunwaySnippet icao={selected.icao} lat={selected.lat} lon={selected.lon} windDir={metar?.windDir ?? null} windSpeed={metar?.windSpeed ?? null} frozen={snippetFrozen} userLat={pos?.lat ?? null} userLon={pos?.lon ?? null} fitUser={closestMode} />
+                  <AirportRunwaySnippet icao={selected.icao} lat={selected.lat} lon={selected.lon} windDir={metar?.windDir ?? null} windSpeed={metar?.windSpeed ?? null} frozen={snippetFrozen} userLat={pos?.lat ?? null} userLon={pos?.lon ?? null} fitUser={closestMode} style={{ height: MAP_H }} />
+                  {/* Weather uppe till vänster (prick i flygkategorins färg), AD info uppe till höger — 30 % mindre än förut */}
+                  <TouchableOpacity onPress={() => setShowWx(true)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Weather"
+                    style={[styles.mapPill, { left: 10, borderColor: (metar?.category ? categoryColor(metar.category) : accent) + '99' }]}>
+                    <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: metar?.category ? categoryColor(metar.category) : accent }} />
+                    <Text style={styles.mapPillTxt}>Weather</Text>
+                  </TouchableOpacity>
                   {info && (
                     <TouchableOpacity onPress={() => setShowInfo(true)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Aerodrome info"
-                      style={{ position: 'absolute', top: 10, right: 10, flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 14, borderRadius: 17, borderWidth: 1, borderColor: accent + '99', backgroundColor: 'rgba(10,22,40,0.92)' }}>
-                      <Ionicons name="information-circle-outline" size={15} color={accent} />
-                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>AD info</Text>
+                      style={[styles.mapPill, { right: 10, borderColor: accent + '99' }]}>
+                      <Ionicons name="information-circle-outline" size={12} color={accent} />
+                      <Text style={styles.mapPillTxt}>AD info</Text>
                     </TouchableOpacity>
                   )}
                 </View>
               ) : (
-                <View style={{ height: 315, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card }} />
+                <View style={{ height: MAP_H, borderRadius: 14, borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.card }} />
               )}
               <RouteStatsCard
                 accent={accent} locState={locState} hasPos={!!pos}
@@ -525,6 +540,8 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
 }
 
 const styles = StyleSheet.create({
+  mapPill: { position: 'absolute', top: 10, flexDirection: 'row', alignItems: 'center', gap: 5, height: 28, paddingHorizontal: 11, borderRadius: 14, borderWidth: 1, backgroundColor: 'rgba(10,22,40,0.92)' },
+  mapPillTxt: { color: '#fff', fontSize: 11.5, fontWeight: '800' },
   searchRow: {
     width: '100%', flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14,

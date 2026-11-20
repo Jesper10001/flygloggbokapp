@@ -291,7 +291,7 @@ export function metarCells(m: any): WxCells {
 }
 
 // "18z", "18:30z", "06z tomorrow" (dygnet räknas i UTC, som tiden).
-function hourZ(sec: number, nowSec: number): string {
+export function hourZ(sec: number, nowSec: number): string {
   const d = new Date(sec * 1000);
   const hm = d.getUTCMinutes() ? `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}z` : `${pad2(d.getUTCHours())}z`;
   const days = Math.floor(sec / 86400) - Math.floor(nowSec / 86400);
@@ -330,7 +330,7 @@ function tafParts(f: any): TafParts {
 // Det en TAF-period ändrar, kort. En tillfällig period (TEMPO/PROB) anger bara det som avviker, så allt i den
 // räknas. En ny grundperiod (FM/BECMG) kommer med hela läget, så där jämförs den med perioden före (prev) och
 // bara skillnaden visas. Vinden står med när den är byig eller när inget annat ändras. '' = inget att visa.
-function tafPeriodBrief(f: any, prev?: any): string {
+export function tafPeriodBrief(f: any, prev?: any): string {
   const now = tafParts(f);
   const before = prev ? tafParts(prev) : null;
   const parts: string[] = [];
