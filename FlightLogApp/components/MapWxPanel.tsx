@@ -4,7 +4,7 @@
 // Rubrik: kategori, METAR-tid och ålder, Map. Fyra värden. TAF: giltighet, tidslinje per flygkategori och upp till
 // tre ändringar (utils/tafTimeline.ts). Ligger över kartornas Modal → inga native Modal/Alert här.
 import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../constants/colors';
@@ -144,7 +144,7 @@ export function MapWxPanel({ icao, height, onMap, country, region, lon }: {
           )}
 
           {/* TAF: giltighet, tidslinje, ändringar */}
-          <View style={{ flex: 1, gap: 8, paddingHorizontal: 12, paddingTop: 9, paddingBottom: 10 }}>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 12, paddingTop: 9, paddingBottom: 10 }} nestedScrollEnabled showsVerticalScrollIndicator bounces={false}>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
               <Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 1, color: Colors.gold }}>TAF</Text>
               <Text numberOfLines={1} style={{ flex: 1, fontSize: 11, color: SUB }}>
@@ -167,17 +167,17 @@ export function MapWxPanel({ icao, height, onMap, country, region, lon }: {
               </View>
             )}
             {t && !expired && (rows.length ? rows.map((r, i) => (
-              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 9 }}>
                 {/* Typen först, sedan tiden: läses som "BECOMING 06z–08z" */}
-                <Text style={{ width: 70, fontFamily: FONT_MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 0.6, color: Colors.gold }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{r.kind}</Text>
-                <Text style={{ width: 56, fontFamily: FONT_MONO, fontSize: 11, fontWeight: '700', color: '#fff' }}>{r.time}</Text>
-                <Text numberOfLines={2} style={{ flex: 1, fontSize: 12, lineHeight: 16, color: '#fff' }}>{r.text}</Text>
+                <Text style={{ width: 70, marginTop: 3, fontFamily: FONT_MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 0.6, color: Colors.gold }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{r.kind}</Text>
+                <Text style={{ width: 56, marginTop: 1, fontFamily: FONT_MONO, fontSize: 11, fontWeight: '700', color: '#fff' }}>{r.time}</Text>
+                <Text style={{ flex: 1, fontSize: 12, lineHeight: 16, color: '#fff' }}>{r.text}</Text>
                 {r.cat && <Pill cat={r.cat} outline />}
               </View>
             )) : (
               <Text style={{ fontSize: 12, color: '#fff' }}>{wx.tafNext?.text ?? 'No change expected'}</Text>
             ))}
-          </View>
+          </ScrollView>
         </>
       )}
     </View>

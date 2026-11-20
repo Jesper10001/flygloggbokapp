@@ -44,6 +44,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Väderkortet på kartan: hela TAF-beskrivningen visas (ingen tvåradersgräns), raderna toppjusterade; TAF-delen rullar om den blir högre än kortet.
 - Väderkortet på kartan: TAF-raderna har typen före tiden ("BECOMING 06z–08z"), samma färger.
 - Väderkortet på kartan: TAF-typerna utskrivna (FROM, BECOMING, TEMPORARY, 40% CHANCE; kolumnen 70 pt); zonen med vedertaget namn och sommartid via tzAbbr (PST/PDT, CET/CEST, AEDT …), UTC±N där namn saknas; "Valid …" tar sista tidsetiketten (var tom vid 4 etiketter).
 - Global map → Fly to: AirportNavPanel har Weather (MapWxPanel, tidszon via land/region) och AD info (AirportInfoPanel) över kartrutan som Find airport, kartan 345 pt, flygplatskortets väderrad dold (hideWxRow); popupens Pressable → View så AD info-kortet rullar fritt.
