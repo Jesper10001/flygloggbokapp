@@ -33,8 +33,15 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Fixed: Zooming in past the country flags on the Global map could show no airports until a filter was changed.
 - Improved: The cluster boxes on the Global map are smaller.
 - New: Specific under Air Bases on the Global map shows military air bases outside NATO by aircraft type, with the units based there and where the information comes from.
+- New: Types under Specific lets you show only the bases with a certain aircraft, such as the Su-57, with a short description of each model.
+- Improved: Global map filters are simpler: Properties is one row per setting, Closed airports are under Access, and a Clear button resets all filters.
 
 ### Alla ändringar
+
+- Global map, Specific → Types: modellfamiljer (FlightLogApp/scripts/osint-families.mjs: varianter ihop, t.ex. Su-30SM2 → Su-30, stavningar G120/G-120 ihop, allmänna etiketter som "trainers" utanför) per roll med antal baser, flest först; sökfält; flerval över kategorierna. Valet förfinar Specific (bara baser med modellen, samma rollsymboler och förbandskort; vald modell i cyan på kortet). Kort militär beskrivning per familj (scripts/osint-data/type-descriptions-manual.json, 427 av 432; skriven utifrån Wikipedia där källsidan gäller rätt modell — sökningen träffade ofta fel modell, källorna i type-descriptions.json — och känd roll för nationella beteckningar; 5 osäkra utan beskrivning). Lagret får fam (typ → familj) och desc; proxyn skickar bara familjer på visade baser (2 nya tester). Proxy deployad (9c2596b3).
+- Global map, Properties enligt design B: en rad per egenskap (Runway length, Elevation, Surface) med valt värde till höger; fasta steg (längsta banan 800–3 000 m+, höjd under 1 000 / 1 000–5 000 / över 5 000 ft); antal träffar och Reset. Reglagen och fördelningskurvorna borttagna.
+- Global map: Closed-knappen borttagen ur raden; under Access finns "Who can use it" och "Closed airports" (Hide / Also show / Only closed). Access-knappen visar antal val. Ny Clear-knapp höger om Favorites när något filter är på (nollställer typer, Specific, Properties, Access, Closed och Favorites).
+- Global map: långa namn i filterknapparna bryts på två rader i stället för att kapas (Training & test, Farm & ranch …).
 
 - OSINT-lagret (Air Bases → Specific) enligt användarens INSTRUKTION_osint_lager.md, med användarens beslut 2026-11-20: synligt utan lösenord, Ryssland som förut (inga rapporterade placeringar), dagens källstruktur, även Schweiz och Österrike borta.
   - Datan ligger inte längre i appen: scripts/osint-data/{ru,eu,world}-airbases.json → scripts/build-osint-layer.mjs → proxy/data/osint-airbases.json (land per bas ur seeden).

@@ -8,6 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
+import { familyOf, familyKey } from './osint-families.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const read = (f) => JSON.parse(fs.readFileSync(path.join(__dirname, 'osint-data', f), 'utf8'));
@@ -23,8 +24,31 @@ for (const f of ['world-airbases.json', 'eu-airbases.json', 'ru-airbases.json'])
     bases[k] = { ...b, c };
   }
 }
+// Specific → Types: modellfamilj per flygplanstyp (fam) och en kort beskrivning per familj (desc, ur
+// fetch-type-descriptions.mjs → scripts/osint-data/type-descriptions.json).
+const manual = JSON.parse(fs.readFileSync(path.join(__dirname, 'osint-data', 'type-descriptions-manual.json'), 'utf8'));
+const descByKey = new Map(Object.entries(manual).filter(([k]) => !k.startsWith('_')).map(([k, v]) => [familyKey(k), v]));
+// Stavningsvarianter (G120, G-120, G 120) → en familj; namnet = den vanligaste stavningen
+const spell = new Map();
+for (const b of Object.values(bases)) for (const op of b.ops) for (const [, ts] of op.g) for (const t of ts) {
+  const f = familyOf(t);
+  if (!f) continue;
+  const m = spell.get(familyKey(f)) ?? new Map();
+  m.set(f, (m.get(f) ?? 0) + 1);
+  spell.set(familyKey(f), m);
+}
+const shown = new Map([...spell].map(([k, m]) => [k, [...m].sort((a, b) => b[1] - a[1])[0][0]]));
+const fam = {}, desc = {};
+for (const b of Object.values(bases)) for (const op of b.ops) for (const [, ts] of op.g) for (const t of ts) {
+  const f = familyOf(t);
+  if (!f) continue;
+  const name = shown.get(familyKey(f));
+  fam[t] = name;
+  const d = descByKey.get(familyKey(f));
+  if (d) desc[name] = d;
+}
 const compiled = { ru: '19 November 2026', eu: '19 November 2026', world: '20 November 2026' };
-const v = crypto.createHash('sha1').update(JSON.stringify(bases)).digest('hex').slice(0, 10);
+const v = crypto.createHash('sha1').update(JSON.stringify({ bases, fam, desc })).digest('hex').slice(0, 10);
 const out = path.join(__dirname, '..', '..', 'proxy', 'data', 'osint-airbases.json');
-fs.writeFileSync(out, JSON.stringify({ v, compiled, bases }));
-console.log(`Skrev ${Object.keys(bases).length} baser (version ${v}) → proxy/data/osint-airbases.json${missing ? `; ${missing} utan land i seed (utelämnade)` : ''}`);
+fs.writeFileSync(out, JSON.stringify({ v, compiled, bases, fam, desc }));
+console.log(`${new Set(Object.values(fam)).size} modellfamiljer, ${Object.keys(desc).length} med beskrivning. Skrev ${Object.keys(bases).length} baser (version ${v}) → proxy/data/osint-airbases.json${missing ? `; ${missing} utan land i seed (utelämnade)` : ''}`);

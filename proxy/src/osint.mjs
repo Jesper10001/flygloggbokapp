@@ -36,7 +36,15 @@ export function makeOsintHandler(layer, cfg) {
     }
     if (!cached) {
       const bases = filterLayer(layer.bases, cfg);
-      cached = { etag: `"${layer.v}"`, body: JSON.stringify({ v: layer.v, compiled: layer.compiled, bases }) };
+      // Types: bara typer och familjer som finns på baserna som skickas
+      const fam = {}, desc = {};
+      for (const b of Object.values(bases)) for (const op of b.ops) for (const [, ts] of op.g) for (const t of ts) {
+        const f = layer.fam?.[t];
+        if (!f) continue;
+        fam[t] = f;
+        if (layer.desc?.[f]) desc[f] = layer.desc[f];
+      }
+      cached = { etag: `"${layer.v}"`, body: JSON.stringify({ v: layer.v, compiled: layer.compiled, bases, fam, desc }) };
     }
     const headers = { ETag: cached.etag, 'Cache-Control': 'private, max-age=3600', Vary: 'CF-IPCountry' };
     if (request.headers.get('If-None-Match') === cached.etag) return new Response(null, { status: 304, headers });

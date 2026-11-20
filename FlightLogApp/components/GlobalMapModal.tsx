@@ -17,7 +17,6 @@ import { AirportNavPanel } from './AirportNavPanel';
 import { FlightDetailView } from '../app/flight/detail/[id]';
 import { getSeedAirports, getNearbyAirports } from '../db/icao';
 import { getFavoriteIcaos, setFavorite } from '../db/favorites';
-import { RangeBar } from './RangeBar';
 import { getAirportLandingCounts, getAirportLastFlight, getLastFlightAt, getSetting, setSetting } from '../db/flights';
 import { formatCoord, COORD_SYSTEMS, type CoordSystem } from '../utils/coords';
 import { LatestFlightCard } from './logbook-page/LatestFlightCard';
@@ -78,7 +77,7 @@ import { displayCode } from '../utils/airportCodes';
 import { UnitCard } from './UnitCard';
 import { UnitSourcesPopup } from './UnitSources';
 import { RoleTag } from './RoleTag';
-import { getMilBase, baseRoles, milCounts, ROLES } from '../utils/milAirbases';
+import { getMilBase, baseRoles, milCounts, ROLES, ROLE_ORDER, typeFamilies, baseHasFamily, type RoleKey } from '../utils/milAirbases';
 import { useOsintStore } from '../store/osintStore';
 
 // Datum då flygplatsdatan senast hämtades (skrivs av scripts/build-airports.mjs --refresh), t.ex. "26 October 2026".
@@ -87,8 +86,6 @@ const AIRPORT_DATA_UPDATED = new Date(`${airportDataMeta.updated}T12:00:00`).toL
 type SeedRow = [string, string, string, string, number, number, string?, (number | null)?, string?, string?, string?, string?, string?];
 type Region = { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number };
 const WORLD: Region = { latitude: 25, longitude: 5, latitudeDelta: 110, longitudeDelta: 110 };
-const MAX_LEN = 4000; // slider-tak för banlängd (m)
-const NBINS = 48;     // antal staplar i fördelningskurvorna ovanför range-barerna
 
 function fmtVisit(d?: string): string {
   if (!d) return '—';
@@ -123,6 +120,15 @@ function boundsRegion(rows: SeedRow[]): Region {
 // ⓘ-texten för OSINT-lagret (INSTRUKTION_osint_lager.md avsnitt 6), anpassad efter användarens beslut 2026-11-20:
 // även Schweiz och Österrike är borta, och Ryssland visas som förut (inga rapporterade placeringar).
 const LAYER_INFO = 'Military air bases and the units based there, compiled from open sources (OSINT). NATO member states, Switzerland, Austria and Ukraine are not included, nor are NATO units deployed abroad. In conflict areas, only long-standing home bases are shown. Open-source information can be incomplete or out of date. Tap Source on any base to check it.';
+
+// Properties: fasta steg för banlängd (längsta banan minst …) och höjd.
+const RWY_STEPS = [null, 800, 1200, 1500, 2000, 2500, 3000] as const;
+const ALT_STEPS: { label: string; min: number | null; max: number | null }[] = [
+  { label: 'Any', min: null, max: null },
+  { label: 'Below 1,000 ft', min: null, max: 1000 },
+  { label: '1,000–5,000 ft', min: 1000, max: 5000 },
+  { label: 'Above 5,000 ft', min: 5000, max: null },
+];
 
 export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const insets = useSafeAreaInsets();
@@ -248,6 +254,12 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const osintStatus = useOsintStore((st) => st.status);
   const osintVersion = useOsintStore((st) => st.version);
   const [layerInfoOpen, setLayerInfoOpen] = useState(false); // ⓘ på Specific-sidan: om lagret
+  // Specific → Types (2026-11-20): valda modellfamiljer förfinar Specific — bara baser med någon av dem; samma
+  // rollsymboler och förbandskort, de valda typerna i cyan på kortet.
+  const [typeSel, setTypeSel] = useState<Set<string>>(new Set());
+  const [typesPage, setTypesPage] = useState(false);
+  const [typeRole, setTypeRole] = useState<RoleKey | null>(null); // öppen kategori i Types-listan
+  const [typeQuery, setTypeQuery] = useState('');
   const [dataInfoOpen, setDataInfoOpen] = useState(false); // info-ruta: datakälla + uppdaterad + friskrivning
   const propsOpen = openSection === 'props';
 
@@ -321,6 +333,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
         return true;
       });
     }
+    // Specific → Types: bara baser med någon av de valda modellfamiljerna
+    if (typeSel.size) result = result.filter((r) => baseHasFamily(r[0], typeSel));
     // Väderfilter sist: bara valt land. 'ALL' → alla fält med en rapporterad kategori (färgkodas på kartan);
     // annars bara de som möter min-kategorin. wxResults fylls progressivt.
     if (wxCat && wxCountry) {
@@ -329,89 +343,10 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
         : result.filter((r) => r[2] === wxCountry && meetsWx(wxResults.get(r[0]), wxCat));
     }
     return result;
-  }, [seedData, activeKeys, mapProps, closedMode, favMode, favorites, wxCat, wxCountry, wxResults, osintVersion]);
+  }, [seedData, activeKeys, mapProps, closedMode, favMode, favorites, wxCat, wxCountry, wxResults, osintVersion, typeSel]);
 
   // Runway-längdintervall för nuvarande urval (kategori/closed/fav — EJ längdfiltret självt) → sätter
   // slidrarnas gränser + default (kortaste/längsta bana som finns). Beräknas bara när Properties är öppet.
-  const lenRange = useMemo(() => {
-    if (!propsOpen) return { min: 0, max: MAX_LEN };
-    const leaves = leavesFor(activeKeys);
-    const favBase = favMode ? seedData.filter((r) => favorites.has(r[0])) : seedData;
-    const base = closedMode === 'include' ? favBase : closedMode === 'only' ? favBase.filter((r) => r[8] === 'closed') : favBase.filter((r) => r[8] !== 'closed');
-    const idx = getRunwayIndex();
-    let mn = Infinity, mx = 0;
-    for (const r of base) {
-      const rwy = idx.get(r[0]);
-      if (!matchLeaves(leaves, r, rwy)) continue;
-      if (!rwy || !rwy.hasData || rwy.maxLenM <= 0) continue;
-      if (rwy.maxLenM < mn) mn = rwy.maxLenM;
-      if (rwy.maxLenM > mx) mx = rwy.maxLenM;
-    }
-    if (mn === Infinity || mx <= 0) return { min: 0, max: MAX_LEN };
-    const lo = Math.floor(mn / 50) * 50;
-    return { min: lo, max: Math.max(Math.ceil(mx / 50) * 50, lo + 50) };
-  }, [propsOpen, seedData, activeKeys, closedMode, favMode, favorites]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Elevation-intervall (alt, ft) för nuvarande urval → sätter elevation-slidrarnas gränser + default.
-  const altRange = useMemo(() => {
-    if (!propsOpen) return { min: 0, max: 1000 };
-    const leaves = leavesFor(activeKeys);
-    const favBase = favMode ? seedData.filter((r) => favorites.has(r[0])) : seedData;
-    const base = closedMode === 'include' ? favBase : closedMode === 'only' ? favBase.filter((r) => r[8] === 'closed') : favBase.filter((r) => r[8] !== 'closed');
-    let mn = Infinity, mx = -Infinity;
-    for (const r of base) {
-      if (!matchLeaves(leaves, r, undefined)) continue;
-      const a = r[7];
-      if (a == null) continue;
-      if (a < mn) mn = a; if (a > mx) mx = a;
-    }
-    if (mn === Infinity) return { min: 0, max: 1000 };
-    const lo = Math.floor(mn / 50) * 50;
-    return { min: lo, max: Math.max(Math.ceil(mx / 50) * 50, lo + 50) };
-  }, [propsOpen, seedData, activeKeys, closedMode, favMode, favorites]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Fördelningskurvor: histogram (NBINS staplar) över HELA intervallet, samma urval/filter som
-  // *Range ovan → visas som mjuk kurva ovanför respektive range-bar. Beräknas bara när Properties öppet.
-  const lenDist = useMemo<number[] | undefined>(() => {
-    if (!propsOpen) return undefined;
-    const { min, max } = lenRange; const span = Math.max(1, max - min);
-    const leaves = leavesFor(activeKeys);
-    const favBase = favMode ? seedData.filter((r) => favorites.has(r[0])) : seedData;
-    const base = closedMode === 'include' ? favBase : closedMode === 'only' ? favBase.filter((r) => r[8] === 'closed') : favBase.filter((r) => r[8] !== 'closed');
-    const idx = getRunwayIndex();
-    const bins = new Array(NBINS).fill(0);
-    for (const r of base) {
-      const rwy = idx.get(r[0]);
-      if (!matchLeaves(leaves, r, rwy)) continue;
-      if (!rwy || !rwy.hasData || rwy.maxLenM <= 0) continue; // saknar banlängd → räknas ej
-      if (r[7] == null) continue;                              // saknar höjddata → räknas ej (samma urval i båda kurvorna)
-      let b = Math.floor(((rwy.maxLenM - min) / span) * NBINS);
-      if (b < 0) b = 0; else if (b >= NBINS) b = NBINS - 1;
-      bins[b]++;
-    }
-    return bins;
-  }, [propsOpen, lenRange, seedData, activeKeys, closedMode, favMode, favorites]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const altDist = useMemo<number[] | undefined>(() => {
-    if (!propsOpen) return undefined;
-    const { min, max } = altRange; const span = Math.max(1, max - min);
-    const leaves = leavesFor(activeKeys);
-    const favBase = favMode ? seedData.filter((r) => favorites.has(r[0])) : seedData;
-    const base = closedMode === 'include' ? favBase : closedMode === 'only' ? favBase.filter((r) => r[8] === 'closed') : favBase.filter((r) => r[8] !== 'closed');
-    const idx = getRunwayIndex();
-    const bins = new Array(NBINS).fill(0);
-    for (const r of base) {
-      const rwy = idx.get(r[0]);
-      if (!matchLeaves(leaves, r, rwy)) continue;
-      const a = r[7];
-      if (a == null) continue;                                 // saknar höjddata → räknas ej
-      if (!rwy || !rwy.hasData || rwy.maxLenM <= 0) continue;   // saknar banlängd → räknas ej (samma urval som runway-kurvan)
-      let b = Math.floor(((a - min) / span) * NBINS);
-      if (b < 0) b = 0; else if (b >= NBINS) b = NBINS - 1;
-      bins[b]++;
-    }
-    return bins;
-  }, [propsOpen, altRange, seedData, activeKeys, closedMode, favMode, favorites]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Kart-nyckel = filtersignaturen. Vid FILTERändring (på alla zoomnivåer) byter nyckeln → kartan
   // byggs om från grunden i stället för att diffa markörer live (mass-markör-diff = native-krasch).
@@ -419,8 +354,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   // zoom. Efter remount monteras kartan på currentNode via initialRegion={frameRegion} (ingen världshopp).
   const mapKey = useMemo(
     () => (clusterMode ? 'C' : 'R') + '|' + [...activeKeys].sort().join(',') + `|${mapProps.minLenM}_${mapProps.maxLenM}_${mapProps.surface.join('+')}|${closedMode}` + (favMode ? `|F${favorites.size}` : '') + (wxCat && wxCountry ? `|W${wxCat}_${wxCountry}_${wxResults.size}` : '')
-      + ([...activeKeys].some(isSpecificKey) ? `|O${osintVersion}` : ''),
-    [clusterMode, activeKeys, mapProps, closedMode, favMode, favorites, wxCat, wxCountry, wxResults, osintVersion],
+      + ([...activeKeys].some(isSpecificKey) ? `|O${osintVersion}|T${[...typeSel].sort().join('+')}` : ''),
+    [clusterMode, activeKeys, mapProps, closedMode, favMode, favorites, wxCat, wxCountry, wxResults, osintVersion, typeSel],
   );
 
   // ── Aktuell drill-nod → flygplatser härleds LIVE ur typedSeed (stanna kvar vid filterändring) ──
@@ -539,7 +474,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   }, [mapSearch, seedData]);
 
   const closeMap = () => {
-    setFlyTo(false); setFlyToFrozen(false); setUnitSourceOpen(false); setLayerInfoOpen(false);
+    setFlyTo(false); setFlyToFrozen(false); setUnitSourceOpen(false); setLayerInfoOpen(false); setTypeSel(new Set()); setTypesPage(false); setTypeQuery('');
     setDrillStack([]); setFocusAirport(null); setMapSearch(''); setMapRegion(WORLD);
     setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); setSatellite(false); setClosedMode('hide'); setFavMode(false);
     clearWeather();
@@ -641,24 +576,22 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     return n;
   });
   // Kombinerade min–max-setters för range-barerna (null vid ytterkant = ingen gräns → filter av).
-  const setLenRange = (lo: number, hi: number) => setMapProps((p) => ({ ...p, minLenM: lo <= lenRange.min ? null : lo, maxLenM: hi >= lenRange.max ? null : hi }));
-  const setAltRange = (lo: number, hi: number) => setMapProps((p) => ({ ...p, minAltFt: lo <= altRange.min ? null : lo, maxAltFt: hi >= altRange.max ? null : hi }));
   const toggleSurface = (sfc: string) => setMapProps((p) => ({ ...p, surface: p.surface.includes(sfc) ? p.surface.filter((x) => x !== sfc) : [...p.surface, sfc] }));
-  // Antal flygplatser per yta (öppna banor, hela databasen) — visas under varje val.
-  const surfaceCounts = useMemo(() => {
-    if (!propsOpen) return null;
-    const out: Record<string, number> = {};
-    for (const s of SURFACE_FILTERS) out[s] = 0;
-    for (const info of getRunwayIndex().values()) for (const s of SURFACE_FILTERS) if (info.surfaces & surfaceBit(s)) out[s]++;
-    return out;
-  }, [propsOpen]);
-  const toggleSection = (s: string) => { setSpecificPage(false); setOpenSection((cur) => (cur === s ? null : s)); };
+  // Properties (design B 2026-11-20): en rad per egenskap med valt värde till höger; tryck → radens fasta steg.
+  const [propRow, setPropRow] = useState<'rwy' | 'alt' | 'sfc' | null>(null);
+  const rwyLabel = mapProps.minLenM == null ? 'Any' : `${mapProps.minLenM.toLocaleString('en-US')} m+`;
+  const altStep = ALT_STEPS.find((a) => a.min === mapProps.minAltFt && a.max === mapProps.maxAltFt);
+  const altLabel = mapProps.minAltFt == null && mapProps.maxAltFt == null ? 'Any' : altStep?.label ?? `${mapProps.minAltFt ?? '…'}–${mapProps.maxAltFt ?? '…'} ft`;
+  const sfcLabel = mapProps.surface.length === 0 ? 'Any' : mapProps.surface.length > 2 ? `${mapProps.surface.length} types` : mapProps.surface.join(', ');
+  const toggleSection = (s: string) => { setSpecificPage(false); setTypesPage(false); setOpenSection((cur) => (cur === s ? null : s)); };
   // Gruppknapparna (Airports/Air Bases/Airfields/Helicopter/Other): "All" = hela gruppen; en undertyp tar bort All.
   const groupOn = (g: FilterGroup) => activeKeys.has(g.all.key) || g.subs.some((n) => activeKeys.has(n.key))
     || (g.key === 'airbases' && [...activeKeys].some(isSpecificKey));
   // Air Bases → Specific: "All" = alla ryska baser; en roll tar bort All (flera roller går att välja).
   const specificOn = [...activeKeys].some(isSpecificKey);
   const specificChosen = SPECIFIC_NODES.filter((n) => activeKeys.has(n.key));
+  // Typvalet hör till Specific: stängs Specific av (inga roller valda) försvinner typvalet också.
+  useEffect(() => { if (!specificOn && typeSel.size) setTypeSel(new Set()); }, [specificOn]); // eslint-disable-line react-hooks/exhaustive-deps
   const pickSpecific = (key: string) => setActiveKeys((prev) => {
     const n = new Set(prev);
     if (key === 'rb:all') { const was = n.has(key); [...n].filter(isSpecificKey).forEach((k) => n.delete(k)); if (!was) n.add(key); }
@@ -690,6 +623,19 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
     return out;
   }, [openGroup, seedData]);
   const accessOn = ACCESS_CHIPS.some((c) => activeKeys.has(c.key));
+  // Access-knappen visar antalet val, Closed-läget inräknat (Closed ligger numera under Access).
+  const accessCount = ACCESS_CHIPS.filter((c) => activeKeys.has(c.key)).length + (closedMode !== 'hide' ? 1 : 0);
+  // Clear (höger om Favorites): syns bara när något filter är på; nollställer alla filterval.
+  const anyFilterOn = activeKeys.size > 0 || propsActive(mapProps) || closedMode !== 'hide' || favMode || typeSel.size > 0;
+  const clearAll = () => {
+    setActiveKeys(new Set()); setMapProps(EMPTY_PROPS); setClosedMode('hide'); setFavMode(false);
+    setTypeSel(new Set()); setTypeQuery(''); setFocusAirport(null);
+  };
+  const pickType = (f: string) => {
+    setTypeSel((prev) => { const n = new Set(prev); n.has(f) ? n.delete(f) : n.add(f); return n; });
+    // Typvalet förfinar Specific: är ingen roll vald visas alla baser (All) med typen
+    setActiveKeys((prev) => ([...prev].some(isSpecificKey) ? prev : new Set([...prev, 'rb:all'])));
+  };
 
   // ── Väderfilter-hjälpare ──────────────────────────────────────────────────────
   // Länder som finns i seed-datan → engelska namn, alfabetiskt. Underlag för land-sökrutan.
@@ -1143,18 +1089,19 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                       Väder finns kvar för "closest to me" (dashboard/drönare, enstaka station). */}
                   <TouchableOpacity onPress={() => toggleSection('access')} activeOpacity={0.85}
                     style={[styles.propsToggle, openSection === 'access' && styles.propsToggleActive]}>
-                    <Text style={[styles.propsToggleTxt, accessOn && { color: Colors.primary }]}>Access</Text>
+                    <Text style={[styles.propsToggleTxt, accessCount > 0 && { color: Colors.primary }]}>{accessCount ? `Access · ${accessCount}` : 'Access'}</Text>
                     <Ionicons name={openSection === 'access' ? 'chevron-up' : 'chevron-down'} size={12} color="#fff" />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => toggleSection('closed')} activeOpacity={0.85}
-                    style={[styles.propsToggle, openSection === 'closed' && styles.propsToggleActive]}>
-                    <Text style={[styles.propsToggleTxt, closedMode !== 'hide' && { color: Colors.primary }]}>Closed</Text>
-                    <Ionicons name={openSection === 'closed' ? 'chevron-up' : 'chevron-down'} size={12} color="#fff" />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={toggleFavMode} activeOpacity={0.85} style={[styles.favBtn, favMode && styles.favBtnOn]}>
                     <Ionicons name={favMode ? 'star' : 'star-outline'} size={10} color={favMode ? '#062024' : Colors.gold} />
                     <Text style={[styles.favBtnTxt, favMode && { color: '#062024' }]}>Favorites{favorites.size ? ` · ${favorites.size}` : ''}</Text>
                   </TouchableOpacity>
+                  {anyFilterOn && (
+                    <TouchableOpacity onPress={clearAll} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Clear all filters" style={styles.clearBtn}>
+                      <Ionicons name="close" size={10} color="#FF8A6B" />
+                      <Text style={styles.clearBtnTxt}>Clear</Text>
+                    </TouchableOpacity>
+                  )}
                   {/* Info om datakälla + senast uppdaterad + friskrivning */}
                   <TouchableOpacity onPress={() => setDataInfoOpen(true)} activeOpacity={0.7} hitSlop={8}
                     style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
@@ -1162,7 +1109,83 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                   </TouchableOpacity>
                 </View>
 
-                {openGroup && openGroup.key === 'airbases' && specificPage && (
+                {openGroup && openGroup.key === 'airbases' && specificPage && typesPage && (() => {
+                  /* Specific → Types: kategorierna (bara namn) som fällbara rader; modellfamiljerna med kort beskrivning
+                     och antal baser, flest först. Flerval, även över kategorier. Sökfältet söker i alla. */
+                  const fams = typeFamilies();
+                  const q = typeQuery.trim().toLowerCase();
+                  const shown = q ? fams.filter((f) => f.name.toLowerCase().includes(q) || f.desc.toLowerCase().includes(q)) : fams;
+                  const selBases = typedSeed.length;
+                  return (
+                    <View style={styles.propsPanel}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                        <TouchableOpacity onPress={() => setTypesPage(false)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Back to Specific"
+                          style={{ width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                          <Ionicons name="chevron-back" size={16} color="#fff" />
+                        </TouchableOpacity>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: '#fff', fontSize: 15, fontWeight: '800' }}>Types</Text>
+                          <Text style={{ color: '#9DB4CC', fontSize: 11.5 }}>Bases with the models you pick</Text>
+                        </View>
+                      </View>
+                      <View style={styles.typeSearch}>
+                        <Ionicons name="search" size={14} color={Colors.textMuted} />
+                        <TextInput value={typeQuery} onChangeText={setTypeQuery} placeholder="Search model, e.g. Su-57" placeholderTextColor="#6F89A6"
+                          autoCorrect={false} autoCapitalize="none" style={{ flex: 1, color: '#fff', fontSize: 13, paddingVertical: 0 }} />
+                        {!!typeQuery && (
+                          <TouchableOpacity onPress={() => setTypeQuery('')} hitSlop={8} accessibilityLabel="Clear search"><Ionicons name="close-circle" size={15} color={Colors.textMuted} /></TouchableOpacity>
+                        )}
+                      </View>
+                      <ScrollView style={{ maxHeight: 330 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                        {ROLE_ORDER.map((role) => {
+                          const list = shown.filter((f) => f.role === role);
+                          if (!list.length) return null;
+                          const open = !!q || typeRole === role;
+                          const picked = list.filter((f) => typeSel.has(f.name)).length;
+                          return (
+                            <View key={role} style={styles.propRow}>
+                              <TouchableOpacity onPress={() => setTypeRole(open && !q ? null : role)} activeOpacity={0.7} accessibilityRole="button" accessibilityState={{ expanded: open }} style={styles.propRowHead}>
+                                <Text style={styles.propRowLabel}>{ROLES[role].label}</Text>
+                                {picked > 0 && <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '700' }}>{picked} picked</Text>}
+                                <Text style={styles.groupOptCount}>{list.length}</Text>
+                                <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color={Colors.textMuted} />
+                              </TouchableOpacity>
+                              {open && list.map((f) => {
+                                const on = typeSel.has(f.name);
+                                return (
+                                  <TouchableOpacity key={f.name} onPress={() => pickType(f.name)} activeOpacity={0.7} accessibilityRole="checkbox" accessibilityState={{ checked: on }}
+                                    style={[styles.typeRow, on && { backgroundColor: Colors.primary + '1f' }]}>
+                                    <View style={[styles.typeBox, on && { backgroundColor: Colors.primary, borderColor: Colors.primary }]}>
+                                      {on && <Ionicons name="checkmark" size={12} color="#050B16" />}
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>{f.name}</Text>
+                                      {!!f.desc && <Text style={{ color: '#8FB0CC', fontSize: 11 }} numberOfLines={1}>{f.desc}</Text>}
+                                    </View>
+                                    <Text style={styles.groupOptCount}>{f.bases}</Text>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                          );
+                        })}
+                        {!shown.length && <Text style={{ color: '#8FB0CC', fontSize: 12.5, paddingVertical: 12 }}>No model matches “{typeQuery}”.</Text>}
+                      </ScrollView>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10 }}>
+                        <Text style={{ color: '#C9D6E6', fontSize: 12.5, flexShrink: 1 }} numberOfLines={1}>
+                          {typeSel.size ? `${[...typeSel].join(', ')} · ${selBases} base${selBases === 1 ? '' : 's'}` : 'No model picked'}
+                        </Text>
+                        {typeSel.size > 0 && (
+                          <TouchableOpacity onPress={() => setTypeSel(new Set())} hitSlop={10} accessibilityRole="button">
+                            <Text style={{ color: Colors.primary, fontSize: 12.5, fontWeight: '700' }}>Clear</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })()}
+
+                {openGroup && openGroup.key === 'airbases' && specificPage && !typesPage && (
                   /* Air Bases → Specific: nästa sida i samma ruta — välj roll; baserna ritas då med rollsymboler. */
                   <View style={styles.propsPanel}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
@@ -1190,12 +1213,25 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                             accessibilityRole="button" accessibilityState={{ selected: on }}
                             style={[styles.groupOpt, { justifyContent: 'flex-start' }, on && styles.propPillOn]}>
                             {n.role && <RoleTag role={n.role} />}
-                            <Text style={[styles.propPillTxt, { flex: 1, flexShrink: 1 }, on && { color: Colors.primary }]} numberOfLines={1}>{n.label}</Text>
+                            <Text style={[styles.propPillTxt, { flex: 1, flexShrink: 1, lineHeight: 15 }, on && { color: Colors.primary }]} numberOfLines={2}>{n.label}</Text>
                             <Text style={[styles.groupOptCount, on && { color: Colors.primary }]}>{(n.role ? milCounts().roles[n.role] : milCounts().all).toLocaleString('en-US')}</Text>
                           </TouchableOpacity>
                         );
                       })}
                     </View>
+                    {!!osintVersion && (
+                      <TouchableOpacity onPress={() => setTypesPage(true)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="Types: pick single aircraft models"
+                        style={[styles.typesBtn, typeSel.size > 0 && styles.propPillOn]}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.propPillTxt, { fontSize: 13.5 }, typeSel.size > 0 && { color: Colors.primary }]}>Types</Text>
+                          <Text style={{ color: '#9DB4CC', fontSize: 11 }} numberOfLines={1}>
+                            {typeSel.size ? [...typeSel].join(', ') : 'Pick single aircraft models'}
+                          </Text>
+                        </View>
+                        <Text style={styles.groupOptCount}>{new Set(typeFamilies().map((f) => f.name)).size.toLocaleString('en-US')}</Text>
+                        <Ionicons name="chevron-forward" size={14} color="#fff" />
+                      </TouchableOpacity>
+                    )}
                     <Text style={styles.groupInfo}>Each base is marked with the symbol of its aircraft. Tap one to see the units and the types based there. From open sources; can be out of date.</Text>
                   </View>
                 )}
@@ -1212,7 +1248,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                           <TouchableOpacity key={n.key} onPress={() => (isAll ? pickGroupAll(openGroup) : pickGroupSub(openGroup, n.key))} activeOpacity={0.7}
                             accessibilityRole="button" accessibilityState={{ selected: on }}
                             style={[styles.groupOpt, on && styles.propPillOn]}>
-                            <Text style={[styles.propPillTxt, { flexShrink: 1 }, on && { color: Colors.primary }]} numberOfLines={1}>{n.label}</Text>
+                            <Text style={[styles.propPillTxt, { flexShrink: 1, lineHeight: 15 }, on && { color: Colors.primary }]} numberOfLines={2}>{n.label}</Text>
                             <Text style={[styles.groupOptCount, on && { color: Colors.primary }]}>{cnt.toLocaleString('en-US')}</Text>
                           </TouchableOpacity>
                         );
@@ -1243,65 +1279,85 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                 {/* Datakälla/friskrivning visas som overlay på rot-nivå (längre ned) — ej nästlad Modal. */}
 
                 {propsOpen && (
-                  <View style={styles.propsPanel}>
-                    <RangeBar label="Runway length" unit="m" min={lenRange.min} max={lenRange.max} step={50} dist={lenDist}
-                      low={mapProps.minLenM ?? lenRange.min} high={mapProps.maxLenM ?? lenRange.max} onChange={setLenRange} />
-                    <RangeBar label="Elevation" unit="ft" min={altRange.min} max={altRange.max} step={50} dist={altDist}
-                      low={mapProps.minAltFt ?? altRange.min} high={mapProps.maxAltFt ?? altRange.max} onChange={setAltRange} />
-                    {/* Yta: flerval bland alla typer, antalet flygplatser under varje. Inget valt = alla ytor. */}
-                    <View style={{ marginTop: 12, gap: 8 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Text style={styles.surfaceHead}>Surface</Text>
-                        {mapProps.surface.length > 0 ? (
-                          <TouchableOpacity onPress={() => setMapProps((p) => ({ ...p, surface: [] }))} hitSlop={10} activeOpacity={0.7}>
-                            <Text style={{ color: Colors.primary, fontSize: 12, fontWeight: '700' }}>Any surface</Text>
+                  <View style={[styles.propsPanel, { paddingTop: 2, paddingBottom: 10 }]}>
+                    {([
+                      { k: 'rwy', label: 'Runway length', value: rwyLabel, on: mapProps.minLenM != null,
+                        opts: RWY_STEPS.map((v) => ({ key: String(v), t: v == null ? 'Any' : `${v.toLocaleString('en-US')} m+`, on: mapProps.minLenM === v || (v == null && mapProps.minLenM == null),
+                          pick: () => setMapProps((p) => ({ ...p, minLenM: v, maxLenM: null })) })) },
+                      { k: 'alt', label: 'Elevation', value: altLabel, on: mapProps.minAltFt != null || mapProps.maxAltFt != null,
+                        opts: ALT_STEPS.map((a) => ({ key: a.label, t: a.label, on: a.min === mapProps.minAltFt && a.max === mapProps.maxAltFt,
+                          pick: () => setMapProps((p) => ({ ...p, minAltFt: a.min, maxAltFt: a.max })) })) },
+                      { k: 'sfc', label: 'Surface', value: sfcLabel, on: mapProps.surface.length > 0,
+                        opts: SURFACE_FILTERS.map((sfc) => ({ key: sfc, t: sfc, on: mapProps.surface.includes(sfc), pick: () => toggleSurface(sfc) })) },
+                    ] as const).map((row) => {
+                      const open = propRow === row.k;
+                      return (
+                        <View key={row.k} style={styles.propRow}>
+                          <TouchableOpacity onPress={() => setPropRow(open ? null : row.k)} activeOpacity={0.7} accessibilityRole="button"
+                            accessibilityState={{ expanded: open }} accessibilityLabel={`${row.label}: ${row.value}`} style={styles.propRowHead}>
+                            <Text style={styles.propRowLabel}>{row.label}</Text>
+                            <Text style={[styles.propRowValue, row.on && { color: Colors.primary }]} numberOfLines={1}>{row.value}</Text>
+                            <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color={Colors.textMuted} />
                           </TouchableOpacity>
-                        ) : <Text style={{ color: Colors.textMuted, fontSize: 11.5, fontWeight: '700' }}>Any</Text>}
-                      </View>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                        {SURFACE_FILTERS.map((sfc) => {
-                          const on = mapProps.surface.includes(sfc);
-                          return (
-                            <TouchableOpacity key={sfc} onPress={() => toggleSurface(sfc)} activeOpacity={0.7}
-                              accessibilityRole="button" accessibilityState={{ selected: on }}
-                              style={[styles.surfaceChip, on && styles.propPillOn]}>
-                              <Text style={[styles.propPillTxt, on && { color: Colors.primary }]} numberOfLines={1}>{sfc}</Text>
-                              <Text style={[styles.surfaceCount, on && { color: Colors.primary }]}>{(surfaceCounts?.[sfc] ?? 0).toLocaleString('en-US')}</Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
+                          {open && (
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingBottom: 12 }}>
+                              {row.opts.map((o) => (
+                                <TouchableOpacity key={o.key} onPress={o.pick} activeOpacity={0.7} accessibilityRole="button" accessibilityState={{ selected: o.on }}
+                                  style={[styles.propStep, o.on && styles.propPillOn]}>
+                                  <Text style={[styles.propPillTxt, o.on && { color: Colors.primary }]}>{o.t}</Text>
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10 }}>
+                      <Text style={{ color: '#C9D6E6', fontSize: 12.5 }}>
+                        <Text style={{ color: '#fff', fontWeight: '800', fontFamily: 'JetBrainsMono' }}>{typedSeed.length.toLocaleString('en-US')}</Text> airports match
+                      </Text>
+                      {propsActive(mapProps) && (
+                        <TouchableOpacity onPress={() => setMapProps(EMPTY_PROPS)} hitSlop={10} activeOpacity={0.7} accessibilityRole="button">
+                          <Text style={{ color: Colors.primary, fontSize: 12.5, fontWeight: '700' }}>Reset</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   </View>
                 )}
 
                 {openSection === 'access' && (
-                  <View style={styles.propsPanel}>
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                      {ACCESS_CHIPS.map((c) => {
-                        const on = activeKeys.has(c.key);
-                        return (
-                          <TouchableOpacity key={c.key} onPress={() => toggleKey(c.key)} activeOpacity={0.7}
-                            style={[styles.propPill, on && styles.propPillOn]}>
-                            <Text style={[styles.propPillTxt, on && { color: Colors.primary }]} numberOfLines={1}>{c.label}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
+                  // Access: vem som får använda flygplatsen + stängda flygplatser (Closed-knappen borttagen ur raden).
+                  <View style={[styles.propsPanel, { gap: 14 }]}>
+                    <View style={{ gap: 8 }}>
+                      <Text style={styles.surfaceHead}>Who can use it</Text>
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        {ACCESS_CHIPS.map((c) => {
+                          const on = activeKeys.has(c.key);
+                          return (
+                            <TouchableOpacity key={c.key} onPress={() => toggleKey(c.key)} activeOpacity={0.7} accessibilityRole="button" accessibilityState={{ selected: on }}
+                              style={[styles.propPill, on && styles.propPillOn]}>
+                              <Text style={[styles.propPillTxt, { lineHeight: 15, textAlign: 'center' }, on && { color: Colors.primary }]} numberOfLines={2}>{c.label}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
                     </View>
-                  </View>
-                )}
-
-                {openSection === 'closed' && (
-                  <View style={styles.propsPanel}>
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                      {(['hide', 'include', 'only'] as const).map((m) => (
-                        <TouchableOpacity key={m} onPress={() => setClosedMode(m)} activeOpacity={0.7}
-                          style={[styles.propPill, closedMode === m && styles.propPillOn]}>
-                          <Text style={[styles.propPillTxt, closedMode === m && { color: Colors.primary }]}>
-                            {m === 'hide' ? 'Hide' : m === 'include' ? 'Show' : 'Only'}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
+                    <View style={{ gap: 8 }}>
+                      <Text style={styles.surfaceHead}>Closed airports</Text>
+                      <View style={styles.segment}>
+                        {(['hide', 'include', 'only'] as const).map((m) => {
+                          const on = closedMode === m;
+                          return (
+                            <TouchableOpacity key={m} onPress={() => setClosedMode(m)} activeOpacity={0.8} accessibilityRole="button" accessibilityState={{ selected: on }}
+                              style={[styles.segmentBtn, on && { backgroundColor: Colors.primary }]}>
+                              <Text style={[styles.propPillTxt, on && { color: '#050B16' }]}>{m === 'hide' ? 'Hide' : m === 'include' ? 'Also show' : 'Only closed'}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                      <Text style={{ color: '#8FB0CC', fontSize: 11.5 }}>
+                        {closedMode === 'hide' ? 'Closed airports are hidden.' : closedMode === 'include' ? 'Closed airports are shown together with open ones.' : 'Only closed airports are shown.'}
+                      </Text>
                     </View>
                   </View>
                 )}
@@ -1359,6 +1415,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                   isFavorite={favorites.has(focusAirport[0])}
                   onToggleFavorite={() => toggleFavorite(focusAirport[0])}
                   onSource={() => setUnitSourceOpen(true)}
+                  highlight={typeSel}
                 />
               ) : (
               <AirportInfoCard
@@ -1477,6 +1534,19 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
 }
 
 const styles = StyleSheet.create({
+  typesBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, marginTop: 6, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10, borderWidth: 1, borderColor: Colors.primary + '8c', backgroundColor: Colors.primary + '0f' },
+  typeSearch: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 36, paddingHorizontal: 10, borderRadius: 9, marginBottom: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+  typeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 42, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  typeBox: { width: 18, height: 18, borderRadius: 5, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
+  clearBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'center', paddingHorizontal: 8, paddingVertical: 6, borderRadius: 7, borderWidth: 1, borderColor: 'rgba(255,107,74,0.6)', backgroundColor: 'rgba(40,16,14,0.95)' },
+  clearBtnTxt: { color: '#FF8A6B', fontSize: 9, fontWeight: '800', letterSpacing: 0.2 },
+  segment: { flexDirection: 'row', padding: 3, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.06)' },
+  segmentBtn: { flex: 1, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  propRow: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
+  propRowHead: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 46 },
+  propRowLabel: { flex: 1, color: '#fff', fontSize: 13.5, fontWeight: '700' },
+  propRowValue: { color: Colors.textMuted, fontSize: 12.5, fontWeight: '700', maxWidth: '55%' },
+  propStep: { height: 32, paddingHorizontal: 12, borderRadius: 16, justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
   layerInfoCard: { width: '100%', maxWidth: 360, gap: 12, borderRadius: 16, padding: 16, backgroundColor: 'rgba(15,30,58,0.98)', borderWidth: 1, borderColor: Colors.primary + '55' },
   layerInfoClose: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.10)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' },
   focusBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(15,22,38,0.92)', borderRadius: 10, paddingHorizontal: 10, height: 36, borderWidth: 1, borderColor: Colors.primary + '66' },
@@ -1505,7 +1575,8 @@ const styles = StyleSheet.create({
   // Gruppknapparna + deras paneler (design 2026-11-19, artifact 6vxEJM7EKGBVrJi8vH8e3n): två kolumner, namn + antal.
   groupRow: { flexDirection: 'row', gap: 6, paddingRight: 4 },
   groupOpts: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 6 },
-  groupOpt: { width: '49%', height: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 10, borderRadius: 9,
+  // Långa namn (Training & test, Farm & ranch …) bryts på två rader i stället för att kapas → minHeight.
+  groupOpt: { width: '49%', minHeight: 38, paddingVertical: 5, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 10, borderRadius: 9,
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', backgroundColor: 'rgba(255,255,255,0.05)' },
   groupOptCount: { fontFamily: 'JetBrainsMono', fontSize: 10.5, fontWeight: '600', color: Colors.textSecondary },
   groupInfo: { color: '#8FB0CC', fontSize: 11.5, lineHeight: 16, marginTop: 10 },

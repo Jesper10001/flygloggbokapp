@@ -46,5 +46,8 @@ const j = await r.json();
 ok(r.status === 200 && Object.keys(j.bases).length === vals.length, `SE → 200 med ${Object.keys(j.bases).length} baser`);
 const r304 = handle(new Request('https://x/osint/airbases', { headers: { 'CF-IPCountry': 'SE', 'If-None-Match': r.headers.get('ETag') } }));
 ok(r304.status === 304, 'oförändrat lager → 304');
+const shownTypes = new Set(vals.flatMap(([, b]) => b.ops.flatMap((o) => o.g.flatMap(([, ts]) => ts))));
+ok(Object.keys(j.fam ?? {}).every((t) => shownTypes.has(t)), `Types: bara typer från visade baser (${Object.keys(j.fam ?? {}).length} typer, ${new Set(Object.values(j.fam ?? {})).size} familjer)`);
+ok(Object.keys(j.desc ?? {}).every((f) => Object.values(j.fam).includes(f)), `Types: beskrivningar bara för skickade familjer (${Object.keys(j.desc ?? {}).length})`);
 console.log(fail ? `${fail} fel` : `Alla gröna (${vals.length} av ${Object.keys(layer.bases).length} baser kvar)`);
 process.exit(fail ? 1 : 0);

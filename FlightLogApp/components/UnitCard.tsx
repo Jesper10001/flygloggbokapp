@@ -10,7 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../constants/colors';
 import { COUNTRY_NAMES } from '../constants/countryNames';
 import { layerCode } from '../utils/airportCodes';
-import { ROLES, baseGroups, operatorLabel, type MilBase } from '../utils/milAirbases';
+import { ROLES, baseGroups, operatorLabel, typeFamily, type MilBase } from '../utils/milAirbases';
 import { RoleTag } from './RoleTag';
 
 const MONO = 'JetBrainsMono';
@@ -50,7 +50,7 @@ function ScrollBox({ max, children, contentStyle }: { max: number; children: Rea
   );
 }
 
-export function UnitCard({ icao, base, country, accent = Colors.primary, onClose, isFavorite, onToggleFavorite, onSource }: {
+export function UnitCard({ icao, base, country, accent = Colors.primary, onClose, isFavorite, onToggleFavorite, onSource, highlight }: {
   icao: string;
   base: MilBase;
   country?: string | null;
@@ -59,6 +59,7 @@ export function UnitCard({ icao, base, country, accent = Colors.primary, onClose
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
   onSource?: () => void;        // Source-knappen nere till höger → var datan kommer från
+  highlight?: Set<string>;      // Specific → Types: valda modellfamiljer → de typerna i cyan
 }) {
   const countryName = country ? (COUNTRY_NAMES[country.toUpperCase()] ?? country.toUpperCase()) : '';
   const meta = ['Air base', base.r || null, countryName || null].filter(Boolean).join(' · ');
@@ -117,7 +118,9 @@ export function UnitCard({ icao, base, country, accent = Colors.primary, onClose
               <View key={`${it.type}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                 accessibilityLabel={it.start ? `${ROLES[it.role].label}: ${it.type}` : it.type}>
                 {it.start && <RoleTag role={it.role} />}
-                <View style={s.chip}><Text style={s.chipTxt}>{it.type}</Text></View>
+                {highlight?.has(typeFamily(it.type) ?? '')
+                  ? <View style={[s.chip, { backgroundColor: accent }]}><Text style={[s.chipTxt, { color: '#050B16', fontWeight: '800' }]}>{it.type}</Text></View>
+                  : <View style={s.chip}><Text style={s.chipTxt}>{it.type}</Text></View>}
               </View>
             ))}
           </ScrollBox>

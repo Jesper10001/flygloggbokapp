@@ -10,19 +10,25 @@ export type RoleKey = 'fighter' | 'bomber' | 'attack' | 'heli' | 'transport' | '
 export type BaseOp = { o: string; c: string; u: string[]; g: [RoleKey, string[]][] };
 export type Dataset = 'ru' | 'eu' | 'world';
 export type MilBase = { n: string; r: string; s: Dataset; c?: string; ops: BaseOp[] };
-export type OsintLayer = { v: string; compiled: Record<Dataset, string>; bases: Record<string, MilBase> };
+export type OsintLayer = { v: string; compiled: Record<Dataset, string>; bases: Record<string, MilBase>; fam?: Record<string, string>; desc?: Record<string, string> };
 
 let D: Record<string, MilBase> = {};
 let COMPILED: Record<Dataset, string> = { ru: '', eu: '', world: '' };
 let VERSION = '';
 let counts: { all: number; roles: Record<RoleKey, number> } | null = null;
+let FAM: Record<string, string> = {};
+let DESC: Record<string, string> = {};
+let famIdx: TypeFamily[] | null = null;
 
 /** Lägger in lagret från proxyn (eller tömmer det: null). Anropas bara av osintStore. */
 export function setLayer(layer: OsintLayer | null) {
   D = layer?.bases ?? {};
   COMPILED = layer?.compiled ?? { ru: '', eu: '', world: '' };
   VERSION = layer?.v ?? '';
+  FAM = layer?.fam ?? {};
+  DESC = layer?.desc ?? {};
   counts = null;
+  famIdx = null;
 }
 /** Lagrets version ('' = inget lager) — ingår i kartans filtersignatur så att kartan ritas om när det kommer. */
 export function layerVersion(): string { return VERSION; }
@@ -71,4 +77,41 @@ export function milCounts(): { all: number; roles: Record<RoleKey, number> } {
   for (const b of Object.values(D)) for (const [r] of baseGroups(b)) roles[r]++;
   counts = { all: Object.keys(D).length, roles };
   return counts;
+}
+
+// ── Specific → Types: modellfamiljer ─────────────────────────────────────────
+// Varje flygplanstyp på en bas hör till en familj ("Su-30SM2" → "Su-30", proxyns fam-tabell). Typvalet förfinar
+// Specific: bara baser där någon av de valda familjerna finns.
+export type TypeFamily = { role: RoleKey; name: string; desc: string; bases: number };
+
+/** Familjen för en flygplanstyp (null = ingen, t.ex. en allmän etikett som "trainers"). */
+export function typeFamily(type: string): string | null { return FAM[type] ?? null; }
+
+/** Alla familjer per roll med antal baser, flest först (en bas räknas en gång per familj och roll). */
+export function typeFamilies(): TypeFamily[] {
+  if (famIdx) return famIdx;
+  const m = new Map<string, TypeFamily>();
+  for (const b of Object.values(D)) {
+    const seen = new Set<string>();
+    for (const op of b.ops) for (const [role, types] of op.g) for (const t of types) {
+      const f = FAM[t];
+      if (!f) continue;
+      const k = `${role}|${f}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const e = m.get(k) ?? { role, name: f, desc: DESC[f] ?? '', bases: 0 };
+      e.bases++;
+      m.set(k, e);
+    }
+  }
+  famIdx = [...m.values()].sort((a, b) => b.bases - a.bases || a.name.localeCompare(b.name));
+  return famIdx;
+}
+
+/** Har basen någon av familjerna? */
+export function baseHasFamily(key: string | null | undefined, fams: Set<string>): boolean {
+  const b = getMilBase(key);
+  if (!b || !fams.size) return false;
+  for (const op of b.ops) for (const [, types] of op.g) for (const t of types) if (FAM[t] && fams.has(FAM[t])) return true;
+  return false;
 }
