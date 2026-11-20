@@ -19,7 +19,7 @@ eq(bar('ESGG'), ['21-21 VFR'], 'ESGG en VFR-period');
 eq(bar('ESSA'), ['21-17 IFR', '17-21 LIFR'], 'ESSA IFR → LIFR');
 const rows = T.tafChanges(tafs.ESSA, NOW);
 eq(rows.map((r) => r.time), ['By 23z', '23z–08z', '06z–08z'], 'ESSA tider (BECMG pågår, TEMPO, BECMG)');
-eq(rows.map((r) => r.kind), ['BECMG', 'TEMPO', 'BECMG'], 'ESSA typer');
+eq(rows.map((r) => r.kind), ['BECOMING', 'TEMPORARY', 'BECOMING'], 'ESSA typer utskrivna');
 eq(rows[2].text, 'Wind 330°/15 kt, gusts 25', 'ren vindändring jämförs med perioden före');
 eq(rows[2].cat, null, 'vindändring har ingen kategori');
 eq(rows[1].cat, 'LIFR', 'TEMPO-kategori');

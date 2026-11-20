@@ -10,7 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../constants/colors';
 import { fetchDecodedWx, categoryColor, type DecodedWx, type FlightCat, type WxCell } from '../services/weather';
 import { tafBar, tafTicks, tafChanges, tafExpired } from '../utils/tafTimeline';
-import { localOffsetMinutes } from '../utils/timezone';
+import { localOffsetMinutes, tzAbbr } from '../utils/timezone';
 import { FONT_MONO } from './logbook-page/tokens';
 
 const PILL_INK = '#06121F';
@@ -49,6 +49,8 @@ export function MapWxPanel({ icao, height, onMap, country, region, lon }: {
   const [local, setLocal] = useState(false);
   const offAt = (ms: number) => localOffsetMinutes(new Date(ms), country, region, lon);
   const nowOff = offAt(Date.now());
+  // Zonens vedertagna namn med sommartid (PST/PDT, CET/CEST, EST …); utan namn "UTC+4" (utils/timezone.ts)
+  const zoneName = tzAbbr(new Date(), country, region, lon);
   // Tid i vald zon: UTC "21:50z"/"21z", lokalt "22:50"/"22" (zonen står i växeln)
   const clock = (ms: number) => {
     const o = local && nowOff != null ? offAt(ms) ?? 0 : 0;
@@ -106,7 +108,7 @@ export function MapWxPanel({ icao, height, onMap, country, region, lon }: {
             {[false, true].map((l) => (
               <TouchableOpacity key={String(l)} onPress={() => setLocal(l)} accessibilityRole="radio" accessibilityState={{ selected: local === l }}
                 style={{ height: 26, paddingHorizontal: 9, justifyContent: 'center', backgroundColor: local === l ? 'rgba(255,255,255,0.18)' : 'transparent' }}>
-                <Text style={{ fontSize: 11, fontWeight: '800', color: local === l ? '#fff' : SUB }}>{l ? gmtLabel(nowOff) : 'UTC'}</Text>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: local === l ? '#fff' : SUB }}>{l ? zoneName ?? gmtLabel(nowOff) : 'UTC'}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -146,7 +148,7 @@ export function MapWxPanel({ icao, height, onMap, country, region, lon }: {
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
               <Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 1, color: Colors.gold }}>TAF</Text>
               <Text numberOfLines={1} style={{ flex: 1, fontSize: 11, color: SUB }}>
-                {!t ? 'No forecast for this station' : expired ? 'This forecast has expired' : `Valid ${ticks[0] ?? ''}–${ticks[4] ?? ''}${station(wx.tafStation)}`}
+                {!t ? 'No forecast for this station' : expired ? 'This forecast has expired' : `Valid ${ticks[0] ?? ''}–${ticks[ticks.length - 1] ?? ''}${station(wx.tafStation)}`}
               </Text>
             </View>
             {t && !expired && bar.length > 0 && (
@@ -167,7 +169,7 @@ export function MapWxPanel({ icao, height, onMap, country, region, lon }: {
             {t && !expired && (rows.length ? rows.map((r, i) => (
               <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
                 <Text style={{ width: 56, fontFamily: FONT_MONO, fontSize: 11, fontWeight: '700', color: '#fff' }}>{r.time}</Text>
-                <Text style={{ width: 46, fontFamily: FONT_MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 0.6, color: Colors.gold }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{r.kind}</Text>
+                <Text style={{ width: 70, fontFamily: FONT_MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 0.6, color: Colors.gold }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{r.kind}</Text>
                 <Text numberOfLines={2} style={{ flex: 1, fontSize: 12, lineHeight: 16, color: '#fff' }}>{r.text}</Text>
                 {r.cat && <Pill cat={r.cat} outline />}
               </View>

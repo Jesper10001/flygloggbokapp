@@ -62,7 +62,9 @@ export function tafChanges(t: any, nowMs: number = Date.now(), max = 3, fmt: Hou
     const body = tafPeriodBrief(f, prev);
     if (!body) continue;
     const prob = num(f.probability) > 0 ? `PROB${num(f.probability)}` : '';
-    const kind = ch === 'PROB' ? prob || 'PROB' : ch === 'TEMPO' ? (prob ? `${prob} TEMPO` : 'TEMPO') : ch;
+    // Typen utskriven (FM → FROM, BECMG → BECOMING, TEMPO → TEMPORARY, PROB40 → 40% CHANCE), som på vädersidan
+    const pct = num(f.probability) > 0 ? `${num(f.probability)}% CHANCE` : 'CHANCE';
+    const kind = ch === 'PROB' || prob ? pct : ch === 'TEMPO' ? 'TEMPORARY' : ch === 'BECMG' ? 'BECOMING' : ch === 'FM' ? 'FROM' : ch;
     const bec = num(f.timeBec);
     const time = temp ? `${from <= now ? 'Now' : fmt(from)}–${fmt(to)}`
       : ch === 'BECMG' && bec > from ? (from <= now ? `By ${fmt(bec)}` : `${fmt(from)}–${fmt(bec)}`)

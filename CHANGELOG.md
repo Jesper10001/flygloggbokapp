@@ -44,6 +44,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Väderkortet på kartan: TAF-typerna utskrivna (FROM, BECOMING, TEMPORARY, 40% CHANCE; kolumnen 70 pt); zonen med vedertaget namn och sommartid via tzAbbr (PST/PDT, CET/CEST, AEDT …), UTC±N där namn saknas; "Valid …" tar sista tidsetiketten (var tom vid 4 etiketter).
 - Global map → Fly to: AirportNavPanel har Weather (MapWxPanel, tidszon via land/region) och AD info (AirportInfoPanel) över kartrutan som Find airport, kartan 345 pt, flygplatskortets väderrad dold (hideWxRow); popupens Pressable → View så AD info-kortet rullar fritt.
 - Väderkortet på kartan: när METAR kommer från en annan flygplats står dess ICAO-kod i liten text under kategoribrickan (i stället för i METAR-raden).
 - Väderkortet på kartan: växel UTC / GMT±N (flygplatsens zon via utils/timezone localOffsetMinutes: land, region för länder med flera zoner, sommartid) för METAR-tid, TAF-etiketter och ändringsrader (tafTicks/tafChanges tar ett tidsformat); åldern ("36 min ago") borttagen, METAR-tiden färgas fortfarande orange/röd när den är gammal.
