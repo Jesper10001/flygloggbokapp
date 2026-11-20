@@ -168,8 +168,9 @@ export function MapWxPanel({ icao, height, onMap, country, region, lon }: {
             )}
             {t && !expired && (rows.length ? rows.map((r, i) => (
               <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+                {/* Typen först, sedan tiden: läses som "BECOMING 06z–08z" */}
+                <Text style={{ width: 70, fontFamily: FONT_MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 0.6, color: Colors.gold }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{r.kind}</Text>
                 <Text style={{ width: 56, fontFamily: FONT_MONO, fontSize: 11, fontWeight: '700', color: '#fff' }}>{r.time}</Text>
-                <Text style={{ width: 70, fontFamily: FONT_MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 0.6, color: Colors.gold }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{r.kind}</Text>
                 <Text numberOfLines={2} style={{ flex: 1, fontSize: 12, lineHeight: 16, color: '#fff' }}>{r.text}</Text>
                 {r.cat && <Pill cat={r.cat} outline />}
               </View>
