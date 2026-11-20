@@ -1,0 +1,152 @@
+[
+ {
+  "operator": "KP",
+  "base": "Toksan (Koksan)",
+  "icao": "",
+  "location": "KP",
+  "region": "",
+  "command": "KPAAF",
+  "units": [
+   "56th Air Regiment (Fighter)"
+  ],
+  "aircraft": [
+   "MiG-21PF",
+   "J-7/F-7"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People%27s_Army_Air_Force"
+  ],
+  "note": "Dated Wikipedia list of KPAAF airfields; current status unverified."
+ },
+ {
+  "operator": "KP",
+  "base": "Sondok",
+  "icao": "",
+  "location": "KP",
+  "region": "",
+  "command": "KPAAF",
+  "units": [
+   "Air Regiment (Transport)"
+  ],
+  "aircraft": [
+   "Y-5",
+   "An-2"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People%27s_Army_Air_Force"
+  ],
+  "note": "Dated Wikipedia list of KPAAF airfields; current status unverified."
+ },
+ {
+  "operator": "KP",
+  "base": "Riwon",
+  "icao": "",
+  "location": "KP",
+  "region": "",
+  "command": "KPAAF",
+  "units": [],
+  "aircraft": [
+   "MiG-15UTI",
+   "MiG-15"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People%27s_Army_Air_Force"
+  ],
+  "note": "Dated Wikipedia list of KPAAF airfields; current status unverified. Riwon north airfield; no regiment stated."
+ },
+ {
+  "operator": "KP",
+  "base": "Sonchon",
+  "icao": "",
+  "location": "KP",
+  "region": "",
+  "command": "KPAAF",
+  "units": [
+   "Air Regiment (Helicopter)"
+  ],
+  "aircraft": [
+   "Mi-2"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People%27s_Army_Air_Force"
+  ],
+  "note": "Dated Wikipedia list of KPAAF airfields; current status unverified."
+ },
+ {
+  "operator": "KP",
+  "base": "Samiyon (Samjiyon)",
+  "icao": "",
+  "location": "KP",
+  "region": "",
+  "command": "KPAAF",
+  "units": [
+   "Training Regiment"
+  ],
+  "aircraft": [
+   "F-5A"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People%27s_Army_Air_Force"
+  ],
+  "note": "Dated Wikipedia list of KPAAF airfields; current status unverified."
+ },
+ {
+  "operator": "KP",
+  "base": "Sungam",
+  "icao": "",
+  "location": "KP",
+  "region": "",
+  "command": "KPAAF",
+  "units": [
+   "Air Transport Wing"
+  ],
+  "aircraft": [
+   "Y-5",
+   "An-2"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People%27s_Army_Air_Force"
+  ],
+  "note": "Dated Wikipedia list of KPAAF airfields; current status unverified."
+ },
+ {
+  "operator": "KP",
+  "base": "Yonpo",
+  "icao": "",
+  "location": "KP",
+  "region": "",
+  "command": "KPAAF",
+  "units": [
+   "Air Regiment (Transport)"
+  ],
+  "aircraft": [
+   "Y-5",
+   "An-2"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Korean_People%27s_Army_Air_Force"
+  ],
+  "note": "Dated Wikipedia list of KPAAF airfields; current status unverified."
+ }
+]

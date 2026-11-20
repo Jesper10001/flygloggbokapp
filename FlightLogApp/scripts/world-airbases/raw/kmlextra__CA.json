@@ -1,0 +1,87 @@
+[
+ {
+  "operator": "CA",
+  "base": "CFB Saint-Hubert",
+  "icao": "CYHU",
+  "location": "CA",
+  "region": "Quebec",
+  "command": "1 Canadian Air Division / 1 Wing",
+  "units": [
+   "438 Tactical Helicopter Squadron"
+  ],
+  "aircraft": [
+   "CH-146 Griffon"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/438_Tactical_Helicopter_Squadron"
+  ],
+  "note": ""
+ },
+ {
+  "operator": "CA",
+  "base": "Ottawa Macdonald-Cartier International Airport",
+  "icao": "CYOW",
+  "location": "CA",
+  "region": "Ontario",
+  "command": "",
+  "units": [
+   "412 Transport Squadron"
+  ],
+  "aircraft": [],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Ottawa_Macdonald%E2%80%93Cartier_International_Airport"
+  ],
+  "note": "Aircraft types not named on the fetched page."
+ },
+ {
+  "operator": "CA",
+  "base": "Victoria International Airport (Patricia Bay)",
+  "icao": "CYYJ",
+  "location": "CA",
+  "region": "British Columbia",
+  "command": "",
+  "units": [
+   "443 Maritime Helicopter Squadron"
+  ],
+  "aircraft": [
+   "CH-148 Cyclone"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Victoria_International_Airport"
+  ],
+  "note": "Page says Sea King originally; Cyclone from 2022."
+ },
+ {
+  "operator": "CA",
+  "base": "Southport Aerospace Centre (Portage la Prairie)",
+  "icao": "",
+  "location": "CA",
+  "region": "Manitoba",
+  "command": "15 Wing Moose Jaw",
+  "units": [
+   "3 Canadian Forces Flying Training School"
+  ],
+  "aircraft": [
+   "Grob G 120A",
+   "Bell CH-139 Jet Ranger",
+   "Bell 412",
+   "Beechcraft King Air C-90B"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Southport_Aerospace_Centre"
+  ],
+  "note": "Contract ran to 2025; type list per page last edited Oct 2024, may be dated."
+ }
+]

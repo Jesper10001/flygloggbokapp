@@ -1,0 +1,26 @@
+[
+ {
+  "operator": "GB",
+  "base": "RAF Mount Pleasant",
+  "icao": "EGYP",
+  "location": "FK",
+  "region": "Falkland Islands",
+  "command": "No. 905 Expeditionary Air Wing",
+  "units": [
+   "No. 1435 Flight",
+   "No. 1312 Flight"
+  ],
+  "aircraft": [
+   "Eurofighter Typhoon",
+   "Voyager KC2",
+   "A400M Atlas C1"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/RAF_Mount_Pleasant"
+  ],
+  "note": "Civil contractor SAR helicopters (S-92, AW189) also operate."
+ }
+]

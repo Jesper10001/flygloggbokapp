@@ -1,6 +1,7 @@
 JP RJSH JMSDF Hachinohe Air Base / Hachinohe Airport: «Hachinohe Air Base» + «Hachinohe»
 JP RJOF JASDF Hofu Airfield: «Hōfu Air Field» + «Hofu»
 JP RJOS Tokushima Awaodori Airport / JMSDF Tokushima Air Base: «Tokushima» + «Kita-Tokushima»
+KP KP-0025 Toksan Air Base: «Toksan Air Base» + «Toksan (Koksan)»
 MX MMLP Manuel Márquez de León International Airport: «La Paz Air Force Base (AFB 9)» + «La Paz Naval Air Base»
 MX MX-2145 Base Aeronaval Acapulco: «Acapulco Air Force Base (AFB 7)» + «Acapulco Naval Air Base»
 MX MX-2122 Mexico City Air Base: «Mexico City Air Force Base (AFB 19)» + «Mexico City Naval Air Station»
@@ -38,13 +39,11 @@ US KEGI Duke Field: «Duke Field» + «Duke Field»
 US KLSV Nellis Air Force Base: «Nellis Air Force Base» + «Nellis AFB»
 US KLUF Luke Air Force Base: «Luke Air Force Base» + «Luke AFB»
 US KGRF Gray Army Air Field: «Joint Base Lewis-McChord (JBLM)» + «Gray Army Airfield»
-US KNBG New Orleans NAS JRB/Alvin Callender Field: «NAS JRB New Orleans» + «Coast Guard Air Station New Orleans»
-US KNTD Point Mugu Naval Air Station (Naval Base Ventura Co): «Channel Islands ANGS (Point Mugu)» + «Coast Guard Air Station Ventura County»
 US KNTD Point Mugu Naval Air Station (Naval Base Ventura Co): «Channel Islands ANGS (Point Mugu)» + «Naval Base Ventura County, Point Mugu»
-US KNIP Jacksonville Naval Air Station (Towers Field): «Jacksonville ANGB» + «Naval Air Station Jacksonville»
+US KNZY North Island Naval Air Station-Halsey Field: «Coast Guard Air Station San Diego» + «Naval Air Station North Island»
 US KNBG New Orleans NAS JRB/Alvin Callender Field: «NAS JRB New Orleans» + «Naval Air Station Joint Reserve Base New Orleans (Belle Chasse)»
 US KADW Joint Base Andrews: «Joint Base Andrews» + «Joint Base Andrews»
-US  : «Joint Base McGuire-Dix-Lakehurst» + «Joint Base McGuire-Dix-Lakehurst»
+US KWRI Mc Guire Air Force Base: «Joint Base McGuire-Dix-Lakehurst» + «Joint Base McGuire-Dix-Lakehurst»
 US KNFW NAS Fort Worth JRB / Carswell Field: «NAS JRB Fort Worth» + «Naval Air Station Joint Reserve Base Fort Worth (Carswell Field)»
 US PGUA Andersen Air Force Base: «Andersen Air Force Base» + «Andersen Air Force Base»
 US KNGP Naval Air Station Corpus Christi Truax Field: «Coast Guard Air Station Corpus Christi» + «Naval Air Station Corpus Christi»

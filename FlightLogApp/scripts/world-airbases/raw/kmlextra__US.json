@@ -1,0 +1,25 @@
+[
+ {
+  "operator": "US",
+  "base": "Will Rogers Air National Guard Base",
+  "icao": "KOKC",
+  "location": "US",
+  "region": "Oklahoma",
+  "command": "Oklahoma Air National Guard / Air Force Special Operations Command",
+  "units": [
+   "137th Special Operations Wing",
+   "17th Special Operations Squadron"
+  ],
+  "aircraft": [
+   "OA-1K Skyraider II",
+   "MC-12 Liberty"
+  ],
+  "sources": [
+   "Wikipedia"
+  ],
+  "urls": [
+   "https://en.wikipedia.org/wiki/Will_Rogers_Air_National_Guard_Base"
+  ],
+  "note": "Shares Will Rogers World Airport; MC-12 per page for post-2015, OA-1K training unit from 2024."
+ }
+]

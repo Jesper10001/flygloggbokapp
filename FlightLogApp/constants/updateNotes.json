@@ -2,6 +2,14 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 203,
+      "date": "2026-11-20",
+      "notes": [
+        "Fixed: Several US Air National Guard and Coast Guard bases on the Global map now sit at the right airport.",
+        "Improved: More military air bases in Canada, North Korea, Russia, the Falkland Islands and the US."
+      ]
+    },
+    {
       "id": 202,
       "date": "2026-11-20",
       "notes": [

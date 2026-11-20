@@ -23,7 +23,7 @@ for r in oa:
 GENERIC = set('''air base force station naval navy field airfield army marine marines corps afb nas mcas ab raf
 international airport aeroport aeropuerto aeroporto camp fort joint the of de la del do da di du des le les
 military aviation aerodrome aerodromo base aerea aerienne aereo heliport national guard reserve facility
-center centre jrb ars ang nab naf cfb angb angs arb iap ars sfb jbsa group regiments regiment'''.split())
+center centre jrb ars ang nab naf cfb angb angs arb iap ars sfb jbsa group regiments regiment coast aerospace'''.split())
 MIL = re.compile(r'\b(air ?base|afb|ab|air force|military|naval|nas|mcas|army|aaf|cfb|base aerea|base aerienne|air station|airbase|jasdf|jmsdf|jgsdf)\b')
 
 def norm(s):
@@ -66,7 +66,17 @@ def code_ok(row, o):
     words = oa_text(o).split()
     return any(fuzzy_in(w, words, row.get('location') in EXACT) for v in variants(row) for w in toks(v))
 
+# Värdflygplats för baser som namnmatchningen inte hittar, bekräftad av en oberoende källa (KML-filen med militärbaser
+# 2026-11-20: dess punkt ligger 0–1,3 km från flygplatsen) — bara placering, inga förband/typer därifrån.
+OVERRIDES = {'Stratton ANGB': 'KSCH', 'Kingsley Field ANGB': 'KLMT', 'Joint Base McGuire-Dix-Lakehurst': 'KWRI',
+             'McEntire JNGB': 'KMMT', 'Chanjin Air Base': 'KP-0036'}
+by_ident = {r['ident']: r for r in oa}
+
+CIVIL_HOSTED = re.compile(r'\b(ANGB|ANGS|ANG|ARS|IAP|Air National Guard|Air Guard|Coast Guard)\b', re.I)
+
 def match(row):
+    if row.get('base') in OVERRIDES and OVERRIDES[row['base']] in by_ident:
+        return by_ident[OVERRIDES[row['base']]], 'värdflygplats (bekräftad)'
     code = (row.get('icao') or '').strip().upper()
     if code and code in by_code and code_ok(row, by_code[code]):
         return by_code[code], 'kod'
@@ -77,6 +87,27 @@ def match(row):
         cands = [r for r in cands if r.get('iso_region') == f'US-{st}'] or cands
     # 1) Alla särskiljande ord i flygplatsens NAMN; 2) i namn + ort + nyckelord. Varje steg prövar huvudnamnet och
     #    parentesen. Militär flygplats vinner vid lika, sedan större flygplats.
+    if CIVIL_HOSTED.search(row.get('base') or ''):
+        # Stadens flygplats: alla ord i namn/ort/nyckelord; orten stämmer helst, sedan störst (Memphis = "Frederick W. Smith
+        # International", Fargo = "Hector International", Battle Creek = Kellogg Field, inte Kalamazoo/Battle Creek)
+        rank = {'large_airport': 3, 'medium_airport': 2, 'small_airport': 1}
+        for v in variants(row):
+            want = toks(v)
+            if not want:
+                continue
+            hits = [r for r in cands if all(fuzzy_in(w, oa_text(r).split(), exact) for w in want)]
+            if re.search(r'coast guard', row.get('base') or '', re.I):
+                # Kustbevakningen: bara en flygplats som heter något med "air station" (inte radiostationen i Miami
+                # eller sjukhusplattan i San Diego); annars hellre ingen plats
+                hits = [r for r in hits if 'air station' in norm(r['name'])]
+            if hits:
+                # Ordning: storleken (gardet/kustbevakningen sitter på stadens stora flygplats — Memphis = KMEM, inte
+                # Millington eller polisens helikopterplatta), sedan namnet (Hancock Field → Syracuse Hancock Intl, inte
+                # orten Hancock), sedan orten (Battle Creek = Kellogg Field). Parentesen (värdstaden) får också avgöra.
+                in_name = lambda r: all(fuzzy_in(w, norm(r['name']).split(), exact) for w in want)
+                city = lambda r: all(f' {w} ' in ' ' + norm(r.get('municipality', '')) + ' ' for w in want)
+                return max(hits, key=lambda r: (rank.get(r['type'], 0), in_name(r), city(r), -len(oa_text(r)))), 'namn+ort (stadens flygplats)'
+        return None, ''   # ingen gissning via reservregeln för gardet/kustbevakningen
     for how, text_of in (('namn', lambda r: norm(r['name']).split()), ('namn+ort', lambda r: oa_text(r).split())):
         for vi, v in enumerate(variants(row)):   # huvudnamnet först; en parentes (ofta en ort) bara om träffen är entydig
             want = toks(v)
@@ -86,6 +117,10 @@ def match(row):
             if vi > 0 and len(hits) != 1:
                 continue
             if hits:
+                # Nationalgardet, reserven och kustbevakningen sitter oftast på stadens stora civila flygplats → där vinner
+                # flygplatsens storlek; annars vinner en militär flygplats (KML-jämförelsen 2026-11-20: Memphis, Tulsa m.fl.)
+                if CIVIL_HOSTED.search(row.get('base') or ''):
+                    continue   # avgörs nedan på ort + storlek
                 return max(hits, key=lambda r: (bool(MIL.search(norm(r['name']))), r['type'] in ('large_airport', 'medium_airport'), -len(text_of(r)))), how
     # 3) Reserv, bara huvudnamnet: dess längsta ord (vid lika längd det sista — "Stad Flygfält") står i NAMNET på en
     #    militär flygplats, och bara en sådan finns i landet
