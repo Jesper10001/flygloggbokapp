@@ -17,11 +17,24 @@ async function withTimeout<T>(ms: number, fn: (signal: AbortSignal) => Promise<T
   try { return await fn(ctrl.signal); } finally { clearTimeout(t); }
 }
 
-export async function fetchNotams(icao: string): Promise<NotamResult> {
+// Hämtade NOTAM sparas i minnet en timme per flygplats: att stänga och öppna AD info hämtar inte om,
+// bara ↻ i NOTAM-raden (force) gör det. (Proxyn har dessutom en delad 15-minuterscache mot LFV.)
+const NOTAM_TTL_MS = 60 * 60 * 1000;
+const notamCache = new Map<string, { at: number; r: NotamResult }>();
+export function cachedNotams(icao: string): NotamResult | null {
+  const c = notamCache.get(icao);
+  return c && Date.now() - c.at < NOTAM_TTL_MS ? c.r : null;
+}
+
+export async function fetchNotams(icao: string, force = false): Promise<NotamResult> {
+  const hit = !force && cachedNotams(icao);
+  if (hit) return hit;
   if (!PROXY_URL) throw new Error('notam_unavailable');
   const res = await withTimeout(30000, (signal) => fetch(`${PROXY_URL}/notam?icao=${encodeURIComponent(icao)}`, { headers: { 'Cache-Control': 'no-cache' }, signal }));
   if (!res.ok) throw new Error('notam_unavailable');
-  return res.json();
+  const r = (await res.json()) as NotamResult;
+  notamCache.set(icao, { at: Date.now(), r });
+  return r;
 }
 
 export class RefreshError extends Error { constructor(public code: string) { super(code); } }

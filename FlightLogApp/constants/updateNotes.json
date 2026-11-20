@@ -2,6 +2,15 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 215,
+      "date": "2026-11-20",
+      "notes": [
+        "Improved: NOTAMs load by themselves when you open AD info, and are kept for an hour.",
+        "Improved: Snow reports (SNOWTAM) are written out per runway: surface, coverage and braking action.",
+        "Improved: The AD info card on the Global map is as see-through as the airport card, with simple white arrows."
+      ]
+    },
+    {
       "id": 214,
       "date": "2026-11-20",
       "notes": [

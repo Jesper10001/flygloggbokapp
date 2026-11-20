@@ -4,14 +4,14 @@
 // "Fetch NOTAMs" hämtar LFV:s PIB (gratis) och öppettids-NOTAM blir veckorader (UTC/Local), övriga NOTAM i
 // klartext med originalet ett tryck bort (utils/notamDecode.ts, regelbaserat). ⓘ = källor, ↻ = hämta om (3 coins).
 // Ligger över kartornas Modal → inga native Alert/Modal här, allt visas inline.
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Linking, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../constants/colors';
 import { useAirportInfoStore, type InfoRec } from '../store/airportInfoStore';
-import { fetchNotams, refreshAirportInfo, RefreshError, type NotamResult, type Notam } from '../services/airportInfo';
-import { parseHoursNotam, decodeNotamText, seOffsetHours, shiftHHMM, type HoursNotam } from '../utils/notamDecode';
+import { fetchNotams, cachedNotams, refreshAirportInfo, RefreshError, type NotamResult, type Notam } from '../services/airportInfo';
+import { parseHoursNotam, parseSnowtam, decodeNotamText, seOffsetHours, shiftHHMM, type HoursNotam } from '../utils/notamDecode';
 
 const MONO = 'JetBrainsMono';
 const GOLD = '#FFB830';
@@ -61,20 +61,25 @@ const shortLabel = (l: string) => l.replace(/\s*\(.*$/, '').trim();
 type NotamState = { s: 'idle' } | { s: 'loading' } | { s: 'error' } | { s: 'ok'; r: NotamResult; all: boolean };
 type RefreshState = 'closed' | 'confirm' | 'working' | { done: string } | { err: string };
 type Cell = 'ppr' | 'fuel' | 'fees';
-type Item = { key: string; text: string; orig: string; when: string };
+type Item = { key: string; text: string; orig: string; when: string; lines?: { rwy: string; line: string }[] };
 
-export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHeight, height, onMap }: {
+export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHeight, height, onMap, solid = false }: {
   info: InfoRec;
   infoKey: string;      // flygplatsens nyckel (ICAO för svenska fält) — för NOTAM och ↻
   accent?: string;
   maxHeight?: number;   // global map: kortet växer till max denna höjd, sedan rullar det
   height?: number;      // Find airport: exakt kartrutans höjd
   onMap?: () => void;   // Find airport: "Map" tar tillbaka kartan
+  solid?: boolean;      // tät bakgrund som flygplatskortet i Find airport; på kartan samma 80 % som flygplatskortet
 }) {
   const saveLocal = useAirportInfoStore((st) => st.saveLocal);
   const [srcOpen, setSrcOpen] = useState(false);
   const [sel, setSel] = useState<Cell | null>(null);
-  const [notam, setNotam] = useState<NotamState>({ s: 'idle' });
+  // NOTAM hämtas automatiskt när AD info öppnas; inom en timme visas det sparade (↻ i NOTAM-raden hämtar nytt)
+  const [notam, setNotam] = useState<NotamState>(() => {
+    const c = cachedNotams(infoKey);
+    return c ? { s: 'ok', r: c, all: false } : { s: 'loading' };
+  });
   const [refresh, setRefresh] = useState<RefreshState>('closed');
   const [local, setLocal] = useState(false);
   const [origOpen, setOrigOpen] = useState<Record<string, boolean>>({});
@@ -82,10 +87,17 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
   const swedish = /^ES[A-Z]{2}$/.test(infoKey);
   const fees = info.fees?.landing ? { ...info.fees, parking: info.fees.parking?.replace(/^parking:?\s*/i, '') } : null;
 
-  const loadNotams = async () => {
+  const loadNotams = async (force = false) => {
     setNotam({ s: 'loading' });
-    try { setNotam({ s: 'ok', r: await fetchNotams(infoKey), all: false }); } catch { setNotam({ s: 'error' }); }
+    try { setNotam({ s: 'ok', r: await fetchNotams(infoKey, force), all: false }); } catch { setNotam({ s: 'error' }); }
   };
+  useEffect(() => {
+    if (!/^ES[A-Z]{2}$/.test(infoKey)) return;
+    const c = cachedNotams(infoKey);
+    if (c) setNotam({ s: 'ok', r: c, all: false });
+    else loadNotams();
+    setOrigOpen({});
+  }, [infoKey]);   // eslint-disable-line react-hooks/exhaustive-deps
   const doRefresh = async () => {
     setRefresh('working');
     try {
@@ -99,13 +111,18 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
   };
 
   // ── NOTAM: öppettider → veckorader, resten i klartext ──
-  const hours: (HoursNotam & { when: string; at: Date })[] = [];
+  const hours: (HoursNotam & { when: string; at: Date; orig: string })[] = [];
   const items: Item[] = [];
   if (notam.s === 'ok') {
-    if (notam.r.snowtam) items.push({ key: 'snow', text: 'Runway condition report (SNOWTAM).', orig: notam.r.snowtam.text, when: `Issued ${dayMon(notam.r.snowtam.issued)} ${notam.r.snowtam.issued.slice(-5)}Z` });
+    if (notam.r.snowtam) {
+      const st = parseSnowtam(notam.r.snowtam.text);
+      items.push(st
+        ? { key: 'snow', text: st.remarks ? `Runway conditions. ${st.remarks}` : 'Runway conditions.', lines: st.runways, orig: notam.r.snowtam.text, when: `Observed ${st.observed}` }
+        : { key: 'snow', text: 'Runway condition report (SNOWTAM).', orig: notam.r.snowtam.text, when: `Issued ${dayMon(notam.r.snowtam.issued)} ${notam.r.snowtam.issued.slice(-5)}Z` });
+    }
     notam.r.notams.forEach((n, i) => {
       const h = parseHoursNotam(n.text);
-      if (h) hours.push({ ...h, when: validity(n), at: pibDate(n.from) ?? new Date() });
+      if (h) hours.push({ ...h, when: validity(n), at: pibDate(n.from) ?? new Date(), orig: n.text });
       else items.push({ key: `n${i}`, text: decodeNotamText(n.text), orig: n.text + (n.sched ? `  SCHEDULE: ${n.sched}` : ''), when: validity(n) + (n.sched ? ` · ${n.sched}` : '') });
     });
   }
@@ -129,13 +146,22 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
     <TouchableOpacity onPress={onPress} hitSlop={6} accessibilityRole="button" accessibilityLabel={a11y}
       style={[s.round, { borderColor: accent + '73' }, on && { backgroundColor: accent + '2E' }]}>{child}</TouchableOpacity>
   );
+  const origToggle = (key: string, orig: string, label = 'Original NOTAM') => (
+    <>
+      <TouchableOpacity onPress={() => setOrigOpen((o) => ({ ...o, [key]: !o[key] }))} hitSlop={6} accessibilityRole="button"
+        accessibilityState={{ expanded: !!origOpen[key] }} style={{ alignSelf: 'flex-start' }}>
+        <Text style={{ color: accent, fontSize: 11.5, fontWeight: '700' }}>{origOpen[key] ? 'Hide original' : label}</Text>
+      </TouchableOpacity>
+      {origOpen[key] && <Text style={s.orig}>{orig}</Text>}
+    </>
+  );
   const link = (label: string, onPress: () => void) => (
     <TouchableOpacity onPress={onPress} hitSlop={8} accessibilityRole="link"><Text style={[s.link, { color: accent }]}>{label}</Text></TouchableOpacity>
   );
 
   return (
     <View style={[s.card, { borderColor: accent + '55' }, height ? { height } : maxHeight ? { maxHeight } : null]}>
-      <LinearGradient colors={['rgba(18,48,74,0.97)', 'rgba(15,30,58,0.97)']} locations={[0, 0.55]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={solid ? ['rgba(18,48,74,0.97)', 'rgba(15,30,58,0.97)'] : ['rgba(18,48,74,0.8)', 'rgba(15,30,58,0.8)']} locations={[0, 0.55]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
       <View style={[s.head, { borderBottomColor: line }]}>
         <Text style={[s.headTxt, { color: accent }]} numberOfLines={1}>AIRPORT INFO</Text>
         {!!info.v && <Text style={s.verified} numberOfLines={1}>Verified {shortDate(info.v)}</Text>}
@@ -190,7 +216,7 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
                 style={[s.cell, i > 0 && { borderLeftWidth: 1, borderLeftColor: line }, on && s.cellOn]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                   <Text style={s.label}>{c.label}</Text>
-                  {can && <Ionicons name={on ? 'chevron-up-circle' : 'chevron-down-circle'} size={17} color={on ? GOLD : accent} />}
+                  {can && <Ionicons name={on ? 'chevron-up' : 'chevron-down'} size={17} color={WHITE} />}
                 </View>
                 <Text style={s.cellVal} numberOfLines={1}>{c.value}</Text>
               </TouchableOpacity>
@@ -232,14 +258,13 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
             <View style={s.notamHead}>
               <Text style={s.label}>NOTAM</Text>
               <Text style={[s.sub, { flex: 1 }]} numberOfLines={1}>
-                {notam.s === 'ok' ? `LFV PIB · ${zTime(notam.r.issued)}` : notam.s === 'error' ? 'Could not reach the LFV bulletin' : 'Free · official LFV bulletin'}
+                {notam.s === 'ok' ? `LFV PIB · ${zTime(notam.r.issued)}` : notam.s === 'error' ? 'Could not reach the LFV bulletin' : 'Official LFV bulletin'}
               </Text>
-              {(notam.s === 'idle' || notam.s === 'error') && (
-                <TouchableOpacity onPress={loadNotams} activeOpacity={0.8} style={[s.fetchBtn, { borderColor: accent + '99', backgroundColor: accent + '24' }]} accessibilityRole="button">
-                  <Text style={[s.fetchTxt, { color: accent }]}>{notam.s === 'error' ? 'Try again' : 'Fetch NOTAMs'}</Text>
+              {notam.s === 'error' && (
+                <TouchableOpacity onPress={() => loadNotams(true)} activeOpacity={0.8} style={[s.fetchBtn, { borderColor: accent + '99', backgroundColor: accent + '24' }]} accessibilityRole="button">
+                  <Text style={[s.fetchTxt, { color: accent }]}>Try again</Text>
                 </TouchableOpacity>
               )}
-              {notam.s === 'loading' && <ActivityIndicator size="small" color={accent} />}
               {notam.s === 'ok' && hours.length > 0 && (
                 <View style={[s.seg, { borderColor: accent + '73' }]} accessibilityRole="radiogroup">
                   {(['UTC', 'Local'] as const).map((z) => {
@@ -253,8 +278,20 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
                   })}
                 </View>
               )}
+              {notam.s === 'ok' && (
+                <TouchableOpacity onPress={() => loadNotams(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Load the latest NOTAM"
+                  style={[s.round, { width: 28, height: 28, borderColor: accent + '73' }]}>
+                  <Ionicons name="refresh" size={13} color={WHITE} />
+                </TouchableOpacity>
+              )}
             </View>
 
+            {notam.s === 'loading' && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 }}>
+                <ActivityIndicator size="small" color={accent} />
+                <Text style={s.value}>Loading current NOTAM…</Text>
+              </View>
+            )}
             {notam.s === 'ok' && !notam.r.covered && (
               <Text style={s.sub}>This aerodrome is not in LFV's VFR bulletin. Check NOTAM with the aerodrome or in the AIS.</Text>
             )}
@@ -263,8 +300,9 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
               return (
                 <View key={i} style={{ gap: 4 }}>
                   <Text style={s.hoursTitle}>{h.title} <Text style={{ color: DIM, fontWeight: '500' }}>· {h.when}</Text></Text>
+                  {h.grid ? (
                   <View style={{ flexDirection: 'row', gap: 3 }}>
-                    {h.days.map((d) => (
+                    {h.grid.map((d) => (
                       <View key={d.d} style={[s.day, d.closed ? s.dayClosed : s.dayOpen]}>
                         <Text style={s.dayName}>{d.d}</Text>
                         <Text style={s.dayHours}>
@@ -276,6 +314,20 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
                       </View>
                     ))}
                   </View>
+                  ) : (
+                    <View style={s.rows}>
+                      {h.rows.map((r) => (
+                        <View key={r.label} style={s.hRow}>
+                          <Text style={s.hLabel}>{r.label}</Text>
+                          <Text style={[s.hTimes, r.closed && { color: DIM }]}>
+                            {r.closed ? 'Closed' : r.h24 ? 'H24' : r.iv.map((x) => `${shiftHHMM(x.slice(0, 4), off)}–${shiftHHMM(x.slice(5, 9), off)}`).join('  ·  ')}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                  {!!h.note && <Text style={s.sub}>{h.note}</Text>}
+                  {origToggle(`h${i}`, h.orig)}
                 </View>
               );
             })}
@@ -284,12 +336,21 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
               <View key={n.key} style={{ flexDirection: 'row', gap: 8 }}>
                 <View style={s.dot} />
                 <View style={{ flex: 1, gap: 3 }}>
-                  <Text style={s.value}>{n.text} <Text style={{ color: DIM }}>{n.when}</Text></Text>
-                  <TouchableOpacity onPress={() => setOrigOpen((o) => ({ ...o, [n.key]: !o[n.key] }))} hitSlop={6} accessibilityRole="button"
-                    accessibilityState={{ expanded: !!origOpen[n.key] }} style={{ alignSelf: 'flex-start' }}>
-                    <Text style={{ color: accent, fontSize: 11.5, fontWeight: '700' }}>{origOpen[n.key] ? 'Hide original' : 'Original NOTAM'}</Text>
-                  </TouchableOpacity>
-                  {origOpen[n.key] && <Text style={s.orig}>{n.orig}</Text>}
+                  {n.lines ? (
+                    <>
+                      <Text style={s.value}>Runway conditions <Text style={{ color: DIM }}>{n.when}</Text></Text>
+                      {n.lines.map((l) => (
+                        <View key={l.rwy} style={s.hRow}>
+                          <Text style={s.hLabel}>RWY {l.rwy}</Text>
+                          <Text style={[s.value, { flex: 1 }]}>{l.line}</Text>
+                        </View>
+                      ))}
+                      {n.text !== 'Runway conditions.' && <Text style={s.sub}>{n.text.replace(/^Runway conditions\. /, '')}</Text>}
+                    </>
+                  ) : (
+                    <Text style={s.value}>{n.text} <Text style={{ color: DIM }}>{n.when}</Text></Text>
+                  )}
+                  {origToggle(n.key, n.orig, n.lines ? 'Original SNOWTAM' : 'Original NOTAM')}
                 </View>
               </View>
             ))}
@@ -340,6 +401,10 @@ const s = StyleSheet.create({
   segBtn: { height: 26, paddingHorizontal: 10, justifyContent: 'center' },
   segTxt: { fontSize: 11, fontWeight: '800' },
   hoursTitle: { color: WHITE, fontSize: 11, fontWeight: '700' },
+  rows: { gap: 4, paddingVertical: 2 },
+  hRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  hLabel: { width: 62, color: GOLD, fontSize: 11, fontWeight: '700', paddingTop: 1 },
+  hTimes: { flex: 1, color: WHITE, fontFamily: MONO, fontSize: 11.5, lineHeight: 16 },
   day: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: 4, borderRadius: 6, borderWidth: 1 },
   dayOpen: { backgroundColor: 'rgba(45,212,163,0.10)', borderColor: 'rgba(45,212,163,0.35)' },
   dayClosed: { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)' },
