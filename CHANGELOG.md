@@ -35,6 +35,8 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Dolda Specific-rutan tog inte emot 5-sekunderstrycket: iOS skickar inga tryck till en vy med opacity 0. Nu är rutans ram/bakgrund genomskinliga och bara innehållet osynligt.
+
 - Air Bases → Specific är DOLD: rutan i Air Bases-panelen är osynlig men ligger kvar (Pressable med opacity 0, dold för VoiceOver); håll 5 s → lösenordsruta inne i kartvyn ("Nerd", skiftlägesokänsligt) → Specific-sidan. Upplåst tills kartan stängs; när filtret är på syns rutan igen så att det går att stänga av. Specific nämns därför inte längre i What's New, och notis 204 är en sammanfattning (summary) som ersätter notiserna 197–203 (som nämnde Specific) för den som inte sett dem.
 
 - Flygbaser, jämförelse mot en KML-fil med militärbaser (användarens, 1 488 platser, 19 länder, utan källor, positioner opålitliga — Israel 5–78 km fel): bara använd som tips. Inte med enligt bedömning: Syriens flygvapen före 2024, Afghanistan, japanska radarstationer, radar/skjutfält/rymdbaser/hemliga testplatser, nedlagda brittiska baser. Kontrollerad sökning (källsidor + verify.py) på kandidaterna: 18 nya baser — Kanada 4 (Saint-Hubert, Ottawa, Victoria, Southport), RAF Mount Pleasant (Falklandsöarna), Nordkorea 7, Will Rogers ANGB, Ryssland 5 (Step, Vozdvizhenka, Khabarovsk Tsentralny, Privolzhskiy, Siversky — i världsdatan, användarens ryska fil orörd; Siversky/Yonpo utan plats då OurAirports har dem som nedlagda). Bortvalda av källorna: Ovda, Muñiz, Madagaskar, Kang Da Ri och 21 ryska (nedlagda/förråd/inga sidor).

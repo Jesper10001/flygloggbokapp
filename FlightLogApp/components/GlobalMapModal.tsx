@@ -1222,7 +1222,10 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                           importantForAccessibility={specificOn ? 'auto' : 'no-hide-descendants'}
                           accessibilityRole="button"
                           accessibilityLabel="Specific: military air bases by aircraft" accessibilityState={{ selected: specificOn }}
-                          style={[styles.groupOpt, { justifyContent: 'flex-start', borderColor: specificOn ? Colors.primary : Colors.primary + '73' }, specificOn && styles.propPillOn, !specificOn && { opacity: 0 }]}>
+                          style={[styles.groupOpt, { justifyContent: 'flex-start', borderColor: specificOn ? Colors.primary : Colors.primary + '73' }, specificOn && styles.propPillOn, !specificOn && { borderColor: 'transparent', backgroundColor: 'transparent' }]}>
+                          {/* Dolt läge: bara innehållet är osynligt. Själva rutan får INTE opacity 0 — iOS skickar inga tryck
+                              till en vy med alfa < 0,01, så 5-sekunderstrycket nådde den aldrig (2026-11-20). */}
+                          <View style={[{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }, !specificOn && { opacity: 0 }]}>
                           <View style={{ flexDirection: 'row' }}>
                             {(['fighter', 'bomber', 'heli'] as const).map((r, i) => (
                               <View key={r} style={{ width: 11, height: 11, borderRadius: 3.5, borderWidth: 1.5, borderColor: ROLES[r].color, backgroundColor: '#0F1A2E', marginLeft: i ? -4 : 0 }} />
@@ -1235,6 +1238,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                             </Text>
                           )}
                           <Ionicons name="chevron-forward" size={13} color={specificOn ? Colors.primary : '#fff'} />
+                          </View>
                         </Pressable>
                       )}
                     </View>
