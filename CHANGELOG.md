@@ -42,6 +42,8 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Info-knappen på global map och i Find airport heter "AD info" (aerodrome info).
+- Airport Info: Find airport-popupen var en Pressable (tom onPress) som tog beröringen före kortets rullista → nu View, fri rullning; större pilar (chevron-circle 17 pt) på PPR/FUEL/FEES; avgifterna saknades för den som redan hade dagens data (ETag = byggdatum utan tid → 304) → appen läser ny cachefil airport-info-2.json, build-info.mjs sätter built som tidsstämpel (gäller från nästa proxydeploy).
 - Airport Info kompakt design (artifact 8C5eHnfwFL5m7M5WKSqQZ7): rad PPR | FUEL | FEES (guld rubrik, vitt värde, FEES bara med avgifter), tryck fäller ut detaljer; AIP-öppettiderna visas inte längre. utils/notamDecode.ts (regelbaserat, test-notam-decode.cjs): öppettids-NOTAM → veckorad (alla 7 dagar entydiga, över midnatt slås ihop "0530 → 0115+1", flera pass/dag → vanlig NOTAM), UTC/Local (CET/CEST), övriga NOTAM med ICAO-förkortningar utskrivna + "Original NOTAM"; SNOWTAM som "Runway condition report" med originalet; kontaktknappar med korta etiketter.
 - Airport Info: kortet rullar igen i Find airport (ScrollView flexShrink: 1 inom fast höjd/maxhöjd); Verified-datumet på två rader så att AIRPORT INFO inte kortas.
 - Airport Info ↻ (proxy 2835eaff): ett telefonnummer per fält ("070… / 070…" → första), avgiftstexten självbeskrivande ("Landing 300 SEK"); kortet tar bort dubbelt "Parking".

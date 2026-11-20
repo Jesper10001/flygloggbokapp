@@ -188,7 +188,10 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
               <TouchableOpacity key={c.k} disabled={!can} onPress={() => setSel(on ? null : c.k)} activeOpacity={0.8}
                 accessibilityRole="button" accessibilityState={{ expanded: on, disabled: !can }} accessibilityLabel={`${c.label}: ${c.value}`}
                 style={[s.cell, i > 0 && { borderLeftWidth: 1, borderLeftColor: line }, on && s.cellOn]}>
-                <Text style={s.label}>{c.label}{can ? <Text style={{ color: '#6F89A6' }}>{on ? '  ▴' : '  ▾'}</Text> : null}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <Text style={s.label}>{c.label}</Text>
+                  {can && <Ionicons name={on ? 'chevron-up-circle' : 'chevron-down-circle'} size={17} color={on ? GOLD : accent} />}
+                </View>
                 <Text style={s.cellVal} numberOfLines={1}>{c.value}</Text>
               </TouchableOpacity>
             );

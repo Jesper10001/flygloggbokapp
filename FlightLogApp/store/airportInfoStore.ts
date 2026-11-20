@@ -19,7 +19,8 @@ export type InfoRec = {
 };
 
 const PROXY_URL = (process.env.EXPO_PUBLIC_PROXY_URL ?? '').replace(/\/+$/, '');
-const FILE = `${FileSystem.documentDirectory ?? ''}airport-info.json`;
+// -2: datan med avgifter fick samma ETag som den utan (byggdatum utan tid) → ny fil = hämtas om en gång
+const FILE = `${FileSystem.documentDirectory ?? ''}airport-info-2.json`;
 // Kort som användaren själv hämtat om (↻, 3 coins) sparas bara i telefonen och vinner över serverns
 // version så länge de är minst lika nya (fältet v).
 const LOCAL_FILE = `${FileSystem.documentDirectory ?? ''}airport-info-local.json`;

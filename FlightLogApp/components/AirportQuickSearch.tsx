@@ -448,7 +448,7 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
         {/* Bakgrunden stänger INTE (en zoomning som hamnar utanför rutan kastade ut en) — bara krysset. */}
         <View style={[styles.backdrop, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
           {selected && (
-            <Pressable onPress={() => {}} style={styles.popup}>
+            <View style={styles.popup}>{/* View, inte Pressable: en Pressable tar beröringen före Info-kortets rullista */}
               <AirportInfoCard
                 icao={selected.icao}
                 name={selected.name}
@@ -470,10 +470,10 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
                 <View>
                   <AirportRunwaySnippet icao={selected.icao} lat={selected.lat} lon={selected.lon} windDir={metar?.windDir ?? null} windSpeed={metar?.windSpeed ?? null} frozen={snippetFrozen} userLat={pos?.lat ?? null} userLon={pos?.lon ?? null} fitUser={closestMode} />
                   {info && (
-                    <TouchableOpacity onPress={() => setShowInfo(true)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Airport info"
+                    <TouchableOpacity onPress={() => setShowInfo(true)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Aerodrome info"
                       style={{ position: 'absolute', top: 10, right: 10, flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 14, borderRadius: 17, borderWidth: 1, borderColor: accent + '99', backgroundColor: 'rgba(10,22,40,0.92)' }}>
                       <Ionicons name="information-circle-outline" size={15} color={accent} />
-                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Info</Text>
+                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>AD info</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -489,7 +489,7 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
                 onPickAircraft={openFleetPicker}
                 trueNote={!!nav && nav.magBrg == null && locState === 'ready'}
               />
-            </Pressable>
+            </View>
           )}
         </View>
 

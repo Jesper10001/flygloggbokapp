@@ -980,10 +980,10 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                 </TouchableOpacity>
               </View>
               {!coordListOpen && focusInfo && (
-                <TouchableOpacity onPress={() => setInfoOpen((o) => !o)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Airport info"
+                <TouchableOpacity onPress={() => setInfoOpen((o) => !o)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Aerodrome info"
                   accessibilityState={{ selected: infoOpen }} style={[styles.infoBtn, infoOpen && { borderColor: Colors.primary, backgroundColor: Colors.primary + '38' }]}>
                   <Ionicons name="information-circle-outline" size={15} color={Colors.primary} />
-                  <Text style={styles.topBtnTxt}>Info</Text>
+                  <Text style={styles.topBtnTxt}>AD info</Text>
                 </TouchableOpacity>
               )}
               {coordListOpen && (
