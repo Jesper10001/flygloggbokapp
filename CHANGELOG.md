@@ -35,12 +35,14 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - New: Specific under Air Bases on the Global map shows military air bases outside NATO by aircraft type, with the units based there and where the information comes from.
 - New: Types under Specific lets you show only the bases with a certain aircraft, such as the Su-57, with a short description of each model.
 - Improved: Global map filters are simpler: Properties is one row per setting, Closed airports are under Access, and a Clear button resets all filters.
+- Improved: A compact Airport Info card: PPR, fuel and fees in one row, tap for details. Opening hours come from the NOTAMs, shown as a week in UTC or local time, and NOTAMs are written out in plain English.
 - New: Airport Info shows the latest NOTAMs for Swedish airfields from LFV's official bulletin, free. Landing and parking fees where the airfield publishes them.
 - New: Update an airfield's info from its official sources with the refresh button on the Info card (3 coins).
 - New: Airport Info for Swedish airfields: PPR, fuel, opening hours and contacts, from the AIP or the airfield's own website. Tap Info on the Global map or in Find airport.
 
 ### Alla ändringar
 
+- Airport Info kompakt design (artifact 8C5eHnfwFL5m7M5WKSqQZ7): rad PPR | FUEL | FEES (guld rubrik, vitt värde, FEES bara med avgifter), tryck fäller ut detaljer; AIP-öppettiderna visas inte längre. utils/notamDecode.ts (regelbaserat, test-notam-decode.cjs): öppettids-NOTAM → veckorad (alla 7 dagar entydiga, över midnatt slås ihop "0530 → 0115+1", flera pass/dag → vanlig NOTAM), UTC/Local (CET/CEST), övriga NOTAM med ICAO-förkortningar utskrivna + "Original NOTAM"; SNOWTAM som "Runway condition report" med originalet; kontaktknappar med korta etiketter.
 - Airport Info: kortet rullar igen i Find airport (ScrollView flexShrink: 1 inom fast höjd/maxhöjd); Verified-datumet på två rader så att AIRPORT INFO inte kortas.
 - Airport Info ↻ (proxy 2835eaff): ett telefonnummer per fält ("070… / 070…" → första), avgiftstexten självbeskrivande ("Landing 300 SEK"); kortet tar bort dubbelt "Parking".
 - Airport Info v1-design (artifact TUS8mTBNxgCYYuEfCCpQGe): rubrikrad AIRPORT INFO + Verified-datum + ⓘ (källorna fälls ut) + ↻ med bekräftelserad ("Uses 3 coins") och inline-resultat; PPR/FUEL i två kolumner; FEES-rad (fällbar) BARA när avgifter finns; öppettider med veckorad när H24; NOTAM-block (Fetch NOTAMs, 2 första + "+N more", Full PIB ↗, SNOWTAM överst, "LFV PIB · updated HH:MMZ") ersätter Good to know; Contact + Website. Inga native Alert över kartan.

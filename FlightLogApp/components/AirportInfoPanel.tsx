@@ -1,9 +1,8 @@
-// Info-kortet (Airport Info): PPR, bränsle, avgifter, öppettider, NOTAM, kontakt och hemsida — samma stil som
-// flygplatskortet och väderkortet. Visas på global map (Info-knappen på kartan → kortet ovanför flygplatskortet)
-// och i Find airport (lägger sig över kartrutan, så att en skärmdump får med flygplatskort, Info och rutten).
-// Uppgifterna kommer bara från officiell källa (AIP) eller flygplatsens egen hemsida (store/airportInfoStore.ts).
-// Design v1 2026-11-20, artifact TUS8mTBNxgCYYuEfCCpQGe: rubrikrad med Verified + ⓘ källor + ↻ (hämta om, 3 coins,
-// bekräftas i en rad under rubriken), FEES bara när avgifter finns, NOTAM ur LFV:s PIB (gratis) i stället för Good to know.
+// Info-kortet (Airport Info), kompakt design 2026-11-20 (artifact 8C5eHnfwFL5m7M5WKSqQZ7): samma stil som
+// flygplatskortet — rubriker i guld, värden i vitt. En rad med PPR | FUEL | FEES (FEES bara när avgifter finns);
+// ett tryck på en ruta fäller ut detaljerna under raden. Öppettiderna ur AIP visas inte (de styrs av NOTAM):
+// "Fetch NOTAMs" hämtar LFV:s PIB (gratis) och öppettids-NOTAM blir veckorader (UTC/Local), övriga NOTAM i
+// klartext med originalet ett tryck bort (utils/notamDecode.ts, regelbaserat). ⓘ = källor, ↻ = hämta om (3 coins).
 // Ligger över kartornas Modal → inga native Alert/Modal här, allt visas inline.
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Linking, ActivityIndicator } from 'react-native';
@@ -12,43 +11,57 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../constants/colors';
 import { useAirportInfoStore, type InfoRec } from '../store/airportInfoStore';
 import { fetchNotams, refreshAirportInfo, RefreshError, type NotamResult, type Notam } from '../services/airportInfo';
+import { parseHoursNotam, decodeNotamText, seOffsetHours, shiftHHMM, type HoursNotam } from '../utils/notamDecode';
 
 const MONO = 'JetBrainsMono';
 const GOLD = '#FFB830';
-const SUB = '#A9C3DB';
+const WHITE = '#FFFFFF';
 const DIM = '#8FB0CC';
 
-const PPR_LABEL: Record<string, { t: string; c: string; bg: string }> = {
-  required: { t: 'Required', c: '#FFD080', bg: 'rgba(255,184,48,0.16)' },
-  partial: { t: 'Partly required', c: '#FFD080', bg: 'rgba(255,184,48,0.10)' },
-  not_required: { t: 'Not required', c: '#2DD4A3', bg: 'rgba(45,212,163,0.12)' },
-  unknown: { t: 'Not stated', c: '#9DB4CC', bg: 'rgba(255,255,255,0.06)' },
-};
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const PPR_SHORT: Record<string, string> = { required: 'Required', partial: 'Partial', not_required: 'Not required', unknown: 'Not stated' };
 
 const open = (url: string) => Linking.openURL(/^(https?:|tel:|mailto:)/.test(url) ? url : `https://${url}`).catch(() => {});
 const tel = (ph: string) => open(`tel:${ph.replace(/[^\d+]/g, '')}`);
-const fmtDate = (d?: string) => {
+const shortDate = (d?: string) => {
   if (!d) return '';
   const t = new Date(`${d}T12:00:00Z`);
-  return isNaN(t.getTime()) ? d : t.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  if (isNaN(t.getTime())) return d;
+  const sameYear = t.getUTCFullYear() === new Date().getUTCFullYear();
+  return t.toLocaleDateString('en-GB', sameYear ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' });
 };
-/** "16 NOV 2026 06:00" → "16 NOV 06:00" (året bara när det inte är i år) */
-const shortDt = (s?: string | null) => {
-  if (!s) return '';
-  const m = s.match(/^(\d{2} [A-Z]{3}) (\d{4}) (\d{2}:\d{2})$/);
-  if (!m) return s;
-  return +m[2] === new Date().getUTCFullYear() ? `${m[1]} ${m[3]}` : `${m[1]} ${m[2]} ${m[3]}`;
+/** "16 NOV 2026 06:00" → Date (UTC) */
+const pibDate = (s?: string | null) => {
+  const m = s?.match(/^(\d{2}) ([A-Z]{3}) (\d{4}) (\d{2}):(\d{2})$/);
+  if (!m) return null;
+  const mon = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'].indexOf(m[2]);
+  return mon < 0 ? null : new Date(Date.UTC(+m[3], mon, +m[1], +m[4], +m[5]));
 };
-const when = (n: Notam) => {
-  if (!n.from) return '';
-  const to = n.to === 'PERM' ? 'PERM' : n.to ? `${shortDt(n.to)}${n.est ? ' EST' : ''}` : 'UFN';
-  return `${shortDt(n.from)} → ${to}`;
+const dayMon = (s?: string | null) => {
+  const d = pibDate(s);
+  return d ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }) : '';
+};
+/** Giltighet i klartext: "Until 3 Feb (est.)", "16 Nov – 22 Nov", "Permanent" */
+const validity = (n: Notam) => {
+  if (n.to === 'PERM') return 'Permanent';
+  if (!n.to) return 'Until further notice';
+  const from = pibDate(n.from);
+  const until = `${dayMon(n.to)}${n.est ? ' (est.)' : ''}`;
+  return from && from.getTime() > Date.now() ? `${dayMon(n.from)} – ${until}` : `Until ${until}`;
 };
 const zTime = (iso?: string | null) => (iso ? `${iso.slice(11, 13)}:${iso.slice(14, 16)}Z` : '');
+/** Kort avgift för rutan: första beloppet ("290 SEK", "137 SEK/t"), "Free" när det är gratis */
+const feeShort = (landing: string) => {
+  const m = landing.match(/\d[\d,]*(?:\.\d+)?\s*SEK(?:\/t)?/);
+  if (m) return m[0].replace(/\s+/g, ' ');
+  return /\b(no landing fee|free)\b/i.test(landing) ? 'Free' : 'See details';
+};
+/** Kontaktetikett utan parentes och kort nog för en knapp */
+const shortLabel = (l: string) => l.replace(/\s*\(.*$/, '').trim();
 
 type NotamState = { s: 'idle' } | { s: 'loading' } | { s: 'error' } | { s: 'ok'; r: NotamResult; all: boolean };
 type RefreshState = 'closed' | 'confirm' | 'working' | { done: string } | { err: string };
+type Cell = 'ppr' | 'fuel' | 'fees';
+type Item = { key: string; text: string; orig: string; when: string };
 
 export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHeight, height, onMap }: {
   info: InfoRec;
@@ -60,15 +73,13 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
 }) {
   const saveLocal = useAirportInfoStore((st) => st.saveLocal);
   const [srcOpen, setSrcOpen] = useState(false);
-  const [feesOpen, setFeesOpen] = useState(false);
+  const [sel, setSel] = useState<Cell | null>(null);
   const [notam, setNotam] = useState<NotamState>({ s: 'idle' });
   const [refresh, setRefresh] = useState<RefreshState>('closed');
+  const [local, setLocal] = useState(false);
+  const [origOpen, setOrigOpen] = useState<Record<string, boolean>>({});
   const line = accent + '33';
-  const ppr = info.ppr ? PPR_LABEL[info.ppr.s] ?? PPR_LABEL.unknown : null;
-  const h24 = /^H24\b/.test(info.hours?.ad ?? '');
-  const utc = info.kind === 'aip';
   const swedish = /^ES[A-Z]{2}$/.test(infoKey);
-  // "Parking …" skrivs av raden själv; ta bort ordet om källtexten redan har det (↻ kan ge "Parking 100 SEK/night")
   const fees = info.fees?.landing ? { ...info.fees, parking: info.fees.parking?.replace(/^parking:?\s*/i, '') } : null;
 
   const loadNotams = async () => {
@@ -87,6 +98,26 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
     }
   };
 
+  // ── NOTAM: öppettider → veckorader, resten i klartext ──
+  const hours: (HoursNotam & { when: string; at: Date })[] = [];
+  const items: Item[] = [];
+  if (notam.s === 'ok') {
+    if (notam.r.snowtam) items.push({ key: 'snow', text: 'Runway condition report (SNOWTAM).', orig: notam.r.snowtam.text, when: `Issued ${dayMon(notam.r.snowtam.issued)} ${notam.r.snowtam.issued.slice(-5)}Z` });
+    notam.r.notams.forEach((n, i) => {
+      const h = parseHoursNotam(n.text);
+      if (h) hours.push({ ...h, when: validity(n), at: pibDate(n.from) ?? new Date() });
+      else items.push({ key: `n${i}`, text: decodeNotamText(n.text), orig: n.text + (n.sched ? `  SCHEDULE: ${n.sched}` : ''), when: validity(n) + (n.sched ? ` · ${n.sched}` : '') });
+    });
+  }
+  const shown = notam.s === 'ok' && !notam.all ? items.slice(0, 2) : items;
+
+  const cells: { k: Cell; label: string; value: string }[] = [
+    { k: 'ppr', label: 'PPR', value: info.ppr ? PPR_SHORT[info.ppr.s] ?? 'Not stated' : 'Not stated' },
+    { k: 'fuel', label: 'FUEL', value: info.fuel?.t?.length ? info.fuel.t.join(' · ') : 'Not stated' },
+    ...(fees ? [{ k: 'fees' as Cell, label: 'FEES', value: feeShort(fees.landing) }] : []),
+  ];
+  const hasDetail = (k: Cell) => (k === 'ppr' ? !!(info.ppr?.n || info.ppr?.ph || info.ppr?.url) : k === 'fuel' ? !!(info.fuel?.n || info.fuel?.h) : !!fees);
+
   const chip = (icon: keyof typeof Ionicons.glyphMap, label: string, onPress: () => void, a11y?: string) => (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={[s.pill, { borderColor: accent + '80', backgroundColor: accent + '24' }]}
       accessibilityRole="button" accessibilityLabel={a11y ?? label}>
@@ -98,25 +129,16 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
     <TouchableOpacity onPress={onPress} hitSlop={6} accessibilityRole="button" accessibilityLabel={a11y}
       style={[s.round, { borderColor: accent + '73' }, on && { backgroundColor: accent + '2E' }]}>{child}</TouchableOpacity>
   );
-
-  const notams = notam.s === 'ok' ? [
-    ...(notam.r.snowtam ? [{ text: notam.r.snowtam.text, snow: notam.r.snowtam.issued } as Notam & { snow?: string }] : []),
-    ...notam.r.notams,
-  ] as (Notam & { snow?: string })[] : [];
-  const shown = notam.s === 'ok' && !notam.all ? notams.slice(0, 2) : notams;
+  const link = (label: string, onPress: () => void) => (
+    <TouchableOpacity onPress={onPress} hitSlop={8} accessibilityRole="link"><Text style={[s.link, { color: accent }]}>{label}</Text></TouchableOpacity>
+  );
 
   return (
     <View style={[s.card, { borderColor: accent + '55' }, height ? { height } : maxHeight ? { maxHeight } : null]}>
       <LinearGradient colors={['rgba(18,48,74,0.97)', 'rgba(15,30,58,0.97)']} locations={[0, 0.55]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
       <View style={[s.head, { borderBottomColor: line }]}>
         <Text style={[s.headTxt, { color: accent }]} numberOfLines={1}>AIRPORT INFO</Text>
-        {!!info.v && (
-          // Två rader så att AIRPORT INFO inte kortas när Map-knappen också får plats (Find airport)
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={s.verLbl}>VERIFIED</Text>
-            <Text style={s.verified} numberOfLines={1}>{fmtDate(info.v)}</Text>
-          </View>
-        )}
+        {!!info.v && <Text style={s.verified} numberOfLines={1}>Verified {shortDate(info.v)}</Text>}
         {!!info.src?.length && round(<Text style={{ color: accent, fontSize: 13, fontWeight: '800' }}>ⓘ</Text>, () => setSrcOpen((o) => !o), 'Sources', srcOpen)}
         {swedish && round(<Ionicons name="refresh" size={14} color={accent} />, () => setRefresh((r) => (r === 'confirm' ? 'closed' : r === 'working' ? r : 'confirm')), "Update this airport's info", refresh === 'confirm')}
         {onMap && (
@@ -158,149 +180,132 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
         </View>
       )}
       <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator nestedScrollEnabled bounces={false}>
-        {(ppr || info.fuel) && (
-          <View style={[s.row2, { borderBottomColor: line }]}>
-            <View style={s.cell}>
-              <Text style={s.label}>PPR</Text>
-              {ppr ? (
-                <>
-                  <Text style={[s.badge, { color: ppr.c, backgroundColor: ppr.bg, borderColor: ppr.c + '80' }]}>{ppr.t}</Text>
-                  {!!info.ppr?.n && <Text style={s.small}>{info.ppr.n}</Text>}
-                  {!!info.ppr?.url && (
-                    <TouchableOpacity onPress={() => open(info.ppr!.url!)} hitSlop={8} accessibilityRole="link">
-                      <Text style={[s.link, { color: accent }]}>Request PPR ↗</Text>
-                    </TouchableOpacity>
-                  )}
-                  {!!info.ppr?.ph && (
-                    <TouchableOpacity onPress={() => tel(info.ppr!.ph!)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Call for PPR ${info.ppr.ph}`}>
-                      <Text style={[s.link, { color: accent }]}>Call for PPR</Text>
-                    </TouchableOpacity>
-                  )}
-                </>
-              ) : <Text style={s.small}>Not stated</Text>}
-            </View>
-            <View style={[s.cell, { borderLeftWidth: 1, borderLeftColor: line }]}>
-              <Text style={s.label}>FUEL</Text>
-              {info.fuel?.t?.length ? (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-                  {info.fuel.t.map((t) => <Text key={t} style={[s.fuelChip, { color: accent, borderColor: accent + '99' }]}>{t}</Text>)}
+        {/* PPR | FUEL | FEES — tryck för detaljer */}
+        <View style={s.row}>
+          {cells.map((c, i) => {
+            const on = sel === c.k, can = hasDetail(c.k);
+            return (
+              <TouchableOpacity key={c.k} disabled={!can} onPress={() => setSel(on ? null : c.k)} activeOpacity={0.8}
+                accessibilityRole="button" accessibilityState={{ expanded: on, disabled: !can }} accessibilityLabel={`${c.label}: ${c.value}`}
+                style={[s.cell, i > 0 && { borderLeftWidth: 1, borderLeftColor: line }, on && s.cellOn]}>
+                <Text style={s.label}>{c.label}{can ? <Text style={{ color: '#6F89A6' }}>{on ? '  ▴' : '  ▾'}</Text> : null}</Text>
+                <Text style={s.cellVal} numberOfLines={1}>{c.value}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        {sel && (
+          <View style={[s.detail, { borderTopColor: line }]}>
+            {sel === 'ppr' && (
+              <>
+                {!!info.ppr?.n && <Text style={s.value}>{info.ppr.n}</Text>}
+                <View style={{ flexDirection: 'row', gap: 16 }}>
+                  {!!info.ppr?.url && link('Request PPR ↗', () => open(info.ppr!.url!))}
+                  {!!info.ppr?.ph && link('Call for PPR', () => tel(info.ppr!.ph!))}
                 </View>
-              ) : !info.fuel ? <Text style={s.small}>Not stated</Text> : null}
-              {!!info.fuel?.n && <Text style={s.small}>{info.fuel.n}</Text>}
-              {!!info.fuel?.h && <Text style={s.small}>Hours: {info.fuel.h}</Text>}
-            </View>
-          </View>
-        )}
-
-        {fees && (
-          <TouchableOpacity onPress={() => setFeesOpen((o) => !o)} activeOpacity={0.8} style={[s.fees, { borderBottomColor: line }]}
-            accessibilityRole="button" accessibilityState={{ expanded: feesOpen }} accessibilityLabel="Fees">
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Text style={s.label}>FEES</Text>
-              <Text style={s.feesLine} numberOfLines={1}>
-                {fees.landing}{fees.parking ? ` · Parking ${fees.parking}` : ''}
-              </Text>
-              <Ionicons name={feesOpen ? 'chevron-up' : 'chevron-down'} size={12} color="#6F89A6" />
-            </View>
-            {feesOpen && (
-              <View style={{ gap: 3 }}>
-                <Text style={s.small}>{fees.landing}</Text>
-                {!!fees.parking && <Text style={s.small}>Parking: {fees.parking}</Text>}
-                {!!fees.note && <Text style={s.small}>{fees.note}</Text>}
-                <Text style={s.note}>{fees.year ? `Price list ${fees.year}` : 'Price list'}{fees.url ? ' · ' : ''}
-                  {!!fees.url && <Text style={{ color: accent }} onPress={() => open(fees.url!)}>Source ↗</Text>}
-                </Text>
-              </View>
+              </>
             )}
-          </TouchableOpacity>
-        )}
-
-        {!!info.hours?.ad && (
-          <View style={[s.block, { borderBottomColor: line }]}>
-            <View style={s.rowBetween}>
-              <Text style={s.label}>OPENING HOURS</Text>
-              {h24 && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                  <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#2DD4A3' }} />
-                  <Text style={{ color: '#2DD4A3', fontSize: 11.5, fontWeight: '700' }}>Open · H24</Text>
+            {sel === 'fuel' && (
+              <>
+                {!!info.fuel?.n && <Text style={s.value}>{info.fuel.n}</Text>}
+                {!!info.fuel?.h && <Text style={s.sub}>Hours: {info.fuel.h}</Text>}
+              </>
+            )}
+            {sel === 'fees' && fees && (
+              <>
+                <Text style={s.value}>{fees.landing}{fees.parking ? `. Parking ${fees.parking}.` : ''}</Text>
+                {!!fees.note && <Text style={s.sub}>{fees.note}</Text>}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Text style={s.sub}>{fees.year ? `Price list ${fees.year}` : 'Price list'}</Text>
+                  {!!fees.url && link('Source ↗', () => open(fees.url!))}
                 </View>
-              )}
-            </View>
-            {h24 ? (
-              <View style={{ flexDirection: 'row', gap: 3 }}>
-                {DAYS.map((d) => (
-                  <View key={d} style={s.day}>
-                    <Text style={{ color: SUB, fontSize: 10, fontWeight: '700' }}>{d}</Text>
-                    <Text style={{ color: '#2DD4A3', fontFamily: MONO, fontSize: 10, fontWeight: '700' }}>H24</Text>
-                  </View>
-                ))}
-              </View>
-            ) : <Text style={s.value}>{info.hours.ad}</Text>}
-            {!!info.hours.n && <Text style={s.small}>{info.hours.n}</Text>}
-            {utc && !h24 && <Text style={s.note}>Times in UTC as in the AIP; summer times in brackets.</Text>}
+              </>
+            )}
           </View>
         )}
 
         {swedish && (
-          <View style={[s.block, { borderBottomColor: line }]}>
-            <View style={s.rowBetween}>
+          <View style={[s.block, { borderTopColor: line }]}>
+            <View style={s.notamHead}>
               <Text style={s.label}>NOTAM</Text>
-              {notam.s === 'ok' && !!notam.r.issued && <Text style={s.verified}>LFV PIB · updated {zTime(notam.r.issued)}</Text>}
+              <Text style={[s.sub, { flex: 1 }]} numberOfLines={1}>
+                {notam.s === 'ok' ? `LFV PIB · ${zTime(notam.r.issued)}` : notam.s === 'error' ? 'Could not reach the LFV bulletin' : 'Free · official LFV bulletin'}
+              </Text>
+              {(notam.s === 'idle' || notam.s === 'error') && (
+                <TouchableOpacity onPress={loadNotams} activeOpacity={0.8} style={[s.fetchBtn, { borderColor: accent + '99', backgroundColor: accent + '24' }]} accessibilityRole="button">
+                  <Text style={[s.fetchTxt, { color: accent }]}>{notam.s === 'error' ? 'Try again' : 'Fetch NOTAMs'}</Text>
+                </TouchableOpacity>
+              )}
+              {notam.s === 'loading' && <ActivityIndicator size="small" color={accent} />}
+              {notam.s === 'ok' && hours.length > 0 && (
+                <View style={[s.seg, { borderColor: accent + '73' }]} accessibilityRole="radiogroup">
+                  {(['UTC', 'Local'] as const).map((z) => {
+                    const on = (z === 'Local') === local;
+                    return (
+                      <TouchableOpacity key={z} onPress={() => setLocal(z === 'Local')} accessibilityRole="radio" accessibilityState={{ selected: on }}
+                        style={[s.segBtn, on && { backgroundColor: accent + '40' }]}>
+                        <Text style={[s.segTxt, { color: on ? WHITE : DIM }]}>{z}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
             </View>
-            {(notam.s === 'idle' || notam.s === 'error') && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                {chip('refresh', notam.s === 'error' ? 'Try again' : 'Fetch NOTAMs', loadNotams)}
-                <Text style={[s.note, { flex: 1 }]}>{notam.s === 'error' ? 'Could not reach the LFV bulletin.' : 'Free · official LFV bulletin'}</Text>
-              </View>
+
+            {notam.s === 'ok' && !notam.r.covered && (
+              <Text style={s.sub}>This aerodrome is not in LFV's VFR bulletin. Check NOTAM with the aerodrome or in the AIS.</Text>
             )}
-            {notam.s === 'loading' && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 32 }}>
-                <ActivityIndicator size="small" color={accent} />
-                <Text style={s.note}>Reading the LFV bulletin…</Text>
-              </View>
-            )}
-            {notam.s === 'ok' && (
-              <View style={{ gap: 6 }}>
-                {!notam.r.covered ? (
-                  <Text style={s.small}>This aerodrome is not in LFV's VFR bulletin. Check NOTAM with the aerodrome or in the AIS.</Text>
-                ) : !notams.length ? (
-                  <Text style={s.small}>No NOTAM in the current bulletin.</Text>
-                ) : shown.map((n, i) => (
-                  <View key={i} style={s.notam}>
-                    <Text style={{ fontFamily: MONO, fontSize: 10.5 }} numberOfLines={1}>
-                      {n.snow ? <Text style={{ color: accent, fontWeight: '800' }}>SNOWTAM  </Text> : null}
-                      <Text style={{ color: SUB }}>{n.snow ? shortDt(n.snow) : when(n)}</Text>
-                    </Text>
-                    <Text style={s.notamTxt}>{n.text}</Text>
-                    {!!n.sched && <Text style={[s.note, { fontFamily: MONO }]}>Schedule: {n.sched}</Text>}
+            {hours.map((h, i) => {
+              const off = local ? seOffsetHours(h.at) : 0;
+              return (
+                <View key={i} style={{ gap: 4 }}>
+                  <Text style={s.hoursTitle}>{h.title} <Text style={{ color: DIM, fontWeight: '500' }}>· {h.when}</Text></Text>
+                  <View style={{ flexDirection: 'row', gap: 3 }}>
+                    {h.days.map((d) => (
+                      <View key={d.d} style={[s.day, d.closed ? s.dayClosed : s.dayOpen]}>
+                        <Text style={s.dayName}>{d.d}</Text>
+                        <Text style={s.dayHours}>
+                          {d.closed ? 'Closed' : d.h24 ? 'H24' : (() => {
+                            const a = shiftHHMM(d.h!.slice(0, 4), off), b = shiftHHMM(d.h!.slice(5, 9), off);
+                            return `${a}\n${b}${d.next || b < a ? '+1' : ''}`;   // +1 = stänger dagen efter
+                          })()}
+                        </Text>
+                      </View>
+                    ))}
                   </View>
-                ))}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                  {notams.length > 2 && (
-                    <TouchableOpacity onPress={() => setNotam({ ...notam, all: !notam.all })} hitSlop={8} accessibilityRole="button">
-                      <Text style={[s.link, { color: accent }]}>{notam.all ? 'Show less' : `+${notams.length - 2} more ›`}</Text>
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity onPress={() => open(notam.r.covered ? notam.r.pibUrl : notam.r.listUrl)} hitSlop={8} accessibilityRole="link">
-                    <Text style={[s.link, { color: accent, fontWeight: '700' }]}>Full PIB ↗</Text>
+                </View>
+              );
+            })}
+            {notam.s === 'ok' && notam.r.covered && !items.length && !hours.length && <Text style={s.sub}>No NOTAM in the current bulletin.</Text>}
+            {shown.map((n) => (
+              <View key={n.key} style={{ flexDirection: 'row', gap: 8 }}>
+                <View style={s.dot} />
+                <View style={{ flex: 1, gap: 3 }}>
+                  <Text style={s.value}>{n.text} <Text style={{ color: DIM }}>{n.when}</Text></Text>
+                  <TouchableOpacity onPress={() => setOrigOpen((o) => ({ ...o, [n.key]: !o[n.key] }))} hitSlop={6} accessibilityRole="button"
+                    accessibilityState={{ expanded: !!origOpen[n.key] }} style={{ alignSelf: 'flex-start' }}>
+                    <Text style={{ color: accent, fontSize: 11.5, fontWeight: '700' }}>{origOpen[n.key] ? 'Hide original' : 'Original NOTAM'}</Text>
                   </TouchableOpacity>
+                  {origOpen[n.key] && <Text style={s.orig}>{n.orig}</Text>}
                 </View>
               </View>
+            ))}
+            {notam.s === 'ok' && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                {items.length > 2 && link(notam.all ? 'Show less' : `+${items.length - 2} more ›`, () => setNotam({ ...notam, all: !notam.all }))}
+                {link('Full PIB ↗', () => open(notam.r.covered ? notam.r.pibUrl : notam.r.listUrl))}
+              </View>
             )}
           </View>
         )}
 
-        {!!info.contacts?.length && (
-          <View style={[s.block, { borderBottomWidth: 0, paddingBottom: 0 }]}>
-            <Text style={s.label}>CONTACT</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-              {info.contacts.map((c, i) => <View key={i}>{chip('call-outline', c.l, () => tel(c.ph), `Call ${c.l}, ${c.ph}`)}</View>)}
-            </View>
+        {(!!info.contacts?.length || !!info.web) && (
+          <View style={[s.chips, { borderTopColor: line }]}>
+            {info.contacts?.map((c, i) => <View key={i} style={{ maxWidth: 170 }}>{chip('call-outline', shortLabel(c.l), () => tel(c.ph), `Call ${c.l}, ${c.ph}`)}</View>)}
+            {!!info.web && chip('globe-outline', 'Website', () => open(info.web!))}
           </View>
         )}
-
-        {!!info.web && <View style={s.foot}>{chip('globe-outline', 'Website', () => open(info.web!))}</View>}
-        <Text style={[s.note, { paddingHorizontal: 14, paddingTop: 4, paddingBottom: 12 }]}>Not for operational use. Always check the AIP, NOTAM and with the aerodrome before flight.</Text>
+        <Text style={s.disclaimer}>Not for operational use. Always check the AIP, NOTAM and with the aerodrome before flight.</Text>
       </ScrollView>
     </View>
   );
@@ -308,35 +313,43 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
 
 const s = StyleSheet.create({
   card: { borderRadius: 16, overflow: 'hidden', borderWidth: 1 },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 14, paddingRight: 10, paddingVertical: 8, borderBottomWidth: 1 },
+  head: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 14, paddingRight: 8, height: 46, borderBottomWidth: 1 },
   headTxt: { flex: 1, minWidth: 100, fontFamily: MONO, fontSize: 11, fontWeight: '800', letterSpacing: 1.6 },
-  verLbl: { fontFamily: MONO, fontSize: 8, fontWeight: '700', letterSpacing: 1, color: DIM },
-  verified: { color: DIM, fontSize: 10.5 },
-  round: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  mapBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', backgroundColor: 'rgba(10,22,40,0.9)' },
+  verified: { color: DIM, fontSize: 10.5, flexShrink: 1 },
+  round: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  mapBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 11, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', backgroundColor: 'rgba(10,22,40,0.9)' },
   mapBtnTxt: { color: '#fff', fontSize: 12.5, fontWeight: '800' },
   confirm: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: 'rgba(255,184,48,0.08)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,184,48,0.3)' },
   confirmTxt: { flex: 1, color: '#FFD080', fontSize: 11.5, lineHeight: 15 },
   confirmBtn: { height: 28, paddingHorizontal: 10, borderRadius: 14, borderWidth: 1, borderColor: GOLD, backgroundColor: 'rgba(255,184,48,0.18)', justifyContent: 'center' },
   confirmBtnTxt: { color: '#FFD080', fontSize: 12, fontWeight: '800' },
   srcBox: { paddingHorizontal: 14, paddingVertical: 8, gap: 4, borderBottomWidth: 1 },
-  row2: { flexDirection: 'row', borderBottomWidth: 1 },
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  cell: { flex: 1, minWidth: 0, gap: 5, paddingVertical: 10, paddingHorizontal: 14 },
-  block: { gap: 6, paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1 },
-  fees: { gap: 4, paddingVertical: 8, paddingHorizontal: 14, borderBottomWidth: 1 },
-  feesLine: { flex: 1, minWidth: 0, color: '#C9D6E6', fontSize: 12 },
+  row: { flexDirection: 'row' },
+  cell: { flex: 1, minWidth: 0, gap: 4, paddingVertical: 9, paddingHorizontal: 12, minHeight: 54 },
+  cellOn: { backgroundColor: 'rgba(255,184,48,0.06)', borderBottomWidth: 2, borderBottomColor: GOLD },
+  cellVal: { fontFamily: MONO, fontSize: 13, fontWeight: '700', color: WHITE },
+  detail: { gap: 6, paddingVertical: 10, paddingHorizontal: 14, borderTopWidth: 1, backgroundColor: 'rgba(255,255,255,0.03)' },
+  block: { gap: 9, paddingVertical: 10, paddingHorizontal: 14, borderTopWidth: 1 },
+  notamHead: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 30 },
+  fetchBtn: { height: 30, paddingHorizontal: 12, borderRadius: 15, borderWidth: 1, justifyContent: 'center' },
+  fetchTxt: { fontSize: 12, fontWeight: '800' },
+  seg: { flexDirection: 'row', borderRadius: 13, borderWidth: 1, overflow: 'hidden' },
+  segBtn: { height: 26, paddingHorizontal: 10, justifyContent: 'center' },
+  segTxt: { fontSize: 11, fontWeight: '800' },
+  hoursTitle: { color: WHITE, fontSize: 11, fontWeight: '700' },
+  day: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: 4, borderRadius: 6, borderWidth: 1 },
+  dayOpen: { backgroundColor: 'rgba(45,212,163,0.10)', borderColor: 'rgba(45,212,163,0.35)' },
+  dayClosed: { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)' },
+  dayName: { color: GOLD, fontSize: 9.5, fontWeight: '700' },
+  dayHours: { color: WHITE, fontFamily: MONO, fontSize: 9.5, fontWeight: '700', lineHeight: 12, textAlign: 'center' },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: GOLD, marginTop: 6 },
+  orig: { fontFamily: MONO, fontSize: 10.5, lineHeight: 14, color: '#A9C3DB', padding: 6, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
   label: { fontFamily: MONO, fontSize: 9, fontWeight: '700', letterSpacing: 1.2, color: GOLD },
-  badge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, fontSize: 12.5, fontWeight: '800', overflow: 'hidden' },
-  fuelChip: { fontFamily: MONO, fontSize: 11.5, fontWeight: '800', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, borderWidth: 1 },
-  day: { flex: 1, alignItems: 'center', gap: 1, paddingVertical: 4, borderRadius: 6, backgroundColor: 'rgba(45,212,163,0.10)', borderWidth: 1, borderColor: 'rgba(45,212,163,0.35)' },
-  notam: { gap: 1, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-  notamTxt: { fontFamily: MONO, fontSize: 11.5, lineHeight: 15, color: '#E4ECF5' },
-  small: { color: SUB, fontSize: 11.5, lineHeight: 16 },
-  value: { color: '#E4ECF5', fontSize: 12.5, lineHeight: 17 },
-  note: { color: DIM, fontSize: 10.5, lineHeight: 14 },
+  value: { color: WHITE, fontSize: 12.5, lineHeight: 17 },
+  sub: { color: DIM, fontSize: 11, lineHeight: 15 },
   link: { fontSize: 12, fontWeight: '800' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1 },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 11, borderRadius: 16, borderWidth: 1 },
-  pillTxt: { fontSize: 12.5, fontWeight: '800' },
-  foot: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 4 },
+  pillTxt: { fontSize: 12.5, fontWeight: '800', flexShrink: 1 },
+  disclaimer: { color: DIM, fontSize: 10, lineHeight: 13, paddingHorizontal: 14, paddingBottom: 10 },
 });
