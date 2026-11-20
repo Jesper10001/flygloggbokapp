@@ -14,7 +14,7 @@ type Status = 'idle' | 'loading' | 'ready' | 'unavailable' | 'error';
 interface OsintStore {
   status: Status;
   version: string;   // lagrets version ('' = inget) → kartan räknar om sina filter när den ändras
-  load: () => Promise<void>;
+  load: (force?: boolean) => Promise<void>;
 }
 
 let checkedAt = 0;
@@ -23,9 +23,9 @@ let fromDisk = false;
 export const useOsintStore = create<OsintStore>((set, get) => ({
   status: 'idle',
   version: '',
-  load: async () => {
+  load: async (force = false) => {
     if (get().status === 'loading') return;
-    if (get().status === 'ready' && Date.now() - checkedAt < REFRESH_MS) return;
+    if (!force && get().status === 'ready' && Date.now() - checkedAt < REFRESH_MS) return;
     const apply = (layer: OsintLayer | null, status: Status) => { setLayer(layer); set({ status, version: layer?.v ?? '' }); };
     // 1) Sparat lager först (direkt, utan nät)
     if (!fromDisk) {
@@ -41,7 +41,8 @@ export const useOsintStore = create<OsintStore>((set, get) => ({
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 20000);
     try {
-      const headers: Record<string, string> = {};
+      // no-cache: aldrig iOS egen HTTP-cache (den gav ett gammalt lager utan modellerna efter en uppdatering)
+      const headers: Record<string, string> = { 'Cache-Control': 'no-cache', Pragma: 'no-cache' };
       if (get().version) headers['If-None-Match'] = `"${get().version}"`;
       const res = await fetch(`${PROXY_URL}/osint/airbases`, { headers, signal: ctrl.signal });
       checkedAt = Date.now();

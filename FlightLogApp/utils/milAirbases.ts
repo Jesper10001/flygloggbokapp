@@ -115,3 +115,29 @@ export function baseHasFamily(key: string | null | undefined, fams: Set<string>)
   for (const op of b.ops) for (const [, types] of op.g) for (const t of types) if (FAM[t] && fams.has(FAM[t])) return true;
   return false;
 }
+
+/** Sökförslag för Types: familjer vars namn börjar med frågan först, sedan namn som innehåller den, sedan träffar i
+ *  beskrivningen; varje familj en gång (antal = unika baser). */
+export function suggestFamilies(query: string, limit = 8): { name: string; desc: string; bases: number }[] {
+  const q = query.trim().toLowerCase().replace(/[\s-]/g, '');
+  if (!q) return [];
+  const norm = (x: string) => x.toLowerCase().replace(/[\s-]/g, '');
+  const by = new Map<string, { name: string; desc: string; bases: Set<string> }>();
+  for (const [key, b] of Object.entries(D)) for (const op of b.ops) for (const [, types] of op.g) for (const t of types) {
+    const f = FAM[t];
+    if (!f) continue;
+    const e = by.get(f) ?? { name: f, desc: DESC[f] ?? '', bases: new Set<string>() };
+    e.bases.add(key);
+    by.set(f, e);
+  }
+  const rank = (e: { name: string; desc: string }) => {
+    const n = norm(e.name);
+    if (n.startsWith(q)) return 0;
+    if (n.includes(q)) return 1;
+    if (e.desc.toLowerCase().includes(query.trim().toLowerCase())) return 2;
+    return 9;
+  };
+  return [...by.values()].map((e) => ({ ...e, r: rank(e) })).filter((e) => e.r < 9)
+    .sort((a, b) => a.r - b.r || b.bases.size - a.bases.size || a.name.localeCompare(b.name))
+    .slice(0, limit).map((e) => ({ name: e.name, desc: e.desc, bases: e.bases.size }));
+}

@@ -77,7 +77,7 @@ import { displayCode } from '../utils/airportCodes';
 import { UnitCard } from './UnitCard';
 import { UnitSourcesPopup } from './UnitSources';
 import { RoleTag } from './RoleTag';
-import { getMilBase, baseRoles, milCounts, ROLES, ROLE_ORDER, typeFamilies, baseHasFamily, type RoleKey } from '../utils/milAirbases';
+import { getMilBase, baseRoles, milCounts, ROLES, ROLE_ORDER, typeFamilies, baseHasFamily, suggestFamilies, type RoleKey } from '../utils/milAirbases';
 import { useOsintStore } from '../store/osintStore';
 
 // Datum då flygplatsdatan senast hämtades (skrivs av scripts/build-airports.mjs --refresh), t.ex. "26 October 2026".
@@ -590,6 +590,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   // Air Bases → Specific: "All" = alla ryska baser; en roll tar bort All (flera roller går att välja).
   const specificOn = [...activeKeys].some(isSpecificKey);
   const specificChosen = SPECIFIC_NODES.filter((n) => activeKeys.has(n.key));
+  // Types utan modellista (gammalt lager i telefonen) → hämta lagret på nytt direkt
+  useEffect(() => { if (typesPage && osintVersion && !typeFamilies().length) useOsintStore.getState().load(true); }, [typesPage, osintVersion]);
   // Typvalet hör till Specific: stängs Specific av (inga roller valda) försvinner typvalet också.
   useEffect(() => { if (!specificOn && typeSel.size) setTypeSel(new Set()); }, [specificOn]); // eslint-disable-line react-hooks/exhaustive-deps
   const pickSpecific = (key: string) => setActiveKeys((prev) => {
@@ -1114,7 +1116,9 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                      och antal baser, flest först. Flerval, även över kategorier. Sökfältet söker i alla. */
                   const fams = typeFamilies();
                   const q = typeQuery.trim().toLowerCase();
-                  const shown = q ? fams.filter((f) => f.name.toLowerCase().includes(q) || f.desc.toLowerCase().includes(q)) : fams;
+                  // När man skriver: förslagslista (namn som börjar så först) i stället för kategorierna
+                  const suggestions = q ? suggestFamilies(typeQuery) : [];
+                  const shown = fams;
                   const selBases = typedSeed.length;
                   return (
                     <View style={styles.propsPanel}>
@@ -1136,15 +1140,34 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                           <TouchableOpacity onPress={() => setTypeQuery('')} hitSlop={8} accessibilityLabel="Clear search"><Ionicons name="close-circle" size={15} color={Colors.textMuted} /></TouchableOpacity>
                         )}
                       </View>
-                      <ScrollView style={{ maxHeight: 330 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                      {!!q && (
+                        <View style={styles.suggestBox}>
+                          {suggestions.map((f) => {
+                            const on = typeSel.has(f.name);
+                            return (
+                              <TouchableOpacity key={f.name} onPress={() => { pickType(f.name); setTypeQuery(''); Keyboard.dismiss(); }} activeOpacity={0.7}
+                                accessibilityRole="button" accessibilityLabel={`${f.name}, ${f.desc}, ${f.bases} bases`} style={styles.suggestRow}>
+                                <Ionicons name={on ? 'checkmark-circle' : 'add-circle-outline'} size={17} color={on ? Colors.primary : Colors.textMuted} />
+                                <View style={{ flex: 1 }}>
+                                  <Text style={{ color: '#fff', fontSize: 13.5, fontWeight: '700' }}>{f.name}</Text>
+                                  {!!f.desc && <Text style={{ color: '#8FB0CC', fontSize: 11 }} numberOfLines={1}>{f.desc}</Text>}
+                                </View>
+                                <Text style={styles.groupOptCount}>{f.bases}</Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                          {!suggestions.length && <Text style={{ color: '#8FB0CC', fontSize: 12.5, padding: 10 }}>{fams.length ? `No model matches “${typeQuery}”.` : 'Loading models…'}</Text>}
+                        </View>
+                      )}
+                      {!q && <ScrollView style={{ maxHeight: 330 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
                         {ROLE_ORDER.map((role) => {
                           const list = shown.filter((f) => f.role === role);
                           if (!list.length) return null;
-                          const open = !!q || typeRole === role;
+                          const open = typeRole === role;
                           const picked = list.filter((f) => typeSel.has(f.name)).length;
                           return (
                             <View key={role} style={styles.propRow}>
-                              <TouchableOpacity onPress={() => setTypeRole(open && !q ? null : role)} activeOpacity={0.7} accessibilityRole="button" accessibilityState={{ expanded: open }} style={styles.propRowHead}>
+                              <TouchableOpacity onPress={() => setTypeRole(open ? null : role)} activeOpacity={0.7} accessibilityRole="button" accessibilityState={{ expanded: open }} style={styles.propRowHead}>
                                 <Text style={styles.propRowLabel}>{ROLES[role].label}</Text>
                                 {picked > 0 && <Text style={{ color: Colors.primary, fontSize: 11, fontWeight: '700' }}>{picked} picked</Text>}
                                 <Text style={styles.groupOptCount}>{list.length}</Text>
@@ -1169,8 +1192,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                             </View>
                           );
                         })}
-                        {!shown.length && <Text style={{ color: '#8FB0CC', fontSize: 12.5, paddingVertical: 12 }}>No model matches “{typeQuery}”.</Text>}
-                      </ScrollView>
+                        {!shown.length && <Text style={{ color: '#8FB0CC', fontSize: 12.5, paddingVertical: 12 }}>Loading models…</Text>}
+                      </ScrollView>}
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10 }}>
                         <Text style={{ color: '#C9D6E6', fontSize: 12.5, flexShrink: 1 }} numberOfLines={1}>
                           {typeSel.size ? `${[...typeSel].join(', ')} · ${selBases} base${selBases === 1 ? '' : 's'}` : 'No model picked'}
@@ -1534,6 +1557,8 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
 }
 
 const styles = StyleSheet.create({
+  suggestBox: { borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,200,232,0.25)', backgroundColor: 'rgba(5,11,22,0.6)', marginTop: 2, overflow: 'hidden' },
+  suggestRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
   typesBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, marginTop: 6, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10, borderWidth: 1, borderColor: Colors.primary + '8c', backgroundColor: Colors.primary + '0f' },
   typeSearch: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 36, paddingHorizontal: 10, borderRadius: 9, marginBottom: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
   typeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 42, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },

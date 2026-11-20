@@ -46,7 +46,9 @@ export function makeOsintHandler(layer, cfg) {
       }
       cached = { etag: `"${layer.v}"`, body: JSON.stringify({ v: layer.v, compiled: layer.compiled, bases, fam, desc }) };
     }
-    const headers = { ETag: cached.etag, 'Cache-Control': 'private, max-age=3600', Vary: 'CF-IPCountry' };
+    // no-cache: telefonen sparar svaret men frågar alltid med ETag (304 = oförändrat) — med max-age visade iOS ett
+    // gammalt lager i upp till en timme efter en uppdatering (2026-11-20)
+    const headers = { ETag: cached.etag, 'Cache-Control': 'private, no-cache', Vary: 'CF-IPCountry' };
     if (request.headers.get('If-None-Match') === cached.etag) return new Response(null, { status: 304, headers });
     return new Response(cached.body, { headers: { ...headers, 'Content-Type': 'application/json' } });
   };
