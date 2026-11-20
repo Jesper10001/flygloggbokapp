@@ -10,6 +10,8 @@ export type TafRow = { time: string; kind: string; text: string; cat: FlightCat 
 
 const isTemp = (f: any) => f?.fcstChange === 'TEMPO' || f?.fcstChange === 'PROB';
 const hz = (sec: number) => `${pad2(new Date(sec * 1000).getUTCHours())}z`;
+/** Tidsformat för en timme: UTC som standard ("21z"); kortet skickar in lokal tid ("22") när GMT±N är valt. */
+export type HourFmt = (sec: number) => string;
 
 export function tafBar(t: any): BarSeg[] {
   const from = num(t?.validTimeFrom), to = num(t?.validTimeTo);
@@ -34,10 +36,10 @@ export function tafBar(t: any): BarSeg[] {
 
 /** Tidsetiketter jämnt över giltighetstiden, bara på hela timmar så att etiketten stämmer med sin plats:
  *  24 h → 00z 06z 12z 18z 24z; 2 h → 15z 16z 17z; 5 h → bara början och slut. */
-export function tafTicks(t: any): string[] {
+export function tafTicks(t: any, fmt: HourFmt = hz): string[] {
   const from = num(t?.validTimeFrom), to = num(t?.validTimeTo);
   if (!(from > 0 && to > from)) return [];
-  const label = (s: number, last: boolean) => { const h = new Date(s * 1000).getUTCHours(); return last && h === 0 ? '24z' : `${pad2(h)}z`; };
+  const label = (s: number, last: boolean) => { const x = fmt(s); return last && (x === '00z' || x === '00') ? x.replace('00', '24') : x; };
   for (const n of [4, 3, 2, 1]) {
     const pts = Array.from({ length: n + 1 }, (_, i) => from + ((to - from) * i) / n);
     if (pts.every((p) => Math.round(p) % 3600 === 0)) return pts.map((p, i) => label(p, i === n));
@@ -45,7 +47,7 @@ export function tafTicks(t: any): string[] {
   return [label(from, false), label(to, true)];
 }
 
-export function tafChanges(t: any, nowMs: number = Date.now(), max = 3): TafRow[] {
+export function tafChanges(t: any, nowMs: number = Date.now(), max = 3, fmt: HourFmt = hz): TafRow[] {
   const now = nowMs / 1000;
   const all: any[] = (Array.isArray(t?.fcsts) ? t.fcsts : []).filter((f: any) => num(f?.timeFrom) > 0);
   const rows: { at: number; row: TafRow }[] = [];
@@ -62,9 +64,9 @@ export function tafChanges(t: any, nowMs: number = Date.now(), max = 3): TafRow[
     const prob = num(f.probability) > 0 ? `PROB${num(f.probability)}` : '';
     const kind = ch === 'PROB' ? prob || 'PROB' : ch === 'TEMPO' ? (prob ? `${prob} TEMPO` : 'TEMPO') : ch;
     const bec = num(f.timeBec);
-    const time = temp ? `${from <= now ? 'Now' : hz(from)}–${hz(to)}`
-      : ch === 'BECMG' && bec > from ? (from <= now ? `By ${hz(bec)}` : `${hz(from)}–${hz(bec)}`)
-      : `${hz(from)} →`;
+    const time = temp ? `${from <= now ? 'Now' : fmt(from)}–${fmt(to)}`
+      : ch === 'BECMG' && bec > from ? (from <= now ? `By ${fmt(bec)}` : `${fmt(from)}–${fmt(bec)}`)
+      : `${fmt(from)} →`;
     const cat = /cloud|visibility|sky|overcast/.test(body) ? categoryOf(f.clouds, f.visib) : null;
     rows.push({ at: from, row: { time, kind, text: body[0].toUpperCase() + body.slice(1), cat } });
   }

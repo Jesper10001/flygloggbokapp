@@ -10,6 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../constants/colors';
 import { fetchDecodedWx, categoryColor, type DecodedWx, type FlightCat, type WxCell } from '../services/weather';
 import { tafBar, tafTicks, tafChanges, tafExpired } from '../utils/tafTimeline';
+import { localOffsetMinutes } from '../utils/timezone';
 import { FONT_MONO } from './logbook-page/tokens';
 
 const PILL_INK = '#06121F';
@@ -19,13 +20,9 @@ const DIM = '#8FB0CC';
 const cache = new Map<string, { at: number; wx: DecodedWx | null }>();
 const TTL_MS = 10 * 60 * 1000;
 
-function ageText(min: number): string {
-  if (min < 1) return 'just now';
-  if (min < 60) return `${min} min ago`;
-  const h = Math.floor(min / 60), m = min % 60;
-  return h < 24 ? (m ? `${h} h ${m} min ago` : `${h} h ago`) : `${Math.floor(h / 24)} d ago`;
-}
-const clockZ = (ms: number) => { const d = new Date(ms); return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}z`; };
+const p2 = (n: number) => String(n).padStart(2, '0');
+/** "GMT+1", "GMT-5", "GMT+5:30", "GMT" — flygplatsens zon (land/region, sommartid räknas in) */
+const gmtLabel = (off: number) => (off === 0 ? 'GMT' : `GMT${off > 0 ? '+' : '-'}${Math.floor(Math.abs(off) / 60)}${Math.abs(off) % 60 ? ':' + p2(Math.abs(off) % 60) : ''}`);
 
 function Pill({ cat, outline }: { cat: FlightCat; outline?: boolean }) {
   const c = categoryColor(cat);
@@ -45,7 +42,20 @@ function Cell({ label, cell, first, line }: { label: string; cell: WxCell; first
   );
 }
 
-export function MapWxPanel({ icao, height, onMap }: { icao: string; height: number; onMap: () => void }) {
+export function MapWxPanel({ icao, height, onMap, country, region, lon }: {
+  icao: string; height: number; onMap: () => void;
+  country?: string; region?: string; lon?: number | null;   // för flygplatsens tidszon (UTC/GMT±N-växeln)
+}) {
+  const [local, setLocal] = useState(false);
+  const offAt = (ms: number) => localOffsetMinutes(new Date(ms), country, region, lon);
+  const nowOff = offAt(Date.now());
+  // Tid i vald zon: UTC "21:50z"/"21z", lokalt "22:50"/"22" (zonen står i växeln)
+  const clock = (ms: number) => {
+    const o = local && nowOff != null ? offAt(ms) ?? 0 : 0;
+    const d = new Date(ms + o * 60000);
+    return `${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}${local && nowOff != null ? '' : 'z'}`;
+  };
+  const hour = (sec: number) => clock(sec * 1000).replace(/:00(z?)$/, '$1').replace(/^(\d\d):(\d\d)(z?)$/, '$1:$2$3');
   const hit = cache.get(icao);
   const [wx, setWx] = useState<DecodedWx | null>(hit && Date.now() - hit.at < TTL_MS ? hit.wx : null);
   const [state, setState] = useState<'loading' | 'ok' | 'none'>(hit && Date.now() - hit.at < TTL_MS ? (hit.wx ? 'ok' : 'none') : 'loading');
@@ -63,12 +73,12 @@ export function MapWxPanel({ icao, height, onMap }: { icao: string; height: numb
 
   const accent = wx?.category ? categoryColor(wx.category) : Colors.primary;
   const line = accent + '33';
-  const min = wx?.metarObsMs != null ? Math.max(0, Math.round((Date.now() - wx.metarObsMs) / 60000)) : null;
+  const min = wx?.metarObsMs != null ? Math.max(0, Math.round((Date.now() - wx.metarObsMs) / 60000)) : null;   // bara för färgen
   const ageColor = min == null || min <= 60 ? SUB : min <= 120 ? Colors.warning : Colors.danger;
   const t = wx?.tafObj;
   const bar = t ? tafBar(t) : [];
-  const ticks = t ? tafTicks(t) : [];
-  const rows = t ? tafChanges(t) : [];
+  const ticks = t ? tafTicks(t, hour) : [];
+  const rows = t ? tafChanges(t, Date.now(), 3, hour) : [];
   const expired = t ? tafExpired(t) : false;
   const total = bar.reduce((s, x) => s + (x.to - x.from), 0) || 1;
   const nowPos = bar.length ? Math.min(1, Math.max(0, (Date.now() / 1000 - bar[0].from) / total)) : -1;
@@ -81,10 +91,26 @@ export function MapWxPanel({ icao, height, onMap }: { icao: string; height: numb
 
       {/* Rubrik: kategori, METAR-tid och ålder, Map */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 46, paddingLeft: 12, paddingRight: 8, borderBottomWidth: 1, borderBottomColor: line }}>
-        {wx?.category ? <Pill cat={wx.category} /> : <Text style={{ fontFamily: FONT_MONO, fontSize: 11, fontWeight: '800', letterSpacing: 1.6, color: accent }}>WEATHER</Text>}
+        {/* Väder från en annan flygplats: dess ICAO-kod i liten text under kategorin */}
+        <View style={{ alignItems: 'center', gap: 2 }}>
+          {wx?.category ? <Pill cat={wx.category} /> : <Text style={{ fontFamily: FONT_MONO, fontSize: 11, fontWeight: '800', letterSpacing: 1.6, color: accent }}>WEATHER</Text>}
+          {!!wx?.metarStation && wx.metarStation !== icao && (
+            <Text style={{ fontFamily: FONT_MONO, fontSize: 10, color: SUB }} accessibilityLabel={`Weather from ${wx.metarStation}`}>{wx.metarStation}</Text>
+          )}
+        </View>
         <Text numberOfLines={1} style={{ flex: 1, fontFamily: FONT_MONO, fontSize: 10.5, color: ageColor, fontWeight: min != null && min > 60 ? '700' : '500' }}>
-          {state === 'loading' ? '' : wx?.metarObsMs != null && min != null ? `METAR ${clockZ(wx.metarObsMs)} · ${ageText(min)}${station(wx.metarStation)}` : ''}
+          {state === 'loading' ? '' : wx?.metarObsMs != null ? `METAR ${clock(wx.metarObsMs)}` : ''}
         </Text>
+        {nowOff != null && (
+          <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', borderRadius: 13, borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', overflow: 'hidden' }}>
+            {[false, true].map((l) => (
+              <TouchableOpacity key={String(l)} onPress={() => setLocal(l)} accessibilityRole="radio" accessibilityState={{ selected: local === l }}
+                style={{ height: 26, paddingHorizontal: 9, justifyContent: 'center', backgroundColor: local === l ? 'rgba(255,255,255,0.18)' : 'transparent' }}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: local === l ? '#fff' : SUB }}>{l ? gmtLabel(nowOff) : 'UTC'}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
         <TouchableOpacity onPress={onMap} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Show map"
           style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 11, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', backgroundColor: 'rgba(10,22,40,0.9)' }}>
           <Ionicons name="map-outline" size={13} color="#fff" />

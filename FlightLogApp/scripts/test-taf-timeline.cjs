@@ -25,5 +25,9 @@ eq(rows[2].cat, null, 'vindändring har ingen kategori');
 eq(rows[1].cat, 'LIFR', 'TEMPO-kategori');
 eq(T.tafExpired(tafs.ESCF, NOW), true, 'ESCF utgången');
 eq(T.tafExpired(tafs.ESSA, NOW), false, 'ESSA gäller');
+// Lokal tid (GMT+1): samma ändringar, tider utan "z"
+const loc = (sec) => String((new Date(sec * 1000).getUTCHours() + 1) % 24).padStart(2, '0');
+eq(T.tafChanges(tafs.ESSA, NOW, 3, loc).map((r) => r.time), ['By 00', '00–09', '07–09'], 'ESSA i GMT+1');
+eq(T.tafTicks(tafs.ESGG, loc), ['22', '04', '10', '16', '22'], 'tidsetiketter i GMT+1');
 if (fails) { console.log(`${fails} fel`); process.exit(1); }
 console.log('TAF-tidslinjen: alla kontroller gick igenom');

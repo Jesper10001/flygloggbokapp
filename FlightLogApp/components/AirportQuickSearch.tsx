@@ -474,7 +474,7 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
                 <AirportInfoPanel info={info} infoKey={selected!.icao} accent={accent} height={MAP_H} onMap={() => setShowInfo(false)} solid />
               ) : showWx ? (
                 // Väderkortet lägger sig över kartrutan på samma sätt (design: artifact Fcsm4ESifWgX5PVu9ptoGM)
-                <MapWxPanel icao={selected.icao} height={MAP_H} onMap={() => setShowWx(false)} />
+                <MapWxPanel icao={selected.icao} height={MAP_H} onMap={() => setShowWx(false)} country={selected.country} region={selected.region} lon={selected.lon} />
               ) : showMap ? (
                 <View>
                   <AirportRunwaySnippet icao={selected.icao} lat={selected.lat} lon={selected.lon} windDir={metar?.windDir ?? null} windSpeed={metar?.windSpeed ?? null} frozen={snippetFrozen} userLat={pos?.lat ?? null} userLon={pos?.lon ?? null} fitUser={closestMode} style={{ height: MAP_H }} />
