@@ -1,0 +1,308 @@
+[
+ {
+  "key": "ESCF",
+  "name": "LINKÖPING-MALMEN",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 10 828 35 90",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "LINKÖPING/MALMEN TWR LFV Flygtrafikledningen SE-581 98 Linköping +46 10 828 35 90"
+   }
+  ]
+ },
+ {
+  "key": "ESCM",
+  "name": "UPPSALA",
+  "status": "no_source",
+  "contacts": [],
+  "searched": [
+   "AIP GEN 3.3 (aro.lfv.se) checked: Uppsala TWR number is garbled in extraction (split digits), not safe to use",
+   "web search for TWR/AFIS number gave no allowed source"
+  ]
+ },
+ {
+  "key": "ESDF",
+  "name": "RONNEBY",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 10 827 15 55",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "RONNEBY TWR Blekinge flygflottilj, F17 Box 502 SE-372 25 Ronneby +46 10 827 15 55"
+   }
+  ]
+ },
+ {
+  "key": "ESGG",
+  "name": "GÖTEBORG-LANDVETTER",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 31 94 11 39",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "GÖTEBORG/LANDVETTER TWR LFV Flygtrafikledningen SE-438 80 Landvetter +46 31 94 11 39"
+   }
+  ]
+ },
+ {
+  "key": "ESGJ",
+  "name": "JÖNKÖPING",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 36 31 12 20",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "JÖNKÖPING TWR ACR Flygtrafikledningen Jönköpings flygplats SE-555 93 Jönköping +46 36 31 12 20"
+   }
+  ]
+ },
+ {
+  "key": "ESGP",
+  "name": "GÖTEBORG-SÄVE",
+  "status": "no_source",
+  "contacts": [],
+  "searched": [
+   "AIP GEN 3.3 (aro.lfv.se) checked: no ESGP/Säve TWR entry in table",
+   "web search for TWR/AFIS number gave no allowed source"
+  ]
+ },
+ {
+  "key": "ESGT",
+  "name": "GÖTEBORG-STALLBACKA",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 520 42 93 61",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "GÖTEBORG/STALLBACKA TWR ACR Flygtrafikledningen Göteborg Stallbacka Airport SE-461 93 Trollhättan +46 520 42 93 61"
+   }
+  ]
+ },
+ {
+  "key": "ESIA",
+  "name": "KARLSBORG",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 10 825 10 50",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "KARLSBORG TWR LFV ATS Karlsborg Flygplatsen PL19 SE-546 83 Karlsborg +46 10 825 10 50"
+   }
+  ]
+ },
+ {
+  "key": "ESIB",
+  "name": "SÅTENÄS",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 10 827 73 32",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "SÅTENÄS TWR LFV Skaraborgs flygflottilj, F7 SE-530 32 Såtenäs +46 10 827 73 32"
+   }
+  ]
+ },
+ {
+  "key": "ESKM",
+  "name": "MORA-SILJAN",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "AFIS",
+    "phone": "+46 250 393 10",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "MORA/SILJAN AFIS Mora Siljan flygplats Mora Airport SE-792 91 Mora E-mail: ats.mora@acr-sweden.se +46 250 393 10"
+   }
+  ]
+ },
+ {
+  "key": "ESKN",
+  "name": "STOCKHOLM-SKAVSTA",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 155 28 04 20",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "STOCKHOLM/SKAVSTA TWR ACR Flygtrafikledningen Stockholm Skavsta flygplats AB Box 44 SE-611 22 Nyköping +46 155 28 04 20"
+   }
+  ]
+ },
+ {
+  "key": "ESKS",
+  "name": "SÄLEN-SCANDINAVIAN MOUNTAINS",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 60 19 75 04",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "SÄLEN TWR RTC Sundsvall/SDATS Midlandavägen 14 SE-861 41 Sörberge E-mail: ats.salen@saabgroup.com +46 60 19 75 04"
+   }
+  ]
+ },
+ {
+  "key": "ESMK",
+  "name": "KRISTIANSTAD",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 44 23 88 58",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "KRISTIANSTAD TWR ACR Kristianstad Airport AB Flygtrafikledningen Kristianstad flygplats SE-297 92 Everöd +46 44 23 88 58"
+   }
+  ]
+ },
+ {
+  "key": "ESMQ",
+  "name": "KALMAR",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 10 357 48 33",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "KALMAR TWR ACR Flygtrafikledningen Kalmar flygplats SE-392 41 Kalmar +46 10 357 48 33"
+   }
+  ]
+ },
+ {
+  "key": "ESMS",
+  "name": "MALMÖ",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 40 613 15 50",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "MALMÖ/STURUP TWR LFV Box 918 SE-195 05 Arlandastad E-mail: ats.esms@lfv.se +46 40 613 15 50"
+   }
+  ]
+ },
+ {
+  "key": "ESMT",
+  "name": "HALMSTAD",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 35 18 26 50",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "HALMSTAD TWR FMTS/Flygtrafikledningen Box 516 SE-301 80 Halmstad +46 35 18 26 50"
+   }
+  ]
+ },
+ {
+  "key": "ESMV",
+  "name": "HAGSHULT",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 10 600 14 98",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "HAGSHULT TWR Flygtrafikledningen HAG Blekinge flygflottilj, F17 BOX 502 SE-372 25 Ronneby +46 10 600 14 98"
+   }
+  ]
+ },
+ {
+  "key": "ESMX",
+  "name": "VÄXJÖ-KRONOBERG",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 470 75 85 30",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "VÄXJÖ/KRONOBERG TWR ACR Flygtrafikledningen Växjö flygplats SE-355 93 Växjö +46 470 75 85 30"
+   }
+  ]
+ },
+ {
+  "key": "ESND",
+  "name": "SVEG",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "AFIS",
+    "phone": "+46 680 71 13 50",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "SVEG AFIS Härjedalens kommun Härjedalen Sveg Airport SE-842 80 Sveg +46 680 71 13 50"
+   }
+  ]
+ },
+ {
+  "key": "ESNG",
+  "name": "GÄLLIVARE",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "AFIS",
+    "phone": "+46 970 780 20",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "GÄLLIVARE AFIS Trafikledningen Box 92 SE-972 21 Gällivare +46 970 780 20"
+   }
+  ]
+ },
+ {
+  "key": "ESNK",
+  "name": "KRAMFORS-SOLLEFTEÅ",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "AFIS",
+    "phone": "+46 612 223 55",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "KRAMFORS AFIS Höga kusten Airport Gistgårdsön 101 SE-873 93 Nyland +46 612 223 55"
+   }
+  ]
+ },
+ {
+  "key": "ESNL",
+  "name": "LYCKSELE",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "AFIS",
+    "phone": "+46 950 275 51",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "LYCKSELE AFIS Lycksele Airport AB SE-921 81 Lycksele E-mail: ats@lyckseleairport.se +46 950 275 51"
+   }
+  ]
+ },
+ {
+  "key": "ESNN",
+  "name": "SUNDSVALL-TIMRÅ",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 60 19 75 07",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "SUNDSVALL-TIMRÅ TWR RTC Sundsvall/SDATS Midlandavägen 14 SE-861 41 Sörberge E-mail: ats.sundsvall@saabgroup.com +46 60 19 75 07"
+   }
+  ]
+ },
+ {
+  "key": "ESNO",
+  "name": "ÖRNSKÖLDSVIK",
+  "status": "ok",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 60 19 75 05",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "ÖRNSKÖLDSVIK TWR RTC Sundsvall/SDATS Midlandavägen 14 SE-861 41 Sörberge E-mail: ats.ornskoldsvik@saabgroup.com +46 60 19 75 05"
+   }
+  ]
+ }
+]

@@ -11,6 +11,14 @@ const read = (g) => fs.readdirSync(path.join(dir, 'reviewed')).filter((f) => f.s
 const idx = JSON.parse(fs.readFileSync(path.join(dir, 'aip', '_index.json'), 'utf8'));
 const AIP_DATE = (idx.amdt.match(/(\d{4})_(\d{2})_(\d{2})$/) || []).slice(1).join('-');
 const RUN_DATE = new Date().toISOString().slice(0, 10);
+// "Verified" i appen = dagen då citaten kontrollerades mot källan (verify-info.py / verify-web.py skriver
+// verified/), inte AIRAC-datumet och inte dagen filen byggs. AIP-utgåvan syns i källänken.
+const verifiedOn = (prefix) => {
+  const ms = fs.readdirSync(path.join(dir, 'verified')).filter((f) => f.startsWith(prefix) && f.endsWith('.json'))
+    .map((f) => fs.statSync(path.join(dir, 'verified', f)).mtimeMs);
+  return ms.length ? new Date(Math.max(...ms)).toISOString().slice(0, 10) : RUN_DATE;
+};
+const AIP_VERIFIED = verifiedOn('aip-'), WEB_VERIFIED = verifiedOn('web-');
 const seed = new Map(JSON.parse(fs.readFileSync(path.join(dir, '..', '..', 'assets', 'icao-airports.dat'), 'utf8')).map((r) => [r[0], r[1]]));
 const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== '' && v != null && !(Array.isArray(v) && !v.length)));
 
@@ -25,11 +33,11 @@ function record(a, kind) {
   if (a.email?.value) r.email = a.email.value;
   if (kind === 'aip') {
     r.src = [{ t: `AIP Sweden AD 2 ${a.icao} (AIRAC ${idx.amdt.replace(/_.*$/, '').replace('AIRAC AIP AMDT ', 'AMDT ')})`, url: idx.aerodromes[a.icao]?.url }];
-    r.v = AIP_DATE;
+    r.v = AIP_VERIFIED;
   } else {
     const urls = [...new Set(['website', 'ppr', 'fuel', 'hours'].map((k) => a[k]?.url).concat((a.contacts || []).map((c) => c.url), (a.good_to_know || []).map((g) => g.url)).filter(Boolean))];
     r.src = urls.map((u) => ({ t: new URL(u).hostname.replace(/^www\./, ''), url: u }));
-    r.v = a.as_of || RUN_DATE;
+    r.v = WEB_VERIFIED;   // sidans egen uppdateringsdag (as_of) är inte vår kontroll
   }
   return r;
 }
@@ -39,6 +47,25 @@ for (const a of read('web-')) {
   if (a.status !== 'ok' && !['ppr', 'fuel', 'hours', 'contacts', 'good_to_know'].some((k) => a[k])) continue;
   const r = record(a, 'web');
   if (Object.keys(r).some((k) => ['ppr', 'fuel', 'hours', 'contacts', 'gtk'].includes(k))) out[a.key] = r;
+}
+// Tornens/AFIS nummer (fetch-gen33.py ur AIP GEN 3.3 → reviewed/twr-*.json): först bland kontakterna,
+// källsidan läggs till bland källorna
+for (const t of read('twr-')) {
+  const r = out[t.key];
+  if (!r || !t.contacts?.length) continue;
+  // Finns numret redan (under det syfte AIP AD 2 nämner, t.ex. "PPR school flights") flyttas det först och får
+  // båda: "Tower (TWR) · PPR school flights"
+  const digits = (x) => x.replace(/\D/g, '');
+  const rest = [...(r.contacts ?? [])];
+  const first = t.contacts.map((c) => {
+    const i = rest.findIndex((x) => digits(x.ph) === digits(c.phone));
+    if (i < 0) return { l: c.label, ph: c.phone };
+    const [old] = rest.splice(i, 1);
+    const extra = old.l.replace(/^(TWR|ATS|AFIS)\b\s*/i, '').replace(/^\((.*)\)$/, '$1').trim();
+    return { l: extra ? `${c.label} · ${extra}` : c.label, ph: old.ph };
+  });
+  r.contacts = [...first, ...rest];
+  for (const c of t.contacts) if (!r.src.some((x) => x.url === c.url)) r.src.push({ t: `AIP Sweden GEN 3.3 (AIRAC ${idx.amdt.replace(/_.*$/, '').replace('AIRAC AIP AMDT ', 'AMDT ')})`, url: c.url });
 }
 // Avgifter (FEES-raden, visas bara när de finns): reviewed/fees-*.json, citatkontrollerade med verify-fees.mjs
 for (const f of read('fees-')) {

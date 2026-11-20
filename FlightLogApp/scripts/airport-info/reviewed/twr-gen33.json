@@ -1,0 +1,508 @@
+[
+ {
+  "key": "ESNX",
+  "contacts": [
+   {
+    "label": "Tower / AFIS",
+    "phone": "+46 960 173 85",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "ARVIDSJAUR TWR/AFIS +46 960 173 85"
+   }
+  ]
+ },
+ {
+  "key": "ESSD",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 243 645 20",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "BORLÄNGE TWR +46 243 645 20"
+   }
+  ]
+ },
+ {
+  "key": "ESSU",
+  "contacts": [
+   {
+    "label": "AFIS",
+    "phone": "+46 16 940 20",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "ESKILSTUNA AFIS +46 16 940 20"
+   }
+  ]
+ },
+ {
+  "key": "ESNG",
+  "contacts": [
+   {
+    "label": "AFIS",
+    "phone": "+46 970 780 20",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "GÄLLIVARE AFIS +46 970 780 20"
+   }
+  ]
+ },
+ {
+  "key": "ESGG",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 31 94 11 39",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "GÖTEBORG/LANDVETTER TWR +46 31 94 11 39"
+   }
+  ]
+ },
+ {
+  "key": "ESGT",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 520 42 93 61",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "GÖTEBORG/STALLBACKA TWR +46 520 42 93 61"
+   }
+  ]
+ },
+ {
+  "key": "ESOH",
+  "contacts": [
+   {
+    "label": "AFIS",
+    "phone": "+46 563 601 75",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "HAGFORS AFIS +46 563 601 75"
+   }
+  ]
+ },
+ {
+  "key": "ESMV",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 10 600 14 98",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "HAGSHULT TWR +46 10 600 14 98"
+   }
+  ]
+ },
+ {
+  "key": "ESMT",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 35 18 26 50",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "HALMSTAD TWR +46 35 18 26 50"
+   }
+  ]
+ },
+ {
+  "key": "ESUT",
+  "contacts": [
+   {
+    "label": "AFIS",
+    "phone": "+46 954 305 30",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "HEMAVAN AFIS +46 954 305 30"
+   }
+  ]
+ },
+ {
+  "key": "ESGJ",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 36 31 12 20",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "JÖNKÖPING TWR +46 36 31 12 20"
+   }
+  ]
+ },
+ {
+  "key": "ESMQ",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 10 357 48 33",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "KALMAR TWR +46 10 357 48 33"
+   }
+  ]
+ },
+ {
+  "key": "ESIA",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 10 825 10 50",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "KARLSBORG TWR +46 10 825 10 50"
+   }
+  ]
+ },
+ {
+  "key": "ESOK",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 54 55 60 76",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "KARLSTAD TWR +46 54 55 60 76"
+   }
+  ]
+ },
+ {
+  "key": "ESNQ",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 8 511 886 14",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "KIRUNA TWR +46 8 511 886 14"
+   }
+  ]
+ },
+ {
+  "key": "ESNK",
+  "contacts": [
+   {
+    "label": "AFIS",
+    "phone": "+46 612 223 55",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "KRAMFORS AFIS +46 612 223 55"
+   }
+  ]
+ },
+ {
+  "key": "ESMK",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 44 23 88 58",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "KRISTIANSTAD TWR +46 44 23 88 58"
+   }
+  ]
+ },
+ {
+  "key": "ESCF",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 10 828 35 90",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "LINKÖPING/MALMEN TWR +46 10 828 35 90"
+   }
+  ]
+ },
+ {
+  "key": "ESSL",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 60 19 75 13",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "LINKÖPING/SAAB TWR +46 60 19 75 13"
+   }
+  ]
+ },
+ {
+  "key": "ESTL",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 435 44 55 13",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "LJUNGBYHED TWR +46 435 44 55 13"
+   }
+  ]
+ },
+ {
+  "key": "ESPA",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 920 23 63 29",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "LULEÅ/KALLAX TWR +46 920 23 63 29"
+   }
+  ]
+ },
+ {
+  "key": "ESNL",
+  "contacts": [
+   {
+    "label": "AFIS",
+    "phone": "+46 950 275 51",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "LYCKSELE AFIS +46 950 275 51"
+   }
+  ]
+ },
+ {
+  "key": "ESMS",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 40 613 15 50",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "MALMÖ/STURUP TWR +46 40 613 15 50"
+   }
+  ]
+ },
+ {
+  "key": "ESKM",
+  "contacts": [
+   {
+    "label": "AFIS",
+    "phone": "+46 250 393 10",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "MORA/SILJAN AFIS +46 250 393 10"
+   }
+  ]
+ },
+ {
+  "key": "ESSP",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 11 14 02 00",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "NORRKÖPING/KUNGSÄNGEN TWR +46 11 14 02 00"
+   }
+  ]
+ },
+ {
+  "key": "ESUP",
+  "contacts": [
+   {
+    "label": "AFIS",
+    "phone": "+46 978 129 61",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "PAJALA AFIS +46 978 129 61"
+   }
+  ]
+ },
+ {
+  "key": "ESDF",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 10 827 15 55",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "RONNEBY TWR +46 10 827 15 55"
+   }
+  ]
+ },
+ {
+  "key": "ESNS",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 910 576 90",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "SKELLEFTEÅ TWR +46 910 576 90"
+   }
+  ]
+ },
+ {
+  "key": "ESSA",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 8 594 922 50",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "STOCKHOLM/ARLANDA TWR +46 8 594 922 50"
+   }
+  ]
+ },
+ {
+  "key": "ESSB",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 8 797 68 61",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "STOCKHOLM/BROMMA TWR +46 8 797 68 61"
+   }
+  ]
+ },
+ {
+  "key": "ESKN",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 155 28 04 20",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "STOCKHOLM/SKAVSTA TWR +46 155 28 04 20"
+   }
+  ]
+ },
+ {
+  "key": "ESOW",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 21 80 00 20",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "STOCKHOLM/VÄSTERÅS TWR +46 21 80 00 20"
+   }
+  ]
+ },
+ {
+  "key": "ESNN",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 60 19 75 07",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "SUNDSVALL-TIMRÅ TWR +46 60 19 75 07"
+   }
+  ]
+ },
+ {
+  "key": "ESND",
+  "contacts": [
+   {
+    "label": "AFIS",
+    "phone": "+46 680 71 13 50",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "SVEG AFIS +46 680 71 13 50"
+   }
+  ]
+ },
+ {
+  "key": "ESIB",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 10 827 73 32",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "SÅTENÄS TWR +46 10 827 73 32"
+   }
+  ]
+ },
+ {
+  "key": "ESKS",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 60 19 75 04",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "SÄLEN TWR +46 60 19 75 04"
+   }
+  ]
+ },
+ {
+  "key": "ESST",
+  "contacts": [
+   {
+    "label": "AFIS",
+    "phone": "+46 560 717 24",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "TORSBY AFIS +46 560 717 24"
+   }
+  ]
+ },
+ {
+  "key": "ESNU",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 8 511 886 20",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "UMEÅ TWR +46 8 511 886 20"
+   }
+  ]
+ },
+ {
+  "key": "ESPE",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 929 360 25",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "VIDSEL TWR +46 929 360 25"
+   }
+  ]
+ },
+ {
+  "key": "ESNV",
+  "contacts": [
+   {
+    "label": "AFIS",
+    "phone": "+46 940 310 09",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "VILHELMINA AFIS +46 940 310 09"
+   }
+  ]
+ },
+ {
+  "key": "ESSV",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 498 26 31 42",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "VISBY TWR +46 498 26 31 42"
+   }
+  ]
+ },
+ {
+  "key": "ESMX",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 470 75 85 30",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "VÄXJÖ/KRONOBERG TWR +46 470 75 85 30"
+   }
+  ]
+ },
+ {
+  "key": "ESTA",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 431 202 14",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "ÄNGELHOLM TWR +46 431 202 14"
+   }
+  ]
+ },
+ {
+  "key": "ESOE",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 19 30 70 08",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "ÖREBRO TWR +46 19 30 70 08"
+   }
+  ]
+ },
+ {
+  "key": "ESNO",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 60 19 75 05",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "ÖRNSKÖLDSVIK TWR +46 60 19 75 05"
+   }
+  ]
+ },
+ {
+  "key": "ESNZ",
+  "contacts": [
+   {
+    "label": "Tower (TWR)",
+    "phone": "+46 8 511 886 17",
+    "url": "https://aro.lfv.se/content/eaip/AIRAC%20AIP%20AMDT%206-2026_2026_10_29/eAIP/ES-GEN%203.3-en-GB.html",
+    "quote": "ÖSTERSUND TWR +46 8 511 886 17"
+   }
+  ]
+ }
+]

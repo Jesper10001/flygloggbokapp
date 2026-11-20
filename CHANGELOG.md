@@ -37,11 +37,13 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 - Improved: Global map filters are simpler: Properties is one row per setting, Closed airports are under Access, and a Clear button resets all filters.
 - Improved: A compact Airport Info card: PPR, fuel and fees in one row, tap for details. Opening hours come from the NOTAMs, shown as a week in UTC or local time, and NOTAMs are written out in plain English.
 - New: Airport Info shows the latest NOTAMs for Swedish airfields from LFV's official bulletin, free. Landing and parking fees where the airfield publishes them.
+- New: AD info has the phone number to the tower or AFIS at 46 Swedish airports, from the AIP.
 - New: Update an airfield's info from its official sources with the refresh button on the Info card (3 coins).
 - New: Airport Info for Swedish airfields: PPR, fuel, opening hours and contacts, from the AIP or the airfield's own website. Tap Info on the Global map or in Find airport.
 
 ### Alla ändringar
 
+- AD info (proxydata): tornens/AFIS telefonnummer för 46 av 48 AIP-fält ur AIP GEN 3.3 (scripts/airport-info/fetch-gen33.py; kopplas via AFS-adressen, bara första telefonnumret, Uppsalas trasiga nummer överhoppat, Säve saknas i GEN 3.3; korskontrollerat mot agentsökning 22/22), först bland kontakterna med GEN 3.3 som källa. "Verified" = dagen citaten kontrollerades (verified/-filernas tid), inte AIRAC-datum eller sidans egen datering. Kräver proxydeploy, ingen appuppdatering.
 - AD info: källänken (t.ex. AIP Sweden AD 2 ESSA) syns alltid under rubriken; ⓘ-knappen borttagen.
 - AD info NOTAM: en gemensam knapp "Original NOTAM"/"Plain text" i NOTAM-raden växlar alla NOTAM (och SNOWTAM) till originaltext; knapparna under varje NOTAM borta; UTC/Local flyttad till första öppettidsraden.
 - AD info: kontaktknapparna visar hela etiketten (ingen avkortning, radbryts); shortLabel borttagen.
