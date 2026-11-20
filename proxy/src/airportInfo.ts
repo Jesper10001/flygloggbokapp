@@ -143,3 +143,152 @@ const r=await fetch('/ops/airport-info/'+a,{method:'POST',headers:{'Content-Type
 if(!r.ok){$('#msg').innerHTML='<span class="err">'+esc(j.error||'Fel')+'</span>';return}await load();if(a==='delete'){cur=null;$('#ed').innerHTML='<p class="ok">Borttagen.</p>'}else edit(cur);$('#msg')&&($('#msg').innerHTML='<span class="ok">Sparat.</span>');}
 load();
 </script></body></html>`;
+
+// ── Refresh (Info-kortets ↻): användaren betalar 3 coins, kortet hämtas om ur samma källor som grunddatan ──
+// AIP-fält: gällande AIRAC-utgåvas AD 2-sida (2.2/2.3/2.4/2.20). Övriga: fältets egna sidor (src).
+// Claude läser ut uppgifterna med ordagranna citat; servern kontrollerar varje citat mot källtexten och släpper
+// bara igenom det som står där. Det som inte kan styrkas behåller sitt tidigare granskade värde.
+const UA = { 'User-Agent': 'Mozilla/5.0 (BladesAirportInfo; +https://blades-app.com)' };
+const AIP_ROOT = 'https://aro.lfv.se/content/eaip/';
+
+export function htmlToText(s: string): string {
+  return s
+    .replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<(br|\/p|\/tr|\/div|\/h\d|\/td|\/li)[^>]*>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
+    .replace(/[ \t ]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
+}
+/** Jämförelseform för citatkontrollen: gemener, bara bokstäver/siffror, ett mellanslag. */
+export const norm = (s: string) => String(s ?? '').toLowerCase().normalize('NFKC').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+const digits = (s: string) => String(s ?? '').replace(/\D/g, '').replace(/^46/, '0').replace(/^00?/, '0');
+
+/** Gällande AIRAC-mapp (senaste utgåva med datum ≤ idag). */
+async function currentAmdt(): Promise<string | null> {
+  const h = await (await fetch(AIP_ROOT + 'default_offline.html', { headers: UA })).text();
+  const today = new Date().toISOString().slice(0, 10).replace(/-/g, '_');
+  const all = [...new Set([...h.matchAll(/AIRAC AIP AMDT \d+-\d{4}_(\d{4}_\d{2}_\d{2})/g)].map((m) => m[0]))];
+  const ok = all.filter((a) => a.slice(-10) <= today).sort((a, b) => a.slice(-10).localeCompare(b.slice(-10)));
+  return ok.pop() ?? null;
+}
+
+async function sourceTexts(key: string, rec: Rec): Promise<{ t: string; url: string; text: string }[]> {
+  const out: { t: string; url: string; text: string }[] = [];
+  const srcs = (rec.src ?? []).slice(0, 3) as { t: string; url: string }[];
+  for (const s of srcs) {
+    let url = s.url, t = s.t;
+    if (rec.kind === 'aip' && /aro\.lfv\.se\/content\/eaip\//.test(url)) {
+      const amdt = await currentAmdt();
+      if (amdt) {
+        url = url.replace(/(content\/eaip\/)[^/]+(\/eAIP\/)/, `$1${encodeURI(amdt)}$2`);
+        const m = amdt.match(/AMDT (\d+)-(\d{4})/);
+        if (m) t = t.replace(/AMDT \d+-\d{4}/, `AMDT ${m[1]}-${m[2]}`);
+      }
+    }
+    try {
+      const r = await fetch(url, { headers: UA, redirect: 'follow' });
+      if (!r.ok) continue;
+      let text = htmlToText(await r.text());
+      if (rec.kind === 'aip') {
+        const secs = ['2.2', '2.3', '2.4', '2.20'].map((n) => {
+          const m = text.match(new RegExp(`\\n ?${key} ${n.replace('.', '\\.')} [A-Z][\\s\\S]*?(?=\\n ?${key} 2\\.\\d+ [A-Z]|$)`));
+          return m ? m[0] : '';
+        }).filter(Boolean);
+        if (secs.length) text = secs.join('\n\n');
+      }
+      out.push({ t, url, text: text.slice(0, 40000) });
+    } catch {}
+  }
+  return out;
+}
+
+const REFRESH_PROMPT = `You extract aerodrome information for a pilot app from the SOURCE TEXTS below (official AIP pages or the aerodrome's own website). Use ONLY what the sources state. Never use outside knowledge, never infer. Every value must come with "quote": a short VERBATIM excerpt (copied character for character, 5-200 chars) from one source that states it, and "src": the index of that source.
+Return ONLY a JSON object:
+{"ppr":{"s":"required|partial|not_required|unknown","n":"<short English note or empty>","ph":"<phone for PPR or empty>","quote":"…","src":0} | null,
+ "fuel":{"t":["<fuel types e.g. JET A-1, AVGAS 100LL, UL91, MOGAS>"],"n":"<short English note or empty>","h":"<fuel hours or empty>","quote":"…","src":0} | null,
+ "hours":{"ad":"<aerodrome operating hours exactly as stated, translated to English>","n":"<short note or empty>","quote":"…","src":0} | null,
+ "contacts":[{"l":"<English label, e.g. Aerodrome operator, TWR, Fuel>","ph":"<phone>","quote":"<excerpt containing the number>","src":0}],
+ "fees":{"landing":"<landing fee as stated, with currency>","parking":"<parking/overnight fee or empty>","note":"<e.g. per landing, MTOM limit, or empty>","year":"<year the price list applies to, or empty>","quote":"…","src":0} | null}
+Use null when the sources do not state it. Write notes in English. Keep notes under 120 characters.`;
+
+type Verified = { rec: Rec; changed: string[]; dropped: string[] };
+
+/** Släpper bara igenom fält vars citat finns ordagrant i källan (och telefonnummer som finns i citatet). */
+export function verifyRefresh(cur: Rec, ai: Rec, srcs: { t: string; url: string; text: string }[], today: string): Verified {
+  const ntext = srcs.map((s) => norm(s.text));
+  const ok = (x: Rec | null | undefined) => {
+    if (!x || typeof x.quote !== 'string' || norm(x.quote).length < 4) return false;
+    const i = Number.isInteger(x.src) && ntext[x.src] !== undefined ? [x.src] : ntext.map((_, j) => j);
+    return i.some((j) => ntext[j].includes(norm(x.quote)));
+  };
+  const phoneIn = (ph: string, quote: string) => !ph || digits(quote).includes(digits(ph));
+  const out: Rec = { ...cur }, changed: string[] = [], dropped: string[] = [];
+  const set = (k: string, v: Rec) => { if (JSON.stringify(cur[k] ?? null) !== JSON.stringify(v)) changed.push(k); out[k] = v; };
+  const s = (v: unknown, n = 300) => str(v, n);
+  if (ai.ppr) {
+    if (ok(ai.ppr) && phoneIn(ai.ppr.ph, ai.ppr.quote)) {
+      const p: Rec = { s: ['required', 'partial', 'not_required', 'unknown'].includes(ai.ppr.s) ? ai.ppr.s : 'unknown' };
+      if (ai.ppr.n) p.n = s(ai.ppr.n); if (ai.ppr.ph) p.ph = s(ai.ppr.ph, 40); if (cur.ppr?.url) p.url = cur.ppr.url;
+      set('ppr', p);
+    } else dropped.push('ppr');
+  }
+  if (ai.fuel) {
+    if (ok(ai.fuel)) {
+      const f: Rec = { t: (Array.isArray(ai.fuel.t) ? ai.fuel.t : []).map((x: unknown) => s(x, 30)).filter(Boolean).slice(0, 8) };
+      if (ai.fuel.n) f.n = s(ai.fuel.n); if (ai.fuel.h) f.h = s(ai.fuel.h, 200);
+      set('fuel', f);
+    } else dropped.push('fuel');
+  }
+  if (ai.hours?.ad) {
+    if (ok(ai.hours)) { const h: Rec = { ad: s(ai.hours.ad) }; if (ai.hours.n) h.n = s(ai.hours.n); set('hours', h); }
+    else dropped.push('hours');
+  }
+  if (Array.isArray(ai.contacts) && ai.contacts.length) {
+    const good = ai.contacts.filter((c: Rec) => c?.ph && ok(c) && phoneIn(c.ph, c.quote)).map((c: Rec) => ({ l: s(c.l, 80), ph: s(c.ph, 40) })).slice(0, 8);
+    if (good.length) set('contacts', good);
+    if (good.length < ai.contacts.length) dropped.push('contacts');
+  }
+  if (ai.fees?.landing) {
+    if (ok(ai.fees)) {
+      const f: Rec = { landing: s(ai.fees.landing, 120) };
+      if (ai.fees.parking) f.parking = s(ai.fees.parking, 120); if (ai.fees.note) f.note = s(ai.fees.note, 160);
+      if (ai.fees.year) f.year = s(ai.fees.year, 10);
+      const src = srcs[Number.isInteger(ai.fees.src) ? ai.fees.src : 0]; if (src) f.url = src.url;
+      set('fees', f);
+    } else dropped.push('fees');
+  }
+  out.src = srcs.map((x) => ({ t: x.t, url: x.url }));
+  out.v = today;
+  return { rec: out, changed, dropped };
+}
+
+export type CallModel = (body: string) => Promise<{ resp: Response; used: string }>;
+
+/** POST /airport-info/refresh {key} — anroparen (index.ts) har redan kollat coins och drar dem bara vid ok. */
+export async function refreshAirportInfo(key: string, env: Env, call: CallModel): Promise<{ status: number; body: Rec; usage?: { model: string; inTok: number; outTok: number } }> {
+  if (!/^[A-Z0-9-]{3,12}$/.test(key)) return { status: 400, body: { error: 'bad_key' } };
+  const cur = (await merged(env)).airports[key];
+  if (!cur) return { status: 404, body: { error: 'no_info' } };
+  const srcs = await sourceTexts(key, cur);
+  if (!srcs.length) return { status: 502, body: { error: 'source_unavailable' } };
+  const user = srcs.map((x, i) => `=== SOURCE ${i}: ${x.t} (${x.url}) ===\n${x.text}`).join('\n\n');
+  const { resp, used } = await call(JSON.stringify({
+    model: 'claude-sonnet-5-5', max_tokens: 2500,
+    system: [{ type: 'text', text: REFRESH_PROMPT }],
+    messages: [{ role: 'user', content: user }],
+  }));
+  if (!resp.ok) return { status: 502, body: { error: 'ai_unavailable' } };
+  const data = (await resp.json()) as Rec;
+  const text = (Array.isArray(data.content) ? data.content : []).filter((c: Rec) => c.type === 'text').map((c: Rec) => c.text ?? '').join('\n');
+  let ai: Rec = {};
+  try { ai = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] ?? '{}'); } catch { return { status: 502, body: { error: 'ai_parse' } }; }
+  const v = verifyRefresh(cur, ai, srcs, new Date().toISOString().slice(0, 10));
+  const { name, ...record } = v.rec;
+  return {
+    status: 200,
+    body: { key, record, changed: v.changed, dropped: v.dropped },
+    usage: { model: used, inTok: data.usage?.input_tokens ?? 0, outTok: data.usage?.output_tokens ?? 0 },
+  };
+}

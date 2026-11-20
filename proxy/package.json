@@ -5,5 +5,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "unpdf": "^0.12.1"
   }
 }

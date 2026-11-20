@@ -79,7 +79,7 @@ import { UnitSourcesPopup } from './UnitSources';
 import { RoleTag } from './RoleTag';
 import { getMilBase, baseRoles, milCounts, ROLES, ROLE_ORDER, typeFamilies, baseHasFamily, suggestFamilies, type RoleKey } from '../utils/milAirbases';
 import { useOsintStore } from '../store/osintStore';
-import { useAirportInfoStore } from '../store/airportInfoStore';
+import { useAirportInfoStore, useAirportInfo } from '../store/airportInfoStore';
 import { AirportInfoPanel } from './AirportInfoPanel';
 
 // Datum då flygplatsdatan senast hämtades (skrivs av scripts/build-airports.mjs --refresh), t.ex. "26 October 2026".
@@ -173,7 +173,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [coordListOpen, setCoordListOpen] = useState(false);
   // Airport Info (Info-knappen på kartan → kortet ovanför flygplatskortet). Stängs när man byter flygplats.
   const [infoOpen, setInfoOpen] = useState(false);
-  const infoAirports = useAirportInfoStore((st) => st.airports);
+  const focusInfo = useAirportInfo(focusAirport?.[0]);   // egen ↻-hämtning vinner över serverns
   const [coordShown, setCoordShown] = useState(false); // koordinaterna syns först när man valt ett system (gäller resten av besöket på kartan)
   useEffect(() => { if (!visible) { setCoordShown(false); setCoordListOpen(false); } }, [visible]);
   const [coordCopied, setCoordCopied] = useState(false);
@@ -979,7 +979,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                   <Ionicons name={coordListOpen ? 'chevron-up' : 'chevron-down'} size={12} color="#fff" />
                 </TouchableOpacity>
               </View>
-              {!coordListOpen && infoAirports[focusAirport[0]] && (
+              {!coordListOpen && focusInfo && (
                 <TouchableOpacity onPress={() => setInfoOpen((o) => !o)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Airport info"
                   accessibilityState={{ selected: infoOpen }} style={[styles.infoBtn, infoOpen && { borderColor: Colors.primary, backgroundColor: Colors.primary + '38' }]}>
                   <Ionicons name="information-circle-outline" size={15} color={Colors.primary} />
@@ -1441,9 +1441,9 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
           return (
             <View onLayout={(e) => setPlayCardH(e.nativeEvent.layout.height)}
               style={[{ position: 'absolute', left: 12, right: 12, zIndex: 15 }, playOn ? { top: insets.top + 8 } : { bottom: insets.bottom + 14 }]}>
-              {infoOpen && !playOn && infoAirports[focusAirport[0]] && (
+              {infoOpen && !playOn && focusInfo && (
                 <View style={{ marginBottom: 8 }}>
-                  <AirportInfoPanel info={infoAirports[focusAirport[0]]} maxHeight={360} />
+                  <AirportInfoPanel info={focusInfo} infoKey={focusAirport[0]} maxHeight={360} />
                 </View>
               )}
               {specificOn && getMilBase(focusAirport[0]) ? (

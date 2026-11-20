@@ -1,0 +1,158 @@
+[
+ {
+  "key": "ESTA",
+  "fees": {
+   "landing": "150 SEK per tonne MTOW per take-off (min 250 SEK)",
+   "parking": "45 SEK per tonne per day (min 380 SEK/day); applies to parking over 4 hours",
+   "note": "Affiliated to the Swedavia annual card system; VAT added per law",
+   "year": "2026",
+   "url": "https://www.angelholmhelsingborgairport.se/wp-content/uploads/2026/01/Airport-Charges-Pricelist-AGH-2026.pdf",
+   "quote": "Take-off Fee 150 SEK/tonne MTOW (Minimum 250 SEK),",
+   "quote_parking": "Parking > 4 hours 45 SEK/tonne and day (Minimum daily rate 380 SEK)"
+  }
+ },
+ {
+  "key": "ESGJ",
+  "fees": {
+   "landing": "Take-off fee per departure: 290 SEK (MTOW up to 2 t), 390 (2-5 t), 495 (5-8 t), 755 (8-15 t); 49 SEK/t above 15 t",
+   "parking": "25 SEK per tonne per started 24 h (min 250 SEK/24 h); free under 4 h; 50 SEK/t after 96 h",
+   "note": "Excl. VAT; payable before take-off; local annual landing card 2,900-3,700 SEK (MTOW up to 2 t); part of Swedavia landing card system",
+   "year": "2026",
+   "url": "https://www.jonkopingairport.se/media/pages/pilotinformation/commercial-information/64902f87a3-1767794541/jkg-price-list-2026.pdf",
+   "quote": "Take Off Fee MTOW (kg) Price Charging Unit 0 - 2 000 290 per dep 2 001 - 5 000 390 per dep 5 001 - 8 000 495 per dep 8 001 -15 000 755 per dep 15 001 - 45 000 49 per ton",
+   "quote_parking": "Aircraft Parking Fee No charge when parking less than 4 hours. Parking longer than 4 hours will be charged from the first hour. Parking 0-96 hours SEK 25 per ton and started 24 hours Parking 96 hours - SEK 50 per ton and started 24 hours Minimum fee SEK 250/24 hours"
+  }
+ },
+ {
+  "key": "ESNS",
+  "fees": {
+   "landing": "30 SEK per tonne MTOW per take-off (min 400 SEK)",
+   "parking": "Free first 4 h; then 18 SEK per hour per 1,000 kg MTOW, min 180 SEK per 24 h",
+   "note": "Rates in SEK, excl. taxes",
+   "year": "2026",
+   "url": "https://skellefteaairport.se/wp-content/uploads/2026/08/skelleftea-airport-price-list-2026.pdf",
+   "quote": "TAKE-OFF CHARGE The Take Off Charge is calculated based on the aircraft´s MTOW. The charge is payable per take-off as follows: Take-off Charge Charge per ton MTOW 30 Minimum charge per take-off 400",
+   "quote_parking": "No charge between 0 – 4 hours. The Parking Charge is payable per 1000 kg of aircraft MTOW or part thereof. Parking charge Charge per hour 18 minimum payment per 24 hours 180"
+  }
+ },
+ {
+  "key": "ESMT",
+  "fees": {
+   "landing": "Take-off charge by MTOW: 300 SEK (0-1.99 t), 360 (2-3.99 t), 440 (4-5.99 t), 72 SEK per started tonne from 6 t",
+   "parking": "First hour free; then 29 SEK per tonne per 24 h (min 175 SEK/24 h)",
+   "note": "Local annual take-off card 1,690-3,605 SEK (MTOW up to 1,999 kg)",
+   "year": "2026",
+   "url": "https://www.halmstadcityairport.se/download/18.331f6e0819bb6cbb0da1aa83/1768480299984/HAD%20pricelist%202026.pdf",
+   "quote": "Take off charge Calculated on the basis of the Maximum Take Off Weight (MTOW) as follows: MTOW 0 - 1,99 tonnes, SEK = 300 MTOW 2 - 3,99 tonnes, SEK = 360 MTOW 4 - 5,99 tonnes, SEK = 440 MTOW 6 tonnes and above, SEK = 72 for each started tonne",
+   "quote_parking": "0-1h free of charge 1-24h SEK 29/tonne Minimum charge SEK 175/24h"
+  }
+ },
+ {
+  "key": "ESUP",
+  "fees": {
+   "landing": "Landing charge: exempt under 2,000 kg MTOW; 730 SEK fixed for 2,000-24,000 kg (+50 SEK per 1,000 kg above 13,000 kg)",
+   "parking": "38 SEK per 1,000 kg per 24 h; free first 3 h",
+   "note": "Plus TNC and infrastructure fee (15 SEK per 1,000 kg) for larger aircraft",
+   "year": "2026",
+   "url": "https://www.pajala.se/media/k1ipdrc5/prislista-pajala-2026.pdf",
+   "quote": "LANDING CHARGE The Landing Charge is calculated based on the aircraft´s MTOW. Aircraft with MTOW under 2000 kilograms are exempt Landing charges. MTOW 2 000 – 24 000 kg 730 SEK fixed price 50 SEK in addition per 1000 kilograms over 13 000 kilograms",
+   "quote_parking": "A Parking charge is payable for aircraft parked on stands. No charge between 0 – 3 hours. The Parking Charge is payable per 1000 kg of aircraft MTOW. Parking 38 SEK per 1000 kilograms and 24 hours"
+  }
+ },
+ {
+  "key": "ESNL",
+  "fees": {
+   "landing": "78 SEK per tonne MTOW (min 661 SEK) under 25 t; 1,204 SEK + 124 SEK per tonne from 25 t",
+   "parking": "Free under 6 h; from 6 h MTOW x days x 33 SEK (min 251 SEK)",
+   "note": "Annual charge available for MTOW up to 2,000 kg",
+   "year": "2026",
+   "url": "https://www.lyckseleairport.se/media/tldn0u5u/airport-charges-2026-01-01-2026-12-31.pdf",
+   "quote": "1.1 Landing charge Domestic and international: Price: Less than 25 tonnes 78:- per tonne (661:- minimum fee) 25 tonnes or more 1204:- + 124:- per tonne",
+   "quote_parking": "1.5 Parking charge On the apron: Price: Less than 6 hours, no charge 6 hours or more, MTOW * days * 33:- (min charge 251: -)"
+  }
+ },
+ {
+  "key": "ESGP",
+  "fees": {
+   "landing": "Take-off fee (heliport): 500 SEK base up to 2 t MTOW, +360 SEK per started tonne above 2 t",
+   "parking": "Helicopter parking: free up to 4 h; 400 SEK (up to 2,000 kg) or 500 SEK (over 2,000 kg) for 4-24 h",
+   "note": "Excl. VAT",
+   "year": "2026",
+   "url": "https://saveflygplats.com/wp-content/uploads/2026/05/Prislista-Save-Flygplats-2026.pdf",
+   "quote": "STARTAVGIFT (MTOW) PRIS ex moms ENHET 0 - 2 ton 500 SEK Grundavgift per start Tillägg MTOW över 2 ton 360 SEK Per påbörjat ton över 2 ton och start",
+   "quote_parking": "UPPSTÄLLNING HELIKOPTER PRIS ex moms TID 0 - 4 tim 0 SEK Upp till 4 tim 0-2000 kg MTOW 400 SEK 4-24 tim Över 2000 kg MTOW 500 SEK 4-24 tim"
+  }
+ },
+ {
+  "key": "ESGT",
+  "fees": {
+   "landing": "117 SEK per tonne MTOW per landing (min 260 SEK)",
+   "parking": "Free up to 4 h; 4-96 h: 40 SEK per tonne per day (min 290 SEK); after 96 h: 80 SEK per tonne per day",
+   "note": "Excl. VAT; Swedavia annual and weekly cards valid; 75% discount for flight training (min 260 SEK)",
+   "year": "2026",
+   "url": "https://gsairport.se/wp-content/uploads/2026/04/Prislista-2026-1.pdf",
+   "quote": "LANDNING Pris Landningsavgift inrikes el. utrikes 117 kr/ton, dock minimiavgift 260 kr/landning Anmärkning: Avgift per påbörjat ton. Swedavia Landnings/startårskort och Weekly Season Card gäller.",
+   "quote_parking": "Flygplansuppställning 4–96 timmar:40 kr/ton och dygn, dock minimiavgift 290 kr. 96 timmar +: 80 kr/ton och dygn, eller efter särskild överenskommelse. Upp till 4 timmar avgiftsfritt."
+  }
+ },
+ {
+  "key": "ESKM",
+  "fees": {
+   "landing": "Take-off fee 92 SEK per tonne MTOW (list also shows 277)",
+   "parking": "19 SEK per tonne per 24 h (min 110 SEK)",
+   "note": "Excl. VAT; Swedavia annual and weekly cards valid; MTOW rounded to nearest 1,000 kg",
+   "year": "2025",
+   "url": "https://www.dalaflyget.se/app/uploads/2025/01/prislista-mora-nov-2025-hemsida.pdf",
+   "quote": "Startavgift beräknas med ledning av luftfartygets högsta tillåtna startvikt (MTOW) enligt luftvärdighetsbevis avrundat till närmaste 1000kg, och erläggs för varje start. Swedavias startårskort och Weekly Seasons Card gäller. Tjänst Baspris Pris, kr Ev Gräns Enhet Anm Startavgift 277 92 ton",
+   "quote_parking": "Parkeringsavgift 24h19:- per ton, min 110:- 110 dygn"
+  }
+ },
+ {
+  "key": "ESOW",
+  "fees": {
+   "landing": "Take-off charge per departure: 450 SEK (MTOW under 2,000 kg), 500 SEK (2,001-5,000 kg), 100 SEK per 1,000 kg MTOW above 5,001 kg",
+   "parking": "250 SEK per 24 h base fee (first 5 h free) plus 23 SEK per tonne",
+   "note": "List valid from 1 January 2025 (file dated Oct 2025); local annual landing card 7,500 SEK; Swedavia annual landing card accepted; VAT not stated",
+   "year": "2025",
+   "url": "https://vasterasairport.se/download/18.3dd53d1819a2141f0f943256/1761576784716/Price%20list.okt25.pdf",
+   "quote": "Take off charge Price Charging Unit < 2 000 kg MTOW 450 Per dep 2 001 – 5 000 kg MTOW 500 Per dep Above 5 001 kg MTOW 100 SEK per 1 000 kg MTOW Per dep",
+   "quote_parking": "Parking charge Price Charging unit Base fee 250 Per 24h (first 5h FOC) Per ton 23"
+  }
+ },
+ {
+  "key": "ESMQ",
+  "fees": {
+   "landing": "Take-off charge: 325 SEK (MTOW 4-5 t); 65 SEK per started tonne from 6 t; minimum 250 SEK",
+   "parking": "Free up to 4 h; above that 15 SEK per tonne MTOW up to 24 h (min 150 SEK/24 h)",
+   "note": "Local landing card 1,500-3,125 SEK/year (MTOW up to 2,500 kg), excl. 25% VAT when applicable",
+   "year": "2025",
+   "url": "https://kalmarolandairport.se/wp-content/uploads/2025/02/pricelistpublic2025.pdf",
+   "quote": "Take off charge Calculated on the basis of the aircrafts Maximum Take Off Weight (MTOW) as follows: MTOW 4-5 tonnes, SEK = 325 MTOW 6 ton and above, SEK = 65 for each started ton Minimum charge is SEK 250",
+   "quote_parking": "Parking charge Valid for all aircrafts parked on stands at Kalmar Öland Airport 1-4h free of charge Above 4h parking cost SEK15/ton based on MTOW up to 24h Minimum charge is SEK 150/24h"
+  }
+ },
+ {
+  "key": "ESOK",
+  "fees": {
+   "landing": "Take-off charge 35 SEK per 1,000 kg MTOW or part thereof (min 400 SEK)",
+   "parking": "Free for first 2 h; 25 SEK per 1,000 kg per 24 h (min 250 SEK/24 h)",
+   "note": "MTOW rounded to nearest 1,000 kg",
+   "year": "2025",
+   "url": "https://www.ksdarprt.se/wp-content/uploads/2025/07/ksdarprt-prislista-1-juli-2025.pdf",
+   "quote": "Charge rate: SEK 35 per 1 000 kilograms or parts there of. Minimum charge is SEK 400.",
+   "quote_parking": "Parking charge No charge between 0–2 hours. Parking of aircraft is charged per 1 000/kg MTOW or part there of. Minimum charge is SEK 250 per 24 hours. Charge rate: SEK 25 per 1 000 kg and 24 hours."
+  }
+ },
+ {
+  "key": "ESNN",
+  "fees": {
+   "landing": "Take-off charge: 300 SEK (0-5,000 kg); 60 SEK per tonne for 5,001-30,000 kg; 75 SEK per tonne above 30,000 kg; minimum 300 SEK",
+   "parking": "Free up to 4 h; then 30 SEK per tonne (min 150 SEK per 24 h)",
+   "note": "Excl. VAT; take-off season card 3,000 SEK/year",
+   "year": "2026",
+   "url": "https://www.sdlairport.se/download/18.23ef355419b8401f2a152e2c/1767948287201/PricelistSDLAirport_2026.pdf",
+   "quote": "Take Off Charge 0-5 000 kg 300,00 kr 5 001-30 000 kg Ton 60,00 kr 30 001 kg - Ton 75,00 kr Minimum Take Off Charge 300,00 kr Take Off Season Card Year 3 000,00 kr",
+   "quote_parking": "Parking Charge 0-4 h Ton Free 4h- Ton 30,00 kr 4h- minimum charge Per 24h 150,00 kr"
+  }
+ }
+]

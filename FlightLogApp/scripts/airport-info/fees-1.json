@@ -1,0 +1,242 @@
+[
+ {
+  "key": "ESCF",
+  "name": "Malmen Air Base",
+  "website": ""
+ },
+ {
+  "key": "ESGG",
+  "name": "Gothenburg-Landvetter Airport",
+  "website": "www.swedavia.se/landvetter/"
+ },
+ {
+  "key": "ESGT",
+  "name": "Trollhättan-Vänersborg Airport",
+  "website": "www.gsairport.se"
+ },
+ {
+  "key": "ESKM",
+  "name": "Mora Airport",
+  "website": "www.dalaflyget.se"
+ },
+ {
+  "key": "ESMK",
+  "name": "Kristianstad Airport",
+  "website": "www.kidairport.com"
+ },
+ {
+  "key": "ESMT",
+  "name": "Halmstad Airport",
+  "website": "www.halmstadsflygplats.se"
+ },
+ {
+  "key": "ESND",
+  "name": "Sveg Airport",
+  "website": "www.harjedalenairport.se"
+ },
+ {
+  "key": "ESNL",
+  "name": "Lycksele Airport",
+  "website": "www.lyckseleairport.se"
+ },
+ {
+  "key": "ESNQ",
+  "name": "Kiruna Airport",
+  "website": "www.swedavia.se/kiruna"
+ },
+ {
+  "key": "ESNV",
+  "name": "Vilhelmina South Lapland Airport",
+  "website": "www.southlaplandairport.com"
+ },
+ {
+  "key": "ESOE",
+  "name": "Örebro Airport",
+  "website": "www.orebroairport.se"
+ },
+ {
+  "key": "ESOW",
+  "name": "Stockholm Västerås Airport",
+  "website": "www.vst.nu"
+ },
+ {
+  "key": "ESSA",
+  "name": "Stockholm-Arlanda Airport",
+  "website": "www.swedavia.se/arlanda/"
+ },
+ {
+  "key": "ESSL",
+  "name": "Linköping City Airport",
+  "website": "www.linkopingcityairport.se"
+ },
+ {
+  "key": "ESSU",
+  "name": "Eskilstuna Airport",
+  "website": "www.eskilstunaflygplats.se"
+ },
+ {
+  "key": "ESTL",
+  "name": "Ljungbyhed Airport",
+  "website": "www.ljungbyhedpark.se"
+ },
+ {
+  "key": "ESCM",
+  "name": "Ärna Air Base",
+  "website": ""
+ },
+ {
+  "key": "ESGJ",
+  "name": "Jönköping Airport",
+  "website": "www.jonkopingairport.se"
+ },
+ {
+  "key": "ESIA",
+  "name": "Karlsborg Air Base",
+  "website": ""
+ },
+ {
+  "key": "ESKN",
+  "name": "Stockholm Skavsta Airport",
+  "website": "www.skavsta.se"
+ },
+ {
+  "key": "ESMQ",
+  "name": "Kalmar Airport",
+  "website": "www.kalmarolandairport.se"
+ },
+ {
+  "key": "ESMV",
+  "name": "Hagshult Air Base",
+  "website": ""
+ },
+ {
+  "key": "ESNG",
+  "name": "Gällivare Airport",
+  "website": "www.lapair.se"
+ },
+ {
+  "key": "ESNN",
+  "name": "Sundsvall-Härnösand Airport",
+  "website": "www.sdlairport.se"
+ },
+ {
+  "key": "ESNS",
+  "name": "Skellefteå Airport",
+  "website": "skellefteaairport.se"
+ },
+ {
+  "key": "ESNX",
+  "name": "Arvidsjaur Airport",
+  "website": "www.arvidsjaurairport.se"
+ },
+ {
+  "key": "ESOH",
+  "name": "Hagfors Airport",
+  "website": "www.hagfors.se/hagforsairport"
+ },
+ {
+  "key": "ESPA",
+  "name": "Luleå Airport",
+  "website": "www.swedavia.se/sv/lulea"
+ },
+ {
+  "key": "ESSB",
+  "name": "Stockholm-Bromma Airport",
+  "website": "www.swedavia.se/Bromma"
+ },
+ {
+  "key": "ESSP",
+  "name": "Norrköping Airport",
+  "website": "www.norrkopingairport.se"
+ },
+ {
+  "key": "ESSV",
+  "name": "Visby Airport",
+  "website": "www.swedavia.se/visby"
+ },
+ {
+  "key": "ESUP",
+  "name": "Pajala Airport",
+  "website": "www.pajala.se/pajala-airport"
+ },
+ {
+  "key": "ESDF",
+  "name": "Ronneby Airport",
+  "website": "www.ronnebyairport.se"
+ },
+ {
+  "key": "ESGP",
+  "name": "Gothenburg City Airport",
+  "website": "www.saveflygplats.com"
+ },
+ {
+  "key": "ESIB",
+  "name": "Såtenäs Air Base",
+  "website": "www.forsvarsmakten.se"
+ },
+ {
+  "key": "ESKS",
+  "name": "Scandinavian Mountains Airport",
+  "website": "www.scandinavianmountains.se"
+ },
+ {
+  "key": "ESMS",
+  "name": "Malmö Sturup Airport",
+  "website": "www.swedavia.se/malmo"
+ },
+ {
+  "key": "ESMX",
+  "name": "Växjö Kronoberg Airport",
+  "website": "www.smalandairport.se"
+ },
+ {
+  "key": "ESNK",
+  "name": "Kramfors-Sollefteå Höga Kusten Airport",
+  "website": "www.hogakustenairport.se"
+ },
+ {
+  "key": "ESNO",
+  "name": "Örnsköldsvik Airport",
+  "website": "www.oer.se"
+ },
+ {
+  "key": "ESNU",
+  "name": "Umeå Airport",
+  "website": "www.swedavia.se/umea"
+ },
+ {
+  "key": "ESNZ",
+  "name": "Åre Östersund Airport",
+  "website": "www.swedavia.se/ostersund"
+ },
+ {
+  "key": "ESOK",
+  "name": "Karlstad Airport",
+  "website": "www.ksdarprt.se"
+ },
+ {
+  "key": "ESPE",
+  "name": "Vidsel Air Base",
+  "website": ""
+ },
+ {
+  "key": "ESSD",
+  "name": "Dala Airport",
+  "website": "www.dalaairport.se"
+ },
+ {
+  "key": "ESST",
+  "name": "Torsby Airport",
+  "website": "www.torsbyflygplats.se"
+ },
+ {
+  "key": "ESTA",
+  "name": "Ängelholm-Helsingborg Airport",
+  "website": "www.aghairport.se"
+ },
+ {
+  "key": "ESUT",
+  "name": "Hemavan Airport",
+  "website": "www.hemavantarnabyairport.se"
+ }
+]

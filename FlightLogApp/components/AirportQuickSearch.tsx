@@ -465,7 +465,7 @@ export function AirportQuickSearch({ accent = Colors.primary, onPick, onFocusShi
                   behåller höjden) så native-kartan inte rivs mitt i modalens fade → undviker krasch. */}
               {showInfo && info ? (
                 // Airport Info lägger sig exakt över kartrutan (samma höjd) → skärmdump med kort, Info och rutt
-                <AirportInfoPanel info={info} accent={accent} height={315} onMap={() => setShowInfo(false)} />
+                <AirportInfoPanel info={info} infoKey={selected!.icao} accent={accent} height={315} onMap={() => setShowInfo(false)} />
               ) : showMap ? (
                 <View>
                   <AirportRunwaySnippet icao={selected.icao} lat={selected.lat} lon={selected.lon} windDir={metar?.windDir ?? null} windSpeed={metar?.windSpeed ?? null} frozen={snippetFrozen} userLat={pos?.lat ?? null} userLon={pos?.lon ?? null} fitUser={closestMode} />

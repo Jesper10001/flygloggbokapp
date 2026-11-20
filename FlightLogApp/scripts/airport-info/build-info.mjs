@@ -40,6 +40,10 @@ for (const a of read('web-')) {
   const r = record(a, 'web');
   if (Object.keys(r).some((k) => ['ppr', 'fuel', 'hours', 'contacts', 'gtk'].includes(k))) out[a.key] = r;
 }
+// Avgifter (FEES-raden, visas bara när de finns): reviewed/fees-*.json, citatkontrollerade med verify-fees.mjs
+for (const f of read('fees-')) {
+  if (out[f.key] && f.fees?.landing) out[f.key].fees = clean({ landing: f.fees.landing, parking: f.fees.parking, note: f.fees.note, year: f.fees.year, url: f.fees.url });
+}
 const file = path.join(dir, '..', '..', '..', 'proxy', 'data', 'airport-info-se.json');
 fs.writeFileSync(file, JSON.stringify({ built: RUN_DATE, airports: out }));
-console.log(`${Object.keys(out).length} flygplatser (${Object.values(out).filter((r) => r.kind === 'aip').length} AIP, ${Object.values(out).filter((r) => r.kind === 'web').length} hemsidor) → proxy/data/airport-info-se.json, ${fs.statSync(file).size} byte`);
+console.log(`${Object.keys(out).length} flygplatser (${Object.values(out).filter((r) => r.kind === 'aip').length} AIP, ${Object.values(out).filter((r) => r.kind === 'web').length} hemsidor) → proxy/data/airport-info-se.json, ${Object.values(out).filter((r) => r.fees).length} med avgifter, ${fs.statSync(file).size} byte`);

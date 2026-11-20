@@ -1,0 +1,23 @@
+[
+ {
+  "key": "ESVB",
+  "fees": {
+   "landing": "Landing 300 SEK",
+   "parking": "100 SEK/night",
+   "note": "PPR. Swish or cash.",
+   "url": "https://www.bungeflygfalt.se",
+   "quote": "Landningsavgift 300 SEK. Parkering 100 SEK/natt. Swish eller kontant.",
+   "quote_parking": "Parkering 100 SEK/natt."
+  }
+ },
+ {
+  "key": "ESKV",
+  "fees": {
+   "landing": "No landing fee for private pilots (MTOM < 2,001 kg)",
+   "note": "Commercial operators: separate price list.",
+   "year": "2026",
+   "url": "https://arvikaflygklubb.se/",
+   "quote": "MTOM <2001 kg: No landing fee for private pilots"
+  }
+ }
+]

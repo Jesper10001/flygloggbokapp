@@ -1,0 +1,187 @@
+[
+ {
+  "key": "ESFA",
+  "name": "Hässleholm Bokeberg Airfield",
+  "website": "https://hlmfk.se"
+ },
+ {
+  "key": "ESGK",
+  "name": "Falköping Airfield",
+  "website": "https://falbygdensfk.se"
+ },
+ {
+  "key": "ESMP",
+  "name": "Anderstorp Airport",
+  "website": "https://www.srwanderstorp.se/en/anderstorp-airfield/"
+ },
+ {
+  "key": "ESNP",
+  "name": "Piteå Airport",
+  "website": "https://pfk.pitea-flygklubb.se/"
+ },
+ {
+  "key": "ESSZ",
+  "name": "Vängsö Airport",
+  "website": "https://www.osfk.se/"
+ },
+ {
+  "key": "ESUE",
+  "name": "Idre Airport",
+  "website": "https://www.idrefjallensairport.se/"
+ },
+ {
+  "key": "ESVG",
+  "name": "Gagnef Airport",
+  "website": "https://gagnefsflygklubb.se"
+ },
+ {
+  "key": "ESGE",
+  "name": "Borås Airport",
+  "website": "https://www.borasflygplats.se/"
+ },
+ {
+  "key": "ESGL",
+  "name": "Lidköping-Hovby Airport",
+  "website": "https://lidkoping.se/bygga-bo-och-miljo/trafik-gator-och-resande/lidkoping-airport"
+ },
+ {
+  "key": "ESMI",
+  "name": "Sjöbo/Sövde Airport",
+  "website": "http://www.sjoboflyg.se"
+ },
+ {
+  "key": "ESMC",
+  "name": "Ränneslätt Airport",
+  "website": "https://www.norrasmalandsfk.se/"
+ },
+ {
+  "key": "ESMU",
+  "name": "Möckeln Airport",
+  "website": "https://esmu.se"
+ },
+ {
+  "key": "ESNC",
+  "name": "Hedlanda Airport",
+  "website": "https://www.ivc-media.com/hedlanda/index.htm"
+ },
+ {
+  "key": "SE-0001",
+  "name": "Trosa Troslanda airfield",
+  "website": "https://www.trosaflygklubb.se/"
+ },
+ {
+  "key": "SE-0011",
+  "name": "Täby Sjöflygklubb",
+  "website": "https://www.tsk.nu/"
+ },
+ {
+  "key": "SE-0058",
+  "name": "Kronobergshed Airfield",
+  "website": "https://www.kronobergshedsmfk.com/"
+ },
+ {
+  "key": "ESSM",
+  "name": "Brattforshede Airport",
+  "website": "https://www.brattforsheden.se/"
+ },
+ {
+  "key": "ESTF",
+  "name": "Fjällbacka Anra Airport",
+  "website": "https://www.fjallbackaflygklubb.se/"
+ },
+ {
+  "key": "ESSE",
+  "name": "Skå-Edeby Airport",
+  "website": "https://www.skaedebyflygfalt.se/"
+ },
+ {
+  "key": "ESUL",
+  "name": "Ljusdal Airport",
+  "website": "https://ljusdalsflygklubb.se"
+ },
+ {
+  "key": "ESME",
+  "name": "Eslöv Airport",
+  "website": "https://eslovsflygplats.se"
+ },
+ {
+  "key": "ESNY",
+  "name": "Söderhamn Airport",
+  "website": "https://flygstaden.se/flygfalt/"
+ },
+ {
+  "key": "ESSF",
+  "name": "Hultsfred Airport",
+  "website": "https://www.hultsfredairport.se"
+ },
+ {
+  "key": "ESSN",
+  "name": "Norrtälje Airport",
+  "website": "https://rfk.nu"
+ },
+ {
+  "key": "ESKV",
+  "name": "Arvika Airport",
+  "website": "https://arvikaflygklubb.se/"
+ },
+ {
+  "key": "ESOL",
+  "name": "Lemstanas Airport",
+  "website": "http://flygklubbenstorvik.se/wp/"
+ },
+ {
+  "key": "ESSG",
+  "name": "Ludvika Airport",
+  "website": "https://ludvikaflyg.se/"
+ },
+ {
+  "key": "ESSW",
+  "name": "Västervik Airport",
+  "website": "https://www.vastervik.se/essw"
+ },
+ {
+  "key": "ESUI",
+  "name": "Mellansel Airport",
+  "website": "https://www.mellanselsfk.se"
+ },
+ {
+  "key": "ESVM",
+  "name": "Skinnlanda Airport",
+  "website": "https://malungsflygklubb.se/"
+ },
+ {
+  "key": "SE-0003",
+  "name": "Bollnäs",
+  "website": "https://www.bollnasflygklubb.se/"
+ },
+ {
+  "key": "SE-0047",
+  "name": "Åviken Fly Camp",
+  "website": "https://www.aviken.se/"
+ },
+ {
+  "key": "ESMG",
+  "name": "Feringe Airport",
+  "website": "https://www.feringefk.se/"
+ },
+ {
+  "key": "ESQO",
+  "name": "Arboga Airfield",
+  "website": "https://klubbhus.flygsport.se/arboga-flygklubb/flygplatsen-esqo"
+ },
+ {
+  "key": "ESVB",
+  "name": "Bunge Private Airport",
+  "website": "https://www.bungeflygfalt.se"
+ },
+ {
+  "key": "ESVQ",
+  "name": "Köping/Gålby flygfält",
+  "website": "https://www.kopingsfk.se/"
+ },
+ {
+  "key": "SE-0066",
+  "name": "Motala flygklubb",
+  "website": "https://www.motalaflygklubb.se"
+ }
+]

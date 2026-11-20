@@ -9,6 +9,7 @@ export type InfoRec = {
   ppr?: { s: 'required' | 'not_required' | 'partial' | 'unknown'; n?: string; ph?: string; url?: string };
   fuel?: { t?: string[]; n?: string; h?: string };
   hours?: { ad?: string; n?: string };
+  fees?: { landing: string; parking?: string; note?: string; year?: string; url?: string };
   contacts?: { l: string; ph: string }[];
   gtk?: string[];
   web?: string;
@@ -19,6 +20,9 @@ export type InfoRec = {
 
 const PROXY_URL = (process.env.EXPO_PUBLIC_PROXY_URL ?? '').replace(/\/+$/, '');
 const FILE = `${FileSystem.documentDirectory ?? ''}airport-info.json`;
+// Kort som användaren själv hämtat om (↻, 3 coins) sparas bara i telefonen och vinner över serverns
+// version så länge de är minst lika nya (fältet v).
+const LOCAL_FILE = `${FileSystem.documentDirectory ?? ''}airport-info-local.json`;
 const REFRESH_MS = 60 * 60 * 1000;
 let checkedAt = 0;
 let fromDisk = false;
@@ -26,12 +30,20 @@ let fromDisk = false;
 interface Store {
   version: string;
   airports: Record<string, InfoRec>;
+  local: Record<string, InfoRec>;
   load: () => Promise<void>;
+  saveLocal: (key: string, rec: InfoRec) => void;
 }
 
 export const useAirportInfoStore = create<Store>((set, get) => ({
   version: '',
   airports: {},
+  local: {},
+  saveLocal: (key, rec) => {
+    const local = { ...get().local, [key]: rec };
+    set({ local });
+    FileSystem.writeAsStringAsync(LOCAL_FILE, JSON.stringify(local)).catch(() => {});
+  },
   load: async () => {
     if (get().version && Date.now() - checkedAt < REFRESH_MS) return;
     if (!fromDisk) {
@@ -40,6 +52,10 @@ export const useAirportInfoStore = create<Store>((set, get) => ({
         const info = await FileSystem.getInfoAsync(FILE);
         if (info.exists) { const d = JSON.parse(await FileSystem.readAsStringAsync(FILE)); set({ version: d.v ?? '', airports: d.airports ?? {} }); }
       } catch { /* trasig fil → hämtas på nytt */ }
+      try {
+        const li = await FileSystem.getInfoAsync(LOCAL_FILE);
+        if (li.exists) set({ local: JSON.parse(await FileSystem.readAsStringAsync(LOCAL_FILE)) ?? {} });
+      } catch { /* ignoreras */ }
     }
     if (!PROXY_URL) return;
     const ctrl = new AbortController();
@@ -60,5 +76,10 @@ export const useAirportInfoStore = create<Store>((set, get) => ({
 
 /** Uppgifterna för en flygplats (nyckel = flygplatsens nyckel i appen), annars null. */
 export function useAirportInfo(key?: string | null): InfoRec | null {
-  return useAirportInfoStore((s) => (key ? s.airports[key] ?? null : null));
+  return useAirportInfoStore((s) => {
+    if (!key) return null;
+    const srv = s.airports[key], loc = s.local[key];
+    if (loc && (!srv || (loc.v ?? '') >= (srv.v ?? ''))) return loc;
+    return srv ?? null;
+  });
 }

@@ -8,7 +8,8 @@ import { scanReach, passSize, grantScanPass, scanPassCovers, noteScanRead } from
 import { getCredits, grantPurchase, revokePurchase, splitCharge, hasAllowance, COIN_PACKS } from './credits';
 import { redeemCode, promoTierOf } from './promo';
 import { makeOsintHandler } from './osint.mjs';
-import { handleAirportInfo } from './airportInfo';
+import { handleAirportInfo, refreshAirportInfo } from './airportInfo';
+import { handleNotam } from './notam';
 import OSINT_LAYER from '../data/osint-airbases.json';
 import OSINT_CFG from '../config/osint_exclusions.json';
 // OSINT-lagret (Global map → Air Bases → Specific): filtreras här, spärras för blocked_countries (src/osint.mjs).
@@ -45,6 +46,7 @@ interface Env extends OpsEnv {
 // byte mitt i månaden behåller det som redan gått åt).
 // Visas för användaren som "Blade-coins" (1 coin = 200 tokens) — se appens tokenGate.
 const TOKEN_QUOTAS_ENABLED = true;
+const AINFO_REFRESH_TOKENS = 3 * 200;   // Info-kortets ↻ = 3 Blade coins (TOKENS_PER_COIN = 200)
 const TOKEN_LIMITS: Record<string, number> = {
   free: 20_000,     // engångspott (lifetime) = 100 Blade-coins
   premium: 50_000,  // per månad = 250 Blade-coins
@@ -1139,6 +1141,36 @@ export default {
     // ── Version / app news endpoint ──
     // ── Airport Info (Info-kortet: PPR, bränsle, öppettider …): GET /airport-info, ändringar via Ops ──
     if (url.pathname === '/airport-info' && request.method === 'GET') return handleAirportInfo(request, env);
+    // NOTAM ur LFV:s PIB (gratis, delad 15-minuterscache): GET /notam?icao=ESSA
+    if (url.pathname === '/notam' && request.method === 'GET') return handleNotam(request, env, corsHeaders(origin));
+    // Info-kortets ↻: hämtar om en flygplats ur dess officiella källor, 3 Blade coins (dras bara när det lyckas)
+    if (url.pathname === '/airport-info/refresh' && request.method === 'POST') {
+      const jh = { ...corsHeaders(origin), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
+      const devId = request.headers.get('X-Device-ID') ?? 'unknown';
+      if (devId === 'unknown' || !env.QUOTA_KV || !env.ANTHROPIC_API_KEY) return new Response(JSON.stringify({ error: 'unavailable' }), { status: 400, headers: jh });
+      const dk = await deviceKeys(devId);
+      const tier = await resolveTier(devId, env);
+      const ctier = await coinTier(devId, tier, env);
+      const exempt = quotaExempt(env, dk.hash);
+      const limit = TOKEN_LIMITS[ctier] ?? TOKEN_LIMITS.free;
+      const used = parseInt(await kvGetMigrating(env.QUOTA_KV, tokenKey(dk.hash, ctier), tokenKey(dk.legacy, ctier), tokenTtl(ctier)) ?? '0', 10) || 0;
+      const credits = await getCredits(env.QUOTA_KV, dk.hash);
+      if (!exempt && TOKEN_QUOTAS_ENABLED && (!hasAllowance(used, limit, credits) || Math.max(0, limit - used) + Math.max(0, credits) < AINFO_REFRESH_TOKENS)) {
+        return new Response(JSON.stringify({ error: 'token_quota_exceeded', can_buy: isPaid(tier) }), { status: 429, headers: jh });
+      }
+      const body = (await request.json().catch(() => ({}))) as { key?: string };
+      const r = await refreshAirportInfo(String(body.key ?? '').toUpperCase(), env, (b) =>
+        callWithModelFallback(b, { apiKey: env.ANTHROPIC_API_KEY, kv: env.QUOTA_KV, log: (m) => console.log(m) }));
+      if (r.usage && env.TELEMETRY) {
+        env.TELEMETRY.writeDataPoint({
+          blobs: [r.usage.model, dk.hash, (request as any).cf?.country ?? '??', r.status === 200 ? 'ok' : `error_${r.status}`],
+          doubles: [0, r.usage.inTok, r.usage.outTok, costUsd(r.usage.model, r.usage.inTok, r.usage.outTok)],
+          indexes: [dk.hash],
+        });
+      }
+      if (r.status === 200 && !exempt) await chargeTokens(env.QUOTA_KV, dk, ctier, AINFO_REFRESH_TOKENS);
+      return new Response(JSON.stringify(r.body), { status: r.status, headers: jh });
+    }
 
     // ── OSINT-lagret med militära flygbaser: GET /osint/airbases (filtrerat, 451 för spärrade länder) ──
     if (url.pathname === '/osint/airbases' && request.method === 'GET') return handleOsint(request);
