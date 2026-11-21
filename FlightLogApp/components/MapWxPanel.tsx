@@ -80,7 +80,7 @@ export function MapWxPanel({ icao, height, onMap, country, region, lon }: {
   const t = wx?.tafObj;
   const bar = t ? tafBar(t) : [];
   const ticks = t ? tafTicks(t, hour) : [];
-  const rows = t ? tafChanges(t, Date.now(), 3, hour) : [];
+  const rows = t ? tafChanges(t, Date.now(), Infinity, hour) : [];   // alla kommande ändringar (TAF-delen rullar)
   const expired = t ? tafExpired(t) : false;
   const total = bar.reduce((s, x) => s + (x.to - x.from), 0) || 1;
   const nowPos = bar.length ? Math.min(1, Math.max(0, (Date.now() / 1000 - bar[0].from) / total)) : -1;

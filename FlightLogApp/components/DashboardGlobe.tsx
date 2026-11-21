@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { useFocusEffect } from 'expo-router';
 import { getAirportCoordinates } from '../db/icao';
-import { getFlights } from '../db/flights';
+import { getFlights, dbChangeStamp, sameStamp, type ChangeStamp } from '../db/flights';
 import { useFlightStore } from '../store/flightStore';
 import { Colors } from '../constants/colors';
 import { useGlobeAssets, type GlobeAssets } from '../hooks/useGlobeAssets';
@@ -240,6 +240,7 @@ export function DashboardGlobe({ onGrab, onMetrics, onTap, showHint = true, demo
   // och fyller vyn; kanterna som klipps ligger utanför skärmen). maxDistance = minsta utzoomning.
   const VIEW: ViewCfg = { altitude: 2.61, minDistance: 200, maxDistance: 520 };
   const flightCount = useFlightStore((st) => st.flightCount); // ändras när flighter läggs till/tas bort
+  const globeStamp = useRef<ChangeStamp | null>(null); // senaste data som skickats till globen
   const webRef = useRef<any>(null); // WebView-instans (injectJavaScript)
   const ready = useRef(false); // WebViewn har laddat klart → säkert att injicera
   const [webKey, setWebKey] = useState(0); // räknas upp när globen startas om (se restart)
@@ -265,7 +266,11 @@ export function DashboardGlobe({ onGrab, onMetrics, onTap, showHint = true, demo
     if (demoAirports) return; // onboarding-demo → statiska ringar, ingen live-uppdatering
     if (!ready.current || !webRef.current) return;
     try {
+      // Oförändrad databas → globen har redan rätt data (läste annars alla flygningar vid varje fokus)
+      const stamp = await dbChangeStamp();
+      if (sameStamp(globeStamp.current, stamp)) return;
       const { rings, arcs, heat } = await loadGlobeData();
+      globeStamp.current = stamp;
       const js = `window.__updateGlobe && window.__updateGlobe(${JSON.stringify(JSON.stringify(rings))}, ${JSON.stringify(JSON.stringify(arcs))}, ${JSON.stringify(JSON.stringify(heat))}); true;`;
       webRef.current.injectJavaScript(js);
     } catch {}

@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import * as Updates from 'expo-updates';
+import { markCleanExit } from '../services/jsWatchdog';
 import { useIsFocused } from 'expo-router';
 import { create } from 'zustand';
 import { Colors } from '../constants/colors';
@@ -53,7 +54,8 @@ function Dialog() {
 
   const restart = () => {
     setRestarting(true);
-    Updates.reloadAsync().catch(() => setRestarting(false));
+    // Vakten (services/jsWatchdog.ts) får veta att omstarten är avsiktlig — annars rapporteras den som frysning
+    markCleanExit('update restart').finally(() => Updates.reloadAsync().catch(() => setRestarting(false)));
   };
 
   return (

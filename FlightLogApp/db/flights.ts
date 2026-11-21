@@ -1,4 +1,15 @@
 import { getDatabase } from './database';
+
+/** Billig "har något ändrats?"-stämpel: anslutningen + SQLites total_changes() (varje INSERT/UPDATE/DELETE på
+ *  anslutningen räknas, oavsett vilken funktion som skrev). Samma stämpel = samma data → hoppa över omläsning.
+ *  Byts anslutningen (omkryptering, återställning) blir stämpeln ny. Se store/flightStore.ts (JS-frysningar, 2026-11-21). */
+export type ChangeStamp = { db: unknown; n: number };
+export async function dbChangeStamp(): Promise<ChangeStamp> {
+  const db = await getDatabase();
+  const r = await db.getFirstAsync<{ n: number }>('SELECT total_changes() AS n');
+  return { db, n: Number(r?.n ?? -1) };
+}
+export const sameStamp = (a: ChangeStamp | null, b: ChangeStamp) => !!a && a.db === b.db && a.n === b.n && b.n >= 0;
 import type { Flight, FlightFormData, FlightStats } from '../types/flight';
 import { parseFlightTime } from '../utils/format';
 import { syncBackfillRow, PREV_EXP_REMARK } from './backfill';

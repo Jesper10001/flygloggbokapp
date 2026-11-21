@@ -49,7 +49,7 @@ import { useICloudStore } from '../store/icloudStore';
 import { isEnabled as icloudEnabled, hasRestorableBackup, restoreNow as icloudRestore } from '../services/icloudSync';
 import type { BackupManifest } from '../services/backupManifest';
 import { initCrashReporting } from '../services/crashReporting';
-import { startJsWatchdog, setWatchdogScreen } from '../services/jsWatchdog';
+import { startJsWatchdog, setWatchdogScreen, noteInteraction } from '../services/jsWatchdog';
 
 // Kraschrapporter (Sentry) — bara release-byggen med DSN; se services/crashReporting.ts.
 initCrashReporting();
@@ -318,7 +318,8 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }} key={theme}>
+    // onTouchStart noterar senaste tryck åt vakten (tar inte över beröringen)
+    <GestureHandlerRootView style={{ flex: 1 }} key={theme} onTouchStart={noteInteraction}>
       <StatusBar style={'light'} />
       <ErrorBoundary>
       <Stack

@@ -18,6 +18,17 @@ import { StaticMap, regionFor } from '../milestones/MilestoneMap';
 import { useFlightStore } from '../../store/flightStore';
 import { useBestWeekDetails, useLongestXcLegs } from '../../hooks/useMilestoneDetails';
 import { decimalToHHMM } from '../../hooks/useTimeFormat';
+
+// buildState (tre licenser × alla krav × alla flygningar) kördes i varje render, även i bakgrunden när listan
+// byttes. Samma data (D är memoiserad per flyglista), samma kravuppsättning och samma månad → samma resultat.
+const licCache = new WeakMap<object, { set: unknown; nowA: number; states: Record<LicId, LicState> }>();
+function licStates(set: any, D: any, nowA: number): Record<LicId, LicState> {
+  const hit = licCache.get(D);
+  if (hit && hit.set === set && hit.nowA === nowA) return hit.states;
+  const states = { ppl: buildState(set.ppl, D, nowA), cpl: buildState(set.cpl, D, nowA), atpl: buildState(set.atpl, D, nowA) } as Record<LicId, LicState>;
+  licCache.set(D, { set, nowA, states });
+  return states;
+}
 import { presentPaywall } from '../../services/purchases';
 
 const MONO = 'JetBrainsMono';
@@ -298,7 +309,7 @@ function LicenceTile({ w }: { w: number }) {
 
   const nowA = absNow();
   const startA = D.journey.length ? D.journey[0].date.getFullYear() * 12 + D.journey[0].date.getMonth() : nowA;
-  const states: Record<LicId, LicState> = { ppl: buildState(set.ppl, D, nowA), cpl: buildState(set.cpl, D, nowA), atpl: buildState(set.atpl, D, nowA) };
+  const states = licStates(set, D, nowA);
   const current = LIC_IDS.find((id) => !states[id].done) ?? 'atpl';
   const S = states[current];
   const locked = !unlock.ready && !S.done;

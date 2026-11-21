@@ -1,4 +1,10 @@
 import { create } from 'zustand';
+import { dbChangeStamp, sameStamp, type ChangeStamp } from '../db/flights';
+
+// Senaste läsningarnas ändringsstämplar (se loadFlights)
+let flightsStamp: ChangeStamp | null = null;
+let statsStamp: ChangeStamp | null = null;
+let statsAt = 0;
 import type { Flight, FlightStats } from '../types/flight';
 import {
   getFlights,
@@ -84,17 +90,24 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
   isMax: false,
   isLoading: false,
 
+  // Läses vid varje fokus på dashboard, Logbook och Insights. Tidigare lästes hela tabellen om varje gång och
+  // flikarna i bakgrunden räknade om allt på den nya listan (JS-frysning ~2 s vid snabba flikbyten, Sentry
+  // BLADES-IOS-5). Nu: oförändrad databas (dbChangeStamp) → ingen omläsning och ingen ny lista.
   loadFlights: async () => {
-    set({ isLoading: true });
     try {
+      const stamp = await dbChangeStamp();
+      if (sameStamp(flightsStamp, stamp)) return;
+      if (!get().flights.length) set({ isLoading: true });
       const [flights, count, manualCount] = await Promise.all([
         getFlights(10000),
         getFlightCount(),
         getManualFlightCount(),
       ]);
-      set({ flights, flightCount: count, manualFlightCount: manualCount });
-    } finally {
+      flightsStamp = stamp;
+      set({ flights, flightCount: count, manualFlightCount: manualCount, isLoading: false });
+    } catch (e) {
       set({ isLoading: false });
+      throw e;
     }
   },
 
@@ -108,8 +121,13 @@ export const useFlightStore = create<FlightStore>((set, get) => ({
 
   loadStats: async () => {
     try {
+      const stamp = await dbChangeStamp();
+      // Samma data och mindre än 10 min sedan → samma statistik (90 dagar/12 mån beror också på datumet)
+      if (sameStamp(statsStamp, stamp) && Date.now() - statsAt < 10 * 60 * 1000) return;
       const stats = await getFlightStats();
       const count = await getFlightCount();
+      statsStamp = await dbChangeStamp();   // efter läsningen (syncBackfillRow kan skriva)
+      statsAt = Date.now();
       set({ stats, flightCount: count });
     } catch (e) {
       console.error('[loadStats] getFlightStats kraschade:', e);

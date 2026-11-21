@@ -10,6 +10,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### What's New
 
+- Improved: Switching between Dashboard, Logbook and Insights is quicker, without short freezes.
 - Improved: Edit flights in drone mode works like in pilot mode: tap the pen next to Logbook, pick a column, then the flights. Remarks, delete and duplicates are new.
 - Improved: The Add media button on the drone dashboard looks the same as in pilot mode.
 - Improved: A new, lower airport card: name, weather and the key facts at a glance, with runway length and all frequencies.
@@ -44,6 +45,8 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Väderkortet på kartan: alla kommande TAF-ändringar listas (gränsen på tre borttagen; tidslinjen visade dem redan), TAF-delen rullar.
+- JS-frysningar (Sentry BLADES-IOS-5/-6, Ops-uppgift 2026-11-21): vakten (services/jsWatchdog.ts) gav falsklarm "Previous session ended while the app was in front" vid Restart efter EAS-uppdatering (Updates.reloadAsync medan appen är framme) → markCleanExit före omladdning (UpdateReadyDialog), hjärtslaget bär expo-updates updateId (ny uppdatering = omstart, inte frysning), skrivningarna köas i ordning (sent "framme" kunde skriva över "inte framme"); fler fält i rapporterna (appState, secondsSinceTouch via onTouchStart på rotvyn, minutesUntilNextStart) och brödsmula vid byte till/från bakgrund; scripts/test-js-watchdog.cjs. Frysningen: varje fokus på dashboard/Logbook/Insights läste hela flygtabellen och bytte listan → flikarna i bakgrunden räknade om allt; nu dbChangeStamp (SQLite total_changes() + anslutningen) i loadFlights/loadStats (statistik även om >10 min) och DashboardGlobe, en enda set; licenskraven i Insights cachade per data (licStates).
 - Väderkortet på kartan: hela TAF-beskrivningen visas (ingen tvåradersgräns), raderna toppjusterade; TAF-delen rullar om den blir högre än kortet.
 - Väderkortet på kartan: TAF-raderna har typen före tiden ("BECOMING 06z–08z"), samma färger.
 - Väderkortet på kartan: TAF-typerna utskrivna (FROM, BECOMING, TEMPORARY, 40% CHANCE; kolumnen 70 pt); zonen med vedertaget namn och sommartid via tzAbbr (PST/PDT, CET/CEST, AEDT …), UTC±N där namn saknas; "Valid …" tar sista tidsetiketten (var tom vid 4 etiketter).
