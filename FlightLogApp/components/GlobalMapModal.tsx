@@ -980,13 +980,6 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                   <Ionicons name={coordListOpen ? 'chevron-up' : 'chevron-down'} size={12} color="#fff" />
                 </TouchableOpacity>
               </View>
-              {!coordListOpen && focusInfo && (
-                <TouchableOpacity onPress={() => setInfoOpen((o) => !o)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Aerodrome info"
-                  accessibilityState={{ selected: infoOpen }} style={[styles.infoBtn, infoOpen && { borderColor: Colors.primary, backgroundColor: Colors.primary + '38' }]}>
-                  <Ionicons name="information-circle-outline" size={15} color={Colors.primary} />
-                  <Text style={styles.topBtnTxt}>AD info</Text>
-                </TouchableOpacity>
-              )}
               {coordListOpen && (
                 <View style={[styles.coordList, { alignSelf: 'flex-end' }]}>
                   {COORD_SYSTEMS.map((c, i) => {
@@ -1447,10 +1440,20 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                   <AirportInfoPanel info={focusInfo} infoKey={focusAirport[0]} maxHeight={360} />
                 </View>
               )}
-              {/* Weather ovanför flygplatskortet till vänster → väderkortet (WxMapPopup); dold under Play */}
+              {/* Ovanför flygplatskortet: Weather till vänster (väderkortet, WxMapPopup), AD info till höger
+                  (symmetriskt, 2026-11-21). Dolda under Play och för förbandskortet. */}
               {!playOn && !(specificOn && getMilBase(focusAirport[0])) && (
-                <View style={{ marginBottom: 8 }}>
+                <View style={{ marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <WeatherPill category={focusWxCat} onPress={() => setMetarPopup({ icao: focusAirport[0] } as AirportMetar)} />
+                  {focusInfo && (
+                    <TouchableOpacity onPress={() => setInfoOpen((o) => !o)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Aerodrome info"
+                      accessibilityState={{ selected: infoOpen }}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingHorizontal: 12, borderRadius: 15, borderWidth: 1,
+                        borderColor: Colors.primary + '99', backgroundColor: infoOpen ? Colors.primary + '38' : 'rgba(10,22,40,0.88)' }}>
+                      <Ionicons name="information-circle-outline" size={14} color={Colors.primary} />
+                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>AD info</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
               {specificOn && getMilBase(focusAirport[0]) ? (

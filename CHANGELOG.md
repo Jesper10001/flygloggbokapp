@@ -45,6 +45,7 @@ Claude fyller i "Unreleased" varje gång appen ändras. Vid ett bygge döps avsn
 
 ### Alla ändringar
 
+- Global map: AD info-knappen flyttad från under toppraden till ovanför flygplatskortet till höger (Weather till vänster, samma stil), dold under Play och för förbandskortet.
 - AD info: öppettidernas växel visar zonens namn (CET/CEST via tzAbbr) i stället för "Local".
 - Weather-knappen utanför flygplatskortet (WeatherPill i AirportInfoCard.tsx, prick via kortets onMetar): Global map ovanför kortet till vänster, Visited airports nedanför kortet till vänster; dold under Play och för förbandskortet (Specific).
 - Global map och Visited airports: flygplatskortets väderrad borttagen (hideWxRow), "Weather" uppe till höger i kortet (AirportInfoCard onWeather, prick i flygkategorins färg, dold under Play) öppnar WxMapPopup som nu visar MapWxPanel (samma kort som Find airport: fyra värden, TAF med tidslinje och alla ändringar, UTC/zon) genomskinligt 80 %, bara så högt som innehållet, med ✕; bakgrund och kort syskon (Pressable tog annars beröringen före TAF-rullistan). Visited airports: Zoom in ovanför Satellite/Map (krockade med länderlistan).
