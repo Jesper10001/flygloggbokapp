@@ -42,8 +42,12 @@ function Cell({ label, cell, first, line }: { label: string; cell: WxCell; first
   );
 }
 
-export function MapWxPanel({ icao, height, onMap, country, region, lon }: {
-  icao: string; height: number; onMap: () => void;
+export function MapWxPanel({ icao, height, onMap, onClose, translucent = false, country, region, lon }: {
+  icao: string;
+  height?: number;            // Find airport / Fly to: kartrutans höjd. Utan: bara så högt som innehållet (kartorna)
+  onMap?: () => void;         // "Map" tar tillbaka kartrutan
+  onClose?: () => void;       // ✕ i stället för Map (Global map, Visited airports)
+  translucent?: boolean;      // ovanpå en karta: samma 80 % som flygplatskortet
   country?: string; region?: string; lon?: number | null;   // för flygplatsens tidszon (UTC/GMT±N-växeln)
 }) {
   const [local, setLocal] = useState(false);
@@ -87,8 +91,8 @@ export function MapWxPanel({ icao, height, onMap, country, region, lon }: {
   const station = (s?: string | null) => (s && s !== icao ? ` · ${s}` : '');
 
   return (
-    <View style={{ height, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: accent + '66' }}>
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15,30,58,0.97)' }} />
+    <View style={[{ borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: accent + '66' }, height ? { height } : null]}>
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: translucent ? 'rgba(15,30,58,0.8)' : 'rgba(15,30,58,0.97)' }} />
       <LinearGradient colors={[accent + '1F', 'rgba(15,30,58,0)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
 
       {/* Rubrik: kategori, METAR-tid och ålder, Map */}
@@ -113,20 +117,27 @@ export function MapWxPanel({ icao, height, onMap, country, region, lon }: {
             ))}
           </View>
         )}
-        <TouchableOpacity onPress={onMap} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Show map"
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 11, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', backgroundColor: 'rgba(10,22,40,0.9)' }}>
-          <Ionicons name="map-outline" size={13} color="#fff" />
-          <Text style={{ color: '#fff', fontSize: 12.5, fontWeight: '800' }}>Map</Text>
-        </TouchableOpacity>
+        {onMap ? (
+          <TouchableOpacity onPress={onMap} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Show map"
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 11, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', backgroundColor: 'rgba(10,22,40,0.9)' }}>
+            <Ionicons name="map-outline" size={13} color="#fff" />
+            <Text style={{ color: '#fff', fontSize: 12.5, fontWeight: '800' }}>Map</Text>
+          </TouchableOpacity>
+        ) : onClose ? (
+          <TouchableOpacity onPress={onClose} hitSlop={6} accessibilityRole="button" accessibilityLabel="Close weather"
+            style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', backgroundColor: 'rgba(255,255,255,0.10)' }}>
+            <Ionicons name="close" size={18} color="#fff" />
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {state === 'loading' ? (
-        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+        <View style={{ flex: height ? 1 : undefined, paddingVertical: height ? 0 : 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
           <ActivityIndicator size="small" color={Colors.primary} />
           <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Loading current weather…</Text>
         </View>
       ) : state === 'none' || !wx ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <View style={{ flex: height ? 1 : undefined, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <Text style={{ color: SUB, fontSize: 13, textAlign: 'center' }}>No weather found near {icao}.</Text>
         </View>
       ) : (
@@ -144,7 +155,7 @@ export function MapWxPanel({ icao, height, onMap, country, region, lon }: {
           )}
 
           {/* TAF: giltighet, tidslinje, ändringar */}
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 12, paddingTop: 9, paddingBottom: 10 }} nestedScrollEnabled showsVerticalScrollIndicator bounces={false}>
+          <ScrollView style={height ? { flex: 1 } : { maxHeight: 320 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 12, paddingTop: 9, paddingBottom: 10 }} nestedScrollEnabled showsVerticalScrollIndicator bounces={false}>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
               <Text style={{ fontFamily: FONT_MONO, fontSize: 8.5, fontWeight: '700', letterSpacing: 1, color: Colors.gold }}>TAF</Text>
               <Text numberOfLines={1} style={{ flex: 1, fontSize: 11, color: SUB }}>

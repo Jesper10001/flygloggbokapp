@@ -1472,6 +1472,9 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                 onLastPress={lf ? () => setDetailFlightId(lf.id) : undefined}
                 onClose={() => setFocusAirport(null)}
                 onOpenMetar={setMetarPopup}
+                hideWxRow
+                // Weather uppe till höger öppnar väderkortet (WxMapPopup); döljs medan Play spelar
+                onWeather={playOn ? undefined : () => setMetarPopup({ icao: focusAirport[0] } as AirportMetar)}
                 isFavorite={favorites.has(focusAirport[0])}
                 onToggleFavorite={() => toggleFavorite(focusAirport[0])}
                 onPlay={playCand && playCand.icao === focusAirport[0] ? (playOn ? stopPlay : startPlay) : undefined}

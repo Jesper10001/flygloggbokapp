@@ -490,6 +490,9 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
                     setTimeout(() => router.push(`/flight/detail/${lf.id}` as any), 450);
                   } : undefined}
                   onOpenMetar={setMetarPopup}
+                  hideWxRow
+                  // Weather uppe till höger öppnar väderkortet (WxMapPopup); döljs medan Play spelar
+                  onWeather={replayOn ? undefined : () => setMetarPopup({ icao: ic } as AirportMetar)}
                   onClose={() => { setSelectedAirport(null); setMetarPopup(null); }}
                   onPlay={replayCand && replayCand.icao === ic ? (replayOn ? stopReplay : startReplay) : undefined}
                   playing={replayOn}
@@ -563,13 +566,14 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
             </View>
           </View>}
 
-          {/* Zoom in/ut på vald flygplats (banorna ritas ut inzoomat), vänster om kartläge-knappen. */}
+          {/* Zoom in/ut på vald flygplats (banorna ritas ut inzoomat), OVANFÖR kartläge-knappen så att den inte
+              krockar med länderlistan nere till vänster (2026-11-21). */}
           {!replayOn && selectedAirport && <TouchableOpacity
             onPress={() => setZoomed((z) => !z)}
             activeOpacity={0.8}
             accessibilityRole="button" accessibilityLabel={zoomed ? 'Zoom out' : `Zoom in on ${selectedAirport}`}
             style={{
-              position: 'absolute', bottom: 24, right: 16 + mapBtnW + 8, height: 36,
+              position: 'absolute', bottom: 24 + 36 + 8, right: 16, height: 36,
               flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12,
               borderRadius: 18, backgroundColor: 'rgba(15,22,38,0.9)',
               borderWidth: 0.5, borderColor: zoomed ? Colors.primary + '99' : 'rgba(255,255,255,0.2)',
