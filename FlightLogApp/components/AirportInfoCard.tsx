@@ -42,7 +42,7 @@ const subLabel = (sub?: string) => (sub ? sub.split(',').map((c) => SUB_LABEL[c]
 const fmtFreq = (v: number) => v.toFixed(3);
 const fmtM = (m: number) => `${Math.round(m).toLocaleString('en-US')} m`;
 
-export function AirportInfoCard({ icao, name, iata, alt, type, sub, country, accent = Colors.info, landingCount, lastText, onLastPress, onClose, isFavorite, onToggleFavorite, onMetar, onOpenMetar, solid = false, onPlay, playing = false, hideWxRow = false, onWeather }: {
+export function AirportInfoCard({ icao, name, iata, alt, type, sub, country, accent = Colors.info, landingCount, lastText, onLastPress, onClose, isFavorite, onToggleFavorite, onMetar, onOpenMetar, solid = false, onPlay, playing = false, hideWxRow = false }: {
   icao: string;
   name?: string;
   country?: string | null;    // ISO alpha-2 landskod → landets namn på rad 2
@@ -59,7 +59,6 @@ export function AirportInfoCard({ icao, name, iata, alt, type, sub, country, acc
   onToggleFavorite?: () => void;
   onMetar?: (m: AirportMetar | null) => void; // rapporterar hämtad METAR uppåt (t.ex. vind → aktiv bana i snippeten)
   onOpenMetar?: (m: AirportMetar) => void;    // satt → föräldern visar METAR-rutan (MetarPopup) i stället för en egen Modal
-  onWeather?: () => void;     // satt → "Weather" uppe till höger (kartorna; väderraden döljs då med hideWxRow)
   hideWxRow?: boolean;        // Find airport: rad 2 (IATA · typ · väder) döljs — vädret visas via Weather-knappen på kartan
   onPlay?: () => void;        // satt → Play i landningsraden (Visited airports: spela upp senaste flygningen hit)
   playing?: boolean;          // uppspelningen pågår → knappen blir Stop (samma onPlay växlar)
@@ -123,14 +122,6 @@ export function AirportInfoCard({ icao, name, iata, alt, type, sub, country, acc
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingLeft: 14, paddingRight: 10, paddingTop: 10, paddingBottom: 2 }}>
         <Text style={{ fontFamily: MONO, fontSize: 22, lineHeight: 28, fontWeight: '800', letterSpacing: 1, color: accent }}>{displayCode(icao)}</Text>
         <Text style={{ flex: 1, fontFamily: SERIF, fontSize: 16, lineHeight: 20, paddingTop: 3, fontWeight: '600', color: '#FFFFFF' }} numberOfLines={2}>{name || ''}</Text>
-        {onWeather && (
-          // Weather: prick i flygkategorins färg (METAR:en hämtas av kortet ändå, för banhighlighten)
-          <TouchableOpacity onPress={onWeather} hitSlop={6} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={`Weather at ${icao}`}
-            style={[s.wxBtn, { borderColor: (metar?.category ? categoryColor(metar.category) : accent) + '99' }]}>
-            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: metar?.category ? categoryColor(metar.category) : accent }} />
-            <Text style={{ color: '#fff', fontSize: 11.5, fontWeight: '800' }}>Weather</Text>
-          </TouchableOpacity>
-        )}
         {onToggleFavorite && (
           <TouchableOpacity onPress={onToggleFavorite} hitSlop={6} accessibilityRole="button" accessibilityLabel={isFavorite ? 'Remove from favourites' : 'Add to favourites'}
             style={[s.btn, isFavorite && { backgroundColor: Colors.gold + '2e', borderColor: Colors.gold }]}>
@@ -228,7 +219,6 @@ export function AirportInfoCard({ icao, name, iata, alt, type, sub, country, acc
 }
 
 const s = StyleSheet.create({
-  wxBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, backgroundColor: 'rgba(10,22,40,0.6)' },
   btn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.10)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' },
 });
 
@@ -276,3 +266,17 @@ function MetarSheet({ metar, accent, onClose }: { metar: AirportMetar; accent: s
     </Pressable>
   );
 }
+
+/** "Weather" utanför flygplatskortet på kartorna (Global map: ovanför till vänster; Visited airports: nedanför
+ *  till vänster). Pricken har flygkategorins färg (kortet rapporterar sin METAR via onMetar). */
+export function WeatherPill({ category, onPress, accent = Colors.info }: { category?: FlightCatLike; onPress: () => void; accent?: string }) {
+  const c = category ? categoryColor(category) : accent;
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Weather"
+      style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, height: 30, paddingHorizontal: 12, borderRadius: 15, borderWidth: 1, borderColor: c + '99', backgroundColor: 'rgba(10,22,40,0.88)' }}>
+      <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c }} />
+      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>Weather</Text>
+    </TouchableOpacity>
+  );
+}
+type FlightCatLike = NonNullable<AirportMetar['category']>;

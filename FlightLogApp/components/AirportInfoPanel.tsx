@@ -11,6 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../constants/colors';
 import { useAirportInfoStore, type InfoRec } from '../store/airportInfoStore';
 import { fetchNotams, cachedNotams, refreshAirportInfo, RefreshError, type NotamResult, type Notam } from '../services/airportInfo';
+import { tzAbbr } from '../utils/timezone';
 import { parseHoursNotam, parseSnowtam, decodeNotamText, seOffsetHours, shiftHHMM, type HoursNotam } from '../utils/notamDecode';
 
 const MONO = 'JetBrainsMono';
@@ -82,6 +83,8 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
   const [raw, setRaw] = useState(false);   // "Original NOTAM": alla NOTAM i originaltext i stället för klartext
   const line = accent + '33';
   const swedish = /^ES[A-Z]{2}$/.test(infoKey);
+  // Zonens namn i UTC/zon-växeln, som på väderkortet: CET på vintern, CEST på sommaren (AD info = svenska fält)
+  const zoneName = tzAbbr(new Date(), 'SE') ?? 'Local';
   const fees = info.fees?.landing ? { ...info.fees, parking: info.fees.parking?.replace(/^parking:?\s*/i, '') } : null;
 
   const loadNotams = async (force = false) => {
@@ -293,7 +296,7 @@ export function AirportInfoPanel({ info, infoKey, accent = Colors.primary, maxHe
                     return (
                       <TouchableOpacity key={z} onPress={() => setLocal(z === 'Local')} accessibilityRole="radio" accessibilityState={{ selected: on }}
                         style={[s.segBtn, on && { backgroundColor: accent + '40' }]}>
-                        <Text style={[s.segTxt, { color: on ? WHITE : DIM }]}>{z}</Text>
+                        <Text style={[s.segTxt, { color: on ? WHITE : DIM }]}>{z === 'Local' ? zoneName : z}</Text>
                       </TouchableOpacity>
                     );
                   })}

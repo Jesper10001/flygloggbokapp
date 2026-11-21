@@ -2,6 +2,14 @@
   "about": "Raderna i \"Blades was updated\"-popupen: en post per EAS Update, nyast först, id +1 varje gång. Bara den uppdateringens egna ändringar, på engelska, med New:, Improved: eller Fixed: som App Store-texten och det viktigaste först. Se services/updateNotes.ts och scripts/publish-update.mjs.",
   "updates": [
     {
+      "id": 225,
+      "date": "2026-11-21",
+      "notes": [
+        "Improved: The Weather button sits next to the airport card on the maps: above it on the Global map, below it on Visited airports.",
+        "Improved: Opening hours in AD info switch between UTC and CET, like the weather card."
+      ]
+    },
+    {
       "id": 224,
       "date": "2026-11-21",
       "notes": [

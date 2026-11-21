@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { GlobalAirportMap, type RegionMarker } from './GlobalAirportMap';
-import { AirportInfoCard } from './AirportInfoCard';
+import { AirportInfoCard, WeatherPill } from './AirportInfoCard';
 import { WxMapPopup } from './WxMapPopup';
 import { AirportNavPanel } from './AirportNavPanel';
 import { FlightDetailView } from '../app/flight/detail/[id]';
@@ -138,6 +138,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
   const [seedData, setSeedData] = useState<SeedRow[]>([]);
   const [mapSearch, setMapSearch] = useState('');
   const [focusAirport, setFocusAirport] = useState<SeedRow | null>(null);
+  const [focusWxCat, setFocusWxCat] = useState<FlightCat | undefined>(undefined); // Weather-knappens prick
   const [metarPopup, setMetarPopup] = useState<AirportMetar | null>(null); // väderrutan som overlay över kartan
   useEffect(() => { setMetarPopup(null); }, [focusAirport]);
   const [flyTo, setFlyTo] = useState(false);               // "Fly to XXXX" → plan-overlay (rutt/distans/förbrukning)
@@ -1446,6 +1447,12 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                   <AirportInfoPanel info={focusInfo} infoKey={focusAirport[0]} maxHeight={360} />
                 </View>
               )}
+              {/* Weather ovanför flygplatskortet till vänster → väderkortet (WxMapPopup); dold under Play */}
+              {!playOn && !(specificOn && getMilBase(focusAirport[0])) && (
+                <View style={{ marginBottom: 8 }}>
+                  <WeatherPill category={focusWxCat} onPress={() => setMetarPopup({ icao: focusAirport[0] } as AirportMetar)} />
+                </View>
+              )}
               {specificOn && getMilBase(focusAirport[0]) ? (
                 // Air Bases → Specific: förbandskortet ersätter flygplatskortet för baserna.
                 <UnitCard
@@ -1473,8 +1480,7 @@ export function GlobalMapModal({ visible, onClose }: { visible: boolean; onClose
                 onClose={() => setFocusAirport(null)}
                 onOpenMetar={setMetarPopup}
                 hideWxRow
-                // Weather uppe till höger öppnar väderkortet (WxMapPopup); döljs medan Play spelar
-                onWeather={playOn ? undefined : () => setMetarPopup({ icao: focusAirport[0] } as AirportMetar)}
+                onMetar={(m) => setFocusWxCat(m?.category ?? undefined)}
                 isFavorite={favorites.has(focusAirport[0])}
                 onToggleFavorite={() => toggleFavorite(focusAirport[0])}
                 onPlay={playCand && playCand.icao === focusAirport[0] ? (playOn ? stopPlay : startPlay) : undefined}

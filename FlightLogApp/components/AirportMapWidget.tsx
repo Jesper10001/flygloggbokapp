@@ -19,7 +19,7 @@ import { getAirportCoordinates, getAllTemporaryPlaces, getSeedAirports } from '.
 import runwayData from '../assets/runways.json';
 import { getRunways } from '../utils/runways';
 import { topCountryThumb } from '../utils/thumbRegion';
-import { AirportInfoCard } from './AirportInfoCard';
+import { AirportInfoCard, WeatherPill } from './AirportInfoCard';
 import { WxMapPopup } from './WxMapPopup';
 import type { AirportMetar } from '../services/weather';
 import { Colors } from '../constants/colors';
@@ -170,6 +170,7 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedAirport, setSelectedAirport] = useState<string | null>(null);
   const [metarPopup, setMetarPopup] = useState<AirportMetar | null>(null); // väderrutan som overlay över kartan
+  const [selWxCat, setSelWxCat] = useState<NonNullable<AirportMetar['category']> | undefined>(undefined); // Weather-knappens prick
   const [landingCounts, setLandingCounts] = useState<Record<string, number>>({});
   const [lastFlight, setLastFlight] = useState<Record<string, { id: number; date: string; reg: string }>>({});
   const [satellite, setSatellite] = useState(false); // kartläge (standard) förvalt
@@ -491,12 +492,17 @@ export function AirportMapWidget({ compact = false, rightSlot, asButton = false 
                   } : undefined}
                   onOpenMetar={setMetarPopup}
                   hideWxRow
-                  // Weather uppe till höger öppnar väderkortet (WxMapPopup); döljs medan Play spelar
-                  onWeather={replayOn ? undefined : () => setMetarPopup({ icao: ic } as AirportMetar)}
+                  onMetar={(m) => setSelWxCat(m?.category ?? undefined)}
                   onClose={() => { setSelectedAirport(null); setMetarPopup(null); }}
                   onPlay={replayCand && replayCand.icao === ic ? (replayOn ? stopReplay : startReplay) : undefined}
                   playing={replayOn}
                 />
+                {/* Weather nedanför flygplatskortet till vänster → väderkortet (WxMapPopup); dold under Play */}
+                {!replayOn && (
+                  <View style={{ marginTop: 8 }}>
+                    <WeatherPill category={selWxCat} onPress={() => setMetarPopup({ icao: ic } as AirportMetar)} />
+                  </View>
+                )}
               </Animated.View>
             );
           })()}
